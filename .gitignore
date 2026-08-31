@@ -1,0 +1,10 @@
+# 运行时状态
+.omo/
+.playwright-mcp/
+
+# 临时截图/验证产物
+*.png.tmp
+spec-*.png
+
+# macOS
+.DS_Store
