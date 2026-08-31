@@ -6,7 +6,7 @@ Markdown 自包含在线工具 —— 把图片、附件打包进一个 `.mdpkg`
 
 ## 生态
 
-- **mdpkg 格式**：[lqtdys/mdpkg](https://github.com/lqtdys/mdpkg) — 自包含 Markdown 打包格式（规范 + CLI 参考实现）
+- **mdpkg 格式**：[jianxi-dev/mdpkg](https://github.com/jianxi-dev/mdpkg) — 自包含 Markdown 打包格式（规范 + CLI 参考实现）
 - **Clairis（渐晰）**：[lqtdys/clairis](https://github.com/lqtdys/clairis) — 桌面旗舰产品，Markdown 阅读编辑与学习成长伙伴
 - **规划域名**：bundle.jianxi.me（待部署）
 
