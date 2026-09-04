@@ -274,3 +274,33 @@
 - **证据顺序坑**: 全量 e2e 跑（48/48 绿：46 旧 + 2 新）会覆盖 smoke-prod-local.json（TARGET_URL 未设 → target=4173）。正确顺序：全量跑 → 再起 4174 preview 重跑冒烟 → 证据 target=4174 落盘 → kill preview。
 - **全量跑副作用**: Playwright outputDir 清理删了 36 个已提交证据 + 并行 agent 的未跟踪 share-badge-toast.png（未提交无法恢复——6.4 的 PNG 证据本就不在白名单，仅 JSON 提交）。已用精确路径 git restore 恢复 36 个（先确认无 staged 文件再整目录 restore）。
 - **待用户步骤（凭证阻塞）**: vercel login → vercel link --yes（jianxi-dev/md-bundle）→ vercel --prod → Dashboard Domains 加 bundle.jianxi.me（DNS 用户处理）→ 再 vercel --prod → `TARGET_URL=https://bundle.jianxi.me pnpm --filter @md-bundle/web test:e2e --grep=production`。全部写进 DEPLOY.md。
+
+## [2026-09-05T05:10:00+08:00] F1 audit
+- F1 计划符合性审计：VERDICT APPROVE。26/26 todos 落地（git log 26 commits 与 todo Commit 行一一对应），OUT 守则 9 条全 PASS，Success criteria 1-7 OK、8 PENDING-DEPLOY（凭证阻塞，config 完整 + 本地冒烟过）。
+- 核对方法：逐 todo 对照 References 文件存在性 + Acceptance 证据（apps/web/test-results/*.json 全部存在且断言为 true：scaffold-build/roundtrip(K=2,zeroBroken)/save(decideSaveKind 4/4)/seo(ogDims 1200x630)/byline(mdpkgClean)/share-badge/badges/multipage/open-e2e）。
+- OUT 守则 grep 验证：无 milkdown/TipTap/prosemirror、无 firebase/supabase/analytics/i18n 依赖；唯一 fetch 是 Gallery 拉 public/examples/ 本地静态示例；callout 仅 `> [!NOTE]`；无本地 manifest schema 文件（vendor 原样）；无 recent-files 功能。
+- 偏差（非 GAP，已文档化）：① vercel.json 在仓库根而非 apps/web/（DEPLOY.md 已说明，功能正确）；② 无 apps/web/.env——域配置硬编码于 byline.ts/sitemap/robots（静态站可接受）；③ todo 3 文件名为 editor.ts + MarkdownEditor.tsx 而非 editor.tsx（实现存在）；④ 测试计数 grep 口径 177/56/48 vs 上下文 181/59/48（e2e 48 精确一致，差异为计数方法）。
+- 凭证阻塞确认：smoke-prod-local.json target=localhost:4174 三页 200 + exampleOpens=true，productionTargetsNotRun=true；生产冒烟待用户 vercel login/部署/绑域后执行（DEPLOY.md 已写全步骤）。
+
+## [2026-09-05] F2 code quality
+- GATES: typecheck 0 / lint 1 (FAIL: no-control-regex error @ packages/editor/src/preview.tsx:30, +1 react-refresh warn @130) / build 0 / tests 240 green (editor 59 + web 181).
+- BUNDLE: single chunk index-Dp7aEGg0.js 1,083.10 kB (gzip 357.02 kB); vendor mdpkg-web.js (750 kB, true ESM) NOT code-split. Spec intent "ESM/源码" met; "分包" not — acceptable for static tool, undocumented.
+- DEAD-CODE: zero TODO/FIXME/HACK/placeholder/console.log; zero as any/@ts-ignore/@ts-expect-error.
+- DEPS: @codemirror/language-data + @lezer/highlight declared but never imported (unused). All others used.
+- SECURITY: all pass — script escape + on* strip + javascript:/vbscript: block (with control-char strip matching browser URL parser), iframe sandbox="allow-same-origin" (no allow-scripts), no eval, innerHTML/dangerouslySetInnerHTML only in guarded paths, title escaped in exportHtml/shareCard, localStorage corruption + clipboard denial + toBlob null all handled.
+- VERDICT: REJECT (single major: lint gate exit 1). Fix = eslint-disable-next-line no-control-regex with justification on the intentional security regex.
+
+## [2026-09-05 05:10] F4 scope audit
+- VERDICT: APPROVE. All 10 scope-fidelity checks PASS; zero Phase-2 intrusions.
+- CHECK 1: only fetch in src is Gallery's local `/examples/*` static; no server code, no login/auth (token hits = marked/theme tokens), no cloud storage (no firebase/supabase/indexedDB), share = copy-image only (clipboard PNG + download fallback; no navigator.share/window.open/share-URL), badges localStorage-only.
+- CHECK 6: byline centralized in lib/byline.ts (BYLINE_TEXT='Made with MD-Bundle'); injected ONLY via exportHtml (footer), exportPng (corner badge), shareCard (corner badge). exportMdpkg.ts/save.ts have zero byline refs; byline.test.ts (6 tests) passes — mdpkg round-trip byte-clean.
+- OT note: checklist's optional grep `"Made with"` in exportHtml.ts returns empty because the literal lives in byline.ts (single source of truth) and exportHtml imports bylineFooterHtml() — functionally equivalent, cleaner.
+- CHECK 5: manifest schema only read/validated via vendored mdpkg-web.js (single vendor commit 19cbc5b, references spec/schema/manifest-1.0.json); repack passes prevManifest through upstream packMdpkg — no mutation in src.
+- CHECK 9: deps clean — web: react/react-dom/@md-bundle/editor; editor: codemirror suite + marked + github-markdown-css + lezer; all stack-justified.
+
+## [2026-09-05T05:20:00+08:00] F3 walkthrough
+- F3 final walkthrough (apps/web/test/final-walkthrough.spec.ts) ran the full user journey in real Chromium: 9/10 steps PASS, 1 FAIL → REJECT.
+- FAIL: slash menu NOT wired in the web app. packages/editor/src/slash.ts implements it (unit-tested via public API), but App.tsx renders <MarkdownEditor> without `extensions`, and createMarkdownEditor (packages/editor/src/editor.ts:62-72) does not include slashKeymap by default. Typing '/' inserts a literal slash; no .mdb-slash-menu. Fix: pass `extensions: [slashKeymap()]` in App.tsx (or include slashKeymap in editor.ts defaults).
+- Badge toast nuance: PNG export fires TWO badge events (png-exported then export-succeeded). With a prior HTML export (exportCount=1), the PNG export pushes exportCount to 3 → export-master unlocks and its toast REPLACES the first-png toast (latest-wins in useBadges.showToastFor). Assert toast text with /首次长图|导出大师/ — asserting '首次长图' alone is flaky once exportCount ≥ 2.
+- md-branch live preview renders relative image refs as <img src="red.png"> which 404s (no asset resolution in preview; only .mdpkg iframe srcdoc inlines data:image). Expected behavior — filtered 'Failed to load resource' from console-error assertion; zero pageerrors throughout.
+- Playwright e2e run wipes committed test-results evidence files (git shows them deleted) — restore with `git checkout -- apps/web/test-results/` before committing new evidence.
