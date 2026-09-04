@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MD-Bundle OG Banner</title>
+    <style>
+      /* 1200x630 品牌卡 —— 与站点设计令牌一致（#0d1117 / #165DFF / #e6edf3 / #8b949e）。
+         仅用于 headless 截图生成 og-banner.png，不进站点。 */
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { width: 1200px; height: 630px; overflow: hidden; }
+      body {
+        background: #0d1117;
+        color: #e6edf3;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        display: flex;
+        flex-direction: column;
+        padding: 72px 80px 56px;
+      }
+      .top { display: flex; align-items: center; gap: 20px; }
+      .logo-tile {
+        width: 96px;
+        height: 96px;
+        border-radius: 20px;
+        background: #165dff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 56px;
+        font-weight: 800;
+        color: #ffffff;
+        flex: none;
+      }
+      .wordmark { font-size: 44px; font-weight: 700; letter-spacing: 0.5px; }
+      .wordmark .dot { color: #165dff; }
+      .middle { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
+      .tagline { font-size: 56px; font-weight: 700; line-height: 1.25; }
+      .sub { font-size: 30px; color: #8b949e; }
+      .bottom { display: flex; align-items: center; gap: 20px; }
+      .accent-bar { width: 64px; height: 6px; border-radius: 3px; background: #165dff; flex: none; }
+      .footer { font-size: 24px; color: #8b949e; letter-spacing: 0.5px; }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <div class="logo-tile">M</div>
+      <div class="wordmark">MD-Bundle<span class="dot">.</span></div>
+    </div>
+    <div class="middle">
+      <div class="tagline">分享 Markdown，不再裂图。</div>
+      <div class="sub">一个文件，带走全部图文。</div>
+    </div>
+    <div class="bottom">
+      <div class="accent-bar"></div>
+      <div class="footer">bundle.jianxi.me</div>
+    </div>
+  </body>
+</html>
