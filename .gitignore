@@ -8,3 +8,18 @@ spec-*.png
 
 # macOS
 .DS_Store
+
+# 依赖与构建产物
+node_modules/
+dist/
+
+# 测试产物（QA 证据 JSON 与 .gitkeep 白名单保留）
+**/test-results/
+!apps/web/test-results/
+!apps/web/test-results/.gitkeep
+!apps/web/test-results/*.json
+apps/web/test-results/.last-run.json
+
+# Playwright
+playwright-report/
+blob-report/
