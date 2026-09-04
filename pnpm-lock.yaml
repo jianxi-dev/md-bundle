@@ -38,6 +38,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@md-bundle/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       react:
         specifier: ^18.3.1
         version: 18.3.1

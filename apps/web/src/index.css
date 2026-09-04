@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+/* MarkdownEditor 宿主撑满分栏（CM6 .cm-editor 默认不继承父高） */
+.mdb-split-editor > div {
+  height: 100%;
+}
+.mdb-split-editor .cm-editor {
+  height: 100%;
+}
+.mdb-split-editor .cm-scroller {
+  overflow: auto;
+}

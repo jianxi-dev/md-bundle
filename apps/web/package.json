@@ -13,6 +13,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@md-bundle/editor": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

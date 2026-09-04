@@ -1,0 +1,46 @@
+{
+  "task": "2.2",
+  "title": "file open (select + drag-drop) with error handling",
+  "timestamp": "2026-09-05T02:40:00+08:00",
+  "unitPassed": true,
+  "e2ePassed": true,
+  "unit": {
+    "files": ["test/openFile.test.ts", "src/App.test.tsx"],
+    "tests": 21,
+    "passed": 21,
+    "note": "openFile 11 tests (detectFileType/hasZipMagic/openFile incl. corrupt + nonzip + magic promotion), App shell 1, mdpkg 4, validation 5"
+  },
+  "e2e": {
+    "files": ["test/open.spec.ts"],
+    "tests": 7,
+    "passed": 7,
+    "scenarios": [
+      "dropzone renders on load",
+      "valid .mdpkg → sandbox iframe preview, no pageerror",
+      "corrupted .mdpkg → error alert, no white screen, no pageerror",
+      "non-ZIP bytes renamed .mdpkg → error alert, no white screen",
+      ".md → editor + live preview split view",
+      "opening a second file replaces the current document"
+    ]
+  },
+  "rootBuild": "green",
+  "rootTest": "green",
+  "screenshots": {
+    "open-ok.png": "valid .mdpkg preview rendered in sandbox iframe (h1 + data:image/png URIs)",
+    "open-fail-corrupt.png": "E303 error alert + 重新选择, page intact, no white screen",
+    "open-fail-nonzip.png": "E101 error alert + 重新选择, page intact, no white screen"
+  },
+  "filesChanged": [
+    "apps/web/package.json",
+    "pnpm-lock.yaml",
+    "apps/web/src/lib/openFile.ts",
+    "apps/web/src/lib/useDocument.ts",
+    "apps/web/src/components/FileOpen.tsx",
+    "apps/web/src/App.tsx",
+    "apps/web/src/index.css",
+    "apps/web/src/App.test.tsx",
+    "apps/web/test/openFile.test.ts",
+    "apps/web/test/open.spec.ts",
+    "apps/web/playwright.config.ts"
+  ]
+}

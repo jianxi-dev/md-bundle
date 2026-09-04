@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './test',
+  // Vitest owns *.test.ts (mdpkg/openFile/validation) — Playwright only runs *.spec.ts.
+  testMatch: /.*\.spec\.ts/,
   outputDir: './test-results',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
