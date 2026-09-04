@@ -1,0 +1,8 @@
+{
+  "tasks": "4.1",
+  "roundTripFiles": true,
+  "sha256Ok": true,
+  "mediaTypesOk": true,
+  "decideSaveKind": "4/4",
+  "tests": 9
+}

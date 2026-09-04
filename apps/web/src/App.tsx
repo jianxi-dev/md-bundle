@@ -1,6 +1,8 @@
-// MD-Bundle 应用外壳（任务 2.2：文件打开；任务 2.4：接线 ValidationPanel；任务 3.1：图片导入 + 资源清单）。
-// 状态机：empty → md（源码+预览分栏+资源清单）| mdpkg（校验面板 + sandbox iframe 完整预览）| error（告警+重新选择）。
-// 图片导入三通道（粘贴/拖拽/批量选择）只在 md 分支生效；.mdpkg 是只读预览，不接线。
+// MD-Bundle 应用外壳（任务 2.2：文件打开；任务 2.4：接线 ValidationPanel；任务 3.1：图片导入 + 资源清单；
+// 任务 4.1：保存/导出工具栏 + .mdpkg 分支可编辑）。
+// 状态机：empty → md（源码+预览分栏+资源清单）| mdpkg（源码编辑 + sandbox iframe 参考预览 + 资源清单）| error。
+// 图片导入三通道（粘贴/拖拽/批量选择）只在 md 分支生效；.mdpkg 分支的资产来自包内图片条目（自动导入）。
+// 保存/导出作用于「当前源码 + 当前资产清单」；.mdpkg 重打包携带原 manifest（entrypoint 等继承）。
 import { useEffect, useRef, useState } from 'react';
 import {
   MarkdownEditor,
@@ -10,7 +12,16 @@ import {
 import { FileOpen } from './components/FileOpen';
 import { ValidationPanel } from './components/ValidationPanel';
 import { AssetList } from './components/AssetList';
+import { Toolbar, type ExportFormat } from './components/Toolbar';
 import { useDocument } from './lib/useDocument';
+import { readEntrySource } from './lib/mdpkg';
+import { saveDocument } from './lib/save';
+import { exportMdpkg } from './lib/exportMdpkg';
+import { exportMd } from './lib/export';
+import { buildHtmlDocument } from './lib/exportHtml';
+import { exportPngFromMarkdown } from './lib/exportPng';
+import { downloadBlob, downloadText } from './lib/download';
+import { bytesToDataUrl } from './lib/dataUrl';
 import {
   MAX_ASSET_BYTES,
   addAssets,
@@ -23,21 +34,63 @@ import {
 } from './lib/assets';
 import { filesToAssets, imagesFromClipboard, imagesFromDataTransfer } from './lib/importImages';
 
+/** 包内图片条目路径（资产名 = 完整路径，inlineImages 按名精确查找）。 */
+const IMAGE_PATH_RE = /\.(png|jpe?g|gif|webp)$/i;
+const MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+};
+
+/** 从 .mdpkg 解包结果构建资产清单：图片条目 → Asset（name = 路径，dataUrl 由原始字节生成）。 */
+function assetsFromPackageFiles(files: Map<string, Uint8Array>): Asset[] {
+  const assets: Asset[] = [];
+  for (const [path, bytes] of files) {
+    if (!IMAGE_PATH_RE.test(path)) continue;
+    const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
+    assets.push({ name: path, size: bytes.length, dataUrl: bytesToDataUrl(bytes, MIME[ext] ?? 'image/png') });
+  }
+  return assets;
+}
+
+/** 文件名去扩展名（hello.md → hello；无扩展名原样返回）。 */
+function baseName(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? name.slice(0, dot) : name;
+}
+
 export default function App() {
   const { state, open, clear } = useDocument();
   const [docValue, setDocValue] = useState('');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [importHint, setImportHint] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   // ref 镜像：事件处理器里读最新清单，避免闭包快照竞态（连续两次导入不互相覆盖）。
   const assetsRef = useRef<Asset[]>([]);
   const editorViewRef = useRef<MarkdownEditorHandle['view'] | null>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
+  const exportErrorTimer = useRef<number | null>(null);
 
-  // 新文档打开时把内容灌进受控的源码 value（编辑时实时同步到预览），并清空资源清单。
+  // 新文档打开时把内容灌进受控的源码 value（编辑时实时同步到预览）。
+  // md → 文件内容；mdpkg → 包内入口源码（readEntrySource，include 未展开），
+  // 资产自动导入（包内图片条目 → 资源清单，替换式覆盖）。
   useEffect(() => {
-    if (state.status === 'md') setDocValue(state.content);
-    assetsRef.current = [];
-    setAssets([]);
+    if (state.status === 'md') {
+      setDocValue(state.content);
+      assetsRef.current = [];
+      setAssets([]);
+    } else if (state.status === 'mdpkg') {
+      try {
+        setDocValue(readEntrySource(state.files, state.manifest?.entrypoint));
+      } catch {
+        setDocValue('');
+      }
+      const packageAssets = assetsFromPackageFiles(state.files);
+      assetsRef.current = packageAssets;
+      setAssets(packageAssets);
+    }
     setImportHint(null);
   }, [state]);
 
@@ -132,6 +185,82 @@ export default function App() {
     setAssets(next);
   };
 
+  const showExportError = (message: string) => {
+    setExportError(message);
+    if (exportErrorTimer.current !== null) window.clearTimeout(exportErrorTimer.current);
+    exportErrorTimer.current = window.setTimeout(() => setExportError(null), 4000);
+  };
+
+  const sourceKind = state.status === 'mdpkg' ? 'mdpkg' : 'md';
+  const docBase = state.status === 'md' || state.status === 'mdpkg' ? baseName(state.name) : 'document';
+  const docTitle = state.status === 'md' || state.status === 'mdpkg' ? state.name : 'MD-Bundle 文档';
+  const prevManifest = state.status === 'mdpkg' ? (state.manifest ?? undefined) : undefined;
+  // 重打包时保留包内非入口、非图片文件（include 目标、附件等）—— 无缝重打包。
+  const extraFiles =
+    state.status === 'mdpkg'
+      ? new Map(
+          [...state.files].filter(
+            ([name]) =>
+              name !== 'manifest.json' &&
+              name !== (state.manifest?.entrypoint ?? 'document.md') &&
+              !IMAGE_PATH_RE.test(name),
+          ),
+        )
+      : undefined;
+
+  // 保存主按钮：内容驱动（有图 → .mdpkg；无图 → .md；打开 .mdpkg → 重打包）。
+  // 返回非 null 即保存成功（6.3 徽标钩子可在此挂接）。
+  const handleSave = async (): Promise<boolean> => {
+    const kind = await saveDocument({
+      markdown: docValue,
+      assets: assetsRef.current,
+      sourceKind,
+      filename: docBase,
+      prevManifest,
+      extraFiles,
+    });
+    return kind !== null;
+  };
+
+  // 导出下拉：显式 4 格式。返回 true = 成功（6.3 徽标钩子）；false = 取消/失败。
+  const handleExport = async (format: ExportFormat): Promise<boolean> => {
+    try {
+      switch (format) {
+        case 'md':
+          return exportMd(docValue, {
+            hasImages: assetsRef.current.length > 0,
+            filename: `${docBase}.md`,
+          });
+        case 'mdpkg':
+          downloadBlob(
+            new Blob(
+              [new Uint8Array(exportMdpkg({ markdown: docValue, assets: assetsRef.current, prevManifest, extraFiles }))],
+              { type: 'application/octet-stream' },
+            ),
+            `${docBase}.mdpkg`,
+          );
+          return true;
+        case 'html':
+          downloadText(
+            buildHtmlDocument({ markdown: docValue, assets: assetsRef.current, title: docTitle }),
+            'document.html',
+          );
+          return true;
+        case 'png': {
+          const blob = await exportPngFromMarkdown({
+            markdown: docValue,
+            assets: assetsRef.current,
+          });
+          downloadBlob(blob, 'document.png');
+          return true;
+        }
+      }
+    } catch (e) {
+      showExportError(e instanceof Error ? e.message : String(e));
+      return false;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
       <header className="border-b border-[#30363d] bg-[#161b22]/60">
@@ -155,7 +284,7 @@ export default function App() {
               <span className="rounded bg-[#165DFF]/20 px-1.5 py-0.5 text-xs text-[#58a6ff]">
                 Markdown
               </span>
-              <span className="ml-auto">
+              <span className="ml-auto flex items-center gap-2">
                 <input
                   ref={imgInputRef}
                   type="file"
@@ -173,6 +302,13 @@ export default function App() {
                 >
                   导入图片
                 </button>
+                <Toolbar
+                  canSave
+                  sourceKind="md"
+                  error={exportError}
+                  onSave={() => void handleSave()}
+                  onExport={(f) => void handleExport(f)}
+                />
               </span>
             </div>
             {importHint && (
@@ -207,24 +343,48 @@ export default function App() {
         )}
 
         {state.status === 'mdpkg' && (
-          <section aria-label={`预览 ${state.name}`}>
+          <section aria-label={`编辑 ${state.name}`}>
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium text-slate-200">{state.name}</span>
               <span className="rounded bg-[#165DFF]/20 px-1.5 py-0.5 text-xs text-[#58a6ff]">
                 .mdpkg
               </span>
               <span className="text-xs text-[#8b949e]">{state.files.size} 个资源</span>
+              <span className="ml-auto">
+                <Toolbar
+                  canSave
+                  sourceKind="mdpkg"
+                  error={exportError}
+                  onSave={() => void handleSave()}
+                  onExport={(f) => void handleExport(f)}
+                />
+              </span>
             </div>
             <div className="mb-3">
               <ValidationPanel validation={state.validation} name={state.name} />
             </div>
-            <iframe
-              data-testid="mdpkg-frame"
-              sandbox="allow-same-origin"
-              srcDoc={state.html}
-              title={state.name}
-              className="h-[70vh] w-full rounded-xl border border-[#30363d] bg-white"
-            />
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="mdb-editor-area h-[65vh] overflow-hidden rounded-xl border border-[#30363d]">
+                <div className="mdb-split-editor h-full">
+                  <MarkdownEditor
+                    value={docValue}
+                    onChange={setDocValue}
+                    theme="dark"
+                    onMount={onEditorMount}
+                  />
+                </div>
+              </div>
+              <iframe
+                data-testid="mdpkg-frame"
+                sandbox="allow-same-origin"
+                srcDoc={state.html}
+                title={state.name}
+                className="h-[65vh] w-full rounded-xl border border-[#30363d] bg-white"
+              />
+            </div>
+            <p className="mt-2 text-xs text-[#8b949e]">
+              左侧为包内源码（可编辑，保存时重新打包）；右侧为原包渲染预览（静态参考，不随编辑实时刷新）。
+            </p>
           </section>
         )}
 

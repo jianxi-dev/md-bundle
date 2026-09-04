@@ -3,7 +3,7 @@
 // 只有最后一次 open 的结果会落地（前序慢结果被丢弃）。
 import { useCallback, useRef, useState } from 'react';
 import { openFile } from './openFile';
-import type { ValidationResult } from './mdpkg';
+import type { Manifest, ValidationResult } from './mdpkg';
 
 export type DocumentState =
   | { status: 'empty' }
@@ -14,6 +14,8 @@ export type DocumentState =
       html: string;
       validation: ValidationResult;
       files: Map<string, Uint8Array>;
+      /** 包内 manifest（重打包时透传给 packMdpkg 继承 entrypoint/extensions/source_url）。 */
+      manifest: Manifest | null;
     }
   | { status: 'error'; message: string };
 
@@ -47,6 +49,7 @@ export function useDocument(): UseDocument {
             html: r.html,
             validation: r.validation,
             files: r.files,
+            manifest: r.manifest,
           });
         } else {
           // 打开成功但渲染失败（如截断包 E303）→ 同样是确定性错误态
