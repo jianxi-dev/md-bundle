@@ -1,0 +1,9 @@
+{
+  "tasks": "2.3",
+  "passState": true,
+  "errorList": true,
+  "warnings": true,
+  "externalNotice": true,
+  "neutral": true,
+  "tests": 5
+}
