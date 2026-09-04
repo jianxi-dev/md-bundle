@@ -1,0 +1,11 @@
+{
+  "tasks": "6.2",
+  "pngMagic": true,
+  "width": 1200,
+  "height": 600,
+  "bylinePresentInSvg": true,
+  "copySuccessSeam": true,
+  "fallbackPath": true,
+  "disabledWithoutData": true,
+  "realClipboardCopied": true
+}
