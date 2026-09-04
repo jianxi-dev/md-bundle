@@ -1,0 +1,11 @@
+{
+  "tasks": "3.6",
+  "kImages": 2,
+  "kDataUris": 2,
+  "zeroBroken": true,
+  "missingImageRemoved": true,
+  "emptyPngRejects": true,
+  "emptyMdExports": true,
+  "pngArtifactValid": true,
+  "tests": 6
+}
