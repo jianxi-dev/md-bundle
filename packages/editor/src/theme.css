@@ -1,0 +1,26 @@
+/* MD-Bundle Design Tokens */
+:root[data-theme="dark"] {
+  --mdb-primary: #165DFF;
+  --mdb-bg: #0d1117;
+  --mdb-bg-secondary: #161b22;
+  --mdb-text: #e6edf3;
+  --mdb-text-secondary: #8b949e;
+  --mdb-border: #30363d;
+  --mdb-card-bg: #161b22;
+  --mdb-code-bg: #161b22;
+  --mdb-primary-fg: #58a6ff;
+  --mdb-border-fg: #30363d;
+}
+
+:root[data-theme="light"] {
+  --mdb-primary: #165DFF;
+  --mdb-bg: #ffffff;
+  --mdb-bg-secondary: #f6f8fa;
+  --mdb-text: #1f2328;
+  --mdb-text-secondary: #656d76;
+  --mdb-border: #d0d7de;
+  --mdb-card-bg: #ffffff;
+  --mdb-code-bg: #f6f8fa;
+  --mdb-primary-fg: #0969da;
+  --mdb-border-fg: #d0d7de;
+}

@@ -1,9 +1,14 @@
-/**
- * @md-bundle/editor — shared Markdown editor library (CodeMirror 6 later).
- * Scaffold stub; real editor surface lands in later tasks.
- */
-export const editorName = '@md-bundle/editor';
+import 'github-markdown-css';
 
-export function placeholder(): string {
-  return 'MD-Bundle editor stub';
-}
+export {
+  createMarkdownEditor,
+  type MarkdownEditorHandle,
+  type MarkdownEditorOptions,
+} from './editor';
+export { MarkdownPreview, type MarkdownPreviewProps } from './preview';
+export {
+  getThemeColor,
+  themeTokens,
+  type ThemeName,
+  type ThemeTokenNames,
+} from './theme';
