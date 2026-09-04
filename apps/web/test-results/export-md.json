@@ -1,0 +1,13 @@
+{
+  "tasks": "3.3",
+  "files": ["src/lib/download.ts", "src/lib/export.ts", "test/export.test.ts"],
+  "byteExact": true,
+  "warnCancelledNoDownload": true,
+  "warnConfirmedDownload": true,
+  "emptyOk": true,
+  "tests": 10,
+  "webUnitTotal": 60,
+  "rootBuild": "green (web tsc+vite, editor tsc)",
+  "filenameDefault": "document.md",
+  "warningText": "导出 .md 将丢失图片（.md 无法携带图片）。确定继续？"
+}
