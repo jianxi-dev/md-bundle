@@ -16,9 +16,7 @@
     "@codemirror/view": "^6.36.0",
     "@codemirror/language": "^6.10.0",
     "@codemirror/lang-markdown": "^6.3.0",
-    "@codemirror/language-data": "^6.5.0",
     "@codemirror/commands": "^6.7.0",
-    "@lezer/highlight": "^1.2.1",
     "marked": "^14.0.0",
     "github-markdown-css": "^5.7.0"
   },

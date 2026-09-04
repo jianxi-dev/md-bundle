@@ -166,7 +166,7 @@ function applyLadder(result: BadgeEventResult, state: BadgeState): void {
  * 同状态 + 同事件 → 同结果（纯确定性）。
  */
 export function createBadgeStore(storage: BadgeStorage, _now?: () => number): BadgeStore {
-  let state = load(storage);
+  const state = load(storage);
   return {
     getState(): BadgeState {
       return { ...state, unlocked: [...state.unlocked], tiers: { ...state.tiers } };

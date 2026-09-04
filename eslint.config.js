@@ -18,6 +18,8 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // 与 tsconfig noUnusedParameters 对齐：`_` 前缀参数为有意保留（如 API 契约参数）。
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
 );

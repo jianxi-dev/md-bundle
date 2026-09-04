@@ -27,6 +27,10 @@ const DANGEROUS_URL_SCHEME = /^(?:javascript|vbscript)\s*:/i;
  * (`java\tscript:` is `javascript:`), so strip them before the scheme check.
  */
 function stripUrlJunk(value: string): string {
+  // Deliberate: browsers strip control chars before URL-scheme parsing, so the
+  // scheme check must too (`java\tscript:` == `javascript:`). no-control-regex is
+  // the wrong rule here — the control-char class IS the security boundary.
+  // eslint-disable-next-line no-control-regex
   return value.replace(/[\u0000-\u0020\u007f]/g, '');
 }
 
