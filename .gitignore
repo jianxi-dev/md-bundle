@@ -19,6 +19,9 @@ dist/
 !apps/web/test-results/.gitkeep
 !apps/web/test-results/*.json
 apps/web/test-results/.last-run.json
+!packages/editor/test-results/
+!packages/editor/test-results/.gitkeep
+!packages/editor/test-results/*.json
 
 # Playwright
 playwright-report/

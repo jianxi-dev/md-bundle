@@ -16,3 +16,13 @@ export {
   type ThemeName,
   type ThemeTokenNames,
 } from './theme';
+export {
+  slashKeymap,
+  insertSlashChar,
+  slashMenuApply,
+  slashMenuClose,
+  slashMenuSelectNext,
+  slashMenuSelectPrev,
+  defaultCommands,
+  type SlashCommand,
+} from './slash';

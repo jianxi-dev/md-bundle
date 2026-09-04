@@ -1,0 +1,9 @@
+{
+  "tasks": "1.6",
+  "publicSurface": true,
+  "roundTrip": true,
+  "slashViaPublicApi": true,
+  "previewOutput": true,
+  "themeFullSet": true,
+  "tests": 13
+}
