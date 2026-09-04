@@ -21,8 +21,11 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], channel: 'chromium' },
     },
   ],
+  // Dev server (not `vite preview`): serves TS modules directly, so specs can
+  // `await import('/src/lib/exportPng.ts')` inside the page for real-browser
+  // rasterization tests (Task 3.5). Same URL/port as preview — existing specs unaffected.
   webServer: {
-    command: 'pnpm --filter @md-bundle/web preview --port 4173 --strictPort',
+    command: 'pnpm --filter @md-bundle/web dev --port 4173 --strictPort',
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
