@@ -112,8 +112,8 @@ function createSanitizingRenderer(): InstanceType<typeof marked.Renderer> {
 const renderer = createSanitizingRenderer();
 
 /**
- * Renders markdown to sanitized HTML inside a `.markdown-body` container
- * (github-markdown-css). Hardening, in order:
+ * Renders markdown to sanitized HTML (no wrapper element). Hardening, in
+ * order:
  *
  * 1. `<script` / `</script` (case-insensitive, any following char incl. `\n`)
  *    are escaped in the SOURCE before parsing, so they can never become
@@ -124,16 +124,25 @@ const renderer = createSanitizingRenderer();
  * 3. `javascript:`/`vbscript:` URLs in links, autolinks, and images are
  *    neutralized (href/src blanked).
  *
- * `dangerouslySetInnerHTML` is used deliberately: the guarantees above make
- * the injected HTML inert, and github-markdown-css styles require real
- * elements (tables, code blocks, blockquotes).
+ * Single source of truth for both the live preview and the export pipeline
+ * (apps/web exportHtml): the export path must never reimplement sanitization.
+ */
+export function renderMarkdownToHtml(markdown: string): string {
+  const safe = markdown.replace(/<\/?script/gi, (m) => m.replace('<', '&lt;'));
+  return marked.parse(safe, { renderer, async: false }) as string;
+}
+
+/**
+ * Renders markdown to sanitized HTML inside a `.markdown-body` container
+ * (github-markdown-css). `dangerouslySetInnerHTML` is used deliberately: the
+ * guarantees above make the injected HTML inert, and github-markdown-css
+ * styles require real elements (tables, code blocks, blockquotes).
  */
 export function MarkdownPreview({
   markdown,
   theme = 'dark',
 }: MarkdownPreviewProps) {
-  const safe = markdown.replace(/<\/?script/gi, (m) => m.replace('<', '&lt;'));
-  const parsed = marked.parse(safe, { renderer, async: false }) as string;
+  const parsed = renderMarkdownToHtml(markdown);
   return (
     <div
       className="markdown-body"

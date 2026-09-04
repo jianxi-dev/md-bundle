@@ -16,6 +16,8 @@ import {
   createMarkdownEditor,
   MarkdownEditor,
   MarkdownPreview,
+  renderMarkdownToHtml,
+  githubMarkdownCssText,
   themeTokens,
   getThemeColor,
   slashKeymap,
@@ -77,7 +79,14 @@ describe('public export contract', () => {
     expect(typeof createMarkdownEditor).toBe('function');
     expect(typeof MarkdownEditor).toBe('function');
     expect(typeof MarkdownPreview).toBe('function');
+    expect(typeof renderMarkdownToHtml).toBe('function');
     expect(typeof getThemeColor).toBe('function');
+  });
+
+  it('exports the raw github-markdown-css text for the export pipeline', () => {
+    expect(typeof githubMarkdownCssText).toBe('string');
+    expect(githubMarkdownCssText.length).toBeGreaterThan(1000);
+    expect(githubMarkdownCssText).toContain('.markdown-body');
   });
 
   it('exports the theme token table as an object with both themes', () => {
@@ -185,6 +194,12 @@ describe('MarkdownPreview output through the public API', () => {
   afterEach(() => {
     // @testing-library/react auto-cleanup needs globals:true; call it manually.
     cleanup();
+  });
+
+  it('renderMarkdownToHtml returns sanitized HTML without a wrapper', () => {
+    const html = renderMarkdownToHtml('# T\n\n<script>alert(1)</script>');
+    expect(html).toContain('<h1>T</h1>');
+    expect(html).not.toContain('<script');
   });
 
   it('renders h1, table, and blockquote from markdown', () => {

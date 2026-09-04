@@ -5,7 +5,12 @@ export {
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
 } from './editor';
-export { MarkdownPreview, type MarkdownPreviewProps } from './preview';
+export {
+  MarkdownPreview,
+  renderMarkdownToHtml,
+  type MarkdownPreviewProps,
+} from './preview';
+export { githubMarkdownCssText } from './githubCss';
 export {
   MarkdownEditor,
   type MarkdownEditorComponentProps,
