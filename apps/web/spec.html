@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MD-Bundle · 格式规范</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d1117;
+        --card: #161b22;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --primary: #165dff;
+        --primary-soft: rgba(22, 93, 255, 0.12);
+        --primary-border: rgba(22, 93, 255, 0.35);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        line-height: 1.7;
+      }
+      .page { max-width: 800px; margin: 0 auto; padding: 0 1.25rem 4rem; }
+      nav.site-nav {
+        display: flex;
+        gap: 1.25rem;
+        align-items: center;
+        padding: 1.1rem 0;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 2.5rem;
+      }
+      nav.site-nav .brand { color: var(--text); font-weight: 600; margin-right: auto; }
+      nav.site-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+      nav.site-nav a:hover { color: var(--text); }
+      nav.site-nav a.current { color: var(--primary); }
+      h1 { font-size: 1.9rem; margin: 0 0 0.5rem; }
+      .lead { color: var(--muted); margin: 0 0 2.5rem; }
+      h2 { font-size: 1.25rem; margin: 2.5rem 0 0.75rem; }
+      h2::before {
+        content: '';
+        display: inline-block;
+        width: 4px;
+        height: 1em;
+        background: var(--primary);
+        margin-right: 0.5rem;
+        vertical-align: -0.1em;
+        border-radius: 2px;
+      }
+      p { margin: 0.5rem 0; }
+      ul { padding-left: 1.25rem; }
+      li { margin: 0.35rem 0; }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.875em;
+        background: rgba(110, 118, 129, 0.15);
+        padding: 0.15em 0.4em;
+        border-radius: 4px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin: 0.75rem 0;
+      }
+      .card pre {
+        margin: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.85rem;
+        color: var(--muted);
+        overflow-x: auto;
+      }
+      .pipeline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.75rem 0; }
+      .pipeline .step {
+        background: var(--primary-soft);
+        border: 1px solid var(--primary-border);
+        padding: 0.3rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        white-space: nowrap;
+      }
+      .pipeline .arrow { color: var(--muted); }
+      .links a { color: var(--primary); text-decoration: none; }
+      .links a:hover { text-decoration: underline; }
+      footer.site-footer {
+        margin-top: 3.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 1.25rem;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      footer.site-footer a { color: var(--muted); text-decoration: none; }
+      footer.site-footer a:hover { color: var(--text); }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <nav class="site-nav">
+        <span class="brand">MD-Bundle</span>
+        <a href="/">首页</a>
+        <a href="/spec" class="current">规范</a>
+        <a href="/about">关于</a>
+      </nav>
+
+      <h1>格式规范</h1>
+      <p class="lead">mdpkg —— 自包含 Markdown 打包格式。一文件带走全部图文，分享不再裂图。</p>
+
+      <h2>什么是 .mdpkg</h2>
+      <p>
+        <code>.mdpkg</code> 是一种自包含的 Markdown 打包格式：把 Markdown 正文、图片、附件打包进
+        一个文件，分享时不再裂图。格式规范与 CLI 参考实现见
+        <span class="links"><a href="https://github.com/jianxi-dev/mdpkg">jianxi-dev/mdpkg</a></span>。
+      </p>
+
+      <h2>包结构</h2>
+      <p>一个 <code>.mdpkg</code> 是 ZIP 容器，包含以下条目：</p>
+      <div class="card">
+        <pre>package.mdpkg
+├── document.md        # 入口 Markdown 文档
+├── assets/red.png     # 资源文件（图片、附件）
+├── includes/ch1.md    # include 片段（可选）
+└── manifest.json      # 清单：文件路径 / sha256 / media_type</pre>
+      </div>
+      <ul>
+        <li><code>document.md</code> —— 入口文档，默认渲染起点</li>
+        <li>资源文件 —— 图片、附件等，按路径引用</li>
+        <li>
+          <code>manifest.json</code> —— 清单：记录每个文件的路径、<code>sha256</code> 校验值、
+          <code>media_type</code> 媒体类型；schema 封闭（<code>additionalProperties: false</code>），
+          未知字段直接校验失败
+        </li>
+      </ul>
+
+      <h2>打开管线</h2>
+      <p>浏览器端与 CLI 使用同一条管线，结果同构：</p>
+      <div class="pipeline">
+        <span class="step">解包</span><span class="arrow">→</span>
+        <span class="step">校验</span><span class="arrow">→</span>
+        <span class="step">include 展开</span><span class="arrow">→</span>
+        <span class="step">解析</span><span class="arrow">→</span>
+        <span class="step">符号转换</span><span class="arrow">→</span>
+        <span class="step">渲染（消毒）</span><span class="arrow">→</span>
+        <span class="step">内联</span>
+      </div>
+      <ul>
+        <li><strong>解包</strong> —— 读取 ZIP 条目</li>
+        <li><strong>校验</strong> —— 格式合法性、sha256、引用闭包、外部引用计数</li>
+        <li><strong>include 展开</strong> —— <code>&lt;&lt;&lt;</code> 引用展开，带循环检测</li>
+        <li><strong>解析</strong> —— Markdown 解析</li>
+        <li><strong>符号转换</strong> —— <code>(tm) → ™</code> 等符号扩展，只作用于纯文本，不改写源文件</li>
+        <li><strong>渲染（消毒）</strong> —— HTML 消毒后输出</li>
+        <li><strong>内联</strong> —— 图片以 data URI 内联，产物完全自包含</li>
+      </ul>
+      <p>浏览器里的预览与 CLI <code>mdpkg render</code> 输出一致 —— 这是「网页预览」与「本地渲染」同构的前提。</p>
+
+      <h2>校验</h2>
+      <p>打开后返回校验报告：</p>
+      <ul>
+        <li><code>ok</code> —— 是否通过（errors 为空）</li>
+        <li><code>errors</code> —— 硬错误：格式不合法、sha256 不匹配、引用外环等</li>
+        <li><code>warnings</code> —— 软警告</li>
+        <li><code>externalCount</code> —— 外部引用（http/https 链接）条数</li>
+      </ul>
+      <p>校验失败不阻断渲染：校验问题单独呈现，HTML 照常生成。</p>
+
+      <h2>写侧（打包）</h2>
+      <p>
+        <code>packMdpkg</code> 与 CLI <code>mdpkg pack</code> 共用同一 ZIP 逻辑（条目排序、压缩策略、
+        固定 mtime），产出字节与 CLI 一致。校验与哈希重算在内部完成，调用方无需手动维护
+        <code>manifest.json</code>。
+      </p>
+
+      <h2>相关链接</h2>
+      <ul class="links">
+        <li><a href="https://github.com/jianxi-dev/mdpkg">jianxi-dev/mdpkg</a> —— 格式规范 + CLI 参考实现</li>
+        <li><a href="/">MD-Bundle</a> —— 本产品：浏览器端打开 / 编辑 / 导出 .md 与 .mdpkg</li>
+      </ul>
+
+      <footer class="site-footer">
+        <a href="/">首页</a>
+        <a href="/spec">规范</a>
+        <a href="/about">关于</a>
+      </footer>
+    </div>
+  </body>
+</html>

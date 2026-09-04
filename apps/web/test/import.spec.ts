@@ -18,6 +18,9 @@ const openMd = async (page: Page) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
   await expect(page.locator('.cm-editor')).toBeVisible();
+  // Editor mounts empty; the value prop syncs in a later effect — wait for content
+  // so `before` snapshots aren't captured mid-load (race surfaced by hero banner).
+  await expect(page.locator('.cm-content')).toContainText('Hello');
 };
 
 const docText = (page: Page) => page.locator('.cm-content').innerText();

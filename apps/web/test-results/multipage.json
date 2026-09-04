@@ -1,0 +1,6 @@
+{
+  "tasks": "5.2",
+  "distPages": ["index.html", "spec.html", "about.html"],
+  "specBodyStatic": true,
+  "aboutBodyStatic": true
+}

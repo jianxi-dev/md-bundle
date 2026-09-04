@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MD-Bundle · 关于</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d1117;
+        --card: #161b22;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --primary: #165dff;
+        --primary-soft: rgba(22, 93, 255, 0.12);
+        --primary-border: rgba(22, 93, 255, 0.35);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        line-height: 1.7;
+      }
+      .page { max-width: 800px; margin: 0 auto; padding: 0 1.25rem 4rem; }
+      nav.site-nav {
+        display: flex;
+        gap: 1.25rem;
+        align-items: center;
+        padding: 1.1rem 0;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 2.5rem;
+      }
+      nav.site-nav .brand { color: var(--text); font-weight: 600; margin-right: auto; }
+      nav.site-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+      nav.site-nav a:hover { color: var(--text); }
+      nav.site-nav a.current { color: var(--primary); }
+      h1 { font-size: 1.9rem; margin: 0 0 0.5rem; }
+      .lead { color: var(--muted); margin: 0 0 2.5rem; }
+      h2 { font-size: 1.25rem; margin: 2.5rem 0 0.75rem; }
+      h2::before {
+        content: '';
+        display: inline-block;
+        width: 4px;
+        height: 1em;
+        background: var(--primary);
+        margin-right: 0.5rem;
+        vertical-align: -0.1em;
+        border-radius: 2px;
+      }
+      p { margin: 0.5rem 0; }
+      ul { padding-left: 1.25rem; }
+      li { margin: 0.35rem 0; }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.875em;
+        background: rgba(110, 118, 129, 0.15);
+        padding: 0.15em 0.4em;
+        border-radius: 4px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin: 0.75rem 0;
+      }
+      .links a { color: var(--primary); text-decoration: none; }
+      .links a:hover { text-decoration: underline; }
+      footer.site-footer {
+        margin-top: 3.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 1.25rem;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      footer.site-footer a { color: var(--muted); text-decoration: none; }
+      footer.site-footer a:hover { color: var(--text); }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <nav class="site-nav">
+        <span class="brand">MD-Bundle</span>
+        <a href="/">首页</a>
+        <a href="/spec">规范</a>
+        <a href="/about" class="current">关于</a>
+      </nav>
+
+      <h1>关于 MD-Bundle</h1>
+      <p class="lead">纯前端在线工具：打开、编辑、导出 .md 与 .mdpkg。</p>
+
+      <h2>这是什么</h2>
+      <p>
+        MD-Bundle 是一个 Markdown 自包含在线工具 —— 把图片、附件打包进一个
+        <code>.mdpkg</code> 文件，分享不再裂图。支持打开、编辑、导出
+        <code>.md</code> 与 <code>.mdpkg</code>。
+      </p>
+
+      <h2>渐晰（Jianxi）生态</h2>
+      <ul>
+        <li><strong>mdpkg 格式</strong> —— 自包含 Markdown 打包格式（规范 + CLI 参考实现）</li>
+        <li><strong>MD-Bundle 网页</strong> —— 本产品，浏览器端打开 / 编辑 / 导出</li>
+        <li><strong>Clairis 桌面</strong> —— 桌面旗舰产品，Markdown 阅读编辑与学习成长伙伴</li>
+      </ul>
+
+      <h2>开源</h2>
+      <p>
+        MD-Bundle 以 <strong>MIT</strong> 许可开源。源码见
+        <span class="links"><a href="https://github.com/jianxi-dev">github.com/jianxi-dev</a></span>
+        组织。
+      </p>
+
+      <h2>隐私</h2>
+      <p>
+        Phase 1 无账号、无后端：文件处理全部在浏览器本地完成，不上传服务器。本地存储
+        （localStorage）仅用于界面状态，数据只留在你的浏览器里。
+      </p>
+
+      <footer class="site-footer">
+        <a href="/">首页</a>
+        <a href="/spec">规范</a>
+        <a href="/about">关于</a>
+      </footer>
+    </div>
+  </body>
+</html>
