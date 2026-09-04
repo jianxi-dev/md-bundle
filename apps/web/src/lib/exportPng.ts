@@ -10,6 +10,7 @@ import {
   buildHtmlDocument,
   type BuildHtmlDocumentOptions,
 } from './exportHtml';
+import { bylineCornerBadgeHtml } from './byline';
 import { getThemeColor } from '@md-bundle/editor';
 
 export interface SvgFromHtmlOptions {
@@ -58,6 +59,19 @@ export type MeasureHeight = (html: string, width: number) => number;
 
 /** 页脚底部额外留白（避免最后一行文字贴边）。 */
 export const FOOTER_PADDING = 24;
+
+/**
+ * 在导出文档里注入 PNG 右下角 byline 徽标（任务 6.1）：
+ * body 加 `position:relative` 作为绝对定位锚点，徽标插在 `</body>` 前。
+ * 纯字符串替换 —— 确定性、可单测（PNG 级文本断言不可行，字符串级是接缝）。
+ * 徽标绝对定位不占文档流 → 不影响 measureHeight 的 scrollHeight。
+ */
+export function withCornerByline(html: string): string {
+  if (html.includes(bylineCornerBadgeHtml())) return html;
+  return html
+    .replace('<body>', '<body style="position:relative">')
+    .replace('</body>', `${bylineCornerBadgeHtml()}\n</body>`);
+}
 
 /**
  * 默认测量实现（浏览器）：把 HTML 放进离屏 div，读 scrollHeight，返回高度 + 底部留白。
@@ -176,7 +190,7 @@ export async function exportPngFromMarkdown({
   makeImage,
 }: ExportPngOptions): Promise<Blob> {
   if (!markdown.trim()) throw new Error('文档为空，无法导出 PNG。');
-  const html = buildHtmlDocument({ markdown, assets, title, theme });
+  const html = withCornerByline(buildHtmlDocument({ markdown, assets, title, theme }));
   const height = measureHeight(html, width);
   const svg = svgFromHtml(html, { width, height });
   return svgToPngBlob(svg, {

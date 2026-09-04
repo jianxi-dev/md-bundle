@@ -7,7 +7,9 @@ import {
   svgFromHtml,
   svgToPngBlob,
   exportPngFromMarkdown,
+  withCornerByline,
 } from '../src/lib/exportPng';
+import { bylineCornerBadgeHtml } from '../src/lib/byline';
 import { parsePngSize } from '../src/lib/pngMeta';
 
 // 1x1 红色 PNG（与 exportHtml.test 同源 fixture，真实 PNG 字节）。
@@ -91,6 +93,23 @@ describe('svgFromHtml', () => {
   it('leaves already self-closed void elements untouched', () => {
     const svg = svgFromHtml('<img src="x.png"/>', { width: 10, height: 10 });
     expect(svg).toContain('<img src="x.png"/>');
+  });
+});
+
+describe('withCornerByline（PNG 右下角徽标注入）', () => {
+  it('body 加 position:relative 锚点，徽标插在 </body> 前', () => {
+    const doc = '<!doctype html><html><body><p>x</p></body></html>';
+    const out = withCornerByline(doc);
+    expect(out).toContain('<body style="position:relative">');
+    expect(out).toContain(bylineCornerBadgeHtml());
+    expect(out.indexOf(bylineCornerBadgeHtml())).toBeLessThan(out.indexOf('</body>'));
+    expect(out).toContain('?ref=md-png');
+  });
+
+  it('幂等：重复注入不叠加（同一徽标只出现一次）', () => {
+    const once = withCornerByline('<html><body><p>x</p></body></html>');
+    const twice = withCornerByline(once);
+    expect(twice.match(/Made with MD-Bundle/g)?.length).toBe(1);
   });
 });
 
@@ -215,5 +234,43 @@ describe('exportPngFromMarkdown', () => {
     expect(drawImage).toHaveBeenCalledTimes(1);
     // 全流程产物是合法 PNG（fake 1x1），不是损坏字节
     expect(parsePngSize(new Uint8Array(await blob.arrayBuffer()))).toEqual({ width: 1, height: 1 });
+  });
+
+  it('rasterized SVG contains the corner byline badge (string-level seam)', async () => {
+    let capturedSvg = '';
+    const capturingImage = {
+      _src: '',
+      set src(v: string) {
+        this._src = v;
+        const prefix = 'data:image/svg+xml;charset=utf-8,';
+        if (v.startsWith(prefix)) capturedSvg = decodeURIComponent(v.slice(prefix.length));
+        this.onload?.();
+      },
+      get src() {
+        return this._src;
+      },
+      onload: null,
+      onerror: null,
+    } as unknown as HTMLImageElement;
+    const { canvas } = makeFakeCanvas(new Blob([PNG_1], { type: 'image/png' }));
+
+    await exportPngFromMarkdown({
+      markdown: '# 标题\n\n正文内容',
+      assets: [],
+      width: 400,
+      measureHeight: () => 120,
+      createCanvas: (w, h) => {
+        canvas.width = w;
+        canvas.height = h;
+        return canvas;
+      },
+      makeImage: () => capturingImage,
+    });
+
+    // PNG 级文本断言不可行 —— 字符串级（SVG 文档）是接缝：徽标 + 锚点 + ref 都在。
+    expect(capturedSvg).toContain(bylineCornerBadgeHtml());
+    expect(capturedSvg).toContain('<body style="position:relative">');
+    expect(capturedSvg).toContain('?ref=md-png');
+    expect(capturedSvg).toContain('Made with MD-Bundle');
   });
 });

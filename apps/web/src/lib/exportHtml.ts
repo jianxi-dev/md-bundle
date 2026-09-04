@@ -10,6 +10,7 @@ import {
   type ThemeName,
 } from '@md-bundle/editor';
 import type { Asset } from './assets';
+import { bylineFooterHtml } from './byline';
 
 /** 匹配一个 `<img ...>` 标签（容忍属性值里的 `>`）。 */
 const IMG_TAG = /<img\b[^>]*>/gi;
@@ -109,7 +110,7 @@ export function buildHtmlDocument({
     '</head>',
     '<body>',
     `<div class="markdown-body" data-theme="${theme}">${body}</div>`,
-    '<footer><a href="https://bundle.jianxi.me/?ref=md-html">Made with MD-Bundle</a></footer>',
+    bylineFooterHtml(),
     '</body>',
     '</html>',
   ].join('\n');

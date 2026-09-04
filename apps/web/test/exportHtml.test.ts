@@ -6,6 +6,7 @@ import {
   buildHtmlDocument,
   inlineImages,
 } from '../src/lib/exportHtml';
+import { bylineFooterHtml } from '../src/lib/byline';
 import type { Asset } from '../src/lib/assets';
 
 const PNG_1 =
@@ -79,6 +80,12 @@ describe('buildHtmlDocument', () => {
     expect(html).toContain(
       '<footer><a href="https://bundle.jianxi.me/?ref=md-html">Made with MD-Bundle</a></footer>',
     );
+  });
+
+  it('footer byline comes from the byline lib (byte-identical markup)', () => {
+    const html = buildHtmlDocument({ markdown: '# t', assets: [] });
+    expect(html).toContain(bylineFooterHtml());
+    expect(html).toContain(bylineFooterHtml('md-html'));
   });
 
   it('inlines all styles with zero external references (byline is the only https)', () => {
