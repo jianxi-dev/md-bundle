@@ -10,6 +10,8 @@ import {
   type MarkdownEditorHandle,
 } from '@md-bundle/editor';
 import { FileOpen } from './components/FileOpen';
+import { Hero } from './components/Hero';
+import { Gallery } from './components/Gallery';
 import { ValidationPanel } from './components/ValidationPanel';
 import { AssetList } from './components/AssetList';
 import { Toolbar, type ExportFormat } from './components/Toolbar';
@@ -72,6 +74,20 @@ export default function App() {
   const editorViewRef = useRef<MarkdownEditorHandle['view'] | null>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
   const exportErrorTimer = useRef<number | null>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
+
+  /**
+   * 程序化打开文件（FileOpen 与 Gallery 共用入口）：
+   * 交给 useDocument.open 走完整检测流程，并平滑滚动到工作区。
+   */
+  const openFileObject = (file: File) => {
+    void open(file);
+    const el = workspaceRef.current;
+    if (el) {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  };
 
   // 新文档打开时把内容灌进受控的源码 value（编辑时实时同步到预览）。
   // md → 文件内容；mdpkg → 包内入口源码（readEntrySource，include 未展开），
@@ -262,16 +278,18 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
+    <div className="min-h-screen scroll-smooth bg-[#0d1117] text-[#e6edf3]">
       <header className="border-b border-[#30363d] bg-[#161b22]/60">
         <div className="mx-auto flex max-w-6xl items-baseline gap-3 px-6 py-4">
           <h1 className="text-xl font-bold tracking-tight">MD-Bundle</h1>
-          <p className="text-sm text-[#8b949e]">分享 Markdown，不再裂图。</p>
         </div>
       </header>
 
+      <Hero />
+
       <main className="mx-auto max-w-6xl space-y-5 px-6 py-6">
-        <FileOpen onOpenFile={(file) => void open(file)} compact={state.status !== 'empty'} />
+        <section id="workspace" ref={workspaceRef} className="scroll-mt-6">
+          <FileOpen onOpenFile={openFileObject} compact={state.status !== 'empty'} />
 
         {state.status === 'empty' && (
           <p className="pt-10 text-center text-[#8b949e]">选择或拖入文件后，在此开始编辑 / 预览</p>
@@ -401,7 +419,10 @@ export default function App() {
             </button>
           </div>
         )}
+        </section>
       </main>
+
+      <Gallery onLoadExample={openFileObject} />
     </div>
   );
 }

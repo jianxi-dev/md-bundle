@@ -1,0 +1,8 @@
+{
+  "tasks": "5.1",
+  "taglines": true,
+  "logo": true,
+  "promo": true,
+  "fallbackWorks": true,
+  "galleryLoads": true
+}
