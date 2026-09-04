@@ -6,8 +6,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
-    // Playwright specs live in test/ — keep them out of Vitest.
-    exclude: ['test/**', 'node_modules/**', 'dist/**'],
+    include: ['src/**/*.test.{ts,tsx}', 'test/**/*.test.{ts,tsx}'],
+    // Playwright specs live in test/ (*.spec.ts) — the *.test.ts include pattern keeps them out of Vitest.
+    exclude: ['node_modules/**', 'dist/**'],
   },
 });

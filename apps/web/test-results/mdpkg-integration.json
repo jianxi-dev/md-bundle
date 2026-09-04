@@ -1,0 +1,26 @@
+{
+  "tasks": "2.1",
+  "validOk": true,
+  "corruptOk": true,
+  "notMdpkgOk": true,
+  "schemaViolationDetected": true,
+  "htmlDataUris": 2,
+  "evidence": {
+    "vendor": "apps/web/vendor/mdpkg-web.js (749880 bytes, sha256 88eefea8d587c6375df47123e2101db1ffb55f1217e26554584a3ece39198b7d, byte-identical to jianxi-dev/mdpkg packages/mdpkg/web/mdpkg-web.js)",
+    "wrapper": "apps/web/src/lib/mdpkg.ts (openPackage: try/catch MdeError → deterministic { error }, never throws)",
+    "tests": "apps/web/test/mdpkg.test.ts — 4 tests, all pass (vitest run: 5/5 incl. existing App.test.tsx)",
+    "fixtures": {
+      "valid.mdpkg": 1177,
+      "invalid-manifest.mdpkg": 1681,
+      "corrupted.zip": 470,
+      "not-mdpkg.bin": 512
+    },
+    "observed": {
+      "notMdpkg": "throws MdeError [MDPKG-E101] 不是有效的 ZIP 包（0 个条目）→ wrapper returns { error }",
+      "corruptedZip": "does NOT throw — partial unpack (manifest.json only), html null, error [MDPKG-E303] entrypoint 不存在: document.md",
+      "schemaViolation": "[MDPKG-E302] / must NOT have additional properties (ajv message does not include field name)",
+      "valid": "files.size=5, validation.ok=true, html contains 2 data:image/png;base64 URIs, symbols ™/©/→ + include expanded"
+    },
+    "rootBuild": "apps/web build green (tsc --noEmit + vite build); root pnpm -r build blocked by packages/editor (parallel agent WIP, untouched by this task); root pnpm -r test green (web 5/5, editor 2/2)"
+  }
+}
