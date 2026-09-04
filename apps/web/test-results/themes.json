@@ -1,0 +1,11 @@
+{
+  "tasks": "3.2",
+  "tokensDark": 19,
+  "tokensLight": 19,
+  "cssMirror": true,
+  "appCss": true,
+  "editorTests": 57,
+  "webTests": 26,
+  "themeAppTests": 5,
+  "note": "theme.css + theme.ts extended additively (10 base + 9 new: primary-hover, danger, success, warning, selection, focus-ring, shadow, surface, muted). themes.css imports editor token source via workspace bare specifier (relative cross-package @import not resolvable by Tailwind v4)."
+}

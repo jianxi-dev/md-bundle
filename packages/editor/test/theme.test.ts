@@ -41,4 +41,70 @@ describe('themeTokens', () => {
     expect(getThemeColor('dark', 'bg')).toBe('#0d1117');
     expect(getThemeColor('light', 'bg')).toBe('#ffffff');
   });
+
+  it('new tokens (3.2) exist in both themes', () => {
+    const dark = themeTokens.dark as Record<string, string>;
+    const light = themeTokens.light as Record<string, string>;
+    const newTokens = [
+      'primary-hover',
+      'danger',
+      'success',
+      'warning',
+      'selection',
+      'focus-ring',
+      'shadow',
+      'surface',
+      'muted',
+    ];
+    for (const key of newTokens) {
+      expect(dark[key]).toBeTruthy();
+      expect(light[key]).toBeTruthy();
+    }
+  });
+
+  it('new tokens (3.2) differ between themes on at least one token', () => {
+    const dark = themeTokens.dark as Record<string, string>;
+    const light = themeTokens.light as Record<string, string>;
+    const newTokens = [
+      'primary-hover',
+      'danger',
+      'success',
+      'warning',
+      'selection',
+      'focus-ring',
+      'shadow',
+      'surface',
+      'muted',
+    ];
+    const differing = newTokens.filter((k) => dark[k] !== light[k]);
+    expect(differing.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('css contract (3.2): new tokens declared in both data-theme blocks', () => {
+    const dark = themeTokens.dark as Record<string, string>;
+    const newTokens = [
+      'primary-hover',
+      'danger',
+      'success',
+      'warning',
+      'selection',
+      'focus-ring',
+      'shadow',
+      'surface',
+      'muted',
+    ];
+    for (const key of newTokens) {
+      expect(css).toContain(`--mdb-${key}`);
+    }
+    // every token key (old + new) must appear in BOTH blocks
+    const darkBlock = css.slice(
+      css.indexOf(':root[data-theme="dark"]'),
+      css.indexOf(':root[data-theme="light"]'),
+    );
+    const lightBlock = css.slice(css.indexOf(':root[data-theme="light"]'));
+    for (const key of Object.keys(dark)) {
+      expect(darkBlock).toContain(`--mdb-${key}`);
+      expect(lightBlock).toContain(`--mdb-${key}`);
+    }
+  });
 });

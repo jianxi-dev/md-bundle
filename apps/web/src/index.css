@@ -1,3 +1,4 @@
+@import "./styles/themes.css";
 @import "tailwindcss";
 
 /* MarkdownEditor 宿主撑满分栏（CM6 .cm-editor 默认不继承父高） */

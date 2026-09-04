@@ -1,0 +1,25 @@
+/* App-level theme wiring.
+ *
+ * Single source of truth for the token set: packages/editor/src/theme.css
+ * (imported below via the workspace package specifier — a relative
+ * cross-package @import is NOT resolvable by Tailwind v4's CSS resolver,
+ * the bare specifier is). This file only adds app-level defaults +
+ * color-scheme wiring; it does NOT re-declare token values.
+ *
+ * Tokens are plain CSS custom properties, consumable by Tailwind v4 arbitrary
+ * values, e.g. `bg-[var(--mdb-bg)]`, `text-[var(--mdb-text)]`.
+ */
+@import '@md-bundle/editor/src/theme.css';
+
+/* Default to dark when no data-theme attribute is present. */
+:root:not([data-theme]) {
+  color-scheme: dark;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
