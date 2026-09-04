@@ -36,7 +36,8 @@ test('valid .mdpkg → sandbox iframe preview, no pageerror', async ({ page }) =
 
   const srcDoc = await page.getByTestId('mdpkg-frame').getAttribute('srcdoc');
   expect(srcDoc).toContain('data:image/png;base64,');
-  await expect(page.getByText('校验通过')).toBeVisible();
+  await expect(page.getByTestId('validation-pass')).toBeVisible();
+  await expect(page.getByTestId('validation-pass')).toContainText('通过');
   expect(pageErrors).toEqual([]);
 
   await page.screenshot({ path: join(RES, 'open-ok.png'), fullPage: false });

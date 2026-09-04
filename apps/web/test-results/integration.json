@@ -1,0 +1,32 @@
+{
+  "tasks": "2.4",
+  "title": "mdpkg open integration fixtures (ValidationPanel wired into app shell)",
+  "timestamp": "2026-09-05T02:51:00+08:00",
+  "valid": true,
+  "invalid": true,
+  "corrupt": true,
+  "nonPackage": true,
+  "panelWired": true,
+  "e2e": "11 passed",
+  "unit": {
+    "tests": 21,
+    "passed": 21,
+    "note": "App.test.tsx unchanged (empty-state only, unaffected by mdpkg branch wiring)"
+  },
+  "e2eScenarios": [
+    "valid.mdpkg → validation-pass panel (通过) + sandbox iframe preview, zero pageerrors",
+    "invalid-manifest.mdpkg → validation-fail + validation-errors ≥1 li ([MDPKG-E302] must NOT have additional properties), iframe STILL renders (validation errors don't block rendering), zero pageerrors",
+    "corrupted.zip → error alert (MDPKG-E303), no validation panel, no white screen, zero pageerrors",
+    "not-mdpkg.bin renamed .mdpkg → error alert (MDPKG-E101), no white screen, zero pageerrors"
+  ],
+  "screenshots": {
+    "integration-valid.png": "valid.mdpkg: ValidationPanel pass state + iframe preview",
+    "integration-invalid.png": "invalid-manifest.mdpkg: ValidationPanel fail state + error list + iframe still rendered"
+  },
+  "filesChanged": [
+    "apps/web/src/App.tsx",
+    "apps/web/test/integration.spec.ts",
+    "apps/web/test/open.spec.ts"
+  ],
+  "rootBuild": "apps/web build green (tsc --noEmit + vite build); root pnpm -r build not re-run (packages/editor untouched by this task)"
+}

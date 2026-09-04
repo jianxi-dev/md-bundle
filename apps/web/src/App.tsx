@@ -1,9 +1,9 @@
-// MD-Bundle 应用外壳（任务 2.2：文件打开）。
-// 状态机：empty → md（源码+预览分栏）| mdpkg（sandbox iframe 完整预览）| error（告警+重新选择）。
-// 注意：ValidationPanel 由并行任务 2.3 负责，此处不 import —— 只读 mdpkg 结果里的 validation 字段显示一个小徽标。
+// MD-Bundle 应用外壳（任务 2.2：文件打开；任务 2.4：接线 ValidationPanel）。
+// 状态机：empty → md（源码+预览分栏）| mdpkg（校验面板 + sandbox iframe 完整预览）| error（告警+重新选择）。
 import { useEffect, useState } from 'react';
 import { MarkdownEditor, MarkdownPreview } from '@md-bundle/editor';
 import { FileOpen } from './components/FileOpen';
+import { ValidationPanel } from './components/ValidationPanel';
 import { useDocument } from './lib/useDocument';
 
 export default function App() {
@@ -59,16 +59,10 @@ export default function App() {
               <span className="rounded bg-[#165DFF]/20 px-1.5 py-0.5 text-xs text-[#58a6ff]">
                 .mdpkg
               </span>
-              {state.validation.ok ? (
-                <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-400">
-                  ✓ 校验通过
-                </span>
-              ) : (
-                <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-400">
-                  ⚠ {state.validation.errors.length} 项校验问题
-                </span>
-              )}
               <span className="text-xs text-[#8b949e]">{state.files.size} 个资源</span>
+            </div>
+            <div className="mb-3">
+              <ValidationPanel validation={state.validation} name={state.name} />
             </div>
             <iframe
               data-testid="mdpkg-frame"
