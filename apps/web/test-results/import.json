@@ -1,0 +1,10 @@
+{
+  "tasks": "3.1",
+  "paste": true,
+  "batch": true,
+  "textPasteNoop": true,
+  "dedupe": true,
+  "wire": true,
+  "sidebar": true,
+  "e2e": 3
+}
