@@ -13,6 +13,11 @@ const root = fileURLToPath(new URL('.', import.meta.url));
 // (vercel.json — lands with T20/T26).
 export default defineConfig({
   appType: 'mpa',
+  // Relative base: dist assets become ./assets/... so the build works at ANY
+  // prefix — GitHub Pages project page (/md-bundle/), domain root
+  // (bundle.jianxi.me), or Vercel. Nav uses filename links (index.html /
+  // spec.html / about.html) which resolve relative to the current page.
+  base: './',
   plugins: [react(), tailwindcss()],
   build: {
     rollupOptions: {

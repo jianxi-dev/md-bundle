@@ -25,5 +25,6 @@ test('site nav links between the three pages', async ({ page }) => {
   await nav.getByRole('link', { name: '关于' }).click();
   await expect(page.getByRole('heading', { name: /关于/ })).toBeVisible();
   await nav.getByRole('link', { name: '首页' }).click();
-  await expect(page).toHaveURL('/');
+  // Filename-based nav (path-agnostic build): 首页 → index.html at any prefix.
+  await expect(page).toHaveURL('/index.html');
 });
