@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MarkdownEditor,
   MarkdownPreview,
+  slashKeymap,
   type MarkdownEditorHandle,
 } from '@md-bundle/editor';
 import { FileOpen } from './components/FileOpen';
@@ -66,6 +67,9 @@ function baseName(name: string): string {
   const dot = name.lastIndexOf('.');
   return dot > 0 ? name.slice(0, dot) : name;
 }
+
+// 斜杠命令扩展：模块级单例（编辑器只在挂载时读取 extensions —— 稳定引用避免任何重挂载顾虑）。
+const SLASH_EXT = [slashKeymap()];
 
 export default function App() {
   const { state, open, clear } = useDocument();
@@ -291,7 +295,7 @@ export default function App() {
         case 'html':
           downloadText(
             buildHtmlDocument({ markdown: docValue, assets: assetsRef.current, title: docTitle }),
-            'document.html',
+            `${docBase}.html`,
           );
           wire.onExportResult(format, true);
           return true;
@@ -300,7 +304,7 @@ export default function App() {
             markdown: docValue,
             assets: assetsRef.current,
           });
-          downloadBlob(blob, 'document.png');
+          downloadBlob(blob, `${docBase}.png`);
           wire.onExportResult(format, true);
           return true;
         }
@@ -387,6 +391,7 @@ export default function App() {
                       value={docValue}
                       onChange={setDocValue}
                       theme="dark"
+                      extensions={SLASH_EXT}
                       onMount={onEditorMount}
                     />
                   </div>
@@ -429,6 +434,7 @@ export default function App() {
                     value={docValue}
                     onChange={setDocValue}
                     theme="dark"
+                    extensions={SLASH_EXT}
                     onMount={onEditorMount}
                   />
                 </div>

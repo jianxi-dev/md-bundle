@@ -75,8 +75,17 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page, contex
     await expect(page.locator('.markdown-body')).toContainText('测试编辑内容');
   });
   await record('3b-slash-menu', async () => {
+    // 新行 → 斜杠菜单（行首调用，callout 才能渲染为可见 blockquote）
+    await page.keyboard.press('Enter');
     await page.keyboard.type('/');
     await page.screenshot({ path: join(RES, 'final-03-slash.png') });
+    await expect(page.locator('.mdb-slash-menu')).toBeVisible();
+    // Esc 关闭菜单（不插入内容，`/` 保留）
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.mdb-slash-menu')).toHaveCount(0);
+    // 删掉残留的 `/`，重新打开 → 选择 Callout
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('/');
     await expect(page.locator('.mdb-slash-menu')).toBeVisible();
     await page.keyboard.press('ArrowDown'); // Heading → Callout
     await page.keyboard.press('Enter');

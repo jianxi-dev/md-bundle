@@ -314,7 +314,9 @@ export function slashKeymap(options: { commands?: SlashCommand[] } = {}): Extens
       keymap.of([
         {
           key: '/',
-          scope: 'typing',
+          // No `scope` — CM6's default keydown handler only runs the "editor"
+          // scope; a custom scope (e.g. "typing") would make this binding
+          // unreachable. Default scope fires whenever the editor is focused.
           run: (view) => insertSlashChar(view, commands),
         },
         { key: 'ArrowDown', run: (view) => slashMenuSelectNext(view) },
