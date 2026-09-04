@@ -1,0 +1,15 @@
+{
+  "tasks": "5.4",
+  "distCrawl": [
+    "index",
+    "spec",
+    "about"
+  ],
+  "bodyStatic": true,
+  "metaPresent": true,
+  "canonicalOk": true,
+  "jsonldInDist": true,
+  "ogDims": "1200x630",
+  "robots200": true,
+  "sitemap3Urls": true
+}
