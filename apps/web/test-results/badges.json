@@ -1,0 +1,15 @@
+{
+  "tasks": "6.3",
+  "firstOpen": true,
+  "firstPack": true,
+  "firstPng": true,
+  "ladder": {
+    "3": "rare",
+    "10": "epic",
+    "25": "legendary"
+  },
+  "dedupe": true,
+  "persistence": true,
+  "corruptDegrade": true,
+  "testCount": 13
+}
