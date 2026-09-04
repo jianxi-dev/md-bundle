@@ -1,0 +1,9 @@
+{
+  "tasks": "7.1",
+  "target": "http://localhost:4174",
+  "three200": true,
+  "specBody": true,
+  "aboutBody": true,
+  "exampleOpens": true,
+  "productionTargetsNotRun": true
+}

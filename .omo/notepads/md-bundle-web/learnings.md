@@ -265,3 +265,12 @@
 - **剪贴板拒绝的确定性 stub**: headless 默认剪贴板行为不可依赖 —— `page.addInitScript` 里 `Object.defineProperty(navigator, 'clipboard', { value: { write: async () => { throw new Error('denied'); } }, configurable: true })` 保证走下载兜底分支；授权路径单独用 `context.grantPermissions(['clipboard-read','clipboard-write'])` 断言「已复制到剪贴板」状态文案。
 - **空态分享按钮必须存在**: 规格要求空态 `toBeDisabled` —— ShareCard 只渲染在 md/mdpkg 分支，空态没有 Toolbar 行；在空态 hint 下补了一行居中 ShareCard（shareTitle 空态置 ''，否则 docTitle 兜底 'MD-Bundle 文档' 会让 canShare 误判为 true）。教训：canShare 只看 title/chars，空态必须显式传空 title。
 - **Flakiness notes**: first-open toast 断言后手动点击 toast 关闭（不等 3.5s）；no-repeat 断言 reload 后重开同一文件 + 300ms 等待 + toast count 0；持久化断言直接读 `localStorage.getItem('md-bundle.badges')`（比 UI 状态可靠）。e2e 全绿 46/46（39 旧 + 7 新），web 181/181 unit（170 + 11），root build green。
+
+## [2026-09-05T05:30:00+08:00] Task 7.1 deploy prep
+
+- **vercel.json 位置决策**: 放仓库根（Vercel 项目根 = repo root）——`framework: vite` + `buildCommand: pnpm --filter @md-bundle/web build` + `outputDirectory: apps/web/dist` + rewrites `/spec → /spec.html`、`/about → /about.html`。Vite MPA 干净 URL 在 dev/preview 可用，Vercel 静态托管只按字面路径服务，必须显式 rewrite（5.2 已预告）。`/examples/*` 静态直通无需 rewrite；cleanUrls 不启用（spec/about 有显式 .html 兄弟文件）。路径解析无法本地验证（preview 自带 MPA 干净 URL）——文档化推理，生产冒烟兜底。
+- **smoke-prod.spec.ts 设计**: `test.describe('production smoke')` 包裹（**必须真 describe 块**——`--grep production` 匹配完整标题，顶层 `test.describe.configure` 不产生标题前缀，第一版 grep 0 命中）。`base = (process.env.TARGET_URL ?? 'http://localhost:4173').replace(/\/+$/,'')`；`test.use({ baseURL: undefined })` + 全绝对 URL——相对 URL 会立即报错而非静默打到 4173（TARGET_URL 指向生产时防误伤）。双通道验 200：page.goto response + page.request.get。index 关键词用「分享不再裂图」（meta description/JSON-LD，SPA 壳原始 HTML 可爬，同 seo-crawl 5.4 教训）。
+- **端口策略**: playwright webServer 固定 4173（dev）——冒烟对 preview 跑时用 4174 手动起 `vite preview --port 4174 --strictPort`，TARGET_URL 指向它；webServer 照常起 4173 但冒烟不碰。**不**在 config 加第二个 webServer（任务禁令）。
+- **证据顺序坑**: 全量 e2e 跑（48/48 绿：46 旧 + 2 新）会覆盖 smoke-prod-local.json（TARGET_URL 未设 → target=4173）。正确顺序：全量跑 → 再起 4174 preview 重跑冒烟 → 证据 target=4174 落盘 → kill preview。
+- **全量跑副作用**: Playwright outputDir 清理删了 36 个已提交证据 + 并行 agent 的未跟踪 share-badge-toast.png（未提交无法恢复——6.4 的 PNG 证据本就不在白名单，仅 JSON 提交）。已用精确路径 git restore 恢复 36 个（先确认无 staged 文件再整目录 restore）。
+- **待用户步骤（凭证阻塞）**: vercel login → vercel link --yes（jianxi-dev/md-bundle）→ vercel --prod → Dashboard Domains 加 bundle.jianxi.me（DNS 用户处理）→ 再 vercel --prod → `TARGET_URL=https://bundle.jianxi.me pnpm --filter @md-bundle/web test:e2e --grep=production`。全部写进 DEPLOY.md。
