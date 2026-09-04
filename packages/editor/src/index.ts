@@ -7,6 +7,10 @@ export {
 } from './editor';
 export { MarkdownPreview, type MarkdownPreviewProps } from './preview';
 export {
+  MarkdownEditor,
+  type MarkdownEditorComponentProps,
+} from './MarkdownEditor';
+export {
   getThemeColor,
   themeTokens,
   type ThemeName,
