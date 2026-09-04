@@ -24,8 +24,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+        # version intentionally NOT pinned: package.json's packageManager
+        # field (pnpm@10.32.1) is the single source — pinning both errors
+        # "Multiple versions of pnpm specified".
 
       - uses: actions/setup-node@v4
         with:
