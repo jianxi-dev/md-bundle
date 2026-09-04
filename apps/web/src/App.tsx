@@ -3,7 +3,8 @@
 // 状态机：empty → md（源码+预览分栏+资源清单）| mdpkg（源码编辑 + sandbox iframe 参考预览 + 资源清单）| error。
 // 图片导入三通道（粘贴/拖拽/批量选择）只在 md 分支生效；.mdpkg 分支的资产来自包内图片条目（自动导入）。
 // 保存/导出作用于「当前源码 + 当前资产清单」；.mdpkg 重打包携带原 manifest（entrypoint 等继承）。
-import { useEffect, useRef, useState } from 'react';
+// 任务 6.4：分享卡按钮（ShareCard）+ 徽章接线（useBadges/wireBadgeEvents）+ 解锁 toast（BadgeToast）。
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MarkdownEditor,
   MarkdownPreview,
@@ -15,7 +16,10 @@ import { Gallery } from './components/Gallery';
 import { ValidationPanel } from './components/ValidationPanel';
 import { AssetList } from './components/AssetList';
 import { Toolbar, type ExportFormat } from './components/Toolbar';
+import { ShareCard } from './components/ShareCard';
+import { BadgeToast } from './components/BadgeToast';
 import { useDocument } from './lib/useDocument';
+import { useBadges, wireBadgeEvents } from './lib/useBadges';
 import { readEntrySource } from './lib/mdpkg';
 import { saveDocument } from './lib/save';
 import { exportMdpkg } from './lib/exportMdpkg';
@@ -76,6 +80,19 @@ export default function App() {
   const exportErrorTimer = useRef<number | null>(null);
   const workspaceRef = useRef<HTMLElement>(null);
 
+  // 徽章接线（6.4）：store 跨渲染存活；成功信号 → 事件 → 解锁 toast。
+  const { badgeStore, toast, dismiss, showToastFor } = useBadges();
+  const wire = useMemo(
+    () =>
+      wireBadgeEvents(badgeStore, {
+        onSaveSuccess: (r) => showToastFor(r),
+        onPngExportSuccess: (r) => showToastFor(r),
+        onExportSuccess: (r) => showToastFor(r),
+        onFileOpen: (r) => showToastFor(r),
+      }),
+    [badgeStore, showToastFor],
+  );
+
   /**
    * 程序化打开文件（FileOpen 与 Gallery 共用入口）：
    * 交给 useDocument.open 走完整检测流程，并平滑滚动到工作区。
@@ -109,6 +126,13 @@ export default function App() {
     }
     setImportHint(null);
   }, [state]);
+
+  // 打开成功（状态机进入 md/mdpkg）→ file-opened 徽章事件（重复打开不重复解锁，badges lib 去重）。
+  useEffect(() => {
+    if (state.status === 'md' || state.status === 'mdpkg') {
+      wire.onFileOpened();
+    }
+  }, [state, wire]);
 
   const onEditorMount = (handle: MarkdownEditorHandle) => {
     editorViewRef.current = handle.view;
@@ -210,6 +234,9 @@ export default function App() {
   const sourceKind = state.status === 'mdpkg' ? 'mdpkg' : 'md';
   const docBase = state.status === 'md' || state.status === 'mdpkg' ? baseName(state.name) : 'document';
   const docTitle = state.status === 'md' || state.status === 'mdpkg' ? state.name : 'MD-Bundle 文档';
+  // 分享卡数据：空态标题置空 → canShare false → 按钮禁用；mdpkg 分支 docValue 即包内入口源码。
+  const shareTitle = state.status === 'md' || state.status === 'mdpkg' ? state.name : '';
+  const shareStats = { chars: docValue.length, images: assets.length };
   const prevManifest = state.status === 'mdpkg' ? (state.manifest ?? undefined) : undefined;
   // 重打包时保留包内非入口、非图片文件（include 目标、附件等）—— 无缝重打包。
   const extraFiles =
@@ -225,7 +252,7 @@ export default function App() {
       : undefined;
 
   // 保存主按钮：内容驱动（有图 → .mdpkg；无图 → .md；打开 .mdpkg → 重打包）。
-  // 返回非 null 即保存成功（6.3 徽标钩子可在此挂接）。
+  // 返回非 null 即保存成功；'mdpkg' 触发 pack-saved 徽章事件（首次保存 .mdpkg）。
   const handleSave = async (): Promise<boolean> => {
     const kind = await saveDocument({
       markdown: docValue,
@@ -235,18 +262,22 @@ export default function App() {
       prevManifest,
       extraFiles,
     });
+    wire.onSaveResult(kind);
     return kind !== null;
   };
 
-  // 导出下拉：显式 4 格式。返回 true = 成功（6.3 徽标钩子）；false = 取消/失败。
+  // 导出下拉：显式 4 格式。返回 true = 成功（触发 export-succeeded；PNG 额外触发 png-exported）。
   const handleExport = async (format: ExportFormat): Promise<boolean> => {
     try {
       switch (format) {
-        case 'md':
-          return exportMd(docValue, {
+        case 'md': {
+          const ok = exportMd(docValue, {
             hasImages: assetsRef.current.length > 0,
             filename: `${docBase}.md`,
           });
+          wire.onExportResult(format, ok);
+          return ok;
+        }
         case 'mdpkg':
           downloadBlob(
             new Blob(
@@ -255,12 +286,14 @@ export default function App() {
             ),
             `${docBase}.mdpkg`,
           );
+          wire.onExportResult(format, true);
           return true;
         case 'html':
           downloadText(
             buildHtmlDocument({ markdown: docValue, assets: assetsRef.current, title: docTitle }),
             'document.html',
           );
+          wire.onExportResult(format, true);
           return true;
         case 'png': {
           const blob = await exportPngFromMarkdown({
@@ -268,6 +301,7 @@ export default function App() {
             assets: assetsRef.current,
           });
           downloadBlob(blob, 'document.png');
+          wire.onExportResult(format, true);
           return true;
         }
       }
@@ -292,7 +326,12 @@ export default function App() {
           <FileOpen onOpenFile={openFileObject} compact={state.status !== 'empty'} />
 
         {state.status === 'empty' && (
-          <p className="pt-10 text-center text-[#8b949e]">选择或拖入文件后，在此开始编辑 / 预览</p>
+          <>
+            <p className="pt-10 text-center text-[#8b949e]">选择或拖入文件后，在此开始编辑 / 预览</p>
+            <div className="flex justify-center pt-4">
+              <ShareCard title={shareTitle} markdown={docValue} stats={shareStats} />
+            </div>
+          </>
         )}
 
         {state.status === 'md' && (
@@ -320,6 +359,7 @@ export default function App() {
                 >
                   导入图片
                 </button>
+                <ShareCard title={shareTitle} markdown={docValue} stats={shareStats} />
                 <Toolbar
                   canSave
                   sourceKind="md"
@@ -368,7 +408,8 @@ export default function App() {
                 .mdpkg
               </span>
               <span className="text-xs text-[#8b949e]">{state.files.size} 个资源</span>
-              <span className="ml-auto">
+              <span className="ml-auto flex items-center gap-2">
+                <ShareCard title={shareTitle} markdown={docValue} stats={shareStats} />
                 <Toolbar
                   canSave
                   sourceKind="mdpkg"
@@ -423,6 +464,8 @@ export default function App() {
       </main>
 
       <Gallery onLoadExample={openFileObject} />
+
+      {toast && <BadgeToast text={toast.text} rarity={toast.rarity} onDismiss={dismiss} />}
     </div>
   );
 }
