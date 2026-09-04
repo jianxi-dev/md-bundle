@@ -89,3 +89,11 @@ Vercel Dashboard → 项目 → Deployments → 选择上一个成功的部署 �
 - 凭证阻塞：本机无 vercel CLI 登录态，实际部署与域名绑定需用户执行上述命令。
 - 证据：`apps/web/test-results/smoke-prod-local.json`（本地 preview 冒烟事实；
   生产目标待部署后运行）。
+## GitHub Pages（当前生产态，2026-09 已上线验证）
+
+Vercel 账号登录受阻期间，经确认改用 GitHub Pages 作为生产托管（决策 #1 的授权偏差，域名/SEO 目标不变）：
+
+- 站点：https://jianxi-dev.github.io/md-bundle/ （构建产物 `apps/web/dist`，`pages.yml` workflow 自动发布）
+- 生产冒烟：`node apps/web/scripts/ghpages-smoke.mjs` → `apps/web/test-results/ghpages-smoke.json`（三页 200 + 示例包打开，0 pageerror）
+- 绑定 `bundle.jianxi.me`：阿里云 DNS 加 CNAME `bundle.jianxi.me → jianxi-dev.github.io` → Pages → Custom domain 添加 `bundle.jianxi.me`（等待校验）→ 冒烟重跑 `TARGET_URL=https://bundle.jianxi.me pnpm --filter @md-bundle/web test:e2e --grep=production`
+- 回退 Vercel：`vercel login` 可用后按上文 Vercel 章节部署即可（路径无关构建，两种托管通用）

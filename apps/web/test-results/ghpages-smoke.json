@@ -1,0 +1,10 @@
+{
+  "tasks": "7.1-ghpages",
+  "base": "https://jianxi-dev.github.io/md-bundle",
+  "index200": true,
+  "spec200": true,
+  "about200": true,
+  "exampleOpens": true,
+  "pageerrors": 0,
+  "consoleErrors": []
+}
