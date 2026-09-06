@@ -18,6 +18,10 @@ export interface MarkdownEditorOptions {
   extensions?: Extension[];
   /** Fired whenever the document changes, with the full new value. */
   onChange?: (value: string) => void;
+  /** Decoration extension managed via a Compartment. Reconfigure with setDecorationsEnabled. */
+  decorations?: Extension;
+  /** Initial state of the decorations compartment. Defaults to `true`. */
+  decorationsEnabled?: boolean;
 }
 
 export interface MarkdownEditorHandle {
@@ -27,6 +31,8 @@ export interface MarkdownEditorHandle {
   setValue(value: string): void;
   /** Reconfigure the theme compartment in place. */
   setTheme(theme: ThemeName): void;
+  /** Toggle the decorations compartment on/off without remounting. */
+  setDecorationsEnabled(enabled: boolean): void;
   destroy(): void;
 }
 
@@ -52,8 +58,16 @@ export function createMarkdownEditor(
   parent: HTMLElement,
   options: MarkdownEditorOptions = {},
 ): MarkdownEditorHandle {
-  const { value, theme = 'dark', extensions = [], onChange } = options;
+  const {
+    value,
+    theme = 'dark',
+    extensions = [],
+    onChange,
+    decorations,
+    decorationsEnabled = true,
+  } = options;
   const themeCompartment = new Compartment();
+  const decorationsCompartment = new Compartment();
 
   const view = new EditorView({
     parent,
@@ -65,6 +79,7 @@ export function createMarkdownEditor(
         markdown(),
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         themeCompartment.of(createTheme(theme)),
+        decorationsCompartment.of(decorationsEnabled && decorations ? decorations : []),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onChange?.(update.state.doc.toString());
         }),
@@ -88,6 +103,13 @@ export function createMarkdownEditor(
     setTheme(next: ThemeName): void {
       view.dispatch({
         effects: themeCompartment.reconfigure(createTheme(next)),
+      });
+    },
+    setDecorationsEnabled(enabled: boolean): void {
+      view.dispatch({
+        effects: decorationsCompartment.reconfigure(
+          enabled && decorations ? decorations : [],
+        ),
       });
     },
     destroy(): void {

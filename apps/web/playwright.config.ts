@@ -4,11 +4,12 @@ export default defineConfig({
   testDir: './test',
   // Vitest owns *.test.ts (mdpkg/openFile/validation) — Playwright only runs *.spec.ts.
   testMatch: /.*\.spec\.ts/,
-  outputDir: './test-results',
+  // 产物（trace/video/error-context）落在子目录，避免清空 test-results/ 根下提交的 QA 证据。
+  outputDir: './test-results/playwright',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? [['list'], ['json', { outputFile: 'test-results/e2e.json' }]] : 'list',
+  reporter: process.env.CI ? [['list'], ['json', { outputFile: 'test-results/playwright/e2e.json' }]] : 'list',
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',

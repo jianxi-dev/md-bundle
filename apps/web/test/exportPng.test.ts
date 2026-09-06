@@ -1,7 +1,7 @@
-// PNG 导出单元测试 —— node 环境。浏览器 API（canvas/Image/DOM 测量）全部注入 fake，
+// PNG 导出单元测试 —— jsdom 环境（DOMPurify 需要 window）。
+// 浏览器 API（canvas/Image/DOM 测量）全部注入 fake，
 // 验证：XML 转义、foreignObject 结构、PNG 签名/尺寸解析、栅格化调用参数、
 // 空文档拒绝、全流程（DI）产出有效 PNG。
-// @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import {
   svgFromHtml,
@@ -16,6 +16,15 @@ import { parsePngSize } from '../src/lib/pngMeta';
 const PNG_1_B64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const PNG_1 = Buffer.from(PNG_1_B64, 'base64');
+
+function makeTestBlob(): Blob {
+  const blob = new Blob([PNG_1], { type: 'image/png' });
+  if (!blob.arrayBuffer) {
+    (blob as { arrayBuffer: () => Promise<ArrayBuffer> }).arrayBuffer = async () =>
+      PNG_1.buffer.slice(PNG_1.byteOffset, PNG_1.byteOffset + PNG_1.byteLength) as ArrayBuffer;
+  }
+  return blob;
+}
 
 /** fake Image：src 一赋值立即同步触发 onload（无真实图片加载）。 */
 function makeFakeImage(): HTMLImageElement {
@@ -84,7 +93,6 @@ describe('svgFromHtml', () => {
     expect(svg).toContain('<meta charset="utf-8"/>');
     expect(svg).toContain('<img src="data:image/png;base64,AAA"/>');
     expect(svg).toContain('<hr/>');
-    // 标记原样保留（不是转义成文本 —— 转义会把源码当正文渲染）
     expect(svg).toContain('<p>hi</p>');
     expect(svg).toContain('<style>p{color:red}</style>');
     expect(svg).not.toContain('&lt;');
@@ -93,6 +101,20 @@ describe('svgFromHtml', () => {
   it('leaves already self-closed void elements untouched', () => {
     const svg = svgFromHtml('<img src="x.png"/>', { width: 10, height: 10 });
     expect(svg).toContain('<img src="x.png"/>');
+  });
+
+  it('adds =" to valueless attributes for XML well-formedness', () => {
+    const svg = svgFromHtml(
+      '<p>hi</p><img src="a.png" alt="pic" data-zoomable><details open><summary>s</summary></details>',
+      { width: 10, height: 10 },
+    );
+    // valueless data-zoomable must become data-zoomable="" for XML
+    expect(svg).toContain('data-zoomable=""');
+    // already-valued attributes unchanged
+    expect(svg).toContain('src="a.png"');
+    expect(svg).toContain('alt="pic"');
+    // self-closed img
+    expect(svg).toContain('<img src="a.png" alt="pic" data-zoomable=""/>');
   });
 });
 
@@ -129,7 +151,7 @@ describe('parsePngSize', () => {
 describe('svgToPngBlob (DI rasterizer)', () => {
   it('rasterizes at scale-2 dims: scale(2,2) + drawImage + toBlob(image/png)', async () => {
     const { canvas, drawImage, scale, fillRect, toBlob } = makeFakeCanvas(
-      new Blob([PNG_1], { type: 'image/png' }),
+      makeTestBlob(),
     );
     const blob = await svgToPngBlob(svgFromHtml('<p>x</p>', { width: 100, height: 50 }), {
       createCanvas: (w, h) => {
@@ -156,7 +178,7 @@ describe('svgToPngBlob (DI rasterizer)', () => {
 
   it('fills the canvas with the theme background when provided', async () => {
     const { canvas, fillRect } = makeFakeCanvas(
-      new Blob([PNG_1], { type: 'image/png' }),
+      makeTestBlob(),
     );
     await svgToPngBlob(svgFromHtml('<p>x</p>', { width: 100, height: 50 }), {
       background: '#0d1117',
@@ -212,7 +234,7 @@ describe('exportPngFromMarkdown', () => {
 
   it('rasterizes content via DI into a valid PNG blob (canvas = width * scale)', async () => {
     const { canvas, drawImage, scale } = makeFakeCanvas(
-      new Blob([PNG_1], { type: 'image/png' }),
+      makeTestBlob(),
     );
     const blob = await exportPngFromMarkdown({
       markdown: '# 标题\n\n正文内容',
@@ -252,7 +274,7 @@ describe('exportPngFromMarkdown', () => {
       onload: null,
       onerror: null,
     } as unknown as HTMLImageElement;
-    const { canvas } = makeFakeCanvas(new Blob([PNG_1], { type: 'image/png' }));
+    const { canvas } = makeFakeCanvas(makeTestBlob());
 
     await exportPngFromMarkdown({
       markdown: '# 标题\n\n正文内容',
@@ -267,7 +289,6 @@ describe('exportPngFromMarkdown', () => {
       makeImage: () => capturingImage,
     });
 
-    // PNG 级文本断言不可行 —— 字符串级（SVG 文档）是接缝：徽标 + 锚点 + ref 都在。
     expect(capturedSvg).toContain(bylineCornerBadgeHtml());
     expect(capturedSvg).toContain('<body style="position:relative">');
     expect(capturedSvg).toContain('?ref=md-png');

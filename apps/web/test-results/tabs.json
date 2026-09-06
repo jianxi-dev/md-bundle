@@ -1,0 +1,13 @@
+{
+  "tests": 17,
+  "addReturnsId": true,
+  "openNeverReplace": true,
+  "twoTabsContentIndependent": true,
+  "noLimit": true,
+  "closeUniqueReturnsEmpty": true,
+  "activeSwitch": true,
+  "updateSource": true,
+  "updateDirty": true,
+  "removeNonexistentNoop": true,
+  "setActiveNonexistentNoop": true
+}

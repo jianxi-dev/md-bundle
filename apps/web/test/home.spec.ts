@@ -1,5 +1,5 @@
-// 首页 e2e（任务 5.1）：hero（宣传语/Logo/宣传图）+ 官方示例 gallery 一键载入 + 宣传图 fallback。
-// 证据：test-results/home.png（hero 截图）+ home.json（任务验收字段）。
+// 首页 e2e（任务 5.1 更新）：Landing 落地页全页体验 + 精选作品卡片一键载入。
+// 证据：test-results/home.png（Landing 首屏截图）+ home.json（任务验收字段）。
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,74 +8,61 @@ import { expect, test } from '@playwright/test';
 const here = dirname(fileURLToPath(import.meta.url));
 const RES = join(here, '..', 'test-results');
 
-test.use({ viewport: { width: 1280, height: 800 } });
+test.use({ viewport: { width: 1280, height: 900 } });
 
-// 串行：证据聚合依赖前序测试结果（同 export-png.e2e.spec.ts 模式）。
 test.describe.configure({ mode: 'serial' });
 
 const evidence = {
-  tasks: '5.1',
-  taglines: false,
-  logo: false,
-  promo: false,
-  fallbackWorks: false,
-  galleryLoads: false,
+  tasks: '5.1/2.6',
+  nav: false,
+  heroSlogan: false,
+  formatLine: false,
+  featuredCards: false,
+  clickLoadsEditor: false,
 };
 
-test('hero renders taglines, logo and promo graphic', async ({ page }) => {
+test('landing renders nav, hero slogan and format line', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '分享 Markdown，不再裂图。' })).toBeVisible();
-  await expect(page.getByText('一个文件，带走全部图文。')).toBeVisible();
-  await expect(page.getByTestId('logo')).toBeVisible();
-  await expect(page.getByTestId('promo')).toBeVisible();
-  await expect(page.getByRole('link', { name: '立即开始' })).toHaveAttribute('href', '#workspace');
-  evidence.taglines = true;
-  evidence.logo = true;
-  evidence.promo = true;
 
-  await page.screenshot({ path: join(RES, 'home.png'), clip: { x: 0, y: 0, width: 1280, height: 800 } });
+  // 细导航
+  await expect(page.locator('[data-testid="landing-nav"]')).toBeVisible();
+  await expect(page.locator('[data-testid="landing-nav"]').getByText('MD-Bundle（本兜）')).toBeVisible();
+  evidence.nav = true;
+
+  // 双行 slogan
+  const slogan = page.locator('[data-testid="hero-slogan"]');
+  await expect(slogan).toBeVisible();
+  await expect(slogan).toContainText('Markdown');
+  await expect(slogan).toContainText('不再裂图');
+  evidence.heroSlogan = true;
+
+  // 格式范围标注行
+  const formatLine = page.locator('[data-testid="format-line"]');
+  await expect(formatLine).toBeVisible();
+  await expect(formatLine).toContainText('.md');
+  await expect(formatLine).toContainText('.mdpkg');
+  evidence.formatLine = true;
+
+  await page.screenshot({ path: join(RES, 'home.png'), clip: { x: 0, y: 0, width: 1280, height: 900 } });
 });
 
-test('gallery loads official examples into the workspace in one click', async ({ page }) => {
+test('landing shows three featured cards and clicking loads editor', async ({ page }) => {
   const pageErrors: string[] = [];
   page.on('pageerror', (e) => pageErrors.push(String(e)));
 
   await page.goto('/');
-  await expect(page.getByTestId('gallery')).toBeVisible();
-  await expect(page.getByRole('heading', { name: '官方示例' })).toBeVisible();
 
-  // .mdpkg 示例 → sandbox iframe 完整预览
-  await page.getByTestId('example-mdpkg-demo').click();
-  await expect(page.getByTestId('mdpkg-frame')).toBeVisible();
-  await expect(page.getByTestId('validation-pass')).toBeVisible();
+  // 精选作品：3 张卡片
+  const cards = page.locator('[data-testid^="featured-card-"]');
+  await expect(cards).toHaveCount(3);
+  evidence.featuredCards = true;
 
-  // .md 示例 → 编辑器 + 实时预览
-  await page.getByTestId('example-hello-md').click();
-  await expect(page.locator('.cm-editor')).toBeVisible();
-  await expect(page.locator('.markdown-body h1').first()).toHaveText('Hello，MD-Bundle');
-  await expect(page.getByTestId('mdpkg-frame')).toHaveCount(0);
+  // 点击卡片 1 → 载入编辑器
+  await page.locator('[data-testid="featured-card-1"]').click();
+  await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 10000 });
 
   expect(pageErrors).toEqual([]);
-  evidence.galleryLoads = true;
-});
-
-test('promo fallback: missing src keeps hero text and layout intact', async ({ page }) => {
-  await page.goto('/');
-  const h1 = page.getByRole('heading', { name: '分享 Markdown，不再裂图。' });
-  await expect(h1).toBeVisible();
-
-  await page.locator('img[data-testid="promo"]').evaluate((el) => el.removeAttribute('src'));
-
-  await expect(h1).toBeVisible();
-  const h1Box = await h1.boundingBox();
-  expect(h1Box).not.toBeNull();
-  expect(h1Box!.height).toBeGreaterThan(0);
-
-  // 宣传图容器高度不塌陷（布局保持）
-  const wrapBox = await page.getByTestId('promo-wrap').boundingBox();
-  expect(wrapBox).not.toBeNull();
-  expect(wrapBox!.height).toBeGreaterThan(100);
-  evidence.fallbackWorks = true;
+  evidence.clickLoadsEditor = true;
 });
 
 test.afterAll(async () => {

@@ -35,8 +35,8 @@ const facts = {
 const openMd = async (page: Page, name = 'hello.md') => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, name));
-  await expect(page.locator('.cm-editor')).toBeVisible();
-  await expect(page.locator('.cm-content')).toContainText('Hello');
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
+  await expect(page.locator('.cm-content').first()).toContainText('Hello');
 };
 
 const clickExport = async (page: Page, format: string) => {
@@ -44,9 +44,11 @@ const clickExport = async (page: Page, format: string) => {
   await page.getByTestId(`export-${format}`).click();
 };
 
-test('空态：分享按钮禁用（canShare false）', async ({ page }) => {
+test('空态：无顶栏（Landing 全页），有文档后分享按钮可用', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByTestId('share-card-btn')).toBeDisabled();
+  await expect(page.getByTestId('share-card-btn')).toHaveCount(0);
+  await openMd(page);
+  await expect(page.getByTestId('share-card-btn')).toBeVisible();
   facts.shareDisabledEmpty = true;
 });
 
@@ -73,7 +75,7 @@ test('打开 hello.md → first-open toast；reload 持久化；再次打开不�
 
   // 再次打开同一文件 → first-open 已解锁 → 空结果 → 无新 toast
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
-  await expect(page.locator('.cm-editor')).toBeVisible();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
   await page.waitForTimeout(300);
   await expect(page.getByTestId('badge-toast')).toHaveCount(0);
   facts.badgeNoRepeatToast = true;
@@ -90,12 +92,14 @@ test('分享：剪贴板授权 → 已复制到剪贴板', async ({ page, contex
 });
 
 test('分享：剪贴板拒绝 → 下载兜底 share-card.png（PNG 魔数 + byline）', async ({ page }) => {
-  // 确定性：stub 剪贴板写入为拒绝（headless 默认权限行为不可依赖）
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { write: async () => { throw new Error('denied'); } },
       configurable: true,
     });
+    delete (window as typeof window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    delete (window as typeof window & { showDirectoryPicker?: unknown }).showDirectoryPicker;
+    delete (window as typeof window & { showOpenFilePicker?: unknown }).showOpenFilePicker;
   });
   await openMd(page);
 
@@ -133,7 +137,18 @@ test('分享：剪贴板拒绝 → 下载兜底 share-card.png（PNG 魔数 + by
 });
 
 test('保存 .mdpkg（带图）→ first-pack toast', async ({ page }) => {
+  await page.addInitScript(() => {
+    delete (window as typeof window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    delete (window as typeof window & { showDirectoryPicker?: unknown }).showDirectoryPicker;
+    delete (window as typeof window & { showOpenFilePicker?: unknown }).showOpenFilePicker;
+  });
   await openMd(page);
+  const rail = page.getByTestId('left-rail');
+  if ((await rail.count()) === 0 || (await rail.isHidden())) {
+    await page.getByTestId('left-rail-toggle').click();
+  }
+  await expect(rail).toBeVisible();
+  await page.getByTestId('left-rail-tab-assets').click();
   await page.getByTestId('import-images-input').setInputFiles(join(IMGS, 'red.png'));
   await expect(page.getByTestId('asset-list')).toContainText('red.png');
 
@@ -151,6 +166,11 @@ test('保存 .mdpkg（带图）→ first-pack toast', async ({ page }) => {
 });
 
 test('导出 PNG → first-png toast', async ({ page }) => {
+  await page.addInitScript(() => {
+    delete (window as typeof window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    delete (window as typeof window & { showDirectoryPicker?: unknown }).showDirectoryPicker;
+    delete (window as typeof window & { showOpenFilePicker?: unknown }).showOpenFilePicker;
+  });
   await openMd(page);
   const [download] = await Promise.all([
     page.waitForEvent('download'),

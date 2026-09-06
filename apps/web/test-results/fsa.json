@@ -1,0 +1,20 @@
+{
+  "tests": 17,
+  "fsaAvailable": true,
+  "fsaMissingOpenPicker": true,
+  "fsaMissingSavePicker": true,
+  "fsaMissingDirPicker": true,
+  "grantSuccess": true,
+  "grantUnavailable": true,
+  "grantCancelled": true,
+  "grantDenied": true,
+  "reGrantGranted": true,
+  "reGrantDenied": true,
+  "reGrantPrompt": true,
+  "reGrantCancelled": true,
+  "persistRoundTrip": true,
+  "loadEmpty": true,
+  "clearWorkspace": true,
+  "persistFailed": true,
+  "loadFailed": true
+}

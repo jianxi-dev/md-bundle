@@ -1,0 +1,9 @@
+{
+  "openMd": true,
+  "openMdpkg": true,
+  "replaceMd": true,
+  "imageImport": true,
+  "noDocHint": true,
+  "noDocNoPollute": true,
+  "noOverlay": true
+}

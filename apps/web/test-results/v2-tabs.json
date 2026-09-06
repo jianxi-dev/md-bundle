@@ -1,0 +1,10 @@
+{
+  "tasks": "4.1",
+  "openOneTab": true,
+  "openTwoTabs": true,
+  "switchTabContent": true,
+  "closeTab": true,
+  "closeLastReturnsLanding": true,
+  "exampleNewTab": true,
+  "contentIndependent": true
+}

@@ -1,0 +1,9 @@
+{
+  "tasks": "2.7",
+  "narrowPreviewDefault": true,
+  "railDrawer": true,
+  "outlineNoOverlap": true,
+  "moreMenu": true,
+  "noOverflow": true,
+  "desktopRegression": true
+}

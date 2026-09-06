@@ -1,0 +1,10 @@
+{
+  "tests": 7,
+  "roundTrip": true,
+  "emptyRestore": true,
+  "quotaExceededDegrades": true,
+  "corruptDataFallback": true,
+  "recentEntryCreated": true,
+  "maxRecentLimit": true,
+  "sanitizeSkipsBadEntries": true
+}

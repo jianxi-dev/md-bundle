@@ -56,17 +56,14 @@ test.describe('production smoke', () => {
     facts.aboutBody = true;
   });
 
-  test('example: gallery opens mdpkg example package', async ({ page }) => {
+  test('example: featured card opens md example in editor', async ({ page }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (e) => pageErrors.push(String(e)));
 
     await page.goto(`${base}/`);
-    await expect(page.getByTestId('gallery')).toBeVisible();
-    // gallery 内 fetch 用相对 URL（/examples/mdpkg-demo.mdpkg）——与页面同源，
-    // 生产环境原样可用，无需 rewrite。
-    await page.getByTestId('example-mdpkg-demo').click();
-    await expect(page.getByTestId('mdpkg-frame')).toBeVisible();
-    await expect(page.getByTestId('validation-pass')).toBeVisible();
+    await expect(page.locator('[data-testid="featured-section"]')).toBeVisible();
+    await page.locator('[data-testid="featured-card-1"]').click();
+    await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 10000 });
     expect(pageErrors).toEqual([]);
 
     await page.screenshot({ path: join(RES, 'smoke-prod.png'), fullPage: true });

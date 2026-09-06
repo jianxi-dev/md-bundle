@@ -17,19 +17,46 @@ const RES = join(here, '..', 'test-results');
 const openMd = async (page: Page) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
-  await expect(page.locator('.cm-editor')).toBeVisible();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
   // Editor mounts empty; the value prop syncs in a later effect — wait for content
   // so `before` snapshots aren't captured mid-load (race surfaced by hero banner).
-  await expect(page.locator('.cm-content')).toContainText('Hello');
+  await expect(page.locator('.cm-content').first()).toContainText('Hello');
 };
 
-const docText = (page: Page) => page.locator('.cm-content').innerText();
+// 展开左栏 + 切到资源页签（asset-list 仅在 LeftRail 展开且资源 tab 激活时可见）
+const openAssetsPanel = async (page: Page) => {
+  const rail = page.getByTestId('left-rail');
+  if ((await rail.count()) === 0 || (await rail.isHidden())) {
+    await page.getByTestId('left-rail-toggle').click();
+  }
+  await expect(rail).toBeVisible();
+  await page.getByTestId('left-rail-tab-assets').click();
+};
+
+// Switch to source mode (decorations off) to read raw markdown text,
+// since edit mode now renders widget decorations that replace raw text.
+const docText = async (page: Page): Promise<string> => {
+  const modeSourceBtn = page.getByTestId('mode-source-btn');
+  if (await modeSourceBtn.isVisible()) {
+    await modeSourceBtn.click();
+    await expect(page.locator('.cm-content').first()).toBeVisible();
+  }
+  const text = await page.locator('.cm-content').first().innerText();
+  // Switch back to edit mode for subsequent operations
+  const modeEditBtn = page.getByTestId('mode-edit-btn');
+  if (await modeEditBtn.isVisible()) {
+    await modeEditBtn.click();
+    await expect(page.locator('.cm-content').first()).toBeVisible();
+  }
+  return text;
+};
 
 const count = (text: string, needle: string): number =>
   (text.match(new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) ?? []).length;
 
 test('batch select: import + auto-wire + dedupe + sidebar', async ({ page }) => {
   await openMd(page);
+  await openAssetsPanel(page);
 
   // 批量选择 red.png + green.png
   await page.getByTestId('import-images-input').setInputFiles([
@@ -60,13 +87,14 @@ test('batch select: import + auto-wire + dedupe + sidebar', async ({ page }) => 
 
 test('paste image onto editor → reference at cursor + sidebar entry', async ({ page }) => {
   await openMd(page);
+  await openAssetsPanel(page);
   const b64 = readFileSync(join(IMGS, 'shot.png')).toString('base64');
 
   await page.evaluate((base64) => {
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const dt = new DataTransfer();
     dt.items.add(new File([bytes], 'shot.png', { type: 'image/png' }));
-    const el = document.querySelector('.mdb-editor-area');
+    const el = document.querySelector('[data-testid="workspace-modes"]');
     if (!el) throw new Error('editor area not found');
     el.dispatchEvent(
       new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
@@ -81,12 +109,13 @@ test('paste image onto editor → reference at cursor + sidebar entry', async ({
 
 test('text paste → editor untouched, no asset added', async ({ page }) => {
   await openMd(page);
+  await openAssetsPanel(page);
   const before = await docText(page);
 
   await page.evaluate(() => {
     const dt = new DataTransfer();
     dt.items.add(new File(['plain text'], 'note.txt', { type: 'text/plain' }));
-    const el = document.querySelector('.mdb-editor-area');
+    const el = document.querySelector('[data-testid="workspace-modes"]');
     if (!el) throw new Error('editor area not found');
     el.dispatchEvent(
       new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),

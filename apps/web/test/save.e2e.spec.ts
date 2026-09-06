@@ -30,7 +30,16 @@ const facts = {
 const openMd = async (page: Page, name = 'hello.md') => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, name));
-  await expect(page.locator('.cm-editor')).toBeVisible();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
+};
+
+const openAssetsPanel = async (page: Page) => {
+  const rail = page.getByTestId('left-rail');
+  if ((await rail.count()) === 0 || (await rail.isHidden())) {
+    await page.getByTestId('left-rail-toggle').click();
+  }
+  await expect(rail).toBeVisible();
+  await page.getByTestId('left-rail-tab-assets').click();
 };
 
 const clickExport = async (page: Page, format: string) => {
@@ -39,7 +48,15 @@ const clickExport = async (page: Page, format: string) => {
 };
 
 test('hello.md + 导入图片 → 保存 → .mdpkg 下载（PK 魔数）', async ({ page }) => {
+  // Mock FSA unavailable to force download fallback (save-as path triggers native picker, not download)
+  await page.addInitScript(() => {
+    // @ts-expect-error - remove FSA APIs to force download path
+    delete (window as typeof window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    delete (window as typeof window & { showDirectoryPicker?: unknown }).showDirectoryPicker;
+    delete (window as typeof window & { showOpenFilePicker?: unknown }).showOpenFilePicker;
+  });
   await openMd(page);
+  await openAssetsPanel(page);
   await page.getByTestId('import-images-input').setInputFiles(join(IMGS, 'red.png'));
   await expect(page.getByTestId('asset-list')).toContainText('red.png');
 
@@ -57,13 +74,18 @@ test('hello.md + 导入图片 → 保存 → .mdpkg 下载（PK 魔数）', asyn
 });
 
 test('无图 .md → 保存 → .md 下载（内容一致）', async ({ page }) => {
+  await page.addInitScript(() => {
+    delete (window as typeof window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    delete (window as typeof window & { showDirectoryPicker?: unknown }).showDirectoryPicker;
+    delete (window as typeof window & { showOpenFilePicker?: unknown }).showOpenFilePicker;
+  });
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles({
     name: 'plain.md',
     mimeType: 'text/markdown',
     buffer: Buffer.from('# Plain\n\nNo images here.\n'),
   });
-  await expect(page.locator('.cm-editor')).toBeVisible();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -78,9 +100,14 @@ test('无图 .md → 保存 → .md 下载（内容一致）', async ({ page }) 
 });
 
 test('invalid-manifest.mdpkg → 保存 → 重打包 .mdpkg（PK 魔数）', async ({ page }) => {
+  await page.addInitScript(() => {
+    delete (window as typeof window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    delete (window as typeof window & { showDirectoryPicker?: unknown }).showDirectoryPicker;
+    delete (window as typeof window & { showOpenFilePicker?: unknown }).showOpenFilePicker;
+  });
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'invalid-manifest.mdpkg'));
-  await expect(page.getByTestId('mdpkg-frame')).toBeVisible();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -135,7 +162,7 @@ test('空文档导出 PNG → 内联错误提示（role=status），无下载', 
     mimeType: 'text/markdown',
     buffer: Buffer.from(''),
   });
-  await expect(page.locator('.cm-editor')).toBeVisible();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   let downloads = 0;
   page.on('download', () => {

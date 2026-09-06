@@ -1,6 +1,6 @@
 // mdpkg 打开集成 e2e（任务 2.4）：ValidationPanel 接线 + 四类 fixture 覆盖。
-//   - valid.mdpkg → iframe 渲染 + validation-pass（通过态）
-//   - invalid-manifest.mdpkg → validation-fail + validation-errors ≥1 li（E302），iframe 仍渲染
+//   - valid.mdpkg → edit 模式 + validation-pass（通过态）
+//   - invalid-manifest.mdpkg → validation-fail + validation-errors ≥1 li（E302），editor 仍渲染
 //   - corrupted.zip → error alert，无 validation panel，无白屏
 //   - not-mdpkg.bin（改名 .mdpkg）→ error alert
 import { readFileSync } from 'node:fs';
@@ -15,9 +15,8 @@ const read = (name: string) => readFileSync(join(FIX, name));
 
 const fileInput = (page: Page) => page.getByTestId('file-input');
 const errorAlert = (page: Page) => page.getByRole('alert');
-const frame = (page: Page) => page.frameLocator('iframe[data-testid="mdpkg-frame"]');
 
-test('valid.mdpkg → validation-pass panel + iframe preview, no pageerror', async ({ page }) => {
+test('valid.mdpkg → validation-pass panel + edit mode, no pageerror', async ({ page }) => {
   const pageErrors: string[] = [];
   page.on('pageerror', (e) => pageErrors.push(String(e)));
 
@@ -29,13 +28,13 @@ test('valid.mdpkg → validation-pass panel + iframe preview, no pageerror', asy
   await expect(panel).toBeVisible();
   await expect(panel).toContainText('通过');
 
-  await expect(frame(page).locator('h1').first()).toBeVisible();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
   expect(pageErrors).toEqual([]);
 
   await page.screenshot({ path: join(RES, 'integration-valid.png'), fullPage: false });
 });
 
-test('invalid-manifest.mdpkg → validation-fail + errors list, iframe still renders, no pageerror', async ({
+test('invalid-manifest.mdpkg → validation-fail + errors list, editor still renders, no pageerror', async ({
   page,
 }) => {
   const pageErrors: string[] = [];
@@ -53,8 +52,7 @@ test('invalid-manifest.mdpkg → validation-fail + errors list, iframe still ren
   await expect(errors.locator('li').first()).toBeVisible();
   await expect(errors.locator('li').first()).toContainText('MDPKG-E302');
 
-  // 校验错误不阻塞渲染：iframe 预览区仍在（无白屏）
-  await expect(frame(page).locator('h1').first()).toBeVisible();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
   expect(pageErrors).toEqual([]);
 
   await page.screenshot({ path: join(RES, 'integration-invalid.png'), fullPage: false });

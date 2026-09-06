@@ -1,0 +1,10 @@
+{"type":"session_rebound","value":{"reason":"startup"},"at":"2026-09-06T00:36:59.972Z"}
+{"type":"session_waiting_for_load","value":{"reason":"startup"},"at":"2026-09-06T00:36:59.981Z"}
+{"type":"model_switch","value":{"from":"codebuddy/hy4-preview","to":"codebuddy/hy3","reason":"manual","at":"2026-09-06T13:26:34.039Z","source":"set"},"at":"2026-09-06T13:26:34.039Z"}
+{"type":"state","value":{"goal":null,"list":[],"loop":null,"mainModelRecovery":null,"lastModelRef":"codebuddy/hy3","lastCompactionAt":null,"supervisorPausedAt":null,"loadHoldAt":null,"lastOutcome":null},"at":"2026-09-06T13:26:34.043Z"}
+{"type":"session_shutdown","value":{"reason":"quit"},"at":"2026-09-06T13:49:30.191Z"}
+{"type":"session_rebound","value":{"reason":"startup"},"at":"2026-09-06T13:54:57.939Z"}
+{"type":"id_invalidation","value":{"oldId":"01a07425-8e2d-7be2-8a41-856754a8583a","newId":"01a07700-2489-77b5-8c21-b6445aa8d640","reason":"session_shutdown","shutdownReason":"quit","at":"2026-09-06T13:54:57.951Z"},"at":"2026-09-06T13:54:57.951Z"}
+{"type":"session_waiting_for_load","value":{"reason":"startup"},"at":"2026-09-06T13:54:57.951Z"}
+{"type":"model_switch","value":{"from":"codebuddy/hy4-preview","to":"codebuddy/hy3","reason":"manual","at":"2026-09-06T14:18:04.568Z","source":"set"},"at":"2026-09-06T14:18:04.568Z"}
+{"type":"state","value":{"goal":null,"list":[],"loop":null,"mainModelRecovery":null,"lastModelRef":"codebuddy/hy3","lastCompactionAt":null,"supervisorPausedAt":null,"loadHoldAt":null,"lastOutcome":null},"at":"2026-09-06T14:18:04.569Z"}

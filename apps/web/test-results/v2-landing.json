@@ -1,0 +1,12 @@
+{
+  "tasks": "2.6",
+  "nav": true,
+  "heroSlogan": true,
+  "formatLine": true,
+  "visual": true,
+  "cta": true,
+  "valueBadges": true,
+  "featuredCards": 3,
+  "renderThumb": true,
+  "clickLoads": true
+}

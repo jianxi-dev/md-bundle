@@ -1,8 +1,8 @@
 {
-  "tasks": "5.1",
-  "taglines": true,
-  "logo": true,
-  "promo": true,
-  "fallbackWorks": true,
-  "galleryLoads": true
+  "tasks": "5.1/2.6",
+  "nav": true,
+  "heroSlogan": true,
+  "formatLine": true,
+  "featuredCards": true,
+  "clickLoadsEditor": true
 }

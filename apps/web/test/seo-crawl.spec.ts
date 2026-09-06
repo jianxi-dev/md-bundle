@@ -76,9 +76,7 @@ test('dist crawl: index/spec/about 静态可爬 + canonical + meta + JSON-LD', (
 
 test('browser: 3 页渲染 + canonical/meta + robots/sitemap 可抓取', async ({ page }) => {
   await page.goto('/');
-  await expect(
-    page.getByRole('heading', { name: '分享 Markdown，不再裂图。' }),
-  ).toBeVisible();
+  await expect(page.locator('[data-testid="hero-slogan"]')).toContainText('Markdown');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     'href',
     `${DOMAIN}/`,
@@ -147,9 +145,7 @@ test('og-banner.png served by dev server, parses 1200x630 in-page', async ({
 
 test('screenshots: 3 页 fullPage', async ({ page }) => {
   await page.goto('/');
-  await expect(
-    page.getByRole('heading', { name: '分享 Markdown，不再裂图。' }),
-  ).toBeVisible();
+  await expect(page.locator('[data-testid="hero-slogan"]')).toContainText('Markdown');
   await page.screenshot({ path: join(RES, 'seo-index.png'), fullPage: true });
 
   await page.goto('/spec');

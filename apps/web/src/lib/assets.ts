@@ -115,3 +115,18 @@ export function stripReferences(markdown: string, name: string): string {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return markdown.replace(new RegExp(`!\\[[^\\]]*\\]\\((\\.\\/)?${escaped}\\)`, 'g'), '');
 }
+
+/**
+ * 计算孤儿资产：导入未引用 / mdpkg 包内未引用。
+ * 返回孤儿 name 集合——正文（含 `![alt](name)`/`![alt](./name)`）未出现该资产名的图片。
+ * 口径与 findReference/wireReferences/stripReferences 一致。
+ */
+export function computeOrphans(assets: Asset[], documentText: string): Set<string> {
+  const orphans = new Set<string>();
+  for (const a of assets) {
+    if (!findReference(documentText, a.name)) {
+      orphans.add(a.name);
+    }
+  }
+  return orphans;
+}

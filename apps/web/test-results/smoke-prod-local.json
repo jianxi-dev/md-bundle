@@ -1,6 +1,6 @@
 {
   "tasks": "7.1",
-  "target": "http://localhost:4174",
+  "target": "http://localhost:4173",
   "three200": true,
   "specBody": true,
   "aboutBody": true,

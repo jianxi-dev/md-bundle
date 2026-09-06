@@ -19,19 +19,66 @@ export interface SvgFromHtmlOptions {
 }
 
 /**
- * HTML 文档 → 良构 XHTML：去掉 `<!doctype html>`、void 元素补自闭合。
+ * HTML 文档 → 良构 XHTML：去掉 `<!doctype html>`、void 元素补自闭合、
+ * 无值属性补 `=""`（XML 要求所有属性都有值）。
  * SVG 以图片加载时整体按 XML 解析 —— foreignObject 内容必须是良构 XML，
  * 否则整图加载失败；转义成文本则会把源码当正文渲染（实测）。marked 输出
- * 的 `<img>`/`<hr>` 等 void 元素不自闭合，必须补 `/`。
+ * 的 `<img>`/`<hr>` 等 void 元素不自闭合，必须补 `/`；`data-zoomable` 等
+ * 无值属性在 HTML 合法但 XML 非法，必须补 `=""`。
  */
 const VOID_TAG =
   /<(img|br|hr|meta|input|link|source|wbr|area|base|col|embed|param|track)\b([^>]*)>/gi;
+
+/**
+ * Add `=""` to valueless (bare) attributes in a tag's attribute string.
+ * Walks character-by-character, skipping quoted values so words inside
+ * `"..."` or `'...'` are never touched.
+ */
+function fixBareAttrs(attrs: string): string {
+  let out = '';
+  let i = 0;
+  while (i < attrs.length) {
+    const ch = attrs[i]!;
+    if (ch === '"' || ch === "'") {
+      const q = ch;
+      out += q;
+      i++;
+      while (i < attrs.length && attrs[i] !== q) {
+        out += attrs[i];
+        i++;
+      }
+      if (i < attrs.length) { out += attrs[i]; i++; }
+    } else if (/[a-z]/.test(ch)) {
+      let word = '';
+      let j = i;
+      while (j < attrs.length && /[a-z0-9-]/.test(attrs[j]!)) {
+        word += attrs[j];
+        j++;
+      }
+      if (j < attrs.length && attrs[j] === '=') {
+        out += word;
+      } else {
+        out += `${word}=""`;
+      }
+      i = j;
+    } else {
+      out += ch;
+      i++;
+    }
+  }
+  return out;
+}
 
 export function toWellFormedXhtml(html: string): string {
   return html
     .replace(/<!doctype html>/i, '')
     .replace(VOID_TAG, (m, tag: string, attrs: string) =>
       attrs.trimEnd().endsWith('/') ? m : `<${tag}${attrs}/>`,
+    )
+    .replace(
+      /<([a-z][a-z0-9]*)\b([^>]*)(\/?)>/gi,
+      (_m, tag: string, attrs: string, slash: string) =>
+        `<${tag}${fixBareAttrs(attrs)}${slash}>`,
     );
 }
 
@@ -190,7 +237,7 @@ export async function exportPngFromMarkdown({
   makeImage,
 }: ExportPngOptions): Promise<Blob> {
   if (!markdown.trim()) throw new Error('文档为空，无法导出 PNG。');
-  const html = withCornerByline(buildHtmlDocument({ markdown, assets, title, theme }));
+  const html = withCornerByline(await buildHtmlDocument({ markdown, assets, title, theme }));
   const height = measureHeight(html, width);
   const svg = svgFromHtml(html, { width, height });
   return svgToPngBlob(svg, {

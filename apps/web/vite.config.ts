@@ -25,6 +25,9 @@ export default defineConfig({
         index: resolve(root, 'index.html'),
         spec: resolve(root, 'spec.html'),
         about: resolve(root, 'about.html'),
+        hello: resolve(root, 'examples/hello.html'),
+        guide: resolve(root, 'examples/guide.html'),
+        'mdpkg-demo': resolve(root, 'examples/mdpkg-demo.html'),
       },
     },
     // Vendored mdpkg bundle makes the js chunk big — pre-existing warning noise.

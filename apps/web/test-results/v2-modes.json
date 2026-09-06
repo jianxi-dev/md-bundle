@@ -1,0 +1,12 @@
+{
+  "tasks": "2.1+3.4",
+  "modeIconsExist": true,
+  "disabledGroupNoDoc": true,
+  "docEnabled": true,
+  "primaryButtonExists": true,
+  "decorEditOn": true,
+  "decorSourceOff": true,
+  "undoPreserved": true,
+  "imageImportWithDecor": true,
+  "slashCalloutCard": true
+}

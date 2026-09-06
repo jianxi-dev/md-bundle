@@ -1,0 +1,10 @@
+{
+  "cardShown": true,
+  "toneMapped": true,
+  "invalidFallsBack": true,
+  "titleDefaults": true,
+  "multiLine": true,
+  "sourceReplaced": true,
+  "selectionReveal": true,
+  "tests": 9
+}

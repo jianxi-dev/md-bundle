@@ -1,0 +1,16 @@
+{
+  "tasks": "2.4",
+  "leftRailToggle": true,
+  "leftRailTabs": true,
+  "leftRailAssetsTab": true,
+  "leftRailFilesEmptyState": true,
+  "leftRailOrphanBadge": true,
+  "outlineHover": true,
+  "outlinePinned": true,
+  "outlineEscClose": true,
+  "outlineEditScroll": true,
+  "outlineSourceScroll": true,
+  "outlinePreviewScroll": true,
+  "outlineCodeFence": true,
+  "outlineCurrentHighlight": true
+}

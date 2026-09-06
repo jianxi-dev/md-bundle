@@ -1,33 +1,29 @@
-// MD-Bundle 应用外壳（任务 2.2：文件打开；任务 2.4：接线 ValidationPanel；任务 3.1：图片导入 + 资源清单；
-// 任务 4.1：保存/导出工具栏 + .mdpkg 分支可编辑）。
-// 状态机：empty → md（源码+预览分栏+资源清单）| mdpkg（源码编辑 + sandbox iframe 参考预览 + 资源清单）| error。
-// 图片导入三通道（粘贴/拖拽/批量选择）只在 md 分支生效；.mdpkg 分支的资产来自包内图片条目（自动导入）。
-// 保存/导出作用于「当前源码 + 当前资产清单」；.mdpkg 重打包携带原 manifest（entrypoint 等继承）。
-// 任务 6.4：分享卡按钮（ShareCard）+ 徽章接线（useBadges/wireBadgeEvents）+ 解锁 toast（BadgeToast）。
+// MD-Bundle 应用外壳（任务 4.1：多页签文档模型）。
+// 状态机：tabs state（tabs[] + activeId）→ empty | md | mdpkg。
+// 打开文件 = 新增页签（永不静默替换）；关闭唯一页签 → 回 empty。
+// 图片导入/保存/导出作用于 activeTab；各 tab 内容独立。
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  MarkdownEditor,
-  MarkdownPreview,
-  slashKeymap,
-  type MarkdownEditorHandle,
-} from '@md-bundle/editor';
+import { MarkdownEditor, slashKeymap, editorDecorations, type MarkdownEditorHandle } from '@md-bundle/editor';
+import { PreviewView } from './components/PreviewView';
 import { FileOpen } from './components/FileOpen';
-import { Hero } from './components/Hero';
-import { Gallery } from './components/Gallery';
+import { Landing } from './components/Landing';
 import { ValidationPanel } from './components/ValidationPanel';
-import { AssetList } from './components/AssetList';
-import { Toolbar, type ExportFormat } from './components/Toolbar';
+import { LeftRail } from './components/LeftRail';
+import { OutlineMenu } from './components/OutlineMenu';
+import { Toolbar, type ExportFormat, type EditorMode } from './components/Toolbar';
+import { TabStrip } from './components/TabStrip';
 import { ShareCard } from './components/ShareCard';
 import { BadgeToast } from './components/BadgeToast';
-import { useDocument } from './lib/useDocument';
 import { useBadges, wireBadgeEvents } from './lib/useBadges';
+import { openFile } from './lib/openFile';
 import { readEntrySource } from './lib/mdpkg';
-import { saveDocument } from './lib/save';
+import { saveDocument, type SaveResult } from './lib/save';
 import { exportMdpkg } from './lib/exportMdpkg';
 import { exportMd } from './lib/export';
 import { buildHtmlDocument } from './lib/exportHtml';
 import { exportPngFromMarkdown } from './lib/exportPng';
 import { downloadBlob, downloadText } from './lib/download';
+import { shareCardAsImage } from './lib/shareCard';
 import { bytesToDataUrl } from './lib/dataUrl';
 import {
   MAX_ASSET_BYTES,
@@ -40,6 +36,15 @@ import {
   type Asset,
 } from './lib/assets';
 import { filesToAssets, imagesFromClipboard, imagesFromDataTransfer } from './lib/importImages';
+import {
+  createTabsState,
+  addTab,
+  removeTab,
+  updateTab,
+  setActiveTab,
+  getActiveTab,
+  type TabsState,
+} from './lib/tabs';
 
 /** 包内图片条目路径（资产名 = 完整路径，inlineImages 按名精确查找）。 */
 const IMAGE_PATH_RE = /\.(png|jpe?g|gif|webp)$/i;
@@ -71,20 +76,44 @@ function baseName(name: string): string {
 // 斜杠命令扩展：模块级单例（编辑器只在挂载时读取 extensions —— 稳定引用避免任何重挂载顾虑）。
 const SLASH_EXT = [slashKeymap()];
 
+/** 窄屏检测 hook（<768px）：matchMedia 监听，响应式断点切换。 */
+function useIsNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setNarrow(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return narrow;
+}
+
 export default function App() {
-  const { state, open, clear } = useDocument();
-  const [docValue, setDocValue] = useState('');
-  const [assets, setAssets] = useState<Asset[]>([]);
+  // ── 多页签状态（任务 4.1）──
+  const [tabsState, setTabsState] = useState<TabsState>(createTabsState);
+  const activeTab = getActiveTab(tabsState);
+
+  const [mode, setMode] = useState<EditorMode>('edit');
+  const isNarrow = useIsNarrow();
   const [importHint, setImportHint] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
-  // ref 镜像：事件处理器里读最新清单，避免闭包快照竞态（连续两次导入不互相覆盖）。
   const assetsRef = useRef<Asset[]>([]);
   const editorViewRef = useRef<MarkdownEditorHandle['view'] | null>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
   const exportErrorTimer = useRef<number | null>(null);
   const workspaceRef = useRef<HTMLElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
-  // 徽章接线（6.4）：store 跨渲染存活；成功信号 → 事件 → 解锁 toast。
+  const resolveImageRef = useRef<((path: string) => string | null) | null>(null);
+  const onImageReplaceRef = useRef<((path: string) => void) | null>(null);
+  const onImageDeleteRef = useRef<((path: string) => void) | null>(null);
+  const onImageLocateRef = useRef<((path: string) => void) | null>(null);
+
+  // 徽章接线（6.4）
   const { badgeStore, toast, dismiss, showToastFor } = useBadges();
   const wire = useMemo(
     () =>
@@ -97,12 +126,82 @@ export default function App() {
     [badgeStore, showToastFor],
   );
 
-  /**
-   * 程序化打开文件（FileOpen 与 Gallery 共用入口）：
-   * 交给 useDocument.open 走完整检测流程，并平滑滚动到工作区。
-   */
-  const openFileObject = (file: File) => {
-    void open(file);
+  // 装饰扩展——ref-stable callbacks
+  const DECORATIONS_EXT = useMemo(
+    () =>
+      editorDecorations({
+        resolveImage: (path: string) => resolveImageRef.current?.(path) ?? null,
+        onImageReplace: (path: string) => onImageReplaceRef.current?.(path),
+        onImageDelete: (path: string) => onImageDeleteRef.current?.(path),
+        onImageLocate: (path: string) => onImageLocateRef.current?.(path),
+      }),
+    [],
+  );
+
+  // ── activeTab 变化时同步 assetsRef + mode ──
+  useEffect(() => {
+    if (activeTab) {
+      assetsRef.current = activeTab.assets;
+      setMode(activeTab.mode);
+      setImportHint(null);
+      // 窄屏打开文档默认 preview 模式
+      if (isNarrow) {
+        setMode('preview');
+        setTabsState((s) => {
+          const tab = getActiveTab(s);
+          if (tab) return updateTab(s, tab.id, { mode: 'preview' });
+          return s;
+        });
+      }
+    }
+  }, [activeTab?.id, isNarrow]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 编辑器 onChange → 更新 activeTab.source ──
+  const handleEditorChange = (value: string) => {
+    if (!activeTab) return;
+    setTabsState((s) => updateTab(s, activeTab.id, { source: value, dirty: true }));
+  };
+
+  // ── 文件打开：解析 → 新增 tab ──
+  const openFileObject = async (file: File, diskHandle?: FileSystemFileHandle) => {
+    const outcome = await openFile(file);
+    switch (outcome.kind) {
+      case 'md': {
+        const r = addTab(tabsState, { kind: 'md', name: outcome.name, source: outcome.content, diskHandle });
+        setTabsState(r.state);
+        break;
+      }
+      case 'mdpkg': {
+        const pkg = outcome.result;
+        if ('files' in pkg && pkg.html !== null) {
+          const packageAssets = assetsFromPackageFiles(pkg.files);
+          const r = addTab(tabsState, {
+            kind: 'mdpkg',
+            name: outcome.name,
+            source: readEntrySource(pkg.files, pkg.manifest?.entrypoint),
+            assets: packageAssets,
+            mdpkgFiles: pkg.files,
+            manifest: pkg.manifest,
+            validation: pkg.validation,
+            diskHandle,
+          });
+          setTabsState(r.state);
+        } else {
+          const err = 'files' in pkg ? (pkg.error ?? '未知渲染错误') : pkg.error;
+          // 错误态：新增一个 error tab（source 存错误信息）
+          const r = addTab(tabsState, { kind: 'md', name: '错误', source: `错误：${err}`, diskHandle });
+          setTabsState(r.state);
+        }
+        break;
+      }
+      case 'error': {
+        const r = addTab(tabsState, { kind: 'md', name: '错误', source: `错误：${outcome.message}`, diskHandle });
+        setTabsState(r.state);
+        break;
+      }
+    }
+
+    // 平滑滚动到工作区
     const el = workspaceRef.current;
     if (el) {
       const top = el.getBoundingClientRect().top + window.scrollY;
@@ -110,54 +209,26 @@ export default function App() {
     }
   };
 
-  // 新文档打开时把内容灌进受控的源码 value（编辑时实时同步到预览）。
-  // md → 文件内容；mdpkg → 包内入口源码（readEntrySource，include 未展开），
-  // 资产自动导入（包内图片条目 → 资源清单，替换式覆盖）。
+  // 打开成功 → file-opened 徽章事件
   useEffect(() => {
-    if (state.status === 'md') {
-      setDocValue(state.content);
-      assetsRef.current = [];
-      setAssets([]);
-    } else if (state.status === 'mdpkg') {
-      try {
-        setDocValue(readEntrySource(state.files, state.manifest?.entrypoint));
-      } catch {
-        setDocValue('');
-      }
-      const packageAssets = assetsFromPackageFiles(state.files);
-      assetsRef.current = packageAssets;
-      setAssets(packageAssets);
-    }
-    setImportHint(null);
-  }, [state]);
-
-  // 打开成功（状态机进入 md/mdpkg）→ file-opened 徽章事件（重复打开不重复解锁，badges lib 去重）。
-  useEffect(() => {
-    if (state.status === 'md' || state.status === 'mdpkg') {
+    if (activeTab) {
       wire.onFileOpened();
     }
-  }, [state, wire]);
+  }, [activeTab?.id, wire]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onEditorMount = (handle: MarkdownEditorHandle) => {
     editorViewRef.current = handle.view;
   };
 
-  /**
-   * 图片入库 + 光标处插引用：
-   * - 文档里已有 `![alt](name.png)` / `![alt](./name.png)` 的文件 → 自动接线，不重复插入；
-   * - 其余文件 → 在光标处插入 `![name](name.png)`（与既有引用风格一致）。
-   */
+  // ── 图片导入 ──
   const insertImages = async (files: File[]) => {
-    if (files.length === 0) return;
+    if (files.length === 0 || !activeTab) return;
     const { assets: converted, skipped } = await filesToAssets(files);
     const view = editorViewRef.current;
-    const currentDoc = view ? view.state.doc.toString() : docValue;
-    const { assets: next, additions, skipped: skippedDup } = addAssets(
-      assetsRef.current,
-      converted,
-    );
+    const currentDoc = view ? view.state.doc.toString() : activeTab.source;
+    const { assets: next, additions, skipped: skippedDup } = addAssets(assetsRef.current, converted);
     assetsRef.current = next;
-    setAssets(next);
+    setTabsState((s) => updateTab(s, activeTab.id, { assets: next }));
 
     const wiredSet = new Set(wireReferences(currentDoc, additions).wired);
     const toInsert = additions.filter((n) => !wiredSet.has(n));
@@ -170,8 +241,10 @@ export default function App() {
           changes: { from: head, insert: insertText },
           selection: { anchor: head + insertText.length },
         });
+        // 同步 source 到 tab
+        setTabsState((s) => updateTab(s, activeTab.id, { source: view.state.doc.toString() }));
       } else {
-        setDocValue((v) => v + insertText);
+        setTabsState((s) => updateTab(s, activeTab.id, { source: currentDoc + insertText }));
       }
     }
 
@@ -181,7 +254,7 @@ export default function App() {
     }
   };
 
-  // 粘贴：只拦截图片；文本/其它粘贴原样放行（编辑器内容不受影响）。
+  // 粘贴：只拦截图片
   const onPaste = async (e: React.ClipboardEvent) => {
     const files = await imagesFromClipboard(e.clipboardData?.items);
     if (files.length === 0) return;
@@ -189,45 +262,85 @@ export default function App() {
     void insertImages(files);
   };
 
-  // 拖拽：图片 → 导入；其它（含 .md 文件）静默忽略。stopPropagation 防止冒泡到 FileOpen dropzone。
+  // 拖拽：图片 → 导入；.md/.mdpkg → 打开
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     void (async () => {
-      const files = await imagesFromDataTransfer(e.dataTransfer);
-      if (files.length > 0) void insertImages(files);
+      const dt = e.dataTransfer ?? (e.nativeEvent as DragEvent).dataTransfer;
+      const imageFiles = await imagesFromDataTransfer(dt);
+      if (imageFiles.length > 0) {
+        void insertImages(imageFiles);
+        return;
+      }
+      const rawFiles = dt?.files;
+      if (!rawFiles) return;
+      for (const f of Array.from(rawFiles)) {
+        const lower = f.name.toLowerCase();
+        if (lower.endsWith('.md') || lower.endsWith('.mdpkg')) {
+          void openFileObject(f);
+          return;
+        }
+      }
     })();
   };
 
   const onImportChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (files.length > 0) void insertImages(files);
-    e.target.value = ''; // 允许重复选择同一文件
+    e.target.value = '';
   };
 
   const handleDelete = (name: string) => {
+    if (!activeTab) return;
     assetsRef.current = removeAsset(assetsRef.current, name);
-    setAssets(assetsRef.current);
-    // 同步移除文档里对该资源的引用（`![..](name.png)` / `![..](./name.png)`）。
+    setTabsState((s) => updateTab(s, activeTab.id, { assets: assetsRef.current }));
     const view = editorViewRef.current;
     if (view) {
       const current = view.state.doc.toString();
       const next = stripReferences(current, name);
       if (next !== current) {
         view.dispatch({ changes: { from: 0, to: current.length, insert: next } });
+        setTabsState((s) => updateTab(s, activeTab.id, { source: view.state.doc.toString() }));
       }
     }
   };
 
   const handleReplace = async (name: string, file: File) => {
+    if (!activeTab) return;
     if (file.size > MAX_ASSET_BYTES) {
       setImportHint(`替换失败：${file.name} 超过 15MB 上限`);
       return;
     }
     const next = await replaceAsset(assetsRef.current, name, file);
     assetsRef.current = next;
-    setAssets(next);
+    setTabsState((s) => updateTab(s, activeTab.id, { assets: next }));
   };
+
+  const handleImageLocate = (_path: string) => {
+    const rail = document.querySelector('[data-testid="left-rail"]');
+    if (!rail || rail.classList.contains('hidden')) {
+      document.querySelector('[data-testid="left-rail-toggle"]')?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+    }
+    setTimeout(() => {
+      document.querySelector('[data-testid="left-rail-tab-assets"]')?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+    }, 50);
+  };
+
+  // 装饰图片解析
+  const resolveImage = (path: string): string | null => {
+    const asset = assetsRef.current.find((a) => a.name === path);
+    return asset?.dataUrl ?? null;
+  };
+
+  resolveImageRef.current = resolveImage;
+  onImageReplaceRef.current = (_path: string) => { /* 未来扩展 */ };
+  onImageDeleteRef.current = handleDelete;
+  onImageLocateRef.current = handleImageLocate;
 
   const showExportError = (message: string) => {
     setExportError(message);
@@ -235,47 +348,100 @@ export default function App() {
     exportErrorTimer.current = window.setTimeout(() => setExportError(null), 4000);
   };
 
-  const sourceKind = state.status === 'mdpkg' ? 'mdpkg' : 'md';
-  const docBase = state.status === 'md' || state.status === 'mdpkg' ? baseName(state.name) : 'document';
-  const docTitle = state.status === 'md' || state.status === 'mdpkg' ? state.name : 'MD-Bundle 文档';
-  // 分享卡数据：空态标题置空 → canShare false → 按钮禁用；mdpkg 分支 docValue 即包内入口源码。
-  const shareTitle = state.status === 'md' || state.status === 'mdpkg' ? state.name : '';
-  const shareStats = { chars: docValue.length, images: assets.length };
-  const prevManifest = state.status === 'mdpkg' ? (state.manifest ?? undefined) : undefined;
-  // 重打包时保留包内非入口、非图片文件（include 目标、附件等）—— 无缝重打包。
+  // ── 派生值（从 activeTab 取）──
+  const isEmpty = !activeTab;
+  const sourceKind = activeTab?.kind === 'mdpkg' ? 'mdpkg' : 'md';
+  const docBase = activeTab ? baseName(activeTab.name) : 'document';
+  const docTitle = activeTab?.name ?? 'MD-Bundle 文档';
+  const shareTitle = activeTab?.name ?? '';
+  const shareStats = { chars: (activeTab?.source ?? '').length, images: (activeTab?.assets ?? []).length };
+  const prevManifest = activeTab?.kind === 'mdpkg' ? (activeTab.manifest ?? undefined) : undefined;
   const extraFiles =
-    state.status === 'mdpkg'
+    activeTab?.kind === 'mdpkg' && activeTab.mdpkgFiles
       ? new Map(
-          [...state.files].filter(
+          [...activeTab.mdpkgFiles].filter(
             ([name]) =>
               name !== 'manifest.json' &&
-              name !== (state.manifest?.entrypoint ?? 'document.md') &&
+              name !== (activeTab.manifest?.entrypoint ?? 'document.md') &&
               !IMAGE_PATH_RE.test(name),
           ),
         )
       : undefined;
 
-  // 保存主按钮：内容驱动（有图 → .mdpkg；无图 → .md；打开 .mdpkg → 重打包）。
-  // 返回非 null 即保存成功；'mdpkg' 触发 pack-saved 徽章事件（首次保存 .mdpkg）。
+  // ── 整窗拖放直达 ──
+  useEffect(() => {
+    const onDocDrop = (e: DragEvent) => {
+      e.preventDefault();
+      const dt = e.dataTransfer;
+      if (!dt) return;
+
+      const imageFiles: File[] = [];
+      const docFiles: File[] = [];
+      for (let i = 0; i < dt.items.length; i++) {
+        const item = dt.items[i];
+        if (item.kind === 'directory') continue;
+        if (item.kind !== 'file') continue;
+        const f = item.getAsFile();
+        if (!f) continue;
+        if (f.type.startsWith('image/')) {
+          imageFiles.push(f);
+        } else {
+          docFiles.push(f);
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        if (!activeTab) {
+          setImportHint('请先打开文档再拖入图片');
+          return;
+        }
+        void insertImages(imageFiles);
+        return;
+      }
+      for (const f of docFiles) {
+        const lower = f.name.toLowerCase();
+        if (lower.endsWith('.md') || lower.endsWith('.mdpkg')) {
+          void openFileObject(f);
+          return;
+        }
+      }
+    };
+    const onDocDragOver = (e: DragEvent) => {
+      e.preventDefault();
+    };
+    document.addEventListener('drop', onDocDrop);
+    document.addEventListener('dragover', onDocDragOver);
+    return () => {
+      document.removeEventListener('drop', onDocDrop);
+      document.removeEventListener('dragover', onDocDragOver);
+    };
+  }, [activeTab?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 保存/导出（作用于 activeTab）──
   const handleSave = async (): Promise<boolean> => {
-    const kind = await saveDocument({
-      markdown: docValue,
+    if (!activeTab) return false;
+    const result: SaveResult = await saveDocument({
+      markdown: activeTab.source,
       assets: assetsRef.current,
       sourceKind,
       filename: docBase,
       prevManifest,
       extraFiles,
+      diskHandle: activeTab.diskHandle,
     });
-    wire.onSaveResult(kind);
-    return kind !== null;
+    wire.onSaveResult(result.ok ? result.kind : null);
+    if (result.ok) {
+      setTabsState((s) => updateTab(s, activeTab.id, { dirty: false }));
+    }
+    return result.ok;
   };
 
-  // 导出下拉：显式 4 格式。返回 true = 成功（触发 export-succeeded；PNG 额外触发 png-exported）。
   const handleExport = async (format: ExportFormat): Promise<boolean> => {
+    if (!activeTab) return false;
     try {
       switch (format) {
         case 'md': {
-          const ok = exportMd(docValue, {
+          const ok = exportMd(activeTab.source, {
             hasImages: assetsRef.current.length > 0,
             filename: `${docBase}.md`,
           });
@@ -285,7 +451,7 @@ export default function App() {
         case 'mdpkg':
           downloadBlob(
             new Blob(
-              [new Uint8Array(exportMdpkg({ markdown: docValue, assets: assetsRef.current, prevManifest, extraFiles }))],
+              [new Uint8Array(exportMdpkg({ markdown: activeTab.source, assets: assetsRef.current, prevManifest, extraFiles }))],
               { type: 'application/octet-stream' },
             ),
             `${docBase}.mdpkg`,
@@ -294,14 +460,14 @@ export default function App() {
           return true;
         case 'html':
           downloadText(
-            buildHtmlDocument({ markdown: docValue, assets: assetsRef.current, title: docTitle }),
+            await buildHtmlDocument({ markdown: activeTab.source, assets: assetsRef.current, title: docTitle }),
             `${docBase}.html`,
           );
           wire.onExportResult(format, true);
           return true;
         case 'png': {
           const blob = await exportPngFromMarkdown({
-            markdown: docValue,
+            markdown: activeTab.source,
             assets: assetsRef.current,
           });
           downloadBlob(blob, `${docBase}.png`);
@@ -315,161 +481,223 @@ export default function App() {
     }
   };
 
+  const handleCopyImage = async (): Promise<boolean> => {
+    if (!activeTab) return false;
+    try {
+      const { copied } = await shareCardAsImage({
+        title: docTitle,
+        markdown: activeTab.source,
+        stats: shareStats,
+        theme: 'dark',
+      });
+      return copied;
+    } catch {
+      return false;
+    }
+  };
+
+  const canSave = !!activeTab;
+
+  const openFeaturedExample = (example: { id: string; content: string; format: 'md' | 'mdpkg' }) => {
+    if (example.format === 'md') {
+      // 示例 = 新页签（决策 #27）
+      const r = addTab(tabsState, { kind: 'md', name: `${example.id}.md`, source: example.content });
+      setTabsState(r.state);
+    }
+  };
+
+  // ── 页签操作 ──
+  const handleTabSelect = (tabId: string) => {
+    setTabsState((s) => setActiveTab(s, tabId));
+  };
+
+  const handleTabClose = (tabId: string) => {
+    setTabsState((s) => removeTab(s, tabId));
+  };
+
   return (
     <div className="min-h-screen scroll-smooth bg-[#0d1117] text-[#e6edf3]">
-      <header className="border-b border-[#30363d] bg-[#161b22]/60">
-        <div className="mx-auto flex max-w-6xl items-baseline gap-3 px-6 py-4">
-          <h1 className="text-xl font-bold tracking-tight">MD-Bundle</h1>
+      {/* 页签条（任务 4.1）：有页签时显示 */}
+      {!isEmpty && (
+        <TabStrip
+          tabs={tabsState.tabs}
+          activeId={tabsState.activeId}
+          onSelect={handleTabSelect}
+          onClose={handleTabClose}
+        />
+      )}
+
+      {/* 顶栏 v2：有文档时显示，empty 态隐藏 */}
+      {!isEmpty && (
+        <header className="border-b border-[#30363d] bg-[#161b22]/60">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-6 py-3">
+            <h1 className="text-xl font-bold tracking-tight">MD-Bundle</h1>
+            <Toolbar
+              canSave={canSave}
+              sourceKind={sourceKind}
+              error={exportError}
+              onSave={() => void handleSave()}
+              onExport={(f) => void handleExport(f)}
+              onCopyImage={() => void handleCopyImage()}
+              currentMode={mode}
+              onModeChange={setMode}
+            />
+          </div>
+        </header>
+      )}
+
+      {/* empty 态：Landing 全页 */}
+      {isEmpty && (
+        <Landing onOpenExample={openFeaturedExample} />
+      )}
+
+      {/* 隐藏的 FileOpen：Landing CTA 通过 querySelector 触发 */}
+      {isEmpty && (
+        <div className="hidden">
+          <FileOpen onOpenFile={(f) => void openFileObject(f)} compact={false} />
         </div>
-      </header>
+      )}
 
-      <Hero />
-
-      <main className="mx-auto max-w-6xl space-y-5 px-6 py-6">
-        <section id="workspace" ref={workspaceRef} className="scroll-mt-6">
-          <FileOpen onOpenFile={openFileObject} compact={state.status !== 'empty'} />
-
-        {state.status === 'empty' && (
-          <>
-            <p className="pt-10 text-center text-[#8b949e]">选择或拖入文件后，在此开始编辑 / 预览</p>
-            <div className="flex justify-center pt-4">
-              <ShareCard title={shareTitle} markdown={docValue} stats={shareStats} />
-            </div>
-          </>
-        )}
-
-        {state.status === 'md' && (
-          <section aria-label={`编辑 ${state.name}`}>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-200">{state.name}</span>
-              <span className="rounded bg-[#165DFF]/20 px-1.5 py-0.5 text-xs text-[#58a6ff]">
-                Markdown
-              </span>
-              <span className="ml-auto flex items-center gap-2">
-                <input
-                  ref={imgInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  data-testid="import-images-input"
-                  onChange={onImportChange}
-                />
-                <button
-                  type="button"
-                  onClick={() => imgInputRef.current?.click()}
-                  data-testid="import-images-btn"
-                  className="rounded-lg bg-[#165DFF] px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-[#3c7dff]"
-                >
-                  导入图片
-                </button>
-                <ShareCard title={shareTitle} markdown={docValue} stats={shareStats} />
-                <Toolbar
-                  canSave
-                  sourceKind="md"
-                  error={exportError}
-                  onSave={() => void handleSave()}
-                  onExport={(f) => void handleExport(f)}
-                />
-              </span>
-            </div>
+      {/* 工作区 */}
+      {!isEmpty && activeTab && (
+        <main className="mx-auto max-w-6xl space-y-5 px-6 py-6">
+          <section id="workspace" ref={workspaceRef} className="scroll-mt-6">
+            <FileOpen onOpenFile={(f) => void openFileObject(f)} compact />
             {importHint && (
               <p role="status" aria-live="polite" className="mb-2 text-xs text-amber-400">
                 {importHint}
               </p>
             )}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_240px]">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div
-                  className="mdb-editor-area h-[65vh] overflow-hidden rounded-xl border border-[#30363d]"
-                  onPaste={onPaste}
-                  onDrop={onDrop}
-                  onDragOver={(e) => e.preventDefault()}
-                >
-                  <div className="mdb-split-editor h-full">
-                    <MarkdownEditor
-                      value={docValue}
-                      onChange={setDocValue}
-                      theme="dark"
-                      extensions={SLASH_EXT}
-                      onMount={onEditorMount}
-                    />
-                  </div>
-                </div>
-                <div className="h-[65vh] overflow-auto rounded-xl border border-[#30363d] bg-[#0d1117]">
-                  <MarkdownPreview markdown={docValue} theme="dark" />
-                </div>
-              </div>
-              <AssetList assets={assets} onDelete={handleDelete} onReplace={handleReplace} />
-            </div>
-          </section>
-        )}
 
-        {state.status === 'mdpkg' && (
-          <section aria-label={`编辑 ${state.name}`}>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium text-slate-200">{state.name}</span>
-              <span className="rounded bg-[#165DFF]/20 px-1.5 py-0.5 text-xs text-[#58a6ff]">
-                .mdpkg
-              </span>
-              <span className="text-xs text-[#8b949e]">{state.files.size} 个资源</span>
-              <span className="ml-auto flex items-center gap-2">
-                <ShareCard title={shareTitle} markdown={docValue} stats={shareStats} />
-                <Toolbar
-                  canSave
-                  sourceKind="mdpkg"
-                  error={exportError}
-                  onSave={() => void handleSave()}
-                  onExport={(f) => void handleExport(f)}
-                />
-              </span>
-            </div>
-            <div className="mb-3">
-              <ValidationPanel validation={state.validation} name={state.name} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="mdb-editor-area h-[65vh] overflow-hidden rounded-xl border border-[#30363d]">
-                <div className="mdb-split-editor h-full">
-                  <MarkdownEditor
-                    value={docValue}
-                    onChange={setDocValue}
-                    theme="dark"
-                    extensions={SLASH_EXT}
-                    onMount={onEditorMount}
+          {activeTab.kind === 'md' && (
+            <section aria-label={`编辑 ${activeTab.name}`}>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-200">{activeTab.name}</span>
+                <span className="rounded bg-[#165DFF]/20 px-1.5 py-0.5 text-xs text-[#58a6ff]">
+                  Markdown
+                </span>
+                <span className="ml-auto flex items-center gap-2">
+                  <input
+                    ref={imgInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    data-testid="import-images-input"
+                    onChange={onImportChange}
                   />
-                </div>
+                  <button
+                    type="button"
+                    onClick={() => imgInputRef.current?.click()}
+                    data-testid="import-images-btn"
+                    className="rounded-lg bg-[#165DFF] px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-[#3c7dff]"
+                  >
+                    导入图片
+                  </button>
+                  <ShareCard title={shareTitle} markdown={activeTab.source} stats={shareStats} />
+                </span>
               </div>
-              <iframe
-                data-testid="mdpkg-frame"
-                sandbox="allow-same-origin"
-                srcDoc={state.html}
-                title={state.name}
-                className="h-[65vh] w-full rounded-xl border border-[#30363d] bg-white"
-              />
-            </div>
-            <p className="mt-2 text-xs text-[#8b949e]">
-              左侧为包内源码（可编辑，保存时重新打包）；右侧为原包渲染预览（静态参考，不随编辑实时刷新）。
-            </p>
-          </section>
-        )}
+            </section>
+          )}
 
-        {state.status === 'error' && (
-          <div role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-5">
-            <p className="font-medium text-red-400">打开失败</p>
-            <p className="mt-1 text-sm leading-relaxed text-red-200/90">{state.message}</p>
-            <button
-              type="button"
-              onClick={clear}
-              className="mt-4 rounded-lg bg-[#165DFF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3c7dff]"
+          {activeTab.kind === 'mdpkg' && (
+            <section aria-label={`编辑 ${activeTab.name}`}>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-slate-200">{activeTab.name}</span>
+                <span className="rounded bg-[#165DFF]/20 px-1.5 py-0.5 text-xs text-[#58a6ff]">
+                  .mdpkg
+                </span>
+                <span className="text-xs text-[#8b949e]">{(activeTab.mdpkgFiles ?? new Map()).size} 个资源</span>
+                <span className="ml-auto flex items-center gap-2">
+                  <ShareCard title={shareTitle} markdown={activeTab.source} stats={shareStats} />
+                </span>
+              </div>
+              {activeTab.kind === 'mdpkg' && activeTab.validation && (
+                <div className="mb-3">
+                   <ValidationPanel
+                     validation={activeTab.validation}
+                     name={activeTab.name}
+                   />
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* 工作区：三模式 + 左栏 + 大纲 */}
+          <div className="flex h-[65vh] gap-0 overflow-hidden rounded-xl border border-[#30363d]">
+             <LeftRail
+               assets={activeTab.assets}
+               documentText={activeTab.source}
+               onDelete={handleDelete}
+               onReplace={handleReplace}
+               onOpenFile={(file, handle) => void openFileObject(file, handle)}
+               activeTabName={activeTab.name}
+             />
+
+            <div
+              data-testid="workspace-modes"
+              className="relative min-w-0 flex-1 overflow-hidden"
+              onPaste={onPaste}
+              onDrop={onDrop}
+              onDragOver={(e) => e.preventDefault()}
             >
-              重新选择
-            </button>
-          </div>
-        )}
-        </section>
-      </main>
+              <OutlineMenu
+                mode={mode}
+                documentText={activeTab.source}
+                editorView={editorViewRef.current}
+                previewRef={previewRef}
+              />
 
-      <Gallery onLoadExample={openFileObject} />
+              <div
+                data-testid="mode-pane-editor"
+                style={{ display: mode === 'edit' || mode === 'source' ? 'block' : 'none' }}
+                className="mdb-split-editor h-full"
+              >
+                <MarkdownEditor
+                  value={activeTab.source}
+                  onChange={handleEditorChange}
+                  theme="dark"
+                  extensions={SLASH_EXT}
+                  decorations={DECORATIONS_EXT}
+                  decorationsEnabled={mode === 'edit'}
+                  onMount={onEditorMount}
+                />
+              </div>
+              <div
+                ref={previewRef}
+                data-testid="mode-pane-preview"
+                style={{ display: mode === 'preview' ? 'block' : 'none' }}
+                className="mx-auto h-full max-w-[800px] overflow-auto bg-[#0d1117]"
+              >
+                <PreviewView markdown={activeTab.source} theme="dark" />
+              </div>
+            </div>
+          </div>
+
+          {activeTab.source.startsWith('错误：') && (
+            <div role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-5">
+              <p className="font-medium text-red-400">打开失败</p>
+              <p className="mt-1 text-sm leading-relaxed text-red-200/90">
+                {activeTab.source.replace('错误：', '')}
+              </p>
+              <button
+                type="button"
+                onClick={() => setTabsState((s) => removeTab(s, activeTab.id))}
+                className="mt-4 rounded-lg bg-[#165DFF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3c7dff]"
+              >
+                重新选择
+              </button>
+            </div>
+          )}
+          </section>
+        </main>
+      )}
+
+      {importHint && isEmpty && (
+        <p role="status" aria-live="polite" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-[#161b22] px-4 py-2 text-sm text-amber-400 shadow-lg">
+          {importHint}
+        </p>
+      )}
 
       {toast && <BadgeToast text={toast.text} rarity={toast.rarity} onDismiss={dismiss} />}
     </div>
