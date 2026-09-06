@@ -25,25 +25,25 @@
 
 ## 4. Wave 4 — 多页签 + 页签会话
 
-- [ ] 4.1 页签模型重构 `lib/tabs.ts`（id/kind/name/source/assets/mdpkgFiles?/manifest?/mode/scrollPos/dirty/diskHandle?）；打开=新页签永不静默替换；useDocument 并入。QA: `v2-tabs.spec.ts`。Commit: `feat: multi-tab document model`
-- [ ] 4.2 IndexedDB 页签会话 `lib/sessionStore.ts`（tabs+activeId+recentDocs+FSA 句柄；编辑防抖 500ms；启动静默恢复；配额失败 `{error}`+toast 降级）。QA: v2-tabs reload 恢复 + sessionStore 单测（round-trip + QuotaExceeded）。Commit: `feat: IndexedDB session persistence`
-- [ ] 4.3 页签条 UI `TabStrip.tsx`（脏点/关闭确认三按钮 `tab-close-save|discard|cancel`（save 分支 todo 24 前=下载）/溢出滚动/不绑 Cmd+W/T）。QA: v2-tabs（脏点/三分支/20 页签滚动/跨 todo：点 save→mock picker 取消→仍打开）。Commit: `feat: tab strip (dirty, close-confirm w/ save, overflow)`
-- [ ] 4.4 最近文档接线（Landing ← sessionStore.recentDocs；关闭保留条目；点击恢复；坏条目跳过）。QA: v2-landing + sessionStore 坏条目。Commit: `feat: recent docs restore`
+- [x] 4.1 页签模型重构 `lib/tabs.ts`（id/kind/name/source/assets/mdpkgFiles?/manifest?/mode/scrollPos/dirty/diskHandle?）；打开=新页签永不静默替换；useDocument 并入。QA: `v2-tabs.spec.ts`。Commit: `feat: multi-tab document model`
+- [x] 4.2 IndexedDB 页签会话 `lib/sessionStore.ts`（tabs+activeId+recentDocs+FSA 句柄；编辑防抖 500ms；启动静默恢复；配额失败 `{error}`+toast 降级）。QA: v2-tabs reload 恢复 + sessionStore 单测（round-trip + QuotaExceeded）。Commit: `feat: IndexedDB session persistence`
+- [x] 4.3 页签条 UI `TabStrip.tsx`（脏点/关闭确认三按钮 `tab-close-save|discard|cancel`（save 分支 todo 24 前=下载）/溢出滚动/不绑 Cmd+W/T）。QA: v2-tabs（脏点/三分支/20 页签滚动/跨 todo：点 save→mock picker 取消→仍打开）。Commit: `feat: tab strip (dirty, close-confirm w/ save, overflow)`
+- [x] 4.4 最近文档接线（Landing ← sessionStore.recentDocs；关闭保留条目；点击恢复；坏条目跳过）。QA: v2-landing + sessionStore 坏条目。Commit: `feat: recent docs restore`
 
 ## 5. Wave 5 — FSA 文件工作区 + 保存模型
 
-- [ ] 5.1 FSA 能力层 `lib/fsa.ts`：isFsaAvailable（三项 picker 齐备）/grantWorkspaceFolder/句柄 IndexedDB 持久化/requestReGrant 续权（拒权→`{error:'permission-denied'}`）/降级隐藏；全部 `{ok}|{error}` 不抛。QA: fsa.test.ts mock 句柄 + addInitScript 删除三 picker 断言能力为假。Commit: `feat: FSA capability layer (pick/grants/grants persistence)`
-- [ ] 5.2 文件树 UI `FileTree.tsx`（左栏文件页签填充：递归读取只列 .md/.mdpkg/文件夹、懒展开、refresh 手动重扫、点击新页签持 file handle、当前文档高亮、空态+授权 CTA）。QA: `v2-fsa-tree.spec.ts`（addInitScript 注入三 picker fake handle；不用 filechooser）。Commit: `feat: file tree (left rail, lazy, open-with-handle)`
-- [ ] 5.3 树内操作：新建（文件/文件夹）/重命名（新名句柄+复制+删旧）/删除确认（不可逆文案，.mdpkg 同）/拖文件入文件夹=复制；失败 `{error}` toast。QA: v2-fsa-tree.spec.ts 各操作 + 确认框分支。Commit: `feat: file-tree ops (new/rename/delete-confirm/copy-drop)`
-- [ ] 5.4 保存模型落地 `lib/save.ts` 重构：统一 `Promise<SaveResult>`（`{ok:true;kind;via:'handle'|'save-as'|'download'}|{ok:false;error}` 永不抛）；唯一主按钮三路径（写回/另存为/下载）+ 取消=静默 `'cancelled'` + 「下载副本」只进导出▾。QA: `v2-save.spec.ts`（addInitScript 覆写 showSaveFilePicker/file handle/删除三项）+ save.e2e 分流回归。Commit: `feat: single-primary save/download button + export copy`
+- [x] 5.1 FSA 能力层 `lib/fsa.ts`：isFsaAvailable（三项 picker 齐备）/grantWorkspaceFolder/句柄 IndexedDB 持久化/requestReGrant 续权（拒权→`{error:'permission-denied'}`）/降级隐藏；全部 `{ok}|{error}` 不抛。QA: fsa.test.ts mock 句柄 + addInitScript 删除三 picker 断言能力为假。Commit: `feat: FSA capability layer (pick/grants/grants persistence)`
+- [x] 5.2 文件树 UI `FileTree.tsx`（左栏文件页签填充：递归读取只列 .md/.mdpkg/文件夹、懒展开、refresh 手动重扫、点击新页签持 file handle、当前文档高亮、空态+授权 CTA）。QA: `v2-fsa-tree.spec.ts`（addInitScript 注入三 picker fake handle；不用 filechooser）。Commit: `feat: file tree (left rail, lazy, open-with-handle)`
+- [x] 5.3 树内操作：新建（文件/文件夹）/重命名（新名句柄+复制+删旧）/删除确认（不可逆文案，.mdpkg 同）/拖文件入文件夹=复制；失败 `{error}` toast。QA: v2-fsa-tree.spec.ts 各操作 + 确认框分支。Commit: `feat: file-tree ops (new/rename/delete-confirm/copy-drop)`
+- [x] 5.4 保存模型落地 `lib/save.ts` 重构：统一 `Promise<SaveResult>`（`{ok:true;kind;via:'handle'|'save-as'|'download'}|{ok:false;error}` 永不抛）；唯一主按钮三路径（写回/另存为/下载）+ 取消=静默 `'cancelled'` + 「下载副本」只进导出▾。QA: `v2-save.spec.ts`（addInitScript 覆写 showSaveFilePicker/file handle/删除三项）+ save.e2e 分流回归。Commit: `feat: single-primary save/download button + export copy`
 
 ## 6. Wave 6 — 主题 + 分享 + 文档收口 + 回归
 
-- [ ] 6.1 主题三态 `lib/themePreference.ts`（matchMedia + localStorage `md-bundle.theme` 坏值回退）+ shareCard `_theme` 参数 + CARD_COLORS 随主题。QA: `v2-theme.spec.ts`（emulateMedia + reload 保持 + 分享卡双主题像素）。Commit: `feat: theme tri-state incl. share-card theming`
-- [ ] 6.2 网站邀请链接 `lib/shareLink.ts` + `lib/nicknames.ts`：`?ref=invite&by=<昵称>` 无文档 payload；randomNickname(rng?) 可注入；落地页 InviteView（昵称视觉主角 + 网址显著展示 + CTA 预载演示文档）；坏参数忽略回普通落地页。QA: shareLink.test + `v2-share.spec.ts`。Commit: `feat: website invite link + random invite nickname`
-- [ ] 6.3 分享卡重构：`inviteShareCards.ts`（4 型构图互异：横版作品卡/竖版金句卡/网站宣传卡/极简名片卡；每型 ≥2 底色方案；pickTemplate(rng?) 随机卡型+底色；含网站 URL+渐晰品牌；无文档可用；连点换款）+ `docShareCard.ts`（顶栏最左按钮；渲染当前正文 + byline URL+品牌 + 无文档禁用）；分享菜单接线（todo 2.1）；静态资产入 public/share-assets。QA: shareCard.test（4 型×PNG magic/种子/构图差异/URL+品牌/底色族/无文档）+ v2-share。Commit: `feat: 4 randomized share-card templates`
-- [ ] 6.4 文档收口【交付硬门槛】：ADR-0002 移 docs/adr/；glossary→CONTEXT.md；本 change delta 补齐（与 `openspec/specs/md-bundle-web/spec.md` 现有 requirement 标题逐项对应 MODIFIED/ADDED）+ `npx openspec validate md-bundle-v2 --strict` 退出码 0 + 归档同步主 spec；AGENTS.md（SSOT 条款/结构/新红线）/README 更新；SEO 示例页（Vite MPA `rollupOptions.input` 增 `examples/*.html`，正文静态可爬 + 公式 KaTeX 预渲染内联 + mermaid 不进静态正文）。QA: validate 输出存 test-results + `seo-crawl.spec.ts` 扩展。Commit: `docs: ADR-0002 + openspec v2 + agent docs + SEO example pages`
-- [ ] 6.5 端到端回归：全量 `pnpm --filter @md-bundle/web test` + `test:e2e`（既有 spec 按新 UI 更新选择器，行为断言不变）+ v2 spec 全绿 + round-trip 零裂图 + mdpkg 保真 + `assert-bundle-budget.mjs`（首屏无 katex/mermaid/mdpkg-web、async chunk 在、入口 gzip ≤300KB）+ 降级矩阵（无 FSA / 无 IndexedDB / 坏邀请参数）。QA: v2-regression.json + bundle-budget.json + degradation.json。Commit: `test: v2 regression evidence + bundle budget + degradation`
+- [x] 6.1 主题三态 `lib/themePreference.ts`（matchMedia + localStorage `md-bundle.theme` 坏值回退）+ shareCard `_theme` 参数 + CARD_COLORS 随主题。QA: `v2-theme.spec.ts`（emulateMedia + reload 保持 + 分享卡双主题像素）。Commit: `feat: theme tri-state incl. share-card theming`
+- [x] 6.2 网站邀请链接 `lib/shareLink.ts` + `lib/nicknames.ts`：`?ref=invite&by=<昵称>` 无文档 payload；randomNickname(rng?) 可注入；落地页 InviteView（昵称视觉主角 + 网址显著展示 + CTA 预载演示文档）；坏参数忽略回普通落地页。QA: shareLink.test + `v2-share.spec.ts`。Commit: `feat: website invite link + random invite nickname`
+- [x] 6.3 分享卡重构：`inviteShareCards.ts`（4 型构图互异：横版作品卡/竖版金句卡/网站宣传卡/极简名片卡；每型 ≥2 底色方案；pickTemplate(rng?) 随机卡型+底色；含网站 URL+渐晰品牌；无文档可用；连点换款）+ `docShareCard.ts`（顶栏最左按钮；渲染当前正文 + byline URL+品牌 + 无文档禁用）；分享菜单接线（todo 2.1）；静态资产入 public/share-assets。QA: shareCard.test（4 型×PNG magic/种子/构图差异/URL+品牌/底色族/无文档）+ v2-share。Commit: `feat: 4 randomized share-card templates`
+- [x] 6.4 文档收口【交付硬门槛】：ADR-0002 移 docs/adr/；glossary→CONTEXT.md；本 change delta 补齐（与 `openspec/specs/md-bundle-web/spec.md` 现有 requirement 标题逐项对应 MODIFIED/ADDED）+ `npx openspec validate md-bundle-v2 --strict` 退出码 0 + 归档同步主 spec；AGENTS.md（SSOT 条款/结构/新红线）/README 更新；SEO 示例页（Vite MPA `rollupOptions.input` 增 `examples/*.html`，正文静态可爬 + 公式 KaTeX 预渲染内联 + mermaid 不进静态正文）。QA: validate 输出存 test-results + `seo-crawl.spec.ts` 扩展。Commit: `docs: ADR-0002 + openspec v2 + agent docs + SEO example pages`
+- [x] 6.5 端到端回归：全量 `pnpm --filter @md-bundle/web test` + `test:e2e`（既有 spec 按新 UI 更新选择器，行为断言不变）+ v2 spec 全绿 + round-trip 零裂图 + mdpkg 保真 + `assert-bundle-budget.mjs`（首屏无 katex/mermaid/mdpkg-web、async chunk 在、入口 gzip ≤300KB）+ 降级矩阵（无 FSA / 无 IndexedDB / 坏邀请参数）。QA: v2-regression.json + bundle-budget.json + degradation.json。Commit: `test: v2 regression evidence + bundle budget + degradation`
 
 ## 7. Final verification wave
 

@@ -1,0 +1,78 @@
+name: 缺陷报告
+about: 报告一个 bug 或"开发中"功能的具体问题
+title: "[bug] "
+labels: ["needs-triage"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: 所属区域
+      options:
+        - Landing / 落地页
+        - Editor / 编辑器
+        - Renderer / 渲染器
+        - Tabs / 多页签
+        - FSA / 文件工作区
+        - Save / 保存模型
+        - Theme / 主题
+        - Share / 分享
+        - Other / 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 严重级别
+      description: p0=阻塞发布，p1=主流程受损，p2=有 workaround，p3=体验优化
+      options:
+        - p0
+        - p1
+        - p2
+        - p3
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 从打开页面开始，一步步说明如何复现
+      placeholder: |
+        1. 打开 http://localhost:5173
+        2. 拖拽一个 .mdpkg 文件到页面
+        3. 点击顶栏"保存"按钮
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境信息
+      placeholder: |
+        浏览器：Chrome 127
+        是否 FSA：是 / 否
+        是否移动端：是 / 否
+        分支：feat/layout-v2
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图或附件
+      description: 可粘贴图片或上传文件

@@ -118,3 +118,17 @@ pnpm --filter @md-bundle/web dev         # Vite dev server
 - `packages/editor/src/slash.ts` keymap must NOT use a custom CM6 `scope` (unreachable) — see package doc
 - FSA degradation: `isFsaAvailable()` requires all three pickers (`showDirectoryPicker`/`showSaveFilePicker`/`showOpenFilePicker`); missing any → feature hidden, main flow stays v1-equivalent
 - Invite link validation: `parseInviteParams()` returns `null` for malformed `ref`/`by` → falls back to normal landing page (no error)
+
+## Agent skills
+
+### Issue tracker
+
+Issue 和 spec 统一以 GitHub issue 形式存在于 `jianxi-dev/md-bundle`。使用 `gh` CLI 进行创建、查看、列表、评论、标签和关闭操作。详见 `docs/agents/issue-tracker.md`。
+
+### Triage labels
+
+使用 5 个 canonical 标签：`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`。详见 `docs/agents/triage-labels.md`。
+
+### Domain docs
+
+单上下文仓库：探索前阅读根目录 `CONTEXT.md`（若不存在则以 `AGENTS.md` 替代）和 `docs/adr/`。详见 `docs/agents/domain.md`。
