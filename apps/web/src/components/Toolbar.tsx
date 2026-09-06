@@ -3,7 +3,7 @@
 // + 三模式 ghost 图标（铅笔/代码/眼睛）在左侧独立区域。
 // 动作区 ghost 风格：透明底弱描边，默认低不透明度、hover 提亮（不抢眼）。
 // 保存主按钮为例外——保持主色高对比（primary button）。
-// 禁用组按动作分：无文档时保存/导出/复制正文 disabled；分享/主题为过渡期 disabled（待接线）。
+// 禁用组按动作分：无文档时保存/导出/复制正文 disabled；分享/主题已接线可用。
 // 任务 2.7：移动端 <768px → 动作区折叠入 more-btn 溢出菜单（排序同桌面右起），主题保留顶栏最右。
 import { useCallback, useEffect, useState } from 'react';
 
@@ -27,6 +27,12 @@ export interface ToolbarProps {
   currentMode?: EditorMode;
   /** 切换编辑模式（派发 setMode 到 App 状态）。 */
   onModeChange?: (mode: EditorMode) => void;
+  /** 主题按钮点击（循环 system → dark → light）。 */
+  onThemeClick?: () => void;
+  /** 复制邀请链接。 */
+  onCopyInviteLink?: () => void;
+  /** 生成邀请卡（随机模板 → PNG → 剪贴板/下载）。 */
+  onGenerateInviteCard?: () => void;
 }
 
 const EXPORT_ITEMS: { format: ExportFormat; label: string }[] = [
@@ -61,9 +67,13 @@ export function Toolbar({
   onCopyImage,
   currentMode = 'edit',
   onModeChange,
+  onThemeClick,
+  onCopyInviteLink,
+  onGenerateInviteCard,
 }: ToolbarProps): JSX.Element {
   const [exportOpen, setExportOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const isNarrow = useIsNarrow();
 
   const closeMore = useCallback(() => setMoreOpen(false), []);
@@ -125,10 +135,10 @@ export function Toolbar({
     <button
       type="button"
       data-testid="theme-btn"
-      disabled
-      title="主题切换（开发中）"
-      aria-label="主题切换"
-      className="rounded p-1.5 text-sm text-slate-400 opacity-60 transition-colors hover:text-slate-200 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
+      onClick={onThemeClick}
+      title="切换主题（系统 / 深色 / 浅色）"
+      aria-label="切换主题"
+      className="rounded p-1.5 text-sm text-slate-400 opacity-60 transition-colors hover:text-slate-200 hover:opacity-100"
     >
       ◐
     </button>
@@ -163,11 +173,25 @@ export function Toolbar({
                 type="button"
                 role="menuitem"
                 data-testid="more-share"
-                disabled
-                onClick={closeMore}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-400 transition-colors hover:bg-[#21262d] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() => {
+                  closeMore();
+                  onCopyInviteLink?.();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white"
               >
-                🔗 分享
+                🔗 复制邀请链接
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="more-invite-card"
+                onClick={() => {
+                  closeMore();
+                  onGenerateInviteCard?.();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white"
+              >
+                🎴 邀请卡
               </button>
               <button
                 type="button"
@@ -300,16 +324,52 @@ export function Toolbar({
         )}
       </div>
 
-      <button
-        type="button"
-        data-testid="share-menu-btn"
-        disabled
-        title="分享（开发中）"
-        aria-label="分享"
-        className="rounded p-1.5 text-sm text-slate-400 opacity-60 transition-colors hover:text-slate-200 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
-      >
-        🔗
-      </button>
+      <div className="relative">
+        <button
+          type="button"
+          data-testid="share-menu-btn"
+          onClick={() => setShareOpen((o) => !o)}
+          title="分享"
+          aria-label="分享"
+          aria-haspopup="menu"
+          aria-expanded={shareOpen}
+          className="rounded p-1.5 text-sm text-slate-400 opacity-60 transition-colors hover:text-slate-200 hover:opacity-100"
+        >
+          🔗
+        </button>
+        {shareOpen && (
+          <div
+            role="menu"
+            data-testid="share-menu"
+            className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22] shadow-lg"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="share-invite-link"
+              onClick={() => {
+                setShareOpen(false);
+                onCopyInviteLink?.();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white"
+            >
+              🔗 复制邀请链接
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="share-invite-card"
+              onClick={() => {
+                setShareOpen(false);
+                onGenerateInviteCard?.();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white"
+            >
+              🎴 邀请卡
+            </button>
+          </div>
+        )}
+      </div>
 
       {themeBtn}
 

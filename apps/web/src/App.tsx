@@ -23,7 +23,17 @@ import { exportMd } from './lib/export';
 import { buildHtmlDocument } from './lib/exportHtml';
 import { exportPngFromMarkdown } from './lib/exportPng';
 import { downloadBlob, downloadText } from './lib/download';
-import { shareCardAsImage } from './lib/shareCard';
+import { shareCardAsImage, shareCardSvg, cardToPngBlob, copyToClipboard } from './lib/shareCard';
+import {
+  loadThemePreference,
+  saveThemePreference,
+  applyThemeToDocument,
+  resolveEffectiveTheme,
+  watchSystemTheme,
+  type ThemePreference,
+} from './lib/themePreference';
+import { createInviteLink } from './lib/shareLink';
+import { pickTemplate } from './lib/inviteShareCards';
 import { bytesToDataUrl } from './lib/dataUrl';
 import {
   MAX_ASSET_BYTES,
@@ -98,6 +108,7 @@ export default function App() {
   const activeTab = getActiveTab(tabsState);
 
   const [mode, setMode] = useState<EditorMode>('edit');
+  const [themePref, setThemePref] = useState<ThemePreference>(() => loadThemePreference());
   const isNarrow = useIsNarrow();
   const [importHint, setImportHint] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -125,6 +136,51 @@ export default function App() {
       }),
     [badgeStore, showToastFor],
   );
+
+  // 主题：初始化应用到 DOM + 监听系统主题变化
+  useEffect(() => {
+    applyThemeToDocument(resolveEffectiveTheme(themePref));
+  }, [themePref]);
+
+  useEffect(() => {
+    return watchSystemTheme(() => {
+      if (themePref === 'system') {
+        applyThemeToDocument(resolveEffectiveTheme('system'));
+      }
+    });
+  }, [themePref]);
+
+  const handleThemeClick = () => {
+    const next: ThemePreference =
+      themePref === 'system' ? 'dark' : themePref === 'dark' ? 'light' : 'system';
+    setThemePref(next);
+    saveThemePreference(next);
+    applyThemeToDocument(resolveEffectiveTheme(next));
+  };
+
+  const handleCopyInviteLink = async () => {
+    const { url } = createInviteLink();
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // 剪贴板不可用 → 静默失败（用户仍可从 URL 手动复制）
+    }
+  };
+
+  const handleGenerateInviteCard = async () => {
+    const { nickname } = createInviteLink();
+    const template = pickTemplate({ nickname, theme: resolveEffectiveTheme(themePref) });
+    try {
+      const svg = shareCardSvg(template.html, { width: template.width, height: template.height });
+      const blob = await cardToPngBlob(svg, { background: '#0d1117' });
+      const copied = await copyToClipboard(blob);
+      if (!copied) {
+        downloadBlob(blob, `invite-${template.type}.png`);
+      }
+    } catch {
+      // 栅格化失败 → 静默失败
+    }
+  };
 
   // 装饰扩展——ref-stable callbacks
   const DECORATIONS_EXT = useMemo(
@@ -541,6 +597,9 @@ export default function App() {
               onCopyImage={() => void handleCopyImage()}
               currentMode={mode}
               onModeChange={setMode}
+              onThemeClick={handleThemeClick}
+              onCopyInviteLink={() => void handleCopyInviteLink()}
+              onGenerateInviteCard={() => void handleGenerateInviteCard()}
             />
           </div>
         </header>
