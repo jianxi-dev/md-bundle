@@ -1,0 +1,49 @@
+{
+  "version": "7.3",
+  "date": "2026-09-07T06:16:07.378Z",
+  "verdict": "FAIL",
+  "summary": "5/9 tests passed",
+  "steps": {
+    "1-open-tab-edit-decorations": {
+      "pass": true,
+      "note": "ok",
+      "screenshot": "/Users/mason/ToHighs/md-bundle/apps/web/test-results/qa-7.3/1-open-tab-edit-decorations.png"
+    },
+    "2-outline-float-layer": {
+      "pass": true,
+      "note": "ok",
+      "screenshot": "/Users/mason/ToHighs/md-bundle/apps/web/test-results/qa-7.3/2-outline-float-hover.png"
+    },
+    "3-drag-drop-file": {
+      "pass": true,
+      "note": "ok",
+      "screenshot": "/Users/mason/ToHighs/md-bundle/apps/web/test-results/qa-7.3/3-drag-drop-new-tab.png"
+    },
+    "4-folder-authorization": {
+      "pass": true,
+      "note": "ok",
+      "screenshot": "/Users/mason/ToHighs/md-bundle/apps/web/test-results/qa-7.3/4-folder-panel.png"
+    },
+    "5-tree-open": {
+      "pass": true,
+      "note": "ok",
+      "screenshot": "/Users/mason/ToHighs/md-bundle/apps/web/test-results/qa-7.3/5-folder-tree.png"
+    },
+    "6-save-primary-btn": {
+      "pass": false,
+      "note": "page.waitForEvent: Test timeout of 30000ms exceeded."
+    },
+    "7-refresh-restore": {
+      "pass": false,
+      "note": "locator.click: Target page, context or browser has been closed"
+    },
+    "8-dirty-tab-close": {
+      "pass": false,
+      "note": "locator.count: Target page, context or browser has been closed"
+    },
+    "9-invite-link-inviteview": {
+      "pass": false,
+      "note": "page.goto: Target page, context or browser has been closed"
+    }
+  }
+}

@@ -46,15 +46,8 @@ import {
   type Asset,
 } from './lib/assets';
 import { filesToAssets, imagesFromClipboard, imagesFromDataTransfer } from './lib/importImages';
-import {
-  createTabsState,
-  addTab,
-  removeTab,
-  updateTab,
-  setActiveTab,
-  getActiveTab,
-  type TabsState,
-} from './lib/tabs';
+import { createTabsState, addTab, removeTab, updateTab, setActiveTab, getActiveTab, type TabsState } from './lib/tabs';
+import type { RecentDocItem } from './components/Landing';
 
 /** 包内图片条目路径（资产名 = 完整路径，inlineImages 按名精确查找）。 */
 const IMAGE_PATH_RE = /\.(png|jpe?g|gif|webp)$/i;
@@ -571,6 +564,20 @@ export default function App() {
     setTabsState((s) => removeTab(s, tabId));
   };
 
+  // ── 最近文档（Wave 4：完整 tab-close → createRecentEntry → saveSession 流程）──
+  const recentDocsRef = useRef<RecentDocItem[]>([]);
+
+  const openRecentDoc = (doc: RecentDocItem) => {
+    if (!doc || typeof doc.name !== 'string' || !doc.source) return;
+    const kind = doc.kind === 'mdpkg' ? 'mdpkg' : 'md';
+    const added = addTab(tabsState, { kind, name: doc.name, source: doc.source });
+    let state = updateTab(added.state, added.tabId, { mode: doc.mode, scrollPos: doc.scrollPos });
+    if (doc.diskHandle) {
+      state = updateTab(state, added.tabId, { diskHandle: doc.diskHandle });
+    }
+    setTabsState(state);
+  };
+
   return (
     <div className="min-h-screen scroll-smooth bg-[#0d1117] text-[#e6edf3]">
       {/* 页签条（任务 4.1）：有页签时显示 */}
@@ -607,7 +614,7 @@ export default function App() {
 
       {/* empty 态：Landing 全页 */}
       {isEmpty && (
-        <Landing onOpenExample={openFeaturedExample} />
+        <Landing onOpenExample={openFeaturedExample} recentDocs={recentDocsRef.current} onOpenRecentDoc={openRecentDoc} />
       )}
 
       {/* 隐藏的 FileOpen：Landing CTA 通过 querySelector 触发 */}

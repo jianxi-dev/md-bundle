@@ -8,9 +8,23 @@ import { renderMarkdown } from '@md-bundle/renderer';
 import { FEATURED_EXAMPLES } from '../examples';
 import { parseInviteParams, INVITE_SITE_URL, INVITE_VALUE_POINTS } from '../lib/shareLink';
 
+export interface RecentDocItem {
+  name: string;
+  kind: 'md' | 'mdpkg';
+  source: string;
+  mode: 'edit' | 'source' | 'preview';
+  scrollPos: number;
+  diskHandle?: FileSystemFileHandle;
+  closedAt: number;
+}
+
 export interface LandingProps {
   /** 打开示例（精选卡片点击 → 载入编辑器）。 */
   onOpenExample: (example: { id: string; content: string; format: 'md' | 'mdpkg' }) => void;
+  /** 最近关闭的文档（可选，空数组或不传 → 隐藏 section）。 */
+  recentDocs?: RecentDocItem[];
+  /** 恢复最近文档。 */
+  onOpenRecentDoc?: (doc: RecentDocItem) => void;
 }
 
 /** 价值徽标数据。 */
@@ -190,7 +204,88 @@ function InviteView({
   );
 }
 
-export function Landing({ onOpenExample }: LandingProps): JSX.Element {
+function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return '刚刚';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)} 天前`;
+  return new Date(ts).toLocaleDateString('zh-CN');
+}
+
+function RecentDocsSection({
+  docs,
+  onOpenDoc,
+}: {
+  docs: RecentDocItem[];
+  onOpenDoc: (doc: RecentDocItem) => void;
+}): JSX.Element {
+  return (
+    <section
+      data-testid="recent-docs-section"
+      className="border-t border-[#30363d] bg-[#161b22]"
+    >
+      <div className="mx-auto max-w-6xl px-6 py-14">
+        <h2 className="text-xl font-bold tracking-tight text-white">最近文档</h2>
+        <p className="mt-2 text-sm text-[#8b949e]">上次关闭的文档，快速恢复。</p>
+
+        {docs.length === 0 ? (
+          <p className="mt-6 text-center text-sm text-[#484f58]">暂无最近文档</p>
+        ) : (
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {docs.map((doc, i) => {
+              if (!doc || typeof doc.name !== 'string' || !doc.kind || !doc.source) return null;
+              return (
+                <button
+                  key={`${doc.closedAt}-${i}`}
+                  type="button"
+                  data-testid={`recent-doc-item-${i}`}
+                  onClick={() => onOpenDoc(doc)}
+                  className="group overflow-hidden rounded-xl border border-[#30363d] bg-[#0d1117] text-left transition-all hover:border-[#165DFF] hover:shadow-lg hover:shadow-[#165DFF]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#165DFF]"
+                >
+                  <div className="flex items-start justify-between gap-3 p-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium text-slate-100 group-hover:text-white">
+                          {doc.name}
+                        </span>
+                        <span className="shrink-0 rounded bg-[#165DFF]/20 px-1.5 py-0.5 text-xs text-[#58a6ff]">
+                          .{doc.kind}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[#484f58]">
+                        {formatRelativeTime(doc.closedAt)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded bg-[#30363d] px-1.5 py-0.5 text-[10px] uppercase text-[#8b949e]">
+                      {doc.mode === 'source' ? '源码' : doc.mode === 'preview' ? '预览' : '编辑'}
+                    </span>
+                  </div>
+
+                  <div
+                    data-testid="card-open-btn"
+                    className="absolute inset-0 flex items-center justify-center bg-[#0d1117]/60 opacity-0 transition-opacity group-hover:opacity-100"
+                    aria-hidden="true"
+                  >
+                    <span className="rounded-lg bg-[#165DFF] px-4 py-2 text-sm font-medium text-white">
+                      恢复
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function Landing({
+  onOpenExample,
+  recentDocs = [],
+  onOpenRecentDoc,
+}: LandingProps): JSX.Element {
   /** 触发文件选择器。 */
   const handleOpenClick = () => {
     const input = document.querySelector<HTMLInputElement>('[data-testid="file-input"]');
@@ -423,8 +518,10 @@ export function Landing({ onOpenExample }: LandingProps): JSX.Element {
         </div>
       </section>
 
-      {/* ── 最近文档占位（Wave 4 填充） ── */}
-      {/* 4.4 接线时填充此 section，当前隐藏 */}
+      {/* ── 最近文档 ── */}
+      {recentDocs.length > 0 && onOpenRecentDoc && (
+        <RecentDocsSection docs={recentDocs} onOpenDoc={onOpenRecentDoc} />
+      )}
 
       {/* ── 页脚 ── */}
       <footer id="about" className="border-t border-[#30363d] bg-[#161b22]">

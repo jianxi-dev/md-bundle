@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MD-Bundle 项目演进与最佳实践</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', 'Noto Sans SC', sans-serif; }
+    .timeline-line { position: absolute; left: 24px; top: 0; bottom: 0; width: 2px; background: #e5e7eb; }
+    .timeline-dot { position: absolute; left: 20px; width: 10px; height: 10px; border-radius: 50%; background: #165DFF; border: 2px solid white; }
+    .skill-tag { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
+    .phase-card { @apply bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow; }
+    .decision-item { @apply border-l-4 border-blue-500 pl-4 py-2 mb-3 bg-blue-50 rounded-r; }
+    .warning-item { @apply border-l-4 border-amber-500 pl-4 py-2 mb-3 bg-amber-50 rounded-r; }
+    .success-item { @apply border-l-4 border-green-500 pl-4 py-2 mb-3 bg-green-50 rounded-r; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">MD-Bundle 项目演进全景</h1>
+          <p class="text-sm text-gray-600 mt-1">从需求收集到 v2 定稿的完整过程管理实践</p>
+        </div>
+        <div class="flex gap-3">
+          <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">v2 定稿</span>
+          <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">17/33 任务完成</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    <!-- 文档地图导航 -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 7m0 13V7"/>
+        </svg>
+        文档地图与逻辑关系
+      </h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- 需求层 -->
+          <div class="space-y-3">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-3 h-3 rounded-full bg-purple-500"></div>
+              <h3 class="font-semibold text-gray-900">需求与决策层</h3>
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                <div class="font-medium text-purple-900">.omo/decisions.md</div>
+                <div class="text-purple-700 text-xs mt-1">53 条决策记录，从 Q1-Q23</div>
+              </div>
+              <div class="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                <div class="font-medium text-purple-900">.omo/glossary.md</div>
+                <div class="text-purple-700 text-xs mt-1">领域术语定义（13 术语）</div>
+              </div>
+              <div class="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                <div class="font-medium text-purple-900">.omo/adr-0001/0002</div>
+                <div class="text-purple-700 text-xs mt-1">架构决策记录</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 计划层 -->
+          <div class="space-y-3">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+              <h3 class="font-semibold text-gray-900">计划与规格层</h3>
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <div class="font-medium text-blue-900">.omo/plans/</div>
+                <div class="text-blue-700 text-xs mt-1">md-bundle-v2.md (29 任务)</div>
+              </div>
+              <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <div class="font-medium text-blue-900">openspec/specs/</div>
+                <div class="text-blue-700 text-xs mt-1">md-bundle-web/spec.md</div>
+              </div>
+              <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <div class="font-medium text-blue-900">openspec/changes/</div>
+                <div class="text-blue-700 text-xs mt-1">md-bundle-v2/ (proposal/design/tasks)</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 知识层 -->
+          <div class="space-y-3">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-3 h-3 rounded-full bg-green-500"></div>
+              <h3 class="font-semibold text-gray-900">知识与运营层</h3>
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="p-3 bg-green-50 rounded-lg border border-green-100">
+                <div class="font-medium text-green-900">AGENTS.md</div>
+                <div class="text-green-700 text-xs mt-1">Agent 知识库 + skills</div>
+              </div>
+              <div class="p-3 bg-green-50 rounded-lg border border-green-100">
+                <div class="font-medium text-green-900">docs/agents/</div>
+                <div class="text-green-700 text-xs mt-1">issue-tracker/triage-labels/domain</div>
+              </div>
+              <div class="p-3 bg-green-50 rounded-lg border border-green-100">
+                <div class="font-medium text-green-900">.omo/notepads/</div>
+                <div class="text-green-700 text-xs mt-1">learnings.md (679 行)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 数据流向 -->
+        <div class="mt-6 pt-6 border-t border-gray-200">
+          <div class="flex items-center justify-center gap-4 text-sm">
+            <div class="flex items-center gap-2">
+              <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded">决策</span>
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+              </svg>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded">计划</span>
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+              </svg>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="px-3 py-1 bg-green-100 text-green-700 rounded">执行</span>
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+              </svg>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded">知识沉淀</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 演进时间线 -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        项目演进时间线
+      </h2>
+      
+      <div class="relative space-y-6">
+        <div class="timeline-line"></div>
+        
+        <!-- Phase 0 -->
+        <div class="relative pl-12">
+          <div class="timeline-dot" style="top: 8px;"></div>
+          <div class="phase-card">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <span class="text-xs font-semibold text-purple-600 bg-purple-100 px-2 py-1 rounded">Phase 0</span>
+                <h3 class="text-lg font-bold text-gray-900 mt-2">需求探索与决策收敛</h3>
+              </div>
+              <span class="text-sm text-gray-500">Momus 技能主导</span>
+            </div>
+            <p class="text-gray-600 text-sm mb-3">通过 11 轮决策问答（Q1-Q23），从摇摆不定到锁定核心架构</p>
+            <div class="space-y-2">
+              <div class="decision-item text-sm">
+                <strong>决策 #1-7</strong>：命名分离（mdpkg vs MD-Bundle vs Clairis）、纯前端架构、编辑语义、导出目标
+              </div>
+              <div class="decision-item text-sm">
+                <strong>决策 #8-15</strong>：技术栈（Vite+React）、技术栈（Vite+React）、编辑器形态（CM6 源码）、跨产品架构
+              </div>
+              <div class="decision-item text-sm">
+                <strong>决策 #16-17</strong>：保存/导出二分、图片导入零摩擦
+              </div>
+            </div>
+            <div class="mt-3 flex gap-2">
+              <span class="skill-tag bg-purple-100 text-purple-700">/grill-me</span>
+              <span class="skill-tag bg-purple-100 text-purple-700">Momus 对抗评审</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Phase 1 -->
+        <div class="relative pl-12">
+          <div class="timeline-dot" style="top: 8px;"></div>
+          <div class="phase-card">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <span class="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded">Phase 1</span>
+                <h3 class="text-lg font-bold text-gray-900 mt-2">v1 全量上线</h3>
+              </div>
+              <span class="text-sm text-gray-500">Atlas + Worker 执行</span>
+            </div>
+            <p class="text-gray-600 text-sm mb-3">基于初始 26 项任务，完成基础功能（编辑、预览、保存、导出、分享卡）</p>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div class="bg-gray-50 p-2 rounded">✅ 编辑器 + 分屏预览</div>
+              <div class="bg-gray-50 p-2 rounded">✅ 图片导入（三通道）</div>
+              <div class="bg-gray-50 p-2 rounded">✅ .mdpkg 打包/解包</div>
+              <div class="bg-gray-50 p-2 rounded">✅ 分享卡（复制为图片）</div>
+              <div class="bg-gray-50 p-2 rounded">✅ HTML/PNG 导出</div>
+              <div class="bg-gray-50 p-2 rounded">✅ 徽章系统（本地）</div>
+            </div>
+            <div class="mt-3 flex gap-2">
+              <span class="skill-tag bg-blue-100 text-blue-700">/start-work</span>
+              <span class="skill-tag bg-blue-100 text-blue-700">Atlas 编排</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Phase 2 -->
+        <div class="relative pl-12">
+          <div class="timeline-dot" style="top: 8px;"></div>
+          <div class="phase-card border-blue-300 border-2">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <span class="text-xs font-semibold text-indigo-600 bg-indigo-100 px-2 py-1 rounded">Phase 2 · 进行中</span>
+                <h3 class="text-lg font-bold text-gray-900 mt-2">v2 重构（6 Waves + 11 轮评审）</h3>
+              </div>
+              <span class="text-sm text-green-600 font-medium">17/33 完成</span>
+            </div>
+            <p class="text-gray-600 text-sm mb-3">从「所见即所得」需求出发，历经 Momus 7 轮评审 + 4 轮增量复审，最终定稿</p>
+            
+            <div class="space-y-2 mb-4">
+              <div class="warning-item text-sm">
+                <strong>推翻项 #18</strong>：WYSIWYG 提前到 Phase 2，但形态钉死为「活的源码」（CM6 装饰），不做 Milkdown/TipTap
+              </div>
+              <div class="warning-item text-sm">
+                <strong>推翻项 #19</strong>：渲染管线从自写切到共享 @md-bundle/renderer（抽取 clairis）
+              </div>
+              <div class="warning-item text-sm">
+                <strong>推翻项 #30-32</strong>：保存模型改为三层（自动保存→FSA 真保存→下载），撤销常设右栏，增加文件夹工作区
+              </div>
+              <div class="warning-item text-sm">
+                <strong>推翻项 #45</strong>：分享对象从「文档」改为「网站」（邀请链接无 payload）
+              </div>
+            </div>
+            
+            <div class="bg-indigo-50 p-3 rounded-lg text-sm">
+              <strong>关键产出：</strong>29 个 todo × 6 waves + F1-F4 终审 / .omo/plans/md-bundle-v2.md
+            </div>
+            
+            <div class="mt-3 flex gap-2 flex-wrap">
+              <span class="skill-tag bg-indigo-100 text-indigo-700">/grill-with-docs</span>
+              <span class="skill-tag bg-indigo-100 text-indigo-700">Momus 7 轮评审</span>
+              <span class="skill-tag bg-indigo-100 text-indigo-700">/design-shotgun</span>
+              <span class="skill-tag bg-indigo-100 text-indigo-700">/start-work</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Phase 3 -->
+        <div class="relative pl-12">
+          <div class="timeline-dot" style="top: 8px;"></div>
+          <div class="phase-card">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <span class="text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded">Phase 3 · 刚刚完成</span>
+                <h3 class="text-lg font-bold text-gray-900 mt-2">缺陷管理机制落地</h3>
+              </div>
+              <span class="text-sm text-gray-500">Atlas 编排</span>
+            </div>
+            <p class="text-gray-600 text-sm mb-3">建立 GitHub Issues 工作流，与 OpenSpec 变更记录衔接</p>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div class="bg-green-50 p-2 rounded border border-green-100">✅ issue-tracker.md</div>
+              <div class="bg-green-50 p-2 rounded border border-green-100">✅ triage-labels.md</div>
+              <div class="bg-green-50 p-2 rounded border border-green-100">✅ domain.md</div>
+              <div class="bg-green-50 p-2 rounded border border-green-100">✅ bug.yml 模板</div>
+            </div>
+            <div class="mt-3 flex gap-2">
+              <span class="skill-tag bg-green-100 text-green-700">/start-work</span>
+              <span class="skill-tag bg-green-100 text-green-700">defect-management plan</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 技能使用矩阵 -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        技能使用矩阵与最佳实践
+      </h2>
+      
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="px-4 py-3 text-left font-semibold text-gray-900">阶段</th>
+              <th class="px-4 py-3 text-left font-semibold text-gray-900">核心技能</th>
+              <th class="px-4 py-3 text-left font-semibold text-gray-900">产出文档</th>
+              <th class="px-4 py-3 text-left font-semibold text-gray-900">关键价值</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium text-purple-900">需求探索</td>
+              <td class="px-4 py-3">
+                <span class="skill-tag bg-purple-100 text-purple-700">/grill-me</span>
+                <span class="skill-tag bg-purple-100 text-purple-700">/batch-grill-me</span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">decisions.md<br>glossary.md</td>
+              <td class="px-4 py-3 text-gray-600">通过对抗式问答暴露需求矛盾，53 条决策可追溯</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium text-blue-900">方案评审</td>
+              <td class="px-4 py-3">
+                <span class="skill-tag bg-blue-100 text-blue-700">Momus</span>
+                <span class="skill-tag bg-blue-100 text-blue-700">/plan-ceo-review</span>
+                <span class="skill-tag bg-blue-100 text-blue-700">/plan-eng-review</span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">adr-0001/0002<br>mockups/</td>
+              <td class="px-4 py-3 text-gray-600">7 轮对抗评审，7 次 REJECT→修复→APPROVE</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium text-indigo-900">计划生成</td>
+              <td class="px-4 py-3">
+                <span class="skill-tag bg-indigo-100 text-indigo-700">/grill-with-docs</span>
+                <span class="skill-tag bg-indigo-100 text-indigo-700">/to-tickets</span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">.omo/plans/*.md<br>openspec/changes/</td>
+              <td class="px-4 py-3 text-gray-600">边问边写，生成可执行计划 + OpenSpec 变更记录</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium text-green-900">执行落地</td>
+              <td class="px-4 py-3">
+                <span class="skill-tag bg-green-100 text-green-700">/start-work</span>
+                <span class="skill-tag bg-green-100 text-green-700">Atlas 编排</span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">代码实现<br>test-results/</td>
+              <td class="px-4 py-3 text-gray-600">并行子代理，每 wave 结束全绿才 push</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium text-amber-900">知识沉淀</td>
+              <td class="px-4 py-3">
+                <span class="skill-tag bg-amber-100 text-amber-700">自动</span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">.omo/notepads/<br>learnings.md</td>
+              <td class="px-4 py-3 text-gray-600">679 行学习笔记，记录踩坑与决策上下文</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium text-teal-900">缺陷管理</td>
+              <td class="px-4 py-3">
+                <span class="skill-tag bg-teal-100 text-teal-700">/start-work</span>
+                <span class="skill-tag bg-teal-100 text-teal-700">(defect-management)</span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">docs/agents/<br>.github/ISSUE_TEMPLATE/</td>
+              <td class="px-4 py-3 text-gray-600">与 OpenSpec 衔接的 GitHub Issues 工作流</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 最佳实践总结 -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        产品开发最佳实践总结
+      </h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 实践 1 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">1</div>
+            <h3 class="font-bold text-gray-900">决策驱动开发</h3>
+          </div>
+          <p class="text-gray-600 text-sm mb-3">所有重大决策写入 decisions.md，每条决策包含 Considered Options（被否选项及理由），避免「当时为什么这样选」的失忆。</p>
+          <div class="bg-blue-50 p-3 rounded text-xs text-blue-800">
+            <strong>触发技能：</strong>/grill-me, /batch-grill-me —— 通过对抗式问答暴露隐藏假设
+          </div>
+        </div>
+        
+        <!-- 实践 2 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold">2</div>
+            <h3 class="font-bold text-gray-900">计划审查员机制</h3>
+          </div>
+          <p class="text-gray-600 text-sm mb-3">复杂计划（v2 共 29 任务）必须经过 Momus 多轮对抗评审。7 次 REJECT→修复→APPROVE 的循环，比「一次性通过」更能发现隐藏风险。</p>
+          <div class="bg-purple-50 p-3 rounded text-xs text-purple-800">
+            <strong>触发技能：</strong>Momus 评审 —— 独立审查员找出逻辑漏洞和范围蔓延
+          </div>
+        </div>
+        
+        <!-- 实践 3 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">3</div>
+            <h3 class="font-bold text-gray-900">分层计划结构</h3>
+          </div>
+          <p class="text-gray-600 text-sm mb-3">decisions.md（决策）→ .omo/plans/*.md（可执行计划）→ openspec/changes/（产品规格）。三层分离确保「为什么做」与「做什么」不混在一起。</p>
+          <div class="bg-indigo-50 p-3 rounded text-xs text-indigo-800">
+            <strong>关键产出：</strong>6 Waves 分组 + F1-F4 终审，每 wave 结束全绿才推进
+          </div>
+        </div>
+        
+        <!-- 实践 4 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold">4</div>
+            <h3 class="font-bold text-gray-900">知识自动沉淀</h3>
+          </div>
+          <p class="text-gray-600 text-sm mb-3">.omo/notepads/learnings.md 自动积累技术细节（如 CM6 undo 在 macOS 需 Meta+z）。679 行笔记成为后续任务的上下文。</p>
+          <div class="bg-green-50 p-3 rounded text-xs text-green-800">
+            <strong>关键价值：</strong>子代理每次任务前读取 notepads，避免重复踩坑
+          </div>
+        </div>
+        
+        <!-- 实践 5 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-bold">5</div>
+            <h3 class="font-bold text-gray-900">Atlas 编排模式</h3>
+          </div>
+          <p class="text-gray-600 text-sm mb-3">Orchestrator 永不写代码，只负责分解任务 → 并行委派 → 验证 → 更新 checkbox。6 个独立任务并行执行，总耗时 4 分钟。</p>
+          <div class="bg-amber-50 p-3 rounded text-xs text-amber-800">
+            <strong>关键原则：</strong>PARALLEL by default，SEQUENTIAL only with named dependency
+          </div>
+        </div>
+        
+        <!-- 实践 6 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold">6</div>
+            <h3 class="font-bold text-gray-900">缺陷与规格衔接</h3>
+          </div>
+          <p class="text-gray-600 text-sm mb-3">GitHub Issues 与 OpenSpec 变更记录打通：新 bug → Issue；新需求 → OpenSpec change；修复 Issue 时同步更新 tasks.md。</p>
+          <div class="bg-teal-50 p-3 rounded text-xs text-teal-800">
+            <strong>关键产出：</strong>docs/agents/ 文档让 Agent 知道如何消费领域知识
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 后续建议技能 -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+        </svg>
+        后续推荐技能调用
+      </h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border border-blue-200">
+          <h3 class="font-bold text-blue-900 mb-2">继续执行 v2 剩余任务</h3>
+          <p class="text-sm text-blue-800 mb-3">16 个任务待完成（Waves 1-3）</p>
+          <div class="space-y-1 text-xs">
+            <div class="font-mono bg-white/50 px-2 py-1 rounded">/start-work md-bundle-v2</div>
+          </div>
+        </div>
+        
+        <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border border-purple-200">
+          <h3 class="font-bold text-purple-900 mb-2">创建发布文档</h3>
+          <p class="text-sm text-purple-800 mb-3">v2 上线前的 CHANGELOG、README 更新</p>
+          <div class="space-y-1 text-xs">
+            <div class="font-mono bg-white/50 px-2 py-1 rounded">/document-release</div>
+          </div>
+        </div>
+        
+        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-5 border border-green-200">
+          <h3 class="font-bold text-green-900 mb-2">代码质量审计</h3>
+          <p class="text-sm text-green-800 mb-3">typecheck + lint + test 健康度检查</p>
+          <div class="space-y-1 text-xs">
+            <div class="font-mono bg-white/50 px-2 py-1 rounded">/health</div>
+          </div>
+        </div>
+        
+        <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-5 border border-amber-200">
+          <h3 class="font-bold text-amber-900 mb-2">架构深度优化</h3>
+          <p class="text-sm text-amber-800 mb-3">扫描代码库，发现模块化机会</p>
+          <div class="space-y-1 text-xs">
+            <div class="font-mono bg-white/50 px-2 py-1 rounded">/improve-codebase-architecture</div>
+          </div>
+        </div>
+        
+        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-5 border border-indigo-200">
+          <h3 class="font-bold text-indigo-900 mb-2">设计系统文档化</h3>
+          <p class="text-sm text-indigo-800 mb-3">提取 v2 视觉设计为 DESIGN.md</p>
+          <div class="space-y-1 text-xs">
+            <div class="font-mono bg-white/50 px-2 py-1 rounded">/design-consultation</div>
+          </div>
+        </div>
+        
+        <div class="bg-gradient-to-br from-rose-50 to-rose-100 rounded-lg p-5 border border-rose-200">
+          <h3 class="font-bold text-rose-900 mb-2">安全审计</h3>
+          <p class="text-sm text-rose-800 mb-3">代码安全、依赖供应链检查</p>
+          <div class="space-y-1 text-xs">
+            <div class="font-mono bg-white/50 px-2 py-1 rounded">/cso</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 用户实践经验 -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+        <svg class="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+        用户实践经验补充
+      </h2>
+      
+      <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
+        <!-- 经验 1 -->
+        <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+          <h4 class="font-bold text-orange-900 mb-1">OpenSpec 工作流：/opsx-propose → spec → /implement</h4>
+          <p class="text-orange-800 text-sm">使用 <code>/opsx-propose</code> 创建 change 并生成 spec，然后可用 <code>/implement</code> 替代 <code>/tdd</code> 进行开发执行。</p>
+          <div class="mt-2 text-xs text-orange-700">
+            <strong>需求变更/丰富/优化：</strong>使用 <code>/opsx-update-change</code> 修订现有 plan，或 <code>/openspec-explore</code> 澄清需求。
+          </div>
+        </div>
+        
+        <!-- 经验 2 -->
+        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+          <h4 class="font-bold text-blue-900 mb-1">简化验证流程：implement → 人工测试 → 提交</h4>
+          <p class="text-blue-800 text-sm">执行 <code>/implement</code> 或 <code>/tdd</code> 后，不需要再单独调用 review/QA 技能。人工测试通过后，直接执行后续推荐技能并提交即可。</p>
+          <div class="mt-2 text-xs text-blue-700">
+            <strong>技能组合：</strong>/implement → （人工测试）→ /document-release → commit
+          </div>
+        </div>
+        
+        <!-- 经验 3 -->
+        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+          <h4 class="font-bold text-purple-900 mb-1">知识沉淀双通道：自动 notepads + /learn → sync-gbrain</h4>
+          <p class="text-purple-800 text-sm">子代理会自动写入 <code>.omo/notepads/</code>。此外，提交代码后可显式调用 <code>/learn</code> 捕获学习，然后运行 <code>/sync-gbrain</code> 进行解析量化。</p>
+          <div class="mt-2 text-xs text-purple-700">
+            <strong>工作流：</strong>commit → /learn → /sync-gbrain → 知识进入 gbrain 长期存储
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 操作建议 -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        关键操作建议
+      </h2>
+      
+      <div class="space-y-4">
+        <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r">
+          <h4 class="font-bold text-amber-900 mb-1">关于「活的源码」编辑范式</h4>
+          <p class="text-amber-800 text-sm">v2 的核心创新是「Typora 式装饰编辑」，但底层永远是 Markdown 源码。这是块编辑器（Milkdown/TipTap）与源码编辑器的中间路线——观感所见即所得，数据契约仍是「源文件即真相」。建议在产品文档中强调此点，避免用户困惑。</p>
+        </div>
+        
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+          <h4 class="font-bold text-blue-900 mb-1">关于共享渲染器的双向输血</h4>
+          <p class="text-blue-800 text-sm">@md-bundle/renderer 从 clairis 抽取，供 web 端使用；未来 web 端的编辑能力（装饰/页签）也将反哺 clairis。建议在两仓库之间建立版本同步机制（如 changeset），避免 API 漂移。</p>
+        </div>
+        
+        <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-r">
+          <h4 class="font-bold text-green-900 mb-1">关于 FSA 渐进增强</h4>
+          <p class="text-green-800 text-sm">文件系统访问 API 仅 Chromium 支持，v2 设计已考虑降级路线（无 FSA 时主按钮显示「下载」、文件树隐藏）。建议在 QA 中重点测试无 FSA 场景，确保 v1 等价体验全程可用。</p>
+        </div>
+        
+        <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r">
+          <h4 class="font-bold text-purple-900 mb-1">关于分享对象 = 网站</h4>
+          <p class="text-purple-800 text-sm">v2 推翻 v1 的「文档分享」语义，改为「网站邀请」。邀请链接仅含 `?ref=invite&by=<昵称>`，无文档 payload，服务端零存储。这是正确的产品定位（工具 vs 内容平台），但需在用户引导中明确区分「邀请朋友用工具」vs「分享我的作品」。</p>
+        </div>
+        
+        <div class="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r">
+          <h4 class="font-bold text-rose-900 mb-1">关于随机昵称的可测试性</h4>
+          <p class="text-rose-800 text-sm">邀请链接的随机昵称通过 `randomNickname(rng?)` 生成，支持注入 RNG 种子以便测试。建议保留此注入缝，并在测试文档中说明如何固定种子生成确定性昵称。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center text-gray-500 text-sm py-8 border-t border-gray-200">
+      <p>MD-Bundle 项目管理文档 · 生成时间 2026-09-06</p>
+      <p class="mt-1">文档路径: .omo/decisions.md, .omo/plans/, docs/agents/, openspec/</p>
+    </footer>
+  </main>
+</body>
+</html>

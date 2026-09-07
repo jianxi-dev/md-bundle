@@ -29,8 +29,15 @@ export default defineConfig({
         guide: resolve(root, 'examples/guide.html'),
         'mdpkg-demo': resolve(root, 'examples/mdpkg-demo.html'),
       },
+      output: {
+        manualChunks(id) {
+          // 拆出 vendored mdpkg-web（749KB）为独立 async chunk，
+          // 避免膨胀首屏 gzip 至 400KB+。
+          if (id.includes('vendor/mdpkg-web')) return 'vendor-mdpkg-web';
+        },
+      },
     },
-    // Vendored mdpkg bundle makes the js chunk big — pre-existing warning noise.
-    chunkSizeWarningLimit: 1100,
+    // Vendored mdpkg bundle 拆分后仍可能较大 — 保留阈值避免构建警告。
+    chunkSizeWarningLimit: 500,
   },
 });
