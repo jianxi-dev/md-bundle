@@ -10,7 +10,7 @@ src/
   main.tsx         — mount point
   index.css        — global styles
 components/        — 14 thin views: AssetPanel, BadgeToast, FileOpen, FileTree, Gallery, Hero, Landing, LeftRail, OutlineMenu, PreviewView, ShareCard, TabStrip, Toolbar, ValidationPanel
-lib/               — 31 modules in 7 domains (document state, assets, exports, FSA workspace, save/share, tabs/session/outline/theme)
+lib/               — 30 modules in 7 domains (document state, assets, exports, FSA workspace, save/share, tabs/session/outline/theme)
 styles/themes.css  — editor token bridge (imports @md-bundle/editor/src/theme.css)
 test/              — 22 Vitest unit files; 26 Playwright spec files; 7 fixtures
 scripts/           — fixture/OG/smoke generators
