@@ -5,8 +5,8 @@ CodeMirror 6 Markdown editor consumed source-direct by apps/web. Sanitization an
 
 ## PUBLIC API (the contract)
 - `src/index.ts` is the ONLY public entry (`main`/`types` → `./src/index.ts`); NEVER import from deep paths
-- Value exports: createMarkdownEditor (CM6 factory), MarkdownEditor (React controlled wrapper), themeTokens + getThemeColor (design tokens), slashKeymap + insertSlashChar + slashMenuApply/Close/SelectNext/SelectPrev + defaultCommands (slash menu)
-- Type exports: MarkdownEditorOptions, MarkdownEditorHandle, MarkdownEditorComponentProps, ThemeName, ThemeTokenNames, SlashCommand
+- Value exports: createMarkdownEditor (CM6 factory), MarkdownEditor (React controlled wrapper), themeTokens + getThemeColor (design tokens), slashKeymap + insertSlashChar + slashMenuApply/Close/SelectNext/SelectPrev + defaultCommands (slash menu), editorDecorations (CM6 decoration set for live-source editing)
+- Type exports: MarkdownEditorOptions, MarkdownEditorHandle, MarkdownEditorComponentProps, ThemeName, ThemeTokenNames, SlashCommand, EditorDecorationsOptions, ImageResolver, ImageCallbacks
 - `test/public-api.test.ts` pins the FULL export surface — new exports MUST be added there (curtain test)
 
 ## WHERE TO LOOK
@@ -16,6 +16,7 @@ CodeMirror 6 Markdown editor consumed source-direct by apps/web. Sanitization an
 | React wrapper | src/MarkdownEditor.tsx | controlled value/onChange; onMount test seam |
 | Slash command menu | src/slash.ts | 330 lines; keymap + menu state |
 | Theme tokens | src/theme.ts + src/theme.css | theme.ts as const; theme.css CSS mirror — MUST stay in sync (theme.test.ts enforces) |
+| Live-source decorations | src/decorations/ | heading/boldItalic/list/quote/code/callout/image decorators that render markdown markers as visual widgets; barrel re-exports editorDecorations + EditorDecorationsOptions; image.ts also exports ImageResolver/ImageCallbacks types |
 
 ## CONVENTIONS
 - Sanitization SSOT is now `@md-bundle/renderer` (renderMarkdown + DOMPurify); editor no longer handles preview or sanitization

@@ -17,15 +17,25 @@
 | 标签 | 含义 |
 |---|---|
 | `bug` | 真实缺陷 |
-| `in-progress` | 功能标识为"开发中"/未完工 |
 | `p0` | 阻塞级，无法发布 |
 | `p1` | 高优先级，主流程受损 |
 | `p2` | 中优先级，有 workaround |
 | `p3` | 低优先级 / 体验优化 |
-| `wave-4` | 多页签与会话持久化 |
-| `wave-5` | FSA 文件工作区与保存模型 |
-| `wave-6` | 主题、分享、文档收口与回归 |
-| `landing` / `editor` / `renderer` / `fsa` / `save` / `share` | 模块标签 |
+| `landing` | 落地页模块 |
+| `editor` | 编辑器模块 |
+| `renderer` | 渲染器模块 |
+| `tabs` | 多页签模块 |
+| `fsa` | FSA 文件工作区模块 |
+| `save` | 保存模型模块 |
+| `theme` | 主题模块 |
+| `share` | 分享模块 |
+
+### 已废弃标签
+
+| 标签 | 原因 |
+|---|---|
+| `wave-4` / `wave-5` / `wave-6` | 阶段标识非缺陷属性，已完成 |
+| `in-progress` | 用 GitHub Projects 或 assignee 替代 |
 
 ## PR 作为 triage 入口
 
