@@ -1,0 +1,175 @@
+# 缺陷管理流程
+
+> 本仓库所有缺陷统一使用 **GitHub Issues** 管理，仓库：`jianxi-dev/md-bundle`
+> 
+> 本地文件 `bug-registry-*.md` 仅作为缓存，**GitHub Issues 是唯一事实来源**。
+
+> 涉及未提交改动、错误计划、snapshot 恢复或 `reset`/批量覆盖时，先阅读 `docs/agents/incident-uncommitted-work-loss.md`；该文档是共享工作区保护和恢复流程的唯一来源。
+
+---
+
+## 快速操作
+
+### 创建新缺陷
+
+```bash
+# 交互式创建
+cd /Users/mason/ToHighs/md-bundle
+gh issue create --title "[P0] 缺陷标题" --body "详细描述" --label "bug,p0,editor"
+
+# 或一次性创建（推荐用于批量导入）
+cd /Users/mason/ToHighs/md-bundle
+gh issue create \
+  --title "[P0] 缺陷标题" \
+  --body "## 问题描述
+描述问题...
+
+## 期望行为
+期望的结果...
+
+## 复现步骤
+1. 步骤1
+2. 步骤2
+
+---
+*模块: editor*
+*优先级: P0*" \
+  --label "bug,p0,editor"
+```
+
+### 查看缺陷列表
+
+```bash
+# 列出所有开放缺陷
+cd /Users/mason/ToHighs/md-bundle
+gh issue list --state open
+
+# 按标签过滤
+gh issue list --label "bug,p0" --state open
+
+# JSON 格式输出
+gh issue list --state open --json number,title,labels,assignees
+```
+
+### 更新缺陷状态
+
+```bash
+# 添加评论
+cd /Users/mason/ToHighs/md-bundle
+gh issue comment <编号> --body "修复中..."
+
+# 添加标签
+cd /Users/mason/ToHighs/md-bundle
+gh issue edit <编号> --add-label "in-progress"
+
+# 关闭缺陷（修复完成）
+cd /Users/mason/ToHighs/md-bundle
+gh issue close <编号> --comment "已修复，提交 commit: xxx"
+```
+
+---
+
+## 严重级别定义
+
+| 级别 | 名称 | 定义 | 响应时间 |
+|------|------|------|----------|
+| P0 | 阻塞级 | 阻塞发布，核心功能无法使用 | 立即处理 |
+| P1 | 高优先级 | 主流程受损，有 workaround | 24小时内 |
+| P2 | 中优先级 | 有 workaround，体验受影响 | 1周内 |
+| P3 | 低优先级 | 体验优化，功能增强 | 排期处理 |
+
+---
+
+## 模块标签
+
+- `landing` - 落地页模块
+- `editor` - 编辑器模块
+- `renderer` - 渲染器模块
+- `tabs` - 多页签模块
+- `fsa` - FSA 文件工作区模块
+- `save` - 保存模型模块
+- `theme` - 主题模块
+- `share` - 分享模块
+
+---
+
+## 状态流转
+
+```
+待评估 (open + needs-triage)
+    ↓
+已确认 (open + bug)
+    ↓
+修复中 (open + in-progress)
+    ↓
+已关闭 (closed)
+```
+
+---
+
+## 从聊天反馈创建缺陷
+
+当用户通过聊天反馈缺陷时，按以下流程操作：
+
+1. **提取信息**
+   - 问题描述
+   - 期望行为
+   - 复现步骤
+   - 严重级别判断 (P0/P1/P2/P3)
+   - 模块归属
+
+2. **创建 GitHub Issue**
+   ```bash
+   cd /Users/mason/ToHighs/md-bundle
+   gh issue create \
+     --title "[Px] 问题摘要" \
+     --body "## 用户反馈
+问题描述...
+
+## 期望行为
+...
+
+## 复现步骤
+...
+
+---
+*来源: 聊天反馈*
+*模块: xxx*
+*优先级: Px*" \
+     --label "bug,px,模块"
+   ```
+
+3. **通知用户**
+   - 回复用户："已创建 GitHub Issue #xxx 追踪此问题"
+   - 提供链接：`https://github.com/jianxi-dev/md-bundle/issues/xxx`
+
+---
+
+## 批量导入（从本地文件）
+
+如果缺陷先记录在本地 `bug-registry-*.md`，批量导入命令：
+
+```bash
+# 先确保所有标签已创建
+cd /Users/mason/ToHighs/md-bundle
+for label in "p0" "p1" "p2" "p3" "bug" "landing" "editor" "renderer" "tabs" "fsa" "save" "theme" "share"; do
+  gh label create "$label" --force
+done
+
+# 然后逐个创建 issue（或使用脚本批量创建）
+gh issue create --title "..." --body "..." --label "..."
+```
+
+---
+
+## 查看缺陷看板
+
+GitHub Projects 看板地址：
+https://github.com/jianxi-dev/md-bundle/projects
+
+或直接在仓库 Issues 页面查看：
+https://github.com/jianxi-dev/md-bundle/issues
+
+---
+
+_最后更新：2026-09-08_

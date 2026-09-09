@@ -121,6 +121,10 @@ pnpm --filter @md-bundle/web dev         # Vite dev server
 
 ## Agent skills
 
+### Recovery and shared-worktree safety
+
+Before any rollback, bulk overwrite, or snapshot restore, read `docs/agents/incident-uncommitted-work-loss.md`. It is the canonical protocol for protecting uncommitted work, checking plan identity, using Hashline correctly, restoring through an isolated worktree, and distinguishing source/test verification from product QA.
+
 ### Issue tracker
 
 Issue 和 spec 统一以 GitHub issue 形式存在于 `jianxi-dev/md-bundle`。使用 `gh` CLI 进行创建、查看、列表、评论、标签和关闭操作。详见 `docs/agents/issue-tracker.md`。

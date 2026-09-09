@@ -2,6 +2,10 @@
 
 本仓库的 issue、spec、缺陷统一使用 GitHub Issues 管理，仓库为 `jianxi-dev/md-bundle`。所有操作优先使用 `gh` CLI。
 
+## 开发事故与恢复
+
+涉及未提交代码、共享工作区、错误计划路由、snapshot 恢复或破坏性 Git 操作时，先阅读 `docs/agents/incident-uncommitted-work-loss.md`。其中的恢复门禁优先于普通 issue 操作：先保护工作区、再隔离验证、最后才覆盖或提交。
+
 ## 基本操作
 
 - **创建 issue**：`gh issue create --title "..." --body "..."`，多行 body 用 heredoc。
