@@ -1,13 +1,14 @@
-// 分享卡单元测试（任务 6.2）—— node 环境。浏览器 API（canvas/Image/剪贴板）全部注入
-// fake / stub，验证：卡片 HTML 结构（标题/预览/统计/byline）、XML 安全转义、
-// SVG foreignObject 结构、PNG 栅格化委托参数、复制 seam 的 true/false 分支、
-// 无 ClipboardItem 守卫、canShare 禁用判定。
-// @vitest-environment node
+// 分享卡单元测试（任务 6.2）—— jsdom 环境（DOMPurify 需要 window）。
+// 浏览器 API（canvas/Image/剪贴板）全部注入 fake / stub，验证：卡片 HTML
+// 结构（标题/预览/统计/byline）、XML 安全转义、SVG foreignObject 结构、
+// PNG 栅格化委托参数、复制 seam 的 true/false 分支、无 ClipboardItem 守卫、
+// canShare 禁用判定。
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildShareCardHtml,
   canShare,
   cardToPngBlob,
+  cardColors,
   copyToClipboard,
   markdownToPlainText,
   shareCardAsImage,
@@ -22,6 +23,15 @@ import { parsePngSize } from '../src/lib/pngMeta';
 const PNG_1_B64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const PNG_1 = Buffer.from(PNG_1_B64, 'base64');
+
+function makeTestBlob(): Blob {
+  const blob = new Blob([PNG_1], { type: 'image/png' });
+  if (!blob.arrayBuffer) {
+    (blob as { arrayBuffer: () => Promise<ArrayBuffer> }).arrayBuffer = async () =>
+      PNG_1.buffer.slice(PNG_1.byteOffset, PNG_1.byteOffset + PNG_1.byteLength) as ArrayBuffer;
+  }
+  return blob;
+}
 
 /** fake Image：src 一赋值立即同步触发 onload（无真实图片加载）。 */
 function makeFakeImage(): HTMLImageElement {
@@ -69,12 +79,8 @@ describe('markdownToPlainText', () => {
     expect(markdownToPlainText(long, 10)).toHaveLength(10);
   });
 
-  it('renders script source as inert text (renderer hardening reused)', () => {
-    // escape-in-source 把 <script 转成 &lt;script —— 剥标签后解码回字面文本：
-    // 输出是「文本字符」，不是可执行标签（卡片里只是预览文字）。
-    expect(markdownToPlainText('<script>alert(1)</script>正文')).toBe(
-      '<script>alert(1)</script>正文',
-    );
+  it('strips script tags (renderer hardening reused)', () => {
+    expect(markdownToPlainText('<script>alert(1)</script>正文')).toBe('正文');
   });
 });
 
@@ -108,10 +114,30 @@ describe('buildShareCardHtml', () => {
       markdown: 'x',
       stats: { chars: 1, images: 0 },
     });
-    expect(html).toContain('background:#161b22');
-    expect(html).toContain('border:1px solid #30363d');
-    expect(html).toContain('color:#e6edf3');
-    expect(html).toContain('color:#8b949e');
+    expect(html).toContain('background:#0e0f12');
+    expect(html).toContain('border:1px solid rgba(255,255,255,0.08)');
+    expect(html).toContain('color:#f5f6f8');
+    expect(html).toContain('color:#858b96');
+  });
+
+  it('uses light card palette when theme is light', () => {
+    const html = buildShareCardHtml({
+      title: 't',
+      markdown: 'x',
+      stats: { chars: 1, images: 0 },
+      theme: 'light',
+    });
+    expect(html).toContain('background:#ffffff');
+    expect(html).toContain('border:1px solid rgba(0,0,0,0.10)');
+    expect(html).toContain('color:#191a1e');
+    expect(html).toContain('color:#6b6f78');
+  });
+
+  it('cardColors resolves theme tokens for both themes', () => {
+    expect(cardColors('dark').bg).toBe('#0e0f12');
+    expect(cardColors('light').bg).toBe('#ffffff');
+    expect(cardColors('dark').border).toBe('rgba(255,255,255,0.08)');
+    expect(cardColors('light').border).toBe('rgba(0,0,0,0.10)');
   });
 
   it('XML-escapes user content (title/preview) so the SVG stays well-formed', () => {
@@ -155,11 +181,11 @@ describe('shareCardSvg', () => {
 describe('cardToPngBlob (delegates to svgToPngBlob)', () => {
   it('rasterizes at scale-2 dims with theme background fill', async () => {
     const { canvas, drawImage, scale, fillRect, toBlob } = makeFakeCanvas(
-      new Blob([PNG_1], { type: 'image/png' }),
+      makeTestBlob(),
     );
     const svg = shareCardSvg('<div>x</div>');
     const blob = await cardToPngBlob(svg, {
-      background: '#0d1117',
+      background: '#08090b',
       createCanvas: (w, h) => {
         canvas.width = w;
         canvas.height = h;
@@ -227,7 +253,7 @@ describe('copyToClipboard (seam)', () => {
 describe('shareCardAsImage', () => {
   it('copy seam resolves true → { copied: true, blob }', async () => {
     const copy = vi.fn().mockResolvedValue(true);
-    const { canvas } = makeFakeCanvas(new Blob([PNG_1], { type: 'image/png' }));
+    const { canvas } = makeFakeCanvas(makeTestBlob());
     const result = await shareCardAsImage({
       title: '我的文档',
       markdown: SAMPLE_MD,
@@ -250,7 +276,7 @@ describe('shareCardAsImage', () => {
 
   it('copy seam resolves false → { copied: false, blob } (fallback signal for download)', async () => {
     const copy = vi.fn().mockResolvedValue(false);
-    const { canvas } = makeFakeCanvas(new Blob([PNG_1], { type: 'image/png' }));
+    const { canvas } = makeFakeCanvas(makeTestBlob());
     const result = await shareCardAsImage({
       title: '我的文档',
       markdown: SAMPLE_MD,
@@ -288,7 +314,7 @@ describe('shareCardAsImage', () => {
       onload: null,
       onerror: null,
     } as unknown as HTMLImageElement;
-    const { canvas } = makeFakeCanvas(new Blob([PNG_1], { type: 'image/png' }));
+    const { canvas } = makeFakeCanvas(makeTestBlob());
 
     await shareCardAsImage({
       title: '我的文档',

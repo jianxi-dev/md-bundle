@@ -1,16 +1,8 @@
-import 'github-markdown-css';
-
 export {
   createMarkdownEditor,
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
 } from './editor';
-export {
-  MarkdownPreview,
-  renderMarkdownToHtml,
-  type MarkdownPreviewProps,
-} from './preview';
-export { githubMarkdownCssText } from './githubCss';
 export {
   MarkdownEditor,
   type MarkdownEditorComponentProps,
@@ -31,3 +23,5 @@ export {
   defaultCommands,
   type SlashCommand,
 } from './slash';
+export { editorDecorations, type EditorDecorationsOptions } from './decorations';
+export type { ImageResolver, ImageCallbacks } from './decorations/image';

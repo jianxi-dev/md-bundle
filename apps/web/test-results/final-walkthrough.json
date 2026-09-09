@@ -1,6 +1,6 @@
 {
   "tasks": "F3",
-  "verdict": "APPROVE",
+  "verdict": "REJECT",
   "steps": {
     "1-landing": {
       "pass": true,
@@ -15,12 +15,12 @@
       "note": "ok"
     },
     "3b-slash-menu": {
-      "pass": true,
-      "note": "ok"
+      "pass": false,
+      "note": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed"
     },
     "4-import-assets": {
-      "pass": true,
-      "note": "ok"
+      "pass": false,
+      "note": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed"
     },
     "5-save-mdpkg": {
       "pass": true,
@@ -31,16 +31,16 @@
       "note": "ok"
     },
     "7-open-mdpkg": {
-      "pass": true,
-      "note": "ok"
+      "pass": false,
+      "note": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed"
     },
-    "8-share-badges": {
+    "8-badge-persist": {
       "pass": true,
       "note": "ok"
     },
     "9-gallery": {
-      "pass": true,
-      "note": "ok"
+      "pass": false,
+      "note": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed"
     },
     "10-zero-errors": {
       "pass": true,

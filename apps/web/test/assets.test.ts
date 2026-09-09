@@ -6,10 +6,12 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_ASSET_BYTES,
   addAssets,
+  computeOrphans,
   findReference,
   hasImageAssets,
   removeAsset,
   replaceAsset,
+  resolveAssetDataUrl,
   stripReferences,
   uniqueName,
   wireReferences,
@@ -189,5 +191,121 @@ describe('filesToAssets', () => {
     const { assets, skipped } = await filesToAssets([big, pngFile('ok.png')]);
     expect(skipped).toEqual(['big.png']);
     expect(assets.map((a) => a.name)).toEqual(['ok.png']);
+  });
+});
+
+describe('computeOrphans', () => {
+  it('空清单 → 空孤儿集', () => {
+    expect(computeOrphans([], '# Hello')).toEqual(new Set());
+  });
+
+  it('正文引用 `![alt](name.png)` → 不是孤儿', () => {
+    const assets = [asset('pic.png'), asset('logo.png')];
+    const doc = '![photo](pic.png)\n\nSome text.';
+    const orphans = computeOrphans(assets, doc);
+    expect(orphans.has('pic.png')).toBe(false);
+    expect(orphans.has('logo.png')).toBe(true); // logo.png 未引用 → 孤儿
+  });
+
+  it('正文引用 `![alt](./name.png)` → 不是孤儿（./ 变体兼容）', () => {
+    const assets = [asset('pic.png')];
+    const doc = '![photo](./pic.png)';
+    expect(computeOrphans(assets, doc).has('pic.png')).toBe(false);
+  });
+
+  it('导入未引用 → 孤儿', () => {
+    const assets = [asset('orphan.png'), asset('used.png')];
+    const doc = '![u](used.png)';
+    const orphans = computeOrphans(assets, doc);
+    expect(orphans.has('orphan.png')).toBe(true);
+    expect(orphans.has('used.png')).toBe(false);
+  });
+
+  it('引用被删除后 → 孤儿', () => {
+    const assets = [asset('removed.png')];
+    const doc = stripReferences('![x](removed.png)\nkeep', 'removed.png');
+    expect(doc).toBe('\nkeep');
+    expect(computeOrphans(assets, doc).has('removed.png')).toBe(true);
+  });
+
+  it('mdpkg 包内路径名：正文引用完整路径 → 不是孤儿', () => {
+    const assets = [asset('images/photo.png'), asset('images/unused.png')];
+    const doc = '![p](images/photo.png)';
+    const orphans = computeOrphans(assets, doc);
+    expect(orphans.has('images/photo.png')).toBe(false);
+    expect(orphans.has('images/unused.png')).toBe(true);
+  });
+
+  it('mdpkg 包内路径名：正文无任何引用 → 全部孤儿', () => {
+    const assets = [asset('img/a.png'), asset('img/b.png')];
+    const doc = '# No images here';
+    const orphans = computeOrphans(assets, doc);
+    expect(orphans.size).toBe(2);
+    expect(orphans.has('img/a.png')).toBe(true);
+    expect(orphans.has('img/b.png')).toBe(true);
+  });
+
+  it('dataURL 资产（无文件扩展名的 name）→ 始终孤儿（dataURL 不被 markdown 引用）', () => {
+    const assets: Asset[] = [{ name: 'data:image/png;base64,abc', size: 100, dataUrl: 'data:image/png;base64,abc' }];
+    const doc = '# empty';
+    expect(computeOrphans(assets, doc).size).toBe(1);
+  });
+
+  it('多处引用同一资产 → 仍不是孤儿', () => {
+    const assets = [asset('dup.png')];
+    const doc = '![a](dup.png)\n![b](dup.png)';
+    expect(computeOrphans(assets, doc).has('dup.png')).toBe(false);
+  });
+
+  it('外部 URL 图片不计入引用判定', () => {
+    const assets = [asset('local.png')];
+    const doc = '![ext](https://example.com/local.png)';
+    expect(computeOrphans(assets, doc).has('local.png')).toBe(true);
+  });
+});
+describe('resolveAssetDataUrl —— 编辑器 widget / inlineImages 共用匹配口径', () => {
+  const list: Asset[] = [
+    asset('one.png'),
+    asset('two.png'),
+    // mdpkg 包内条目以包内完整路径为名
+    asset('images/logo.png'),
+  ];
+
+  it('裸文件名 `one.png` → 精确匹配', () => {
+    expect(resolveAssetDataUrl(list, 'one.png')).toBe(list[0].dataUrl);
+  });
+
+  it('`./one.png` → 剥离前缀后精确匹配（两种书写形式等价）', () => {
+    expect(resolveAssetDataUrl(list, './one.png')).toBe(list[0].dataUrl);
+    expect(resolveAssetDataUrl(list, './two.png')).toBe(list[1].dataUrl);
+  });
+
+  it('子目录引用 `./images/logo.png` → 与包内完整路径精确匹配', () => {
+    expect(resolveAssetDataUrl(list, './images/logo.png')).toBe(list[2].dataUrl);
+    expect(resolveAssetDataUrl(list, 'images/logo.png')).toBe(list[2].dataUrl);
+  });
+
+  it('子目录下引用扁平资产名（应用导入场景）→ basename 回退命中', () => {
+    expect(resolveAssetDataUrl(list, 'sub/one.png')).toBe(list[0].dataUrl);
+  });
+
+  it('解析不到（缺失 / 空串 / 绝对 URL）→ null', () => {
+    expect(resolveAssetDataUrl(list, 'missing.png')).toBeNull();
+    expect(resolveAssetDataUrl(list, '')).toBeNull();
+    expect(resolveAssetDataUrl(list, 'https://x.com/one.png')).toBeNull();
+    expect(resolveAssetDataUrl(list, 'file:///tmp/one.png')).toBeNull();
+    expect(resolveAssetDataUrl([], 'one.png')).toBeNull();
+  });
+
+  it('裸文件名引用包内路径资产（名字不同）→ null（两方向不一致不解析）', () => {
+    // mdpkg 包内条目以完整路径为名；裸 `logo.png` 引用只能靠 basename 回退到
+    // 扁平资产，无法反向命中 `images/logo.png`（口径与 inlineImages 一致）。
+    expect(resolveAssetDataUrl(list, 'logo.png')).toBeNull();
+  });
+
+  it('basename 冲突时优先完整路径精确匹配', () => {
+    const mixed: Asset[] = [asset('a.png'), asset('x/a.png')];
+    expect(resolveAssetDataUrl(mixed, 'x/a.png')).toBe(mixed[1].dataUrl);
+    expect(resolveAssetDataUrl(mixed, 'a.png')).toBe(mixed[0].dataUrl);
   });
 });

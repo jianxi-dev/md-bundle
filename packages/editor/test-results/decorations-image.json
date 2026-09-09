@@ -1,0 +1,8 @@
+{
+  "tests": 16,
+  "imageWidgetShown": true,
+  "nullFallback": true,
+  "docUnchanged": true,
+  "hoverOps": true,
+  "codeFenceIgnored": true
+}

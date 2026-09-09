@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>图文打包演示 — 官方示例</title>
+    <meta name="description" content="MD-Bundle 图文打包演示：展示 .mdpkg 自包含 Markdown 打包格式如何将图片、Markdown 源码打包进一个文件。" />
+    <link rel="canonical" href="https://bundle.jianxi.me/examples/mdpkg-demo.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="MD-Bundle" />
+    <meta property="og:title" content="图文打包演示 — 官方示例" />
+    <meta property="og:description" content="MD-Bundle 图文打包演示：.mdpkg 自包含 Markdown 打包格式。" />
+    <meta property="og:url" content="https://bundle.jianxi.me/examples/mdpkg-demo.html" />
+    <meta property="og:image" content="https://bundle.jianxi.me/og-banner.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d1117;
+        --card: #161b22;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --accent: #165dff;
+        --code-bg: #1c2128;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.7;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 48px 24px 80px;
+      }
+      h1 { font-size: 2.2rem; font-weight: 700; margin: 0 0 16px; }
+      h2 { font-size: 1.5rem; font-weight: 600; margin: 36px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+      p { margin: 0 0 14px; }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      ul { padding-left: 20px; }
+      li { margin-bottom: 6px; }
+      .cta {
+        display: inline-block;
+        margin-top: 32px;
+        padding: 12px 24px;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 8px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .cta:hover { opacity: 0.9; text-decoration: none; }
+      .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 32px; }
+      .note {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0;
+      }
+      footer {
+        margin-top: 64px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>图文打包演示</h1>
+      <p class="meta">官方示例 · .mdpkg 格式 · 含图片资源</p>
+
+      <p>这是一个 <strong>.mdpkg 自包含 Markdown 打包文件</strong> 的示例页面。.mdpkg 格式将 Markdown 源码与图片资源打包进一个文件，分享不再裂图。</p>
+
+      <h2>包内内容</h2>
+      <ul>
+        <li><code>main.md</code> — Markdown 入口文档</li>
+        <li><code>manifest.json</code> — 包元数据（entrypoint、extensions、source_url）</li>
+        <li><code>assets/</code> — 图片资源目录（PNG/SVG/WebP）</li>
+      </ul>
+
+      <h2>为什么需要 .mdpkg？</h2>
+      <p>传统 Markdown 引用图片时使用相对路径（<code>![img](./photo.png)</code>），分享时需同时发送图片文件，容易裂图。.mdpkg 将图片以 data URI 内嵌到包中，一个文件带走全部图文。</p>
+
+      <div class="note">
+        <p><strong>提示：</strong>此页面为静态 SEO 展示。要体验完整的 .mdpkg 打开、编辑、重打包流程，请在主应用中打开此示例。</p>
+      </div>
+
+      <a class="cta" href="/">在编辑器中打开此示例 →</a>
+
+      <footer>
+        <p>MD-Bundle · 在线打开/编辑/导出 Markdown 与 .mdpkg · <a href="https://bundle.jianxi.me">bundle.jianxi.me</a></p>
+      </footer>
+    </div>
+  </body>
+</html>

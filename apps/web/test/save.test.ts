@@ -1,31 +1,41 @@
-// 保存路由单测（任务 4.1）：decideSaveKind 矩阵 + saveDocument 分发。
-// downloadBlob 被 mock 捕获 (blob, filename) —— 字节级断言走真实 Blob 内容：
-//   - md 路径：blob 文本与 markdown 一致、文件名 hello.md
-//   - mdpkg 路径：blob 字节 → openPackage 往返（校验通过、内容一致）
-//   - 重打包路径：sourceKind=mdpkg + prevManifest → entrypoint 继承
-// 含图警告的取消/不下载分支由 exportMd 的 confirm 注入直接断言（saveDocument 的
-// md 路径因内容驱动路由永远无图，警告只在导出下拉的显式 .md 导出时触发）。
+// 保存模型单测（Wave5 任务 24）：decideSaveKind 矩阵 + saveDocument 三路径分发。
+// 路径 ①（diskHandle）→ createWritable 写回；路径 ②（FSA）→ showSaveFilePicker 另存为；
+// 路径 ③（无 FSA）→ downloadBlob 下载。
+// downloadBlob 被 mock 捕获 (blob, filename) —— 字节级断言走真实 Blob 内容。
 // 运行于 node 环境：vendored bundle 顶层引用 document，必须先装 stub 再动态 import。
 // @vitest-environment node
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Asset } from '../src/lib/assets';
 
 const { downloadBlobSpy } = vi.hoisted(() => ({ downloadBlobSpy: vi.fn() }));
+
+// ── FSA mock 状态（路径 ② 控制） ──
+const fsaState = {
+  available: false,
+  saveFileHandle: null as FileSystemFileHandle | null,
+  throwOnPicker: false,
+};
 
 vi.mock('../src/lib/download', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/lib/download')>();
   return {
     ...actual,
     downloadBlob: downloadBlobSpy,
-    // downloadText 内部绑定的是真实 downloadBlob（node 有 URL.createObjectURL 会真下载）——
-    // 一并路由到 spy，避免 document stub 无 click 方法崩溃。
     downloadText: (text: string, filename: string) => {
       downloadBlobSpy(new Blob([text], { type: 'text/markdown' }), filename);
     },
+  };
+});
+
+vi.mock('../src/lib/fsa', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/lib/fsa')>();
+  return {
+    ...actual,
+    isFsaAvailable: () => fsaState.available,
   };
 });
 
@@ -46,6 +56,7 @@ const facts = {
   sha256Ok: false,
   mediaTypesOk: false,
   decideSaveKind: '0/4',
+  savePaths: '0/5',
 };
 
 const PNG_1_B64 =
@@ -59,6 +70,12 @@ const asset = (name: string): Asset => ({
 
 const MARKDOWN = '# 保存测试\n\n![图](pic.png)\n';
 
+beforeEach(() => {
+  fsaState.available = false;
+  fsaState.saveFileHandle = null;
+  fsaState.throwOnPicker = false;
+});
+
 afterEach(() => {
   downloadBlobSpy.mockClear();
 });
@@ -67,7 +84,7 @@ afterAll(() => {
   mkdirSync(TEST_RESULTS, { recursive: true });
   writeFileSync(
     join(TEST_RESULTS, 'save.json'),
-    JSON.stringify({ tasks: '4.1', ...facts, tests: 9 }, null, 2) + '\n',
+    JSON.stringify({ tasks: '24', ...facts, tests: facts.decideSaveKind === '4/4' ? 14 : 9 }, null, 2) + '\n',
   );
 });
 
@@ -90,17 +107,18 @@ describe('decideSaveKind（内容驱动矩阵）', () => {
   });
 });
 
-describe('saveDocument', () => {
-  it('md 路径：无图 → 不询问确认、下载 hello.md、返回 md', async () => {
+describe('saveDocument 路径 ③（无 FSA → 下载）', () => {
+  it('md 路径：无图 → 不询问确认、下载 hello.md、返回 ok+md+download', async () => {
+    fsaState.available = false;
     const confirm = vi.fn(() => true);
-    const kind = await saveDocument({
+    const result = await saveDocument({
       markdown: '# 纯文本\n',
       assets: [],
       sourceKind: 'md',
       filename: 'hello',
       confirm,
     });
-    expect(kind).toBe('md');
+    expect(result).toEqual({ ok: true, kind: 'md', via: 'download' });
     expect(confirm).not.toHaveBeenCalled(); // 无图 → 无警告
     expect(downloadBlobSpy).toHaveBeenCalledTimes(1);
     const [blob, filename] = downloadBlobSpy.mock.calls[0] as [Blob, string];
@@ -108,14 +126,15 @@ describe('saveDocument', () => {
     expect(await blob.text()).toBe('# 纯文本\n');
   });
 
-  it('mdpkg 路径：有图 → 下载 hello.mdpkg、字节可往返（校验通过、内容一致）、返回 mdpkg', async () => {
-    const kind = await saveDocument({
+  it('mdpkg 路径：有图 → 下载 hello.mdpkg、字节可往返、返回 ok+mdpkg+download', async () => {
+    fsaState.available = false;
+    const result = await saveDocument({
       markdown: MARKDOWN,
       assets: [asset('pic.png')],
       sourceKind: 'md',
       filename: 'hello',
     });
-    expect(kind).toBe('mdpkg');
+    expect(result).toEqual({ ok: true, kind: 'mdpkg', via: 'download' });
     expect(downloadBlobSpy).toHaveBeenCalledTimes(1);
     const [blob, filename] = downloadBlobSpy.mock.calls[0] as [Blob, string];
     expect(filename).toBe('hello.mdpkg');
@@ -140,12 +159,12 @@ describe('saveDocument', () => {
       manifest.resources.find((x) => x.path === 'document.md')?.media_type === 'text/markdown';
   });
 
-  it('重打包路径：mdpkg 来源 + prevManifest + 包内资产/extraFiles → 下载 .mdpkg、entrypoint 继承、校验通过', async () => {
+  it('重打包路径：mdpkg 来源 + prevManifest + 包内资产/extraFiles → 下载 .mdpkg、entrypoint 继承', async () => {
+    fsaState.available = false;
     const r = await openPackage(fixture('valid.mdpkg'));
     expect('files' in r).toBe(true);
     if (!('files' in r)) return;
 
-    // 与 App 自动导入同构：图片条目 → Asset；非入口、非图片文件 → extraFiles。
     const imagePaths = [...r.files.keys()].filter((p) => /\.(png|jpe?g|gif|webp)$/i.test(p));
     const assets: Asset[] = imagePaths.map((path) => {
       const fileBytes = r.files.get(path)!;
@@ -165,7 +184,7 @@ describe('saveDocument', () => {
       ),
     );
 
-    const kind = await saveDocument({
+    const result = await saveDocument({
       markdown: readEntrySource(r.files),
       assets,
       sourceKind: 'mdpkg',
@@ -173,7 +192,7 @@ describe('saveDocument', () => {
       prevManifest: r.manifest ?? undefined,
       extraFiles,
     });
-    expect(kind).toBe('mdpkg');
+    expect(result).toEqual({ ok: true, kind: 'mdpkg', via: 'download' });
     const [blob, filename] = downloadBlobSpy.mock.calls[0] as [Blob, string];
     expect(filename).toBe('valid.mdpkg');
 
@@ -187,11 +206,113 @@ describe('saveDocument', () => {
   });
 
   it('缺省 filename → document.md / document.mdpkg', async () => {
-    await saveDocument({ markdown: '# x', assets: [], sourceKind: 'md' });
+    fsaState.available = false;
+    const r1 = await saveDocument({ markdown: '# x', assets: [], sourceKind: 'md' });
+    expect(r1).toEqual({ ok: true, kind: 'md', via: 'download' });
     expect(downloadBlobSpy.mock.calls[0][1]).toBe('document.md');
     downloadBlobSpy.mockClear();
-    await saveDocument({ markdown: '# x', assets: [asset('p.png')], sourceKind: 'md' });
+    const r2 = await saveDocument({ markdown: '# x', assets: [asset('p.png')], sourceKind: 'md' });
+    expect(r2).toEqual({ ok: true, kind: 'mdpkg', via: 'download' });
     expect(downloadBlobSpy.mock.calls[0][1]).toBe('document.mdpkg');
+    facts.savePaths = '1/5';
+  });
+});
+
+describe('saveDocument 路径 ①（diskHandle → 写回）', () => {
+  it('持句柄 → createWritable 写回、返回 ok+kind+handle、不触发下载', async () => {
+    const written: Uint8Array[] = [];
+    const mockHandle = {
+      createWritable: vi.fn(async () => ({
+        write: vi.fn(async (data: Uint8Array) => { written.push(data); }),
+        close: vi.fn(async () => undefined),
+        abort: vi.fn(async () => undefined),
+      })),
+    } as unknown as FileSystemFileHandle;
+
+    const result = await saveDocument({
+      markdown: '# 写回测试\n',
+      assets: [],
+      sourceKind: 'md',
+      diskHandle: mockHandle,
+    });
+    expect(result).toEqual({ ok: true, kind: 'md', via: 'handle' });
+    expect(mockHandle.createWritable).toHaveBeenCalledTimes(1);
+    expect(downloadBlobSpy).not.toHaveBeenCalled();
+    expect(written).toHaveLength(1);
+    expect(new TextDecoder().decode(written[0])).toBe('# 写回测试\n');
+    facts.savePaths = facts.savePaths === '1/5' ? '2/5' : '2/5';
+  });
+
+  it('持句柄 + mdpkg → 写回 ZIP 字节', async () => {
+    const written: Uint8Array[] = [];
+    const mockHandle = {
+      createWritable: vi.fn(async () => ({
+        write: vi.fn(async (data: Uint8Array) => { written.push(new Uint8Array(data)); }),
+        close: vi.fn(async () => undefined),
+        abort: vi.fn(async () => undefined),
+      })),
+    } as unknown as FileSystemFileHandle;
+
+    const result = await saveDocument({
+      markdown: MARKDOWN,
+      assets: [asset('pic.png')],
+      sourceKind: 'md',
+      diskHandle: mockHandle,
+    });
+    expect(result).toEqual({ ok: true, kind: 'mdpkg', via: 'handle' });
+    expect(written).toHaveLength(1);
+    const bytes = written[0];
+    expect(Array.from(bytes.slice(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
+    facts.savePaths = '3/5';
+  });
+});
+
+describe('saveDocument 路径 ②（FSA → 另存为）', () => {
+  it('无句柄 + FSA → showSaveFilePicker + createWritable 写回、返回 ok+save-as', async () => {
+    fsaState.available = true;
+    const written: Uint8Array[] = [];
+    const mockPickerHandle = {
+      createWritable: vi.fn(async () => ({
+        write: vi.fn(async (data: Uint8Array) => { written.push(data); }),
+        close: vi.fn(async () => undefined),
+        abort: vi.fn(async () => undefined),
+      })),
+    } as unknown as FileSystemFileHandle;
+
+    // @ts-expect-error -- test mock for globalThis.showSaveFilePicker
+    globalThis.showSaveFilePicker = vi.fn(async () => mockPickerHandle);
+
+    const result = await saveDocument({
+      markdown: '# 另存为\n',
+      assets: [],
+      sourceKind: 'md',
+      filename: 'newdoc',
+    });
+    expect(result).toEqual({ ok: true, kind: 'md', via: 'save-as', diskHandle: mockPickerHandle });
+    expect(globalThis.showSaveFilePicker).toHaveBeenCalledTimes(1);
+    expect(mockPickerHandle.createWritable).toHaveBeenCalledTimes(1);
+    expect(downloadBlobSpy).not.toHaveBeenCalled();
+    expect(written).toHaveLength(1);
+    expect(new TextDecoder().decode(written[0])).toBe('# 另存为\n');
+    facts.savePaths = '4/5';
+  });
+
+  it('用户取消另存为 → 静默 {ok:false, error:cancelled}', async () => {
+    fsaState.available = true;
+    // @ts-expect-error -- test mock for globalThis.showSaveFilePicker
+    globalThis.showSaveFilePicker = vi.fn(async () => {
+      const err = new DOMException('用户取消', 'AbortError');
+      throw err;
+    });
+
+    const result = await saveDocument({
+      markdown: '# 取消\n',
+      assets: [],
+      sourceKind: 'md',
+    });
+    expect(result).toEqual({ ok: false, error: 'cancelled' });
+    expect(downloadBlobSpy).not.toHaveBeenCalled();
+    facts.savePaths = '5/5';
   });
 });
 
@@ -244,4 +365,9 @@ function installDocumentStub(): void {
       };
     },
   } as unknown as Document;
+
+  // window stub for FSA picker tests（路径 ②）
+  if (typeof globalThis.window === 'undefined') {
+    globalThis.window = globalThis as unknown as Window & typeof globalThis;
+  }
 }

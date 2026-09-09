@@ -10,11 +10,14 @@ import {
   type ShareCardStats,
 } from '../lib/shareCard';
 import { downloadBlob } from '../lib/download';
+import type { ThemeName } from '@md-bundle/editor';
 
 export interface ShareCardProps {
   title: string;
   markdown: string;
   stats: ShareCardStats;
+  /** 当前主题（默认 'dark'）。 */
+  theme?: ThemeName;
   /** 外部禁用（6.4：无文档时置 true）。内部还会按 canShare 自判。 */
   disabled?: boolean;
   /** 是否渲染卡片 HTML 预览（默认 false —— 6.4 可选开启）。 */
@@ -29,6 +32,7 @@ export function ShareCard({
   title,
   markdown,
   stats,
+  theme = 'dark',
   disabled = false,
   showPreview = false,
   onCopied,
@@ -37,14 +41,14 @@ export function ShareCard({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const shareable = canShare({ title, stats });
-  const cardHtml = showPreview ? buildShareCardHtml({ title, markdown, stats }) : '';
+  const cardHtml = showPreview ? buildShareCardHtml({ title, markdown, stats, theme }) : '';
 
   const handleClick = async () => {
     if (busy) return;
     setBusy(true);
     setStatus(null);
     try {
-      const { copied, blob } = await shareCardAsImage({ title, markdown, stats });
+      const { copied, blob } = await shareCardAsImage({ title, markdown, stats, theme });
       if (copied) {
         setStatus('已复制到剪贴板');
         onCopied?.();

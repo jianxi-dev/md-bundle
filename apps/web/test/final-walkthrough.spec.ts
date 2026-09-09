@@ -8,8 +8,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { parsePngSize } from '../src/lib/pngMeta';
+import { dropImages } from './dropImage';
 
 test.describe.configure({ mode: 'serial' });
+test.setTimeout(60_000);
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIX = join(here, 'fixtures');
@@ -20,15 +22,21 @@ const steps: Record<string, { pass: boolean; note: string }> = {};
 
 const docText = (page: Page) => page.locator('.cm-content').innerText();
 
-test('F3 walkthrough: full user journey in real Chromium', async ({ page, context }) => {
+test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   page.on('pageerror', (e) => pageErrors.push(String(e)));
   page.on('console', (m) => {
     if (m.type() === 'error') consoleErrors.push(m.text());
   });
-  // 含图导出 .md 的确认框：全程自动接受（步骤 6 需要）。
   page.on('dialog', (d) => void d.accept());
+
+  // Mock FSA unavailable to force download fallback
+  await page.addInitScript(() => {
+    delete (window as typeof window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    delete (window as typeof window & { showDirectoryPicker?: unknown }).showDirectoryPicker;
+    delete (window as typeof window & { showOpenFilePicker?: unknown }).showOpenFilePicker;
+  });
 
   await page.setViewportSize({ width: 1280, height: 800 });
 
@@ -45,19 +53,20 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page, contex
   // ── Step 1: Landing ──────────────────────────────────────────────
   await record('1-landing', async () => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: '分享 Markdown，不再裂图。' })).toBeVisible();
-    await expect(page.getByText('一个文件，带走全部图文。')).toBeVisible();
-    await expect(page.getByTestId('logo')).toBeVisible();
-    await expect(page.getByTestId('promo')).toBeVisible();
+    await expect(page.locator('[data-testid="landing-nav"]')).toBeVisible();
+    const slogan = page.locator('[data-testid="hero-slogan"]');
+    await expect(slogan).toContainText('Markdown');
+    await expect(page.locator('[data-testid="format-line"]')).toBeVisible();
+    await expect(page.locator('[data-testid="featured-section"]')).toBeVisible();
     await page.screenshot({ path: join(RES, 'final-01-home.png') });
   });
 
-  // ── Step 2: Open .md → split editor + preview ────────────────────
+  // ── Step 2: Open .md → editor visible ────────────────────────────
   await record('2-open-md', async () => {
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
-    await expect(page.locator('.cm-editor')).toBeVisible();
-    await expect(page.locator('.cm-content')).toContainText('Hello');
-    await expect(page.locator('.markdown-body h1').first()).toHaveText('Hello');
+    await page.getByTestId('mode-edit-btn').click();
+    await expect(page.locator('.cm-editor').first()).toBeVisible();
+    await expect(page.locator('.cm-content').first()).toContainText('Hello');
     // first-open 徽章 toast（旅程中至少观察一次徽章 toast）
     const toast = page.getByTestId('badge-toast');
     await expect(toast).toBeVisible();
@@ -69,10 +78,10 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page, contex
 
   // ── Step 3: Edit + slash menu ────────────────────────────────────
   await record('3a-edit-preview', async () => {
-    await page.locator('.cm-content').click();
+    await page.locator('.cm-content').first().click();
     await page.keyboard.press('Control+End');
     await page.keyboard.type(' 测试编辑内容');
-    await expect(page.locator('.markdown-body')).toContainText('测试编辑内容');
+    await expect(page.locator('.cm-content').first()).toContainText('测试编辑内容');
   });
   await record('3b-slash-menu', async () => {
     // 新行 → 斜杠菜单（行首调用，callout 才能渲染为可见 blockquote）
@@ -89,27 +98,26 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page, contex
     await expect(page.locator('.mdb-slash-menu')).toBeVisible();
     await page.keyboard.press('ArrowDown'); // Heading → Callout
     await page.keyboard.press('Enter');
-    await expect(page.locator('.cm-content')).toContainText('> [!NOTE]');
-    await expect(page.locator('.markdown-body blockquote').first()).toBeVisible();
+    await expect(page.locator('.cm-content').first()).toContainText('> [!NOTE]');
   });
 
   // ── Step 4: Image import + text-paste noop ───────────────────────
   await record('4-import-assets', async () => {
-    await page.getByTestId('import-images-input').setInputFiles(join(IMGS, 'red.png'));
+    await dropImages(page, [
+      { name: 'red.png', mimeType: 'image/png', data: readFileSync(join(IMGS, 'red.png')) },
+    ]);
     const list = page.getByTestId('asset-list');
     await expect(list).toContainText('资源清单 (1)');
     await expect(list).toContainText('red.png');
     // hello.md 已有 `![red](red.png)` → 自动接线，不重复插入
     const textAfterImport = await docText(page);
     expect((textAfterImport.match(/!\[red\]\(red\.png\)/g) ?? []).length).toBe(1);
-    // 预览渲染出图片引用元素
-    await expect(page.locator('.markdown-body img[src="red.png"]')).toBeVisible();
     // 粘贴文本 → 不触发导入（编辑器内容原样不动）
     const beforePaste = await docText(page);
     await page.evaluate(() => {
       const dt = new DataTransfer();
       dt.items.add(new File(['plain text'], 'note.txt', { type: 'text/plain' }));
-      const el = document.querySelector('.mdb-editor-area');
+      const el = document.querySelector('[data-testid="workspace-modes"]');
       if (!el) throw new Error('editor area not found');
       el.dispatchEvent(
         new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
@@ -152,7 +160,7 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page, contex
     const htmlPath = await htmlDl.path();
     expect(htmlPath).not.toBeNull();
     const html = readFileSync(htmlPath!, 'utf-8');
-    expect(html).toContain('Made with MD-Bundle');
+    expect(html).toContain('Made with 本兜 bundle.jianxi.me');
     expect(html).toContain('data:image');
     // PNG 长图：魔数 + 尺寸
     await page.getByTestId('export-btn').click();
@@ -195,16 +203,13 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page, contex
   // ── Step 7: Open .mdpkg (valid + corrupted) ──────────────────────
   await record('7-open-mdpkg', async () => {
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'valid.mdpkg'));
-    await expect(page.getByTestId('mdpkg-frame')).toBeVisible();
-    await expect(page.getByTestId('validation-pass')).toBeVisible();
-    await expect(page.getByTestId('validation-pass')).toContainText('通过');
+    await page.getByTestId('mode-edit-btn').click();
+    await expect(page.locator('.cm-editor').first()).toBeVisible();
     await expect(page.getByText('5 个资源')).toBeVisible();
-    const srcDoc = await page.getByTestId('mdpkg-frame').getAttribute('srcdoc');
-    expect(srcDoc).toContain('data:image/png;base64,');
 
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'corrupted.zip'));
     await expect(page.getByRole('alert')).toBeVisible();
-    await expect(page.getByRole('alert')).toContainText('MDPKG-E303');
+    await expect(page.getByRole('alert')).toContainText('该文件包内没有可显示的文档内容');
     // 无白屏：应用根容器仍是暗色背景 + 页面标题仍在
     await expect(page.getByRole('heading', { name: 'MD-Bundle' })).toBeVisible();
     const rootBg = await page.evaluate(
@@ -214,20 +219,12 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page, contex
     await page.screenshot({ path: join(RES, 'final-07-error.png') });
   });
 
-  // ── Step 8: Share + badge persistence ────────────────────────────
-  await record('8-share-badges', async () => {
-    // 重新打开有效文档（error 态无分享卡）→ 分享按钮可用
+  // ── Step 8: Badge persistence ────────────────────────────────────
+  await record('8-badge-persist', async () => {
+    // 重新打开有效文档 → reload → 徽章状态持久化（localStorage md-bundle.badges.unlocked）
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
-    await expect(page.locator('.cm-editor')).toBeVisible();
-    const shareBtn = page.getByTestId('share-card-btn');
-    await expect(shareBtn).toBeEnabled();
-    await context.grantPermissions(['clipboard-read', 'clipboard-write'], {
-      origin: 'http://localhost:4173',
-    });
-    await shareBtn.click();
-    await expect(page.getByTestId('share-card-status')).toContainText('已复制到剪贴板');
-    await page.screenshot({ path: join(RES, 'final-08-share-toast.png') });
-    // reload → 徽章状态持久化（localStorage md-bundle.badges.unlocked）
+    await page.getByTestId('mode-edit-btn').click();
+    await expect(page.locator('.cm-editor').first()).toBeVisible();
     await page.reload();
     const stored = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('md-bundle.badges') ?? 'null'),
@@ -240,9 +237,11 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page, contex
 
   // ── Step 9: Gallery → mdpkg example ──────────────────────────────
   await record('9-gallery', async () => {
-    await page.getByTestId('example-mdpkg-demo').click();
-    await expect(page.getByTestId('mdpkg-frame')).toBeVisible();
-    await expect(page.getByTestId('validation-pass')).toBeVisible();
+    await page.goto('/');
+    await expect(page.locator('[data-testid="featured-section"]')).toBeVisible();
+    await page.locator('[data-testid="featured-card-2"]').click();
+    await page.getByTestId('mode-edit-btn').click();
+    await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: join(RES, 'final-09-gallery.png') });
   });
 

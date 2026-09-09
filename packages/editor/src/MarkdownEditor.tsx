@@ -8,6 +8,8 @@ export interface MarkdownEditorComponentProps
   value?: string;
   /** Fired on every user edit with the full new value. */
   onChange?: (value: string) => void;
+  /** Toggle decorations on/off via Compartment reconfigure. */
+  decorationsEnabled?: boolean;
   /**
    * Test seam: called once with the underlying `MarkdownEditorHandle` right
    * after mount. Lets tests drive `setValue`/`setTheme` and read `getValue`
@@ -34,6 +36,8 @@ export function MarkdownEditor({
   onChange,
   theme = 'dark',
   extensions,
+  decorations,
+  decorationsEnabled = true,
   onMount,
 }: MarkdownEditorComponentProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -52,6 +56,8 @@ export function MarkdownEditor({
       value,
       theme,
       extensions,
+      decorations,
+      decorationsEnabled,
       onChange: (next) => onChangeRef.current?.(next),
     });
     handleRef.current = handle;
@@ -77,6 +83,11 @@ export function MarkdownEditor({
   useEffect(() => {
     handleRef.current?.setTheme(theme);
   }, [theme]);
+
+  // Reconfigure the decorations compartment when decorationsEnabled changes.
+  useEffect(() => {
+    handleRef.current?.setDecorationsEnabled(decorationsEnabled);
+  }, [decorationsEnabled]);
 
   return <div ref={hostRef} />;
 }

@@ -4,6 +4,10 @@ import { defineConfig } from 'vitest/config';
 // package's suite through its own vitest config.
 export default defineConfig({
   test: {
-    projects: ['apps/web/vitest.config.ts', 'packages/editor/vitest.config.ts'],
+    projects: [
+      'apps/web/vitest.config.ts',
+      'packages/editor/vitest.config.ts',
+      'packages/renderer/vitest.config.ts',
+    ],
   },
 });

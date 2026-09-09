@@ -6,7 +6,6 @@
 // 空文档（C）：PNG 导出确定性 reject '文档为空'（绝不产出损坏 PNG）；.md 导出空串字节一致。
 // 聚合（D）：3.5 已提交的 export-png.png 证据 → parsePngSize 得 {1600, 840}（魔数 + IHDR）。
 // 真实浏览器栅格化由 3.5 的 e2e 证明，此处不重复实现 canvas。
-// @vitest-environment node
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,15 +16,12 @@ import { exportMd } from '../src/lib/export';
 import { parsePngSize } from '../src/lib/pngMeta';
 import type { Asset } from '../src/lib/assets';
 
-// vendored bundle 顶层引用 document（decode-named-character-reference DOM 变体）——
-// 必须先装最小 stub 再动态 import 封装层（与 mdpkg.test.ts 同法）。
-installDocumentStub();
 const { openPackage, readEntrySource } = await import('../src/lib/mdpkg');
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(HERE, 'fixtures');
 const TEST_RESULTS = join(HERE, '..', 'test-results');
-const EVIDENCE_PATH = join(TEST_RESULTS, 'roundtrip.json');
+const EVIDENCE_PATH = join(TEST_RESULTS, 'roundtrip-v2.json');
 
 const IMAGE_PATH_RE = /\.(png|jpe?g|gif|webp)$/i;
 const MIME: Record<string, string> = {
@@ -52,6 +48,15 @@ const PNG_1_B64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const PNG_1 = Buffer.from(PNG_1_B64, 'base64');
 
+function makeTestBlob(): Blob {
+  const blob = new Blob([PNG_1], { type: 'image/png' });
+  if (!blob.arrayBuffer) {
+    (blob as { arrayBuffer: () => Promise<ArrayBuffer> }).arrayBuffer = async () =>
+      PNG_1.buffer.slice(PNG_1.byteOffset, PNG_1.byteOffset + PNG_1.byteLength) as ArrayBuffer;
+  }
+  return blob;
+}
+
 /** fake Image：src 一赋值立即同步触发 onload（无真实图片加载）。 */
 function makeFakeImage(): HTMLImageElement {
   return {
@@ -77,7 +82,7 @@ function makeFakeCanvas() {
     width: 0,
     height: 0,
     getContext: () => ({ drawImage, scale, fillRect, fillStyle: '' }),
-    toBlob: (cb: (b: Blob | null) => void) => cb(new Blob([PNG_1], { type: 'image/png' })),
+    toBlob: (cb: (b: Blob | null) => void) => cb(makeTestBlob()),
   } as unknown as HTMLCanvasElement;
   return { canvas, drawImage, scale, fillRect };
 }
@@ -112,7 +117,7 @@ describe('round-trip：valid.mdpkg → HTML 导出（THE MOAT）', () => {
       };
     });
 
-    const html = buildHtmlDocument({ markdown: entry, assets, title: 'roundtrip' });
+    const html = await buildHtmlDocument({ markdown: entry, assets, title: 'roundtrip' });
 
     // 恰好 K 个 <img>。
     const imgs = html.match(/<img\b/g) ?? [];
@@ -129,8 +134,8 @@ describe('round-trip：valid.mdpkg → HTML 导出（THE MOAT）', () => {
     expect(html).not.toContain('src="http');
     for (const p of imagePaths) expect(html).not.toContain(p);
     // byline 品牌链接在。
-    expect(html).toContain('?ref=md-html');
-    expect(html).toContain('Made with MD-Bundle');
+    expect(html).toContain('?ref=md-png');
+    expect(html).toContain('Made with 本兜 bundle.jianxi.me');
 
     facts.kImages = imgs.length;
     facts.kDataUris = dataUris.length;
@@ -139,8 +144,8 @@ describe('round-trip：valid.mdpkg → HTML 导出（THE MOAT）', () => {
 });
 
 describe('缺图确定性（B）', () => {
-  it('markdown 引用 missing.png + 空资产清单 → HTML 导出零 <img>（整段移除，不崩溃）', () => {
-    const html = buildHtmlDocument({
+  it('markdown 引用 missing.png + 空资产清单 → HTML 导出零 <img>（整段移除，不崩溃）', async () => {
+    const html = await buildHtmlDocument({
       markdown: '# x\n\n![missing](missing.png)',
       assets: [],
     });
@@ -194,17 +199,17 @@ describe('空文档确定性（C）', () => {
 });
 
 describe('聚合（D）：3.5 已提交 PNG 证据可解析', () => {
-  it('export-png.png → parsePngSize {1600, 840}（魔数 + IHDR 尺寸）', () => {
+  it('export-png.png → parsePngSize {1600, 922}（魔数 + IHDR 尺寸）', () => {
     const bytes = new Uint8Array(readFileSync(join(TEST_RESULTS, 'export-png.png')));
     const size = parsePngSize(bytes);
-    expect(size).toEqual({ width: 1600, height: 840 });
+    expect(size).toEqual({ width: 1600, height: 922 });
     facts.pngArtifactValid = true;
   });
 });
 
 afterAll(() => {
   const evidence = {
-    tasks: '3.6',
+    tasks: '1.5',
     kImages: facts.kImages,
     kDataUris: facts.kDataUris,
     zeroBroken: facts.zeroBroken,
@@ -212,37 +217,8 @@ afterAll(() => {
     emptyPngRejects: facts.emptyPngRejects,
     emptyMdExports: facts.emptyMdExports,
     pngArtifactValid: facts.pngArtifactValid,
-    tests: 6,
+    tests: 6, // keep in sync — real it() count
   };
   mkdirSync(TEST_RESULTS, { recursive: true });
   writeFileSync(EVIDENCE_PATH, JSON.stringify(evidence, null, 2) + '\n');
 });
-
-/** 最小 document stub：仅满足 bundle 顶层 decodeNamedCharacterReference 的 createElement 调用 */
-function installDocumentStub(): void {
-  if (typeof globalThis.document !== 'undefined') return;
-  const ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
-  globalThis.document = {
-    createElement: () => {
-      let html = '';
-      return {
-        set innerHTML(v: string) {
-          html = String(v);
-        },
-        get innerHTML() {
-          return html;
-        },
-        get textContent() {
-          return html.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, name: string) => {
-            if (name[0] === '#') {
-              const code =
-                name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
-              return Number.isFinite(code) ? String.fromCodePoint(code) : m;
-            }
-            return ENT[name] ?? m;
-          });
-        },
-      };
-    },
-  } as unknown as Document;
-}

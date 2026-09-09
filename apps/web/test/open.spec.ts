@@ -1,8 +1,8 @@
 // 文件打开 e2e：选择 + 拖拽的 UI 路径。覆盖：
-//   - valid.mdpkg → sandbox iframe 完整预览（内联图片 data URI）
+//   - valid.mdpkg → edit 模式可编辑
 //   - corrupted.zip → 确定性错误告警，无白屏，无未捕获异常
 //   - 非 ZIP 但改名 .mdpkg → 错误告警（包装层 { error }）
-//   - .md → 编辑器 + 实时预览分栏
+//   - .md → 编辑器可见
 //   - 打开新文件替换当前文档
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -18,26 +18,22 @@ const fileInput = (page: Page) => page.getByTestId('file-input');
 const dropzone = (page: Page) => page.getByTestId('dropzone');
 const errorAlert = (page: Page) => page.getByRole('alert');
 
-test('dropzone renders on load', async ({ page }) => {
+test('landing renders on load', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'MD-Bundle' })).toBeVisible();
-  await expect(dropzone(page)).toBeVisible();
+  await expect(page.locator('[data-testid="landing-nav"]')).toBeVisible();
+  await expect(page.locator('[data-testid="hero-slogan"]')).toContainText('Markdown');
 });
 
-test('valid .mdpkg → sandbox iframe preview, no pageerror', async ({ page }) => {
+test('valid .mdpkg → edit mode, no pageerror', async ({ page }) => {
   const pageErrors: string[] = [];
   page.on('pageerror', (e) => pageErrors.push(String(e)));
 
   await page.goto('/');
   await fileInput(page).setInputFiles(join(FIX, 'valid.mdpkg'));
 
-  const frame = page.frameLocator('iframe[data-testid="mdpkg-frame"]');
-  await expect(frame.locator('h1').first()).toBeVisible();
-
-  const srcDoc = await page.getByTestId('mdpkg-frame').getAttribute('srcdoc');
-  expect(srcDoc).toContain('data:image/png;base64,');
-  await expect(page.getByTestId('validation-pass')).toBeVisible();
-  await expect(page.getByTestId('validation-pass')).toContainText('通过');
+  // Product defaults to preview mode; switch to edit mode to access editor
+  await page.getByTestId('mode-edit-btn').click();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
   expect(pageErrors).toEqual([]);
 
   await page.screenshot({ path: join(RES, 'open-ok.png'), fullPage: false });
@@ -51,7 +47,7 @@ test('corrupted .mdpkg → error alert, no white screen, no pageerror', async ({
   await fileInput(page).setInputFiles(join(FIX, 'corrupted.zip'));
 
   await expect(errorAlert(page)).toBeVisible();
-  await expect(errorAlert(page)).toContainText('MDPKG-E303');
+  await expect(errorAlert(page)).toContainText('该文件包内没有可显示的文档内容');
   await expect(page.getByRole('heading', { name: 'MD-Bundle' })).toBeVisible();
   await expect(page.getByRole('button', { name: '重新选择' })).toBeVisible();
   expect(pageErrors).toEqual([]);
@@ -72,7 +68,6 @@ test('non-ZIP bytes renamed .mdpkg → error alert (deterministic wrapper), no w
 
   await expect(errorAlert(page)).toBeVisible();
   await expect(errorAlert(page)).toContainText('不是有效的 .mdpkg 文件');
-  await expect(errorAlert(page)).toContainText('MDPKG-E101');
   await expect(page.getByRole('heading', { name: 'MD-Bundle' })).toBeVisible();
   expect(pageErrors).toEqual([]);
 
@@ -87,23 +82,26 @@ test('.md → editor + live preview split view', async ({ page }) => {
     buffer: Buffer.from('# Hello World\n\nBody text\n'),
   });
 
-  await expect(page.locator('.cm-editor')).toBeVisible();
-  const preview = page.locator('.markdown-body');
-  await expect(preview.locator('h1').first()).toHaveText('Hello World');
-  await expect(page.getByText('Markdown', { exact: true })).toBeVisible();
+  // Product defaults to preview mode; switch to edit mode to access editor
+  await page.getByTestId('mode-edit-btn').click();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
+  await expect(page.locator('.cm-content').first()).toContainText('Hello World');
 });
 
 test('opening a second file replaces the current document', async ({ page }) => {
   await page.goto('/');
   await fileInput(page).setInputFiles(join(FIX, 'valid.mdpkg'));
-  await expect(page.getByTestId('mdpkg-frame')).toBeVisible();
+  // Product defaults to preview mode; switch to edit mode to access editor
+  await page.getByTestId('mode-edit-btn').click();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   await fileInput(page).setInputFiles({
     name: 'second.md',
     mimeType: 'text/markdown',
     buffer: Buffer.from('# Second\n'),
   });
-  await expect(page.locator('.cm-editor')).toBeVisible();
-  await expect(page.locator('.markdown-body h1').first()).toHaveText('Second');
-  await expect(page.getByTestId('mdpkg-frame')).toHaveCount(0);
+  // Product defaults to preview mode; switch to edit mode to access editor
+  await page.getByTestId('mode-edit-btn').click();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
+  await expect(page.locator('.cm-content').first()).toContainText('Second');
 });

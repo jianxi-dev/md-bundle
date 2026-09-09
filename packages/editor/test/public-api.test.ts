@@ -10,14 +10,9 @@
  * jsdom lacks requestAnimationFrame/ResizeObserver; CodeMirror 6 uses both.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanup, render } from '@testing-library/react';
-import { createElement } from 'react';
 import {
   createMarkdownEditor,
   MarkdownEditor,
-  MarkdownPreview,
-  renderMarkdownToHtml,
-  githubMarkdownCssText,
   themeTokens,
   getThemeColor,
   slashKeymap,
@@ -27,13 +22,16 @@ import {
   slashMenuSelectNext,
   slashMenuSelectPrev,
   defaultCommands,
+  editorDecorations,
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
   type MarkdownEditorComponentProps,
-  type MarkdownPreviewProps,
   type ThemeName,
   type ThemeTokenNames,
   type SlashCommand,
+  type EditorDecorationsOptions,
+  type ImageResolver,
+  type ImageCallbacks,
 } from '../src/index';
 
 function installPolyfills(): void {
@@ -58,19 +56,23 @@ function installPolyfills(): void {
 const _typeProbe: MarkdownEditorOptions & {
   handle: MarkdownEditorHandle;
   props: MarkdownEditorComponentProps;
-  preview: MarkdownPreviewProps;
   theme: ThemeName;
   token: ThemeTokenNames;
   cmd: SlashCommand;
+  decoOpts: EditorDecorationsOptions;
+  resolver: ImageResolver;
+  callbacks: ImageCallbacks;
 } = {
   value: 'x',
   theme: 'dark',
   extensions: [],
   handle: undefined as unknown as MarkdownEditorHandle,
   props: { value: 'x' },
-  preview: { markdown: '# t' },
   token: 'primary',
   cmd: defaultCommands[0],
+  decoOpts: {},
+  resolver: () => null,
+  callbacks: {},
 };
 void _typeProbe;
 
@@ -78,15 +80,8 @@ describe('public export contract', () => {
   it('exports every editor API member as a function', () => {
     expect(typeof createMarkdownEditor).toBe('function');
     expect(typeof MarkdownEditor).toBe('function');
-    expect(typeof MarkdownPreview).toBe('function');
-    expect(typeof renderMarkdownToHtml).toBe('function');
     expect(typeof getThemeColor).toBe('function');
-  });
-
-  it('exports the raw github-markdown-css text for the export pipeline', () => {
-    expect(typeof githubMarkdownCssText).toBe('string');
-    expect(githubMarkdownCssText.length).toBeGreaterThan(1000);
-    expect(githubMarkdownCssText).toContain('.markdown-body');
+    expect(typeof editorDecorations).toBe('function');
   });
 
   it('exports the theme token table as an object with both themes', () => {
@@ -190,32 +185,6 @@ describe('slash menu through the public API', () => {
   });
 });
 
-describe('MarkdownPreview output through the public API', () => {
-  afterEach(() => {
-    // @testing-library/react auto-cleanup needs globals:true; call it manually.
-    cleanup();
-  });
-
-  it('renderMarkdownToHtml returns sanitized HTML without a wrapper', () => {
-    const html = renderMarkdownToHtml('# T\n\n<script>alert(1)</script>');
-    expect(html).toContain('<h1>T</h1>');
-    expect(html).not.toContain('<script');
-  });
-
-  it('renders h1, table, and blockquote from markdown', () => {
-    const markdown =
-      '# T\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n> quote';
-    const { container } = render(
-      createElement(MarkdownPreview, { markdown }),
-    );
-    expect(container.querySelector('h1')?.textContent).toBe('T');
-    expect(container.querySelector('table')).toBeTruthy();
-    expect(container.querySelector('blockquote')?.textContent).toContain(
-      'quote',
-    );
-  });
-});
-
 describe('theme token full set through the public API', () => {
   it('dark and light expose identical, non-empty token key sets', () => {
     const darkKeys = Object.keys(themeTokens.dark).sort();
@@ -224,9 +193,9 @@ describe('theme token full set through the public API', () => {
     expect(lightKeys).toEqual(darkKeys);
   });
 
-  it('primary is #165DFF in both themes', () => {
-    expect(themeTokens.dark.primary).toBe('#165DFF');
-    expect(themeTokens.light.primary).toBe('#165DFF');
+  it('primary is indigo in both themes', () => {
+    expect(themeTokens.dark.primary).toBe('#7b86ea');
+    expect(themeTokens.light.primary).toBe('#4f5ad1');
   });
 
   it('getThemeColor resolves every token in both themes', () => {

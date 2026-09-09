@@ -1,76 +1,76 @@
 // 文件打开入口 —— 点击选择 + 拖拽放入，二合一 dropzone。
 // 只负责「把文件交出去」（onOpenFile），类型检测 / 错误态收敛由 lib/openFile + useDocument 负责。
 // 非文件拖放（文件夹、无文件）在此忽略并给出瞬时提示；真实错误走 App 的错误告警态。
-import { useRef, useState } from 'react';
+import { useRef, useState } from 'react'
 
 export interface FileOpenProps {
   /** 打开一个文件（异步结果由 useDocument 接管）。 */
-  onOpenFile: (file: File) => void;
+  onOpenFile: (file: File) => void
   /** 紧凑模式（文档已打开时收起成一行）。 */
-  compact?: boolean;
+  compact?: boolean
 }
 
-const ACCEPT = '.md,.mdpkg';
+const ACCEPT = '.md,.mdpkg'
 
 export function FileOpen({ onOpenFile, compact = false }: FileOpenProps): JSX.Element {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [dragActive, setDragActive] = useState(false);
-  const [hint, setHint] = useState<string | null>(null);
-  const dragDepth = useRef(0);
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [dragActive, setDragActive] = useState(false)
+  const [hint, setHint] = useState<string | null>(null)
+  const dragDepth = useRef(0)
 
   const openPicker = () => {
-    inputRef.current?.click();
-  };
+    inputRef.current?.click()
+  }
 
   const handleFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const file = files[0];
+    if (!files || files.length === 0) return
+    const file = files[0]
     try {
-      onOpenFile(file);
+      onOpenFile(file)
     } catch {
       // 已由 lib/openFile 兜底；此处防御 onChange 冒出的意外异常（仍不白屏）。
-      setHint('无法读取该文件，请重试。');
+      setHint('无法读取该文件，请重试。')
     }
-  };
+  }
 
   const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragDepth.current = 0;
-    setDragActive(false);
+    e.preventDefault()
+    dragDepth.current = 0
+    setDragActive(false)
 
-    const items = e.dataTransfer.items;
+    const items = e.dataTransfer.items
     if (items && items.length > 0 && Array.from(items).some((i) => i.kind === 'directory')) {
-      setHint('不支持文件夹，请放入 .md 或 .mdpkg 文件。');
-      return;
+      setHint('不支持文件夹，请放入 .md 或 .mdpkg 文件。')
+      return
     }
-    const files = e.dataTransfer.files;
+    const files = e.dataTransfer.files
     if (!files || files.length === 0) {
-      setHint('未检测到文件，请重试。');
-      return;
+      setHint('未检测到文件，请重试。')
+      return
     }
-    setHint(null);
-    handleFiles(files);
-  };
+    setHint(null)
+    handleFiles(files)
+  }
 
   return (
     <div
       className="w-full"
       onDragOver={(e) => {
-        e.preventDefault();
-        dragDepth.current++;
-        setDragActive(true);
+        e.preventDefault()
+        dragDepth.current++
+        setDragActive(true)
       }}
       onDragEnter={(e) => {
-        e.preventDefault();
-        dragDepth.current++;
-        setDragActive(true);
+        e.preventDefault()
+        dragDepth.current++
+        setDragActive(true)
       }}
       onDragLeave={(e) => {
-        e.preventDefault();
-        dragDepth.current--;
+        e.preventDefault()
+        dragDepth.current--
         if (dragDepth.current <= 0) {
-          dragDepth.current = 0;
-          setDragActive(false);
+          dragDepth.current = 0
+          setDragActive(false)
         }
       }}
       onDrop={onDrop}
@@ -82,19 +82,19 @@ export function FileOpen({ onOpenFile, compact = false }: FileOpenProps): JSX.El
         className="hidden"
         data-testid="file-input"
         onChange={(e) => {
-          handleFiles(e.target.files);
+          handleFiles(e.target.files)
           // 允许再次选择同一文件（重置 input value）
-          e.target.value = '';
+          e.target.value = ''
         }}
       />
       <button
         type="button"
         role="button"
         onClick={openPicker}
-        className={`group w-full rounded-xl border-2 border-dashed text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#165DFF] ${
+        className={`group w-full rounded-xl border-2 border-dashed text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
           dragActive
-            ? 'border-[#165DFF] bg-[#165DFF]/10'
-            : 'border-[#30363d] bg-[#161b22] hover:border-[#8b949e]'
+            ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+            : 'border-[var(--border)] bg-[var(--surface)] hover:border-[var(--muted)]'
         } ${compact ? 'px-4 py-2' : 'px-6 py-10'}`}
         data-testid="dropzone"
       >
@@ -119,5 +119,5 @@ export function FileOpen({ onOpenFile, compact = false }: FileOpenProps): JSX.El
         </p>
       )}
     </div>
-  );
+  )
 }

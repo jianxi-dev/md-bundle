@@ -66,23 +66,23 @@ describe('openFile（打开分发，确定性结果，绝不抛出）', () => {
     expect((o.result.html!.match(/data:image\/png;base64,/g) ?? []).length).toBe(2);
   });
 
-  it('截断的 .mdpkg（corrupted.zip）→ 确定性结果（html null + E303），不抛出', async () => {
+  it('截断的 .mdpkg（corrupted.zip）→ 确定性结果（html null + 友好错误提示），不抛出', async () => {
     const o = await openFile(fileOf('broken.mdpkg', fixture('corrupted.zip')));
     expect(o.kind).toBe('mdpkg');
     if (o.kind !== 'mdpkg') return;
     expect('files' in o.result).toBe(true);
     if (!('files' in o.result)) return;
     expect(o.result.html).toBeNull();
-    expect(o.result.error).toContain('MDPKG-E303');
+    expect(o.result.error).toContain('该文件包内没有可显示的文档内容');
   });
 
-  it('非 ZIP 但扩展名为 .mdpkg → 确定性 { error }（E101 包装），不抛出', async () => {
+  it('非 ZIP 但扩展名为 .mdpkg → 确定性 { error }（包装层翻译），不抛出', async () => {
     const o = await openFile(fileOf('fake.mdpkg', fixture('not-mdpkg.bin')));
     expect(o.kind).toBe('mdpkg');
     if (o.kind !== 'mdpkg') return;
     expect('files' in o.result).toBe(false);
     if ('files' in o.result) return;
-    expect(o.result.error).toContain('MDPKG-E101');
+    expect(o.result.error).toContain('不是有效的 .mdpkg 文件');
   });
 
   it('魔数兜底：内容为 ZIP 但扩展名不是 .mdpkg → 仍按 mdpkg 打开', async () => {

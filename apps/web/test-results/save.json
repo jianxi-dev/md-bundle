@@ -1,8 +1,9 @@
 {
-  "tasks": "4.1",
+  "tasks": "24",
   "roundTripFiles": true,
   "sha256Ok": true,
   "mediaTypesOk": true,
   "decideSaveKind": "4/4",
-  "tests": 9
+  "savePaths": "5/5",
+  "tests": 14
 }

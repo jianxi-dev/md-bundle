@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hello，MD-Bundle — 官方示例</title>
+    <meta name="description" content="MD-Bundle 官方示例文档：快速上手 Markdown 与 .mdpkg 打包。包含表格、代码块、callout 与特性列表。" />
+    <link rel="canonical" href="https://bundle.jianxi.me/examples/hello.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="MD-Bundle" />
+    <meta property="og:title" content="Hello，MD-Bundle — 官方示例" />
+    <meta property="og:description" content="MD-Bundle 官方示例文档：快速上手 Markdown 与 .mdpkg 打包。" />
+    <meta property="og:url" content="https://bundle.jianxi.me/examples/hello.html" />
+    <meta property="og:image" content="https://bundle.jianxi.me/og-banner.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d1117;
+        --card: #161b22;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --accent: #165dff;
+        --code-bg: #1c2128;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.7;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 48px 24px 80px;
+      }
+      h1 { font-size: 2.2rem; font-weight: 700; margin: 0 0 16px; }
+      h2 { font-size: 1.5rem; font-weight: 600; margin: 36px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+      h3 { font-size: 1.15rem; font-weight: 600; margin: 24px 0 8px; }
+      p { margin: 0 0 14px; }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+      th, td { padding: 10px 14px; border: 1px solid var(--border); text-align: left; }
+      th { background: var(--card); font-weight: 600; }
+      code {
+        background: var(--code-bg);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.9em;
+        font-family: 'SF Mono', Monaco, Consolas, monospace;
+      }
+      pre {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        overflow-x: auto;
+        font-size: 0.88em;
+        line-height: 1.6;
+      }
+      pre code { background: none; padding: 0; }
+      blockquote {
+        margin: 16px 0;
+        padding: 12px 16px;
+        border-left: 3px solid var(--accent);
+        background: var(--card);
+        border-radius: 0 8px 8px 0;
+      }
+      ul { padding-left: 20px; }
+      li { margin-bottom: 6px; }
+      .cta {
+        display: inline-block;
+        margin-top: 32px;
+        padding: 12px 24px;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 8px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .cta:hover { opacity: 0.9; text-decoration: none; }
+      .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 32px; }
+      footer {
+        margin-top: 64px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Hello，MD-Bundle</h1>
+      <p class="meta">官方示例 · Markdown 格式 · 28 行</p>
+
+      <p>欢迎使用 <strong>MD-Bundle</strong> —— 把 Markdown 和图片打包进一个文件，分享不再裂图。</p>
+
+      <h2>快速上手</h2>
+      <table>
+        <thead>
+          <tr><th>操作</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>打开</td><td>拖入或选择 .md / .mdpkg 文件</td></tr>
+          <tr><td>编辑</td><td>左侧源码，右侧实时预览</td></tr>
+          <tr><td>导出</td><td>.md / .mdpkg / .html / .png</td></tr>
+        </tbody>
+      </table>
+
+      <blockquote>
+        <p><strong>NOTE：</strong>这是官方示例文档。你可以直接编辑它，或把它导出为 .mdpkg 体验打包流程。</p>
+      </blockquote>
+
+      <h2>代码示例</h2>
+      <pre><code>function bundle(markdown: string, images: File[]): Mdpkg {
+  return pack({ markdown, images });
+}</code></pre>
+
+      <h2>特性列表</h2>
+      <ul>
+        <li>自包含：图片内嵌，单文件分发</li>
+        <li>双模式预览：普通文本 / 完整资源</li>
+        <li>开源（MIT）</li>
+      </ul>
+
+      <a class="cta" href="/">在编辑器中打开此示例 →</a>
+
+      <footer>
+        <p>MD-Bundle · 在线打开/编辑/导出 Markdown 与 .mdpkg · <a href="https://bundle.jianxi.me">bundle.jianxi.me</a></p>
+      </footer>
+    </div>
+  </body>
+</html>

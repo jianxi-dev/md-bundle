@@ -1,5 +1,5 @@
 // Made-with byline 测试（任务 6.1）：
-//   - byline 库：文案 / 品牌链接 / 页脚标记（与 3.4 逐字节一致）/ 右下角徽标标记
+//   - byline 库：文案 / 品牌链接 / 页脚标记（与 3.4 逐字节一致）/ 底部居中徽标标记（分享卡仍用右下角）
 //   - `.mdpkg` 洁净性：源码不含 byline → 打包往返后源码字节一致、包内无 byline 痕迹；
 //     源码本身含 byline 文案 → 重打包原样保留（不去重、不篡改）
 // 运行于 node 环境：vendored bundle 顶层引用 document，必须先装 stub 再动态 import。
@@ -14,6 +14,7 @@ import {
   bylineHref,
   bylineFooterHtml,
   bylineCornerBadgeHtml,
+  bylineCenteredBadgeHtml,
 } from '../src/lib/byline';
 
 installDocumentStub();
@@ -27,14 +28,14 @@ const EVIDENCE_PATH = join(TEST_RESULTS, 'byline.json');
 /** 证据事实（测试内收集，afterAll 落盘）。 */
 const facts = {
   htmlFooterByline: false,
-  pngCornerByline: false,
+  pngCenteredByline: false,
   mdpkgClean: false,
   sourcePreserved: false,
 };
 
 describe('byline 库', () => {
   it('BYLINE_TEXT / BYLINE_BASE_URL 常量正确', () => {
-    expect(BYLINE_TEXT).toBe('Made with MD-Bundle');
+    expect(BYLINE_TEXT).toBe('Made with 本兜 bundle.jianxi.me');
     expect(BYLINE_BASE_URL).toBe('https://bundle.jianxi.me');
   });
 
@@ -46,16 +47,16 @@ describe('byline 库', () => {
 
   it('bylineFooterHtml 默认与 3.4 页脚标记逐字节一致，自定义 ref 生效', () => {
     expect(bylineFooterHtml()).toBe(
-      '<footer><a href="https://bundle.jianxi.me/?ref=md-html">Made with MD-Bundle</a></footer>',
+      '<footer><a href="https://bundle.jianxi.me/?ref=md-html">Made with 本兜 bundle.jianxi.me</a></footer>',
     );
     expect(bylineFooterHtml('md-share')).toBe(
-      '<footer><a href="https://bundle.jianxi.me/?ref=md-share">Made with MD-Bundle</a></footer>',
+      '<footer><a href="https://bundle.jianxi.me/?ref=md-share">Made with 本兜 bundle.jianxi.me</a></footer>',
     );
     expect(bylineFooterHtml()).toContain(BYLINE_TEXT);
     facts.htmlFooterByline = true;
   });
 
-  it('bylineCornerBadgeHtml：右下角半透明胶囊、12px、同文案同链接', () => {
+  it('bylineCornerBadgeHtml：右下角半透明胶囊、12px、同文案同链接（分享卡专用）', () => {
     const badge = bylineCornerBadgeHtml();
     expect(badge).toContain(BYLINE_TEXT);
     expect(badge).toContain('https://bundle.jianxi.me/?ref=md-png');
@@ -64,11 +65,28 @@ describe('byline 库', () => {
     expect(badge).toContain('bottom:12px');
     expect(badge).toContain('font-size:12px');
     expect(badge).toContain('border-radius:999px');
-    expect(badge).toContain('rgba(22,93,255,0.12)');
+    expect(badge).toContain('rgba(123,134,234,0.12)');
     // 无 void 元素 → 直接通过 toWellFormedXhtml 的 XML 校验
     expect(badge).not.toMatch(/<(img|br|hr|meta|input|link)\b/);
     expect(bylineCornerBadgeHtml('md-share')).toContain('?ref=md-share');
-    facts.pngCornerByline = true;
+  });
+
+  it('bylineCenteredBadgeHtml：底部居中半透明胶囊、12px、同文案同链接（导出长图/HTML 专用）', () => {
+    const badge = bylineCenteredBadgeHtml();
+    expect(badge).toContain(BYLINE_TEXT);
+    expect(badge).toContain('https://bundle.jianxi.me/?ref=md-png');
+    expect(badge).toContain('position:absolute');
+    expect(badge).toContain('left:50%');
+    expect(badge).toContain('transform:translateX(-50%)');
+    expect(badge).toContain('bottom:12px');
+    expect(badge).not.toContain('right:16px');
+    expect(badge).toContain('font-size:12px');
+    expect(badge).toContain('border-radius:999px');
+    expect(badge).toContain('rgba(123,134,234,0.12)');
+    // 无 void 元素 → 直接通过 toWellFormedXhtml 的 XML 校验
+    expect(badge).not.toMatch(/<(img|br|hr|meta|input|link)\b/);
+    expect(bylineCenteredBadgeHtml('md-share')).toContain('?ref=md-share');
+    facts.pngCenteredByline = true;
   });
 });
 
@@ -85,13 +103,13 @@ describe('.mdpkg 洁净性（byline 绝不注入包体）', () => {
     const allText = [...r.files.values()]
       .map((b) => new TextDecoder().decode(b))
       .join('\n');
-    expect(allText).not.toContain('Made with MD-Bundle');
+    expect(allText).not.toContain('Made with 本兜 MD-Bundle');
     expect(allText).not.toContain('bundle.jianxi.me');
     facts.mdpkgClean = true;
   });
 
   it('源码本身含 byline 文案 → 重打包原样保留（不去重、不篡改）', async () => {
-    const source = '# 用户自写\n\nMade with MD-Bundle 是我的笔记标题。\n\nbundle.jianxi.me 出现在正文。\n';
+    const source = '# 用户自写\n\nMade with 本兜 MD-Bundle 是我的笔记标题。\n\nbundle.jianxi.me 出现在正文。\n';
     const bytes = exportMdpkg({ markdown: source, assets: [] });
     const r = await openPackage(bytes);
     expect('files' in r).toBe(true);

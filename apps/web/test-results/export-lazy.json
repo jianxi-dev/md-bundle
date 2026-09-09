@@ -1,0 +1,9 @@
+{
+  "tasks": "1.5",
+  "katexFontInlining": true,
+  "zeroFontWhenNoFormula": true,
+  "mermaidDegradeToPre": true,
+  "codeHighlightLanding": true,
+  "waterHydrationNoPlaceholder": true,
+  "tests": 21
+}

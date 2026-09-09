@@ -8,7 +8,8 @@
 //   → canShare（无文档数据时禁用按钮的判定）
 // 单测（node）注入 fake canvas/Image 与 copy seam；真机/CI 走默认实现。
 
-import { renderMarkdownToHtml, getThemeColor, type ThemeName } from '@md-bundle/editor';
+import { renderMarkdown } from '@md-bundle/renderer';
+import { getThemeColor, type ThemeName } from '@md-bundle/editor';
 import { svgFromHtml, svgToPngBlob } from './exportPng';
 import { bylineCornerBadgeHtml } from './byline';
 
@@ -25,21 +26,23 @@ export const CARD_HEIGHT = 300;
 /** 预览文字截断长度（markdown 纯文本前 ~120 字）。 */
 export const PREVIEW_MAX_CHARS = 120;
 
-/** 卡片主题色（暗色卡片，与 GitHub 暗色面板一致）。 */
-export const CARD_COLORS = {
-  bg: '#161b22',
-  border: '#30363d',
-  title: '#e6edf3',
-  text: '#8b949e',
-} as const;
+/** 卡片主题色（基于当前有效主题，通过 getThemeColor 取 token）。 */
+export function cardColors(theme: ThemeName) {
+  return {
+    bg: getThemeColor(theme, 'card-bg'),
+    border: getThemeColor(theme, 'border'),
+    title: getThemeColor(theme, 'text'),
+    text: getThemeColor(theme, 'text-secondary'),
+  };
+}
 
 /**
- * Markdown → 纯文本预览片段：renderMarkdownToHtml（复用预览/导出的同一渲染器，
+ * Markdown → 纯文本预览片段：renderMarkdown（复用预览/导出的同一渲染器，
  * 含 script 转义与危险标签清洗）→ 剥标签 → 解码常见实体 → 折叠空白 → 截断。
  * 纯字符串处理（无 textContent）—— node 单测可跑，浏览器一致。
  */
 export function markdownToPlainText(markdown: string, max = PREVIEW_MAX_CHARS): string {
-  const text = renderMarkdownToHtml(markdown)
+  const text = renderMarkdown(markdown)
     .replace(/<[^>]+>/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -79,16 +82,17 @@ export function buildShareCardHtml({
   title,
   markdown,
   stats,
-  theme: _theme,
+  theme = 'dark',
 }: BuildShareCardHtmlOptions): string {
   const preview = markdownToPlainText(markdown);
+  const c = cardColors(theme);
   return (
     '<div style="position:relative;width:600px;height:300px;box-sizing:border-box;' +
-    `background:${CARD_COLORS.bg};border:1px solid ${CARD_COLORS.border};border-radius:12px;` +
+    `background:${c.bg};border:1px solid ${c.border};border-radius:12px;` +
     'padding:28px 32px;display:flex;flex-direction:column;' +
     "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;" +
-    `color:${CARD_COLORS.text};">` +
-    `<div style="font-size:22px;font-weight:700;color:${CARD_COLORS.title};line-height:1.35;margin-bottom:12px;">${escapeXmlText(title)}</div>` +
+    `color:${c.text};">` +
+    `<div style="font-size:22px;font-weight:700;color:${c.title};line-height:1.35;margin-bottom:12px;">${escapeXmlText(title)}</div>` +
     `<div style="font-size:14px;line-height:1.6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeXmlText(preview)}</div>` +
     `<div style="margin-top:auto;font-size:13px;">${stats.chars} 字 · ${stats.images} 图</div>` +
     bylineCornerBadgeHtml('md-share') +

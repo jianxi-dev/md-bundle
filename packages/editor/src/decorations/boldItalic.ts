@@ -1,0 +1,46 @@
+import type { Range } from '@codemirror/state';
+import { Decoration } from '@codemirror/view';
+
+const boldRegex = /\*\*(.+?)\*\*/g;
+const italicRegex = /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|_(.+?)_/g;
+
+const BOLD_CLASS = 'cm-strong';
+const ITALIC_CLASS = 'cm-em';
+
+export function createBoldItalicDecorations(text: string): Range<Decoration>[] {
+  const decorations: Range<Decoration>[] = [];
+
+  // Bold: **text** → hide **, style text
+  boldRegex.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = boldRegex.exec(text)) !== null) {
+    const from = match.index;
+    const to = from + match[0].length;
+    const delimLen = 2;
+
+    // Hide opening **
+    decorations.push(Decoration.replace({}).range(from, from + delimLen));
+    // Style content
+    decorations.push(
+      Decoration.mark({ class: BOLD_CLASS }).range(from + delimLen, to - delimLen),
+    );
+    // Hide closing **
+    decorations.push(Decoration.replace({}).range(to - delimLen, to));
+  }
+
+  // Italic: *text* or _text_ → hide delimiter, style text
+  italicRegex.lastIndex = 0;
+  while ((match = italicRegex.exec(text)) !== null) {
+    const from = match.index;
+    const to = from + match[0].length;
+    const delimLen = 1;
+
+    decorations.push(Decoration.replace({}).range(from, from + delimLen));
+    decorations.push(
+      Decoration.mark({ class: ITALIC_CLASS }).range(from + delimLen, to - delimLen),
+    );
+    decorations.push(Decoration.replace({}).range(to - delimLen, to));
+  }
+
+  return decorations;
+}

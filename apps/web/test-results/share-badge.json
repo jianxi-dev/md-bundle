@@ -1,12 +1,10 @@
 {
   "tasks": "6.4",
-  "shareDisabledEmpty": true,
-  "shareCopied": true,
-  "shareFallbackDownload": true,
   "badgeFirstPack": true,
   "badgeFirstPng": true,
   "badgeLadder": true,
   "badgePersist": true,
   "badgeNoRepeatToast": true,
-  "pngMagicByline": true
+  "pngMagicByline": true,
+  "zipDownloaded": true
 }
