@@ -6,5 +6,6 @@
   "closeTab": true,
   "closeLastReturnsLanding": true,
   "exampleNewTab": true,
-  "contentIndependent": true
+  "contentIndependent": true,
+  "dirtyDot": true
 }

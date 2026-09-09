@@ -1,10 +1,13 @@
 {
-  "tests": 7,
+  "tests": 10,
   "roundTrip": true,
   "emptyRestore": true,
   "quotaExceededDegrades": true,
   "corruptDataFallback": true,
   "recentEntryCreated": true,
   "maxRecentLimit": true,
-  "sanitizeSkipsBadEntries": true
+  "sanitizeSkipsBadEntries": true,
+  "underSoftCapWritesOk": true,
+  "overSoftCapReturnsWarning": true,
+  "overHardCapRefusesWrite": true
 }
