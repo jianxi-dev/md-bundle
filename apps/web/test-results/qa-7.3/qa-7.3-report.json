@@ -1,8 +1,8 @@
 {
   "version": "7.3",
-  "date": "2026-09-07T06:16:07.378Z",
+  "date": "2026-09-09T16:35:48.765Z",
   "verdict": "FAIL",
-  "summary": "5/9 tests passed",
+  "summary": "10/11 tests passed",
   "steps": {
     "1-open-tab-edit-decorations": {
       "pass": true,
@@ -30,20 +30,32 @@
       "screenshot": "/Users/mason/ToHighs/md-bundle/apps/web/test-results/qa-7.3/5-folder-tree.png"
     },
     "6-save-primary-btn": {
-      "pass": false,
-      "note": "page.waitForEvent: Test timeout of 30000ms exceeded."
+      "pass": true,
+      "note": "ok",
+      "screenshot": "/Users/mason/ToHighs/md-bundle/apps/web/test-results/qa-7.3/6-save-button-clicked.png"
     },
     "7-refresh-restore": {
-      "pass": false,
-      "note": "locator.click: Target page, context or browser has been closed"
+      "pass": true,
+      "note": "ok",
+      "screenshot": "/Users/mason/ToHighs/md-bundle/apps/web/test-results/qa-7.3/7-after-refresh.png"
     },
     "8-dirty-tab-close": {
-      "pass": false,
-      "note": "locator.count: Target page, context or browser has been closed"
+      "pass": true,
+      "note": "ok",
+      "screenshot": "skipped"
     },
     "9-invite-link-inviteview": {
       "pass": false,
-      "note": "page.goto: Target page, context or browser has been closed"
+      "note": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed"
+    },
+    "10-theme-switch": {
+      "pass": true,
+      "note": "ok",
+      "screenshot": "/Users/mason/ToHighs/md-bundle/apps/web/test-results/qa-7.3/11-theme-initial.png"
+    },
+    "zero-errors": {
+      "pass": true,
+      "note": "ok"
     }
   }
 }

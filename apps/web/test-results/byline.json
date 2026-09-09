@@ -1,7 +1,7 @@
 {
   "tasks": "6.1",
   "htmlFooterByline": true,
-  "pngCornerByline": true,
+  "pngCenteredByline": true,
   "mdpkgClean": true,
   "sourcePreserved": true,
   "refs": [
