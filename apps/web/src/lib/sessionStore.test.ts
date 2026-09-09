@@ -10,6 +10,8 @@ import {
   restoreSession,
   createRecentEntry,
   MAX_RECENT_DOCS,
+  SESSION_SOFT_CAP_BYTES,
+  SESSION_HARD_CAP_BYTES,
 } from './sessionStore';
 import type { RecentDocEntry } from './sessionStore';
 import { createTabsState, addTab } from './tabs';
@@ -27,6 +29,9 @@ const evidence = {
   recentEntryCreated: false,
   maxRecentLimit: false,
   sanitizeSkipsBadEntries: false,
+  underSoftCapWritesOk: false,
+  overSoftCapReturnsWarning: false,
+  overHardCapRefusesWrite: false,
 };
 
 // ── 全局 indexedDB mock ──────────────────────────────────────────
@@ -206,6 +211,64 @@ describe('sessionStore', () => {
       expect(result.snapshot.recentDocs.length).toBe(MAX_RECENT_DOCS);
     }
     evidence.maxRecentLimit = true;
+    evidence.tests++;
+  });
+
+  it('saveSession 软上限以内 → {ok:true} 正常写', async () => {
+    const s = createTabsState();
+    const { state: s1 } = addTab(s, { kind: 'md', name: 'small.md', source: '# Small' });
+
+    const result = await saveSession(s1, []);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect('warning' in result).toBe(false);
+    }
+
+    // 确认确实写入了
+    const restore = await restoreSession();
+    expect(restore.ok).toBe(true);
+    evidence.underSoftCapWritesOk = true;
+    evidence.tests++;
+  });
+
+  it('saveSession 超软上限 → {ok:true,warning} 仍写入', async () => {
+    // 构造一个大 source 使序列化后超过软上限
+    const bigSource = 'x'.repeat(SESSION_SOFT_CAP_BYTES + 1024);
+    const s = createTabsState();
+    const { state: s1 } = addTab(s, { kind: 'md', name: 'big.md', source: bigSource });
+
+    const result = await saveSession(s1, []);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect('warning' in result && result.warning).toBe('session-too-large');
+    }
+
+    // 确认仍然写入了（软上限不阻止）
+    const restore = await restoreSession();
+    expect(restore.ok).toBe(true);
+    if (restore.ok) {
+      expect(restore.snapshot.tabs.tabs[0].source.length).toBe(bigSource.length);
+    }
+    evidence.overSoftCapReturnsWarning = true;
+    evidence.tests++;
+  });
+
+  it('saveSession 超硬上限 → {ok:false,error} 不写入', async () => {
+    // 构造一个超过硬上限的 source
+    const hugeSource = 'x'.repeat(SESSION_HARD_CAP_BYTES + 1024);
+    const s = createTabsState();
+    const { state: s1 } = addTab(s, { kind: 'md', name: 'huge.md', source: hugeSource });
+
+    const result = await saveSession(s1, []);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('超过硬上限');
+    }
+
+    // 确认没有写入（存储应为空）
+    const restore = await restoreSession();
+    expect(restore.ok).toBe(false);
+    evidence.overHardCapRefusesWrite = true;
     evidence.tests++;
   });
 

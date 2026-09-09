@@ -114,7 +114,10 @@ function sanitize(v: SessionSnapshot): SessionSnapshot {
 // ── 公开 API ────────────────────────────────────────────────────
 
 /** 保存结果（IO 边界 {error} 契约，永不抛）。 */
-export type SaveResult = { ok: true } | { ok: false; error: string };
+export type SaveResult =
+  | { ok: true }
+  | { ok: true; warning: 'session-too-large' }
+  | { ok: false; error: string };
 
 /** 恢复结果。 */
 export type RestoreResult =
@@ -125,10 +128,38 @@ export type RestoreResult =
 /** 最近文档上限。 */
 export const MAX_RECENT_DOCS = 10;
 
+// ── 会话体积预算 ────────────────────────────────────────────────
+
+/**
+ * 会话快照软上限（字节）：超过仍可写，但返回 warning 供调用方提示。
+ * 取 ~5MB —— 远低于 IndexedDB 典型配额（数百 MB），留足余量。
+ */
+export const SESSION_SOFT_CAP_BYTES = 5 * 1024 * 1024;
+
+/**
+ * 会话快照硬上限（字节）：超过拒绝写，返回 {ok:false,error}。
+ * 取 ~20MB —— 单会话不太可能合理超过此值；超过多半是异常数据。
+ */
+export const SESSION_HARD_CAP_BYTES = 20 * 1024 * 1024;
+
+/**
+ * 估算会话快照序列化后字节数（UTF-16 字符长度近似）。
+ * 用 JSON.stringify 长度作确定性估计（无外部依赖），
+ * 与实际 IndexedDB 存储大小同阶（结构化克隆 ≈ JSON 量级）。
+ */
+function estimateSnapshotSize(snapshot: SessionSnapshot): number {
+  return JSON.stringify(snapshot).length;
+}
+
 /**
  * 保存会话快照到 IndexedDB。
  * 失败返回 {ok:false,error} + 调用方弹 toast；永不 throw。
  * QuotaExceededError → 降级可用（不持久化，不崩）。
+ *
+ * 体积策略（任务 18 配额风险修复）：
+ * - 超硬上限（SESSION_HARD_CAP_BYTES）→ 拒绝写，返回 {ok:false,error}。
+ * - 超软上限（SESSION_SOFT_CAP_BYTES）→ 仍写，返回 {ok:true,warning:'session-too-large'}。
+ * - 否则正常写，返回 {ok:true}。
  */
 export async function saveSession(
   tabs: TabsState,
@@ -140,10 +171,21 @@ export async function saveSession(
     recentDocs: recentDocs.slice(0, MAX_RECENT_DOCS),
   };
 
+  const estimatedSize = estimateSnapshotSize(snapshot);
+  if (estimatedSize > SESSION_HARD_CAP_BYTES) {
+    return {
+      ok: false,
+      error: `会话数据过大（${estimatedSize} 字节），超过硬上限 ${SESSION_HARD_CAP_BYTES} 字节，已跳过保存`,
+    };
+  }
+
   try {
     const db = await openDB();
     try {
       await dbSet(db, SNAPSHOT_KEY, snapshot);
+      if (estimatedSize > SESSION_SOFT_CAP_BYTES) {
+        return { ok: true, warning: 'session-too-large' };
+      }
       return { ok: true };
     } finally {
       db.close();

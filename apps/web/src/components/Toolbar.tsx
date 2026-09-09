@@ -34,6 +34,10 @@ export interface ToolbarProps {
   onGenerateInviteCard?: () => void
   /** 复制正文为图片：导出 PNG → 尝试复制，失败兜底下载。 */
   onCopyBodyAsImage?: () => void
+  /** FSA 可用时 true（决策 #42 三态主按钮：保存/保存/下载）。缺省 false → 按钮显示「下载」。 */
+  fsaAvailable?: boolean
+  /** 文档已持久化（持 diskHandle 或已保存过）→ 按钮文案「保存」；否则 FSA 可用时也为「保存」（首次另存为）。缺省 false。 */
+  canPersist?: boolean
 }
 
 const EXPORT_ITEMS: { format: ExportFormat; label: string }[] = [
@@ -167,6 +171,8 @@ export function Toolbar({
   onCopyInviteLink,
   onGenerateInviteCard,
   onCopyBodyAsImage,
+  fsaAvailable = false,
+  canPersist = false,
 }: ToolbarProps): JSX.Element {
   const [exportOpen, setExportOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -179,6 +185,10 @@ export function Toolbar({
   useClickOutside(exportMenuRef, () => setExportOpen(false))
   useClickOutside(moreMenuRef, () => setMoreOpen(false))
   useClickOutside(shareMenuRef, () => setShareOpen(false))
+
+  // 决策 #42 三态主按钮：FSA 可用或已持久化 → 「保存」；无 FSA → 「下载」。
+  const saveLabel = fsaAvailable || canPersist ? '保存' : '下载'
+  const saveIsPrimary = fsaAvailable || canPersist
 
   const closeMore = useCallback(() => setMoreOpen(false), [])
 
@@ -262,17 +272,6 @@ export function Toolbar({
           {ICON.open}
         </button>
 
-        <button
-          type="button"
-          data-testid="copy-body-image-btn"
-          onClick={onCopyBodyAsImage}
-          title="复制正文为图片"
-          aria-label="复制正文为图片"
-          className="gbtn"
-        >
-          {ICON.copyBody}
-        </button>
-
         <div className="flex items-center gap-0.5" role="group" aria-label="视图模式">
           {modeButtons}
         </div>
@@ -296,6 +295,21 @@ export function Toolbar({
               data-testid="more-menu"
               className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--glass-strong)] shadow-[var(--shadow)] backdrop-blur"
             >
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="more-copy-body"
+                onClick={() => {
+                  closeMore()
+                  onCopyBodyAsImage?.()
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--fg)] transition-colors hover:bg-[var(--surface-2)]"
+              >
+                <span className="gbtn" style={{ height: 24, minWidth: 24, padding: 0 }}>
+                  {ICON.copyBody}
+                </span>
+                复制正文为图片
+              </button>
               <button
                 type="button"
                 role="menuitem"
@@ -340,7 +354,7 @@ export function Toolbar({
                 <span className="gbtn" style={{ height: 24, minWidth: 24, padding: 0 }}>
                   {ICON.save}
                 </span>
-                保存
+                {saveLabel}
               </button>
               <div className="border-t border-[var(--border-soft)]" />
               <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--meta)]">
@@ -414,11 +428,12 @@ export function Toolbar({
           data-testid="save-btn"
           disabled={!canSave}
           onClick={onSave}
-          title={sourceKind === 'mdpkg' ? '重新打包为 .mdpkg' : '保存文档'}
-          aria-label={sourceKind === 'mdpkg' ? '重新打包为 .mdpkg' : '保存文档'}
-          className="gbtn disabled:cursor-not-allowed disabled:opacity-50"
+          title={fsaAvailable ? `保存为 ${sourceKind === 'mdpkg' ? '.mdpkg' : '.md'}` : '下载文档'}
+          aria-label={fsaAvailable ? '保存文档' : '下载文档'}
+          className={saveIsPrimary ? 'gbtn accent disabled:cursor-not-allowed disabled:opacity-50' : 'gbtn disabled:cursor-not-allowed disabled:opacity-50'}
         >
-          {ICON.save}
+          {saveIsPrimary ? ICON.save : ICON.export}
+          <span data-testid="save-btn-label">{saveLabel}</span>
         </button>
 
       <div className="relative" ref={exportMenuRef}>

@@ -24,6 +24,7 @@ const evidence = {
   closeLastReturnsLanding: false,
   exampleNewTab: false,
   contentIndependent: false,
+  dirtyDot: false,
 };
 
 test.use({ viewport: { width: 1280, height: 800 } });
@@ -175,6 +176,23 @@ test('示例打开 = 新页签（不替换当前）', async ({ page }) => {
   await openFile(page, 'replace.md');
   await expect(page.getByTestId('tab-strip').locator('[role="tab"]')).toHaveCount(2);
   evidence.exampleNewTab = true;
+});
+
+test('脏点：编辑后显示脏点，未编辑页签不显示', async ({ page }) => {
+  await page.goto('/');
+  await openFile(page, 'hello.md');
+  await page.getByTestId('mode-edit-btn').click();
+  await expect(page.getByTestId('tab-strip').locator('[role="tab"]')).toHaveCount(1);
+  // 刚打开未编辑 → 无脏点
+  await expect(page.getByTestId('tab-dirty-hello.md')).toHaveCount(0);
+
+  // 编辑触发 dirty=true → 脏点显示
+  const cmContent = page.locator('[data-testid="mode-pane-editor"] .cm-content');
+  await cmContent.click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('\n---DIRTY---');
+  await expect(page.getByTestId('tab-dirty-hello.md')).toBeVisible();
+  evidence.dirtyDot = true;
 });
 
 test.afterAll(() => {

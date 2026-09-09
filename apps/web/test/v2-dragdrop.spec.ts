@@ -4,7 +4,7 @@
 //   ③ 工作区拖入 .md → 替换当前文档（内容变为 replace.md 独特文本）
 //   ④ 编辑区拖入图片 → 走图片导入（资源清单增长）
 //   ⑤ 空态拖入图片 → 不创建文档，显示提示「请先打开文档再拖入图片」
-//   ⑥ dragover 不产生任何遮罩 DOM 节点
+//   ⑥ dragenter/dragover 不产生任何遮罩 DOM 节点；drop 仍打开文档
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -128,23 +128,35 @@ test('empty page: drop image shows hint and does not create document', async ({ 
   evidence.noDocNoPollute = true;
 });
 
-test('dragover produces no overlay element in DOM', async ({ page }) => {
+test('dragenter/dragover produce no overlay in DOM; drop still opens document', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('[data-testid="landing-nav"]')).toBeVisible();
 
+  // 拖入进场：dragenter + dragover 均带 DataTransfer —— 任何阶段都不得渲染遮罩。
   await page.evaluate(`
     const dt = new DataTransfer();
     const bytes = Uint8Array.from(atob('${mdBase64}'), (c) => c.charCodeAt(0));
     dt.items.add(new File([bytes], 'test.md', { type: 'text/markdown' }));
-    const ev = new Event('dragover', { bubbles: true, cancelable: true });
-    Object.defineProperty(ev, 'dataTransfer', { value: dt });
-    document.body.dispatchEvent(ev);
+    const enter = new Event('dragenter', { bubbles: true, cancelable: true });
+    Object.defineProperty(enter, 'dataTransfer', { value: dt });
+    document.body.dispatchEvent(enter);
+    const over = new Event('dragover', { bubbles: true, cancelable: true });
+    Object.defineProperty(over, 'dataTransfer', { value: dt });
+    document.body.dispatchEvent(over);
   `);
 
-  const overlays = await page.locator('[data-testid="drop-overlay"], [class*="drag-overlay"], [class*="drop-overlay"]').count();
-  expect(overlays).toBe(0);
+  await expect(page.getByTestId('drag-in-overlay')).toHaveCount(0);
   await page.screenshot({ path: join(RES, 'dragdrop-no-overlay.png'), fullPage: false });
   evidence.noOverlay = true;
+
+  // drop 仍打开文档（行为保留）。
+  await page.evaluate(
+    DROP_FN + `(document.body, [{name:'hello.md',type:'text/markdown',buffer:'${mdBase64}'}])`,
+  );
+  await expect(page.locator('[data-testid="tab-strip"]')).toBeVisible({ timeout: 5000 });
+  await page.getByTestId('mode-edit-btn').click();
+  await expect(page.locator('.cm-content').first()).toContainText('Hello', { timeout: 5000 });
+  evidence.dropStillOpens = true;
 });
 
 test.afterAll(() => {

@@ -19,7 +19,7 @@ export type SaveVia = 'handle' | 'save-as' | 'download';
 
 /** 保存结果（IO 边界 {error} 契约，永不抛）。 */
 export type SaveResult =
-  | { ok: true; kind: SaveKind; via: SaveVia }
+  | { ok: true; kind: SaveKind; via: SaveVia; diskHandle?: FileSystemFileHandle }
   | { ok: false; error: string };
 
 /** 默认 .mdpkg 下载文件名（调用方传 filename 基础名时被覆盖）。 */
@@ -119,7 +119,7 @@ export async function saveDocument(opts: SaveDocumentOptions): Promise<SaveResul
         await writable.abort().catch(() => undefined);
         throw e;
       }
-      return { ok: true, kind, via: 'save-as' };
+      return { ok: true, kind, via: 'save-as', diskHandle: handle };
     }
 
     // 路径 ③：无 FSA → 下载

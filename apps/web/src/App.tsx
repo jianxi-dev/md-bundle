@@ -17,6 +17,7 @@ import { OutlineMenu } from './components/OutlineMenu'
 import { Toolbar, type ExportFormat, type EditorMode } from './components/Toolbar'
 import { TabStrip } from './components/TabStrip'
 import { BadgeToast } from './components/BadgeToast'
+import { ValidationPanel } from './components/ValidationPanel'
 import { useBadges, wireBadgeEvents } from './lib/useBadges'
 import { openFile } from './lib/openFile'
 import { readEntrySource } from './lib/mdpkg'
@@ -58,6 +59,7 @@ import {
   extractDocFromZip,
   getDirectoryHandle,
 } from './lib/dropFiles'
+import { isFsaAvailable } from './lib/fsa'
 import {
   createTabsState,
   addTab,
@@ -157,11 +159,9 @@ export default function App() {
   const [importHint, setImportHint] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const [inviteCardStatus, setInviteCardStatus] = useState<string | null>(null)
-  const [dragActive, setDragActive] = useState(false)
   const assetsRef = useRef<Asset[]>([])
   const editorViewRef = useRef<MarkdownEditorHandle['view'] | null>(null)
   const [editorViewState, setEditorViewState] = useState<MarkdownEditorHandle['view'] | null>(null)
-  const dragDepth = useRef(0)
   const exportErrorTimer = useRef<number | null>(null)
   const inviteCardTimer = useRef<number | null>(null)
   const workspaceRef = useRef<HTMLElement>(null)
@@ -491,9 +491,7 @@ export default function App() {
   // 拖拽：图片 → 导入；.md/.mdpkg → 打开
   const onDrop = (e: React.DragEvent) => {
     // Bug 3 修复：React 合成 onDrop 会 stopPropagation，document 级 onDocDrop 不再触发，
-    // 这里必须自行复位拖拽蒙层状态，否则 drop 后蒙层残留。
-    dragDepth.current = 0
-    setDragActive(false)
+    // 这里必须自行处理 drop；整窗拖放无遮罩，无需复位蒙层状态。
     e.preventDefault()
     e.stopPropagation()
     void (async () => {
@@ -642,8 +640,6 @@ export default function App() {
   useEffect(() => {
     const onDocDrop = (e: DragEvent) => {
       e.preventDefault()
-      dragDepth.current = 0
-      setDragActive(false)
       const dt = e.dataTransfer
       if (!dt) return
 
@@ -672,26 +668,9 @@ export default function App() {
     const onDocDragOver = (e: DragEvent) => {
       e.preventDefault()
     }
-    const onDocDragEnter = (e: DragEvent) => {
-      e.preventDefault()
-      dragDepth.current += 1
-      setDragActive(true)
-    }
-    const onDocDragLeave = (e: DragEvent) => {
-      e.preventDefault()
-      dragDepth.current -= 1
-      if (dragDepth.current <= 0) {
-        dragDepth.current = 0
-        setDragActive(false)
-      }
-    }
-    document.addEventListener('dragenter', onDocDragEnter)
-    document.addEventListener('dragleave', onDocDragLeave)
     document.addEventListener('drop', onDocDrop)
     document.addEventListener('dragover', onDocDragOver)
     return () => {
-      document.removeEventListener('dragenter', onDocDragEnter)
-      document.removeEventListener('dragleave', onDocDragLeave)
       document.removeEventListener('drop', onDocDrop)
       document.removeEventListener('dragover', onDocDragOver)
     }
@@ -711,7 +690,15 @@ export default function App() {
     })
     wire.onSaveResult(result.ok ? result.kind : null)
     if (result.ok) {
-      setTabsState((s) => updateTab(s, activeTab.id, { dirty: false }))
+      // 并行任务可能为 SaveResult 成功分支扩增 diskHandle（另存为后持句柄）；
+      // 此处从容读取并写入 activeTab，类型尚未扩增时也能编译。
+      const savedHandle = (result as unknown as { diskHandle?: FileSystemFileHandle }).diskHandle
+      setTabsState((s) =>
+        updateTab(s, activeTab.id, {
+          dirty: false,
+          ...(savedHandle ? { diskHandle: savedHandle } : {}),
+        }),
+      )
     }
     return result.ok
   }
@@ -900,7 +887,13 @@ export default function App() {
   useEffect(() => {
     if (!restoredRef.current) return
     const timer = window.setTimeout(() => {
-      void saveSession(tabsState, recentDocsRef.current)
+      void saveSession(tabsState, recentDocsRef.current).then((r) => {
+        // 并行任务可能扩增 SaveResult；这里只取 error 分支的提示文案，guard optional。
+        if (!r.ok) {
+          const msg = (r as unknown as { error?: string }).error
+          if (msg) setImportHint(msg)
+        }
+      })
     }, 1000)
     return () => window.clearTimeout(timer)
   }, [tabsState])
@@ -964,6 +957,7 @@ export default function App() {
               onCopyInviteLink={() => void handleCopyInviteLink()}
               onGenerateInviteCard={() => void handleGenerateInviteCard()}
               onCopyBodyAsImage={() => void handleCopyBodyAsImage()}
+              fsaAvailable={isFsaAvailable()}
             />
           </div>
         </header>
@@ -1059,6 +1053,10 @@ export default function App() {
               </div>
             </div>
 
+            {activeTab.kind === 'mdpkg' && (
+              <ValidationPanel validation={activeTab.validation ?? null} name={activeTab.name} />
+            )}
+
             {activeTab.source.startsWith('错误：') && (
               <div
                 role="alert"
@@ -1100,19 +1098,6 @@ export default function App() {
         >
           {inviteCardStatus}
         </p>
-      )}
-
-      {dragActive && (
-        <div
-          data-testid="drag-in-overlay"
-          aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg)]/70 backdrop-blur-sm"
-        >
-          <div className="rounded-2xl border-2 border-dashed border-[var(--accent)] bg-[var(--surface)]/80 px-10 py-8 text-center shadow-[var(--shadow)]">
-            <p className="text-lg font-medium text-[var(--fg)]">拖入文件以打开</p>
-            <p className="mt-2 text-sm text-[var(--muted)]">支持 .md / .mdpkg / .zip / 文件夹，图片将导入当前文档</p>
-          </div>
-        </div>
       )}
 
       {toast && <BadgeToast text={toast.text} rarity={toast.rarity} onDismiss={dismiss} />}

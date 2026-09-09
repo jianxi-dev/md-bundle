@@ -74,4 +74,24 @@ describe('Toolbar', () => {
     const svg = exportBtn.querySelector('svg');
     expect(svg).not.toBeNull();
   });
+
+  it('save button defaults to 下载 (no FSA) without fsaAvailable prop', () => {
+    render(<Toolbar {...baseProps} />);
+    const saveBtn = screen.getByTestId('save-btn');
+    expect(saveBtn).toHaveAttribute('aria-label', '下载文档');
+    expect(screen.getByTestId('save-btn-label').textContent).toBe('下载');
+  });
+
+  it('save button shows 保存 + accent class when fsaAvailable', () => {
+    render(<Toolbar {...baseProps} fsaAvailable />);
+    const saveBtn = screen.getByTestId('save-btn');
+    expect(saveBtn).toHaveAttribute('aria-label', '保存文档');
+    expect(saveBtn.className).toContain('accent');
+    expect(screen.getByTestId('save-btn-label').textContent).toBe('保存');
+  });
+
+  it('save button shows 保存 when canPersist (even without fsaAvailable)', () => {
+    render(<Toolbar {...baseProps} canPersist />);
+    expect(screen.getByTestId('save-btn-label').textContent).toBe('保存');
+  });
 });

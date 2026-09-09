@@ -194,6 +194,14 @@ export function TabStrip({
 
             <span className="max-w-[120px] truncate">{tab.name}</span>
 
+            {tab.dirty && (
+              <span
+                data-testid={`tab-dirty-${tab.name}`}
+                aria-label={`${tab.name} 有未保存更改`}
+                className="dirty shrink-0"
+              />
+            )}
+
             <button
               type="button"
               aria-label={`关闭 ${tab.name}`}

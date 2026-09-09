@@ -288,7 +288,7 @@ describe('saveDocument 路径 ②（FSA → 另存为）', () => {
       sourceKind: 'md',
       filename: 'newdoc',
     });
-    expect(result).toEqual({ ok: true, kind: 'md', via: 'save-as' });
+    expect(result).toEqual({ ok: true, kind: 'md', via: 'save-as', diskHandle: mockPickerHandle });
     expect(globalThis.showSaveFilePicker).toHaveBeenCalledTimes(1);
     expect(mockPickerHandle.createWritable).toHaveBeenCalledTimes(1);
     expect(downloadBlobSpy).not.toHaveBeenCalled();
