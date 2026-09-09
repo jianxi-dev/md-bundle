@@ -1,19 +1,14 @@
 import type { TokenizerAndRendererExtension } from 'marked';
 
-export type MathEntry = { tex: string; displayMode: boolean };
-
-let pending: MathEntry[] = [];
-
-export function resetMathStore(): void {
-  pending = [];
-}
-
-function pushMath(entry: MathEntry): number {
-  return pending.push(entry) - 1;
-}
-
-export function takeMathEntry(id: number): MathEntry | undefined {
-  return pending[id];
+// Escape tex for safe embedding in a double-quoted HTML attribute. The value is
+// decoded back to its original form by getAttribute at hydrate time, so this
+// only needs to survive the marked → DOMPurify → innerHTML round-trip.
+function escapeAttr(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 export const mathBlockExtension: TokenizerAndRendererExtension = {
@@ -25,8 +20,11 @@ export const mathBlockExtension: TokenizerAndRendererExtension = {
     return { type: 'mathBlock', raw: m[0], text: m[1].trim() };
   },
   renderer(token) {
-    const id = pushMath({ tex: String(token.text ?? ''), displayMode: true });
-    return `<div class="katex-block wide"><span data-math="${id}"></span></div>`;
+    // tex is embedded directly on the placeholder so hydration is scoped to
+    // THIS document — no shared module store that a concurrent renderMarkdown
+    // could repopulate out from under an in-flight KaTeX hydrate (lazy.ts).
+    const tex = String(token.text ?? '');
+    return `<div class="katex-block wide"><span data-math data-math-display data-math-tex="${escapeAttr(tex)}"></span></div>`;
   },
 };
 
@@ -42,7 +40,7 @@ export const mathInlineExtension: TokenizerAndRendererExtension = {
     return { type: 'mathInline', raw: m[0], text: m[1] };
   },
   renderer(token) {
-    const id = pushMath({ tex: String(token.text ?? ''), displayMode: false });
-    return `<span data-math="${id}"></span>`;
+    const tex = String(token.text ?? '');
+    return `<span data-math data-math-tex="${escapeAttr(tex)}"></span>`;
   },
 };

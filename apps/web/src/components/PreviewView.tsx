@@ -1,7 +1,7 @@
 // 预览视图（任务 1.5）—— 使用 @md-bundle/renderer 的 renderMarkdown + hydrateLazyFeatures。
 // 渲染链：renderMarkdown(markdown) → 同步 sanitized HTML → 客户端 hydrateLazyFeatures
 // （KaTeX/mermaid/highlight）。CSS 由 readerCssText 提供（双主题），通过 index.css 引入。
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { renderMarkdown, hydrateLazyFeatures, readerCssText } from '@md-bundle/renderer';
 import type { ThemeName } from '@md-bundle/editor';
 import { inlineImages } from '../lib/exportHtml';
@@ -34,6 +34,14 @@ function handlePreviewClick(e: React.MouseEvent<HTMLDivElement>): void {
   e.preventDefault();
 }
 
+// 预览 pane（mode-pane-preview）在编辑/源码模式下是 display:none，但本组件仍随父
+// 组件重渲染。Element.checkVisibility 是判断 display:none 祖先的现代标准信号；
+// jsdom（无布局）里该方法缺失，此时回退为「始终可见」以保持旧行为、不破坏单测。
+function isVisible(el: HTMLElement): boolean {
+  if (typeof el.checkVisibility === 'function') return el.checkVisibility();
+  return true;
+}
+
 /**
  * 预览视图：renderMarkdown → 同步 HTML → hydrateLazyFeatures（异步）。
  * 渲染结果包裹在 `.preview-content` div 内（readerCss 选择器要求），
@@ -43,15 +51,48 @@ export function PreviewView({ markdown, theme = 'dark', assets }: PreviewViewPro
   const rootRef = useRef<HTMLDivElement>(null);
 
   // 同步渲染 markdown → HTML，并按资产清单内联图片（.mdpkg/导入图片以 data URI 显示）。
-  const rawHtml = renderMarkdown(markdown);
-  const html = assets && assets.length > 0 ? inlineImages(rawHtml, assets) : rawHtml;
+  // useMemo 缓存到 (markdown, assets)：父组件因模式切换/主题/徽标等无关状态重渲染时
+  // 不再重复全量 marked+DOMPurify 解析（renderMarkdown 是纯函数但解析开销大）。
+  const html = useMemo(() => {
+    const raw = renderMarkdown(markdown);
+    return assets && assets.length > 0 ? inlineImages(raw, assets) : raw;
+  }, [markdown, assets]);
 
   // hydrateLazyFeatures（KaTeX/mermaid/highlight）在 DOM 就绪后异步执行。
+  // 编辑/源码模式下预览 pane 是 display:none，但击键仍会改变 html 触发本 effect——
+  // 隐藏时 hydrate 是纯浪费（KaTeX 动态 import + 全量渲染）。故仅当可见时立即 hydrate，
+  // 否则用 IntersectionObserver 等到切回预览（可见）再 hydrate。
   useEffect(() => {
     ensureReaderCss();
-    if (rootRef.current) {
-      void hydrateLazyFeatures(rootRef.current, theme);
+    const root = rootRef.current;
+    if (!root) return;
+
+    let disposed = false;
+    let observer: IntersectionObserver | null = null;
+
+    const hydrate = () => {
+      if (!disposed) void hydrateLazyFeatures(root, theme);
+    };
+
+    if (isVisible(root)) {
+      hydrate();
+    } else if (typeof IntersectionObserver === 'function') {
+      observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer?.disconnect();
+          observer = null;
+          hydrate();
+        }
+      });
+      observer.observe(root);
+    } else {
+      hydrate();
     }
+
+    return () => {
+      disposed = true;
+      observer?.disconnect();
+    };
   }, [html, theme]);
 
   return (

@@ -9,7 +9,7 @@ const fontUrls = import.meta.glob<string>(
 );
 
 export function hasKatex(html: string): boolean {
-  return /class="katex"/.test(html) || /data-math="/.test(html);
+  return /class="katex"/.test(html) || /data-math-tex=/.test(html);
 }
 
 function extractFontFilenames(css: string): string[] {

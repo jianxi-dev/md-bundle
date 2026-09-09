@@ -1,7 +1,5 @@
 import { renderMermaid } from './mermaid';
 import { highlightCodeBlock } from './highlight';
-import { takeMathEntry } from './math';
-import type { MathEntry } from './math';
 
 let cachedKatex: Promise<(typeof import('katex'))['default'] | null> | null =
   null;
@@ -72,27 +70,24 @@ async function hydrateKaTeX(root: ParentNode): Promise<void> {
   const katex = await loadKatex();
 
   for (const node of placeholders) {
-    const id = Number(node.getAttribute('data-math'));
-    if (!Number.isFinite(id)) {
+    // tex + displayMode live on the placeholder itself (embedded by math.ts at
+    // render time), so hydration is scoped to this DOM and cannot be corrupted
+    // by another renderMarkdown running concurrently.
+    const tex = node.getAttribute('data-math-tex');
+    if (tex === null) {
       node.remove();
       continue;
     }
-
-    const entry: MathEntry | undefined = takeMathEntry(id);
-
-    if (!entry) {
-      node.remove();
-      continue;
-    }
+    const displayMode = node.hasAttribute('data-math-display');
 
     if (!katex) {
-      node.textContent = entry.tex;
+      node.textContent = tex;
       continue;
     }
 
     try {
-      const html = katex.renderToString(entry.tex, {
-        displayMode: entry.displayMode,
+      const html = katex.renderToString(tex, {
+        displayMode,
         throwOnError: false,
         output: 'html',
         strict: false,
@@ -101,7 +96,7 @@ async function hydrateKaTeX(root: ParentNode): Promise<void> {
       tpl.innerHTML = html;
       node.replaceWith(tpl.content);
     } catch {
-      node.innerHTML = `<span class="katex-error">${escapeHtml(entry.tex)}</span>`;
+      node.innerHTML = `<span class="katex-error">${escapeHtml(tex)}</span>`;
     }
   }
 }

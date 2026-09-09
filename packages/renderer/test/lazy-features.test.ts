@@ -61,6 +61,28 @@ describe('KaTeX math — two-phase (placeholder → hydrate)', () => {
     expect(doc.body.innerHTML).toContain('katex');
     expect(doc.body.querySelector('span[data-math]')).toBeNull();
   });
+
+  it('hydrates each render against its own math (no cross-render bleed)', async () => {
+    // Regression for the P0 race: renderMarkdown used a single module-global
+    // math store, so rendering doc B before hydrating doc A repopulated the
+    // store and A's ids resolved to B's tex. tex is now embedded per-placeholder,
+    // so hydrating A's DOM always renders A's own formulas.
+    const htmlA = renderMarkdown('$$\n\\alpha^2\n$$\n\n行内 $\\beta$ 展示');
+    const htmlB = renderMarkdown('$$\n\\gamma\n$$');
+    const docA = new DOMParser().parseFromString(htmlA, 'text/html');
+    await hydrateLazyFeatures(docA.body);
+
+    const text = docA.body.textContent ?? '';
+    expect(text).toContain('α'); // A's block formula rendered
+    expect(text).toContain('β'); // A's inline formula rendered
+    expect(text).not.toContain('γ'); // B's formula must not bleed into A
+    expect(docA.body.querySelector('span[data-math]')).toBeNull();
+
+    // B's own DOM still hydrates B's formula — both documents are independent.
+    const docB = new DOMParser().parseFromString(htmlB, 'text/html');
+    await hydrateLazyFeatures(docB.body);
+    expect(docB.body.textContent ?? '').toContain('γ');
+  });
 });
 
 describe('mermaid lazy rendering', () => {
@@ -165,7 +187,7 @@ describe('hydrateLazyFeatures never rejects', () => {
 });
 
 afterAll(() => {
-  facts.tests = 14; // keep in sync with it() count — evidence must be truthful
+  facts.tests = 15; // keep in sync with it() count — evidence must be truthful
   mkdirSync(dirname(EVIDENCE_PATH), { recursive: true });
   writeFileSync(EVIDENCE_PATH, JSON.stringify(facts, null, 2));
 });

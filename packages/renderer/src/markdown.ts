@@ -13,11 +13,7 @@
 
 import { marked, Renderer } from 'marked';
 import DOMPurify from 'dompurify';
-import {
-  mathBlockExtension,
-  mathInlineExtension,
-  resetMathStore,
-} from './math';
+import { mathBlockExtension, mathInlineExtension } from './math';
 import type { RenderOptions } from './index';
 
 // ── Block HTML depth-closing (aligns with Obsidian HTML block behavior) ────
@@ -64,7 +60,7 @@ const SANITIZE_CONFIG = {
     'type', 'checked', 'disabled', 'style', 'id',
     'colspan', 'rowspan', 'start', 'value',
     'width', 'height', 'open', 'lang', 'dir',
-    'data-math', 'data-callout', 'data-zoomable',
+    'data-math', 'data-math-tex', 'data-math-display', 'data-callout', 'data-zoomable',
   ],
   ALLOW_DATA_ATTR: false,
   ADD_ATTR: ['target'],
@@ -383,7 +379,6 @@ export function renderMarkdownCore(
   if (!content) return '';
 
   registerCheckboxGuard();
-  resetMathStore();
 
   const body = content.replace(FRONTMATTER_RE, '');
   const raw = marked.parse(body, { async: false }) as string;
