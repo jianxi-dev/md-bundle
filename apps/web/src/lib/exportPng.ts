@@ -10,7 +10,7 @@ import {
   buildHtmlDocument,
   type BuildHtmlDocumentOptions,
 } from './exportHtml';
-import { bylineCornerBadgeHtml } from './byline';
+import { bylineCenteredBadgeHtml } from './byline';
 import { getThemeColor } from '@md-bundle/editor';
 
 export interface SvgFromHtmlOptions {
@@ -105,19 +105,22 @@ export function svgFromHtml(html: string, opts: SvgFromHtmlOptions): string {
 export type MeasureHeight = (html: string, width: number) => number;
 
 /** 页脚底部额外留白（避免最后一行文字贴边）。 */
-export const FOOTER_PADDING = 24;
+export const FOOTER_PADDING = 0;
 
 /**
- * 在导出文档里注入 PNG 右下角 byline 徽标（任务 6.1）：
+ * 在导出文档里注入 PNG 底部居中 byline 徽标（任务 6.1）：
  * body 加 `position:relative` 作为绝对定位锚点，徽标插在 `</body>` 前。
  * 纯字符串替换 —— 确定性、可单测（PNG 级文本断言不可行，字符串级是接缝）。
  * 徽标绝对定位不占文档流 → 不影响 measureHeight 的 scrollHeight。
  */
-export function withCornerByline(html: string): string {
-  if (html.includes(bylineCornerBadgeHtml())) return html;
-  return html
-    .replace('<body>', '<body style="position:relative">')
-    .replace('</body>', `${bylineCornerBadgeHtml()}\n</body>`);
+export function withCenteredByline(html: string): string {
+  // body 加 position:relative 作为绝对定位锚点（徽标可能已由 buildHtmlDocument 注入，
+  // 但锚点必须始终存在，否则徽标相对视口定位）。
+  const anchored = html.includes('<body style="position:relative">')
+    ? html
+    : html.replace('<body>', '<body style="position:relative">');
+  if (anchored.includes(bylineCenteredBadgeHtml())) return anchored;
+  return anchored.replace('</body>', `${bylineCenteredBadgeHtml()}\n</body>`);
 }
 
 /**
@@ -237,7 +240,7 @@ export async function exportPngFromMarkdown({
   makeImage,
 }: ExportPngOptions): Promise<Blob> {
   if (!markdown.trim()) throw new Error('文档为空，无法导出 PNG。');
-  const html = withCornerByline(await buildHtmlDocument({ markdown, assets, title, theme }));
+  const html = withCenteredByline(await buildHtmlDocument({ markdown, assets, title, theme }));
   const height = measureHeight(html, width);
   const svg = svgFromHtml(html, { width, height });
   return svgToPngBlob(svg, {

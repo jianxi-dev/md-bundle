@@ -27,6 +27,7 @@ import { createQuoteDecorations } from './quote';
 import { createCodeDecorations } from './code';
 import { createImageDecorations } from './image';
 import { createCalloutDecorations } from './callout';
+import { editorDecorationsTheme } from './theme';
 import type { ImageResolver } from './image';
 
 /**
@@ -192,5 +193,5 @@ const compositionGuard = ViewPlugin.define(() => ({}), {
  * ```
  */
 export function editorDecorations(options?: EditorDecorationsOptions): Extension {
-  return [createDecorationField(options), compositionGuard.extension];
+  return [createDecorationField(options), compositionGuard.extension, editorDecorationsTheme];
 }

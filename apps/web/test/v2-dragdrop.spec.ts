@@ -50,6 +50,7 @@ test('empty page: drop .md opens document', async ({ page }) => {
     DROP_FN + `(document.body, [{name:'hello.md',type:'text/markdown',buffer:'${mdBase64}'}])`,
   );
 
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 5000 });
   await expect(page.locator('.cm-content').first()).toContainText('Hello');
   await page.screenshot({ path: join(RES, 'dragdrop-open-md.png'), fullPage: false });
@@ -63,6 +64,7 @@ test('empty page: drop .mdpkg opens package', async ({ page }) => {
     DROP_FN + `(document.body, [{name:'valid.mdpkg',type:'application/octet-stream',buffer:'${pkgBase64}'}])`,
   );
 
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 5000 });
   await page.screenshot({ path: join(RES, 'dragdrop-open-mdpkg.png'), fullPage: false });
   evidence.openMdpkg = true;
@@ -71,6 +73,7 @@ test('empty page: drop .mdpkg opens package', async ({ page }) => {
 test('workspace: drop .md replaces current document', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-content').first()).toContainText('Hello');
 
   // 拖入 replace.md（内容含 "Replaced" + "This content replaces the original"）
@@ -88,6 +91,7 @@ test('workspace: drop .md replaces current document', async ({ page }) => {
 test('editor: drop image imports into document', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-content').first()).toContainText('Hello');
 
   // dispatch image drop on document.body（文档级兜底 handler 捕获）

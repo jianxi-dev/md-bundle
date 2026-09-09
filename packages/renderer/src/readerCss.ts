@@ -662,34 +662,9 @@ export const READER_CSS: string = `
   margin-inline: auto;
 }
 
-/* ── Scrollbar ─── */
-[data-theme='light'] .preview-content pre,
-[data-theme='light'] .preview-content .table-wrap,
-[data-theme='light'] .preview-content .katex-block {
-  scrollbar-width: thin;
-  scrollbar-color: var(--reader-line-2) transparent;
-}
-
-[data-theme='light'] .preview-content pre::-webkit-scrollbar,
-[data-theme='light'] .preview-content .table-wrap::-webkit-scrollbar,
-[data-theme='light'] .preview-content .katex-block::-webkit-scrollbar {
-  height: 8px;
-  width: 8px;
-}
-
-[data-theme='light'] .preview-content pre::-webkit-scrollbar-thumb,
-[data-theme='light'] .preview-content .table-wrap::-webkit-scrollbar-thumb,
-[data-theme='light'] .preview-content .katex-block::-webkit-scrollbar-thumb {
-  background: var(--reader-line-2);
-  border-radius: 999px;
-}
-
-[data-theme='light'] .preview-content pre::-webkit-scrollbar-track,
-[data-theme='light'] .preview-content .table-wrap::-webkit-scrollbar-track,
-[data-theme='light'] .preview-content .katex-block::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+/* 滚动条统一走系统原生 overlay（macOS 滚动显示、停止淡出）。不再自定义
+   ::-webkit-scrollbar：自定义任何一处都会让 Chromium 切换滚动条渲染模式，
+   导致正文滚动条粗细/显示不稳定（Bug #17）。 */
 @media (prefers-reduced-motion: reduce) {
   [data-theme='light'] .preview-content .code-lang,
   [data-theme='light'] .preview-content .code-copy {
@@ -1335,33 +1310,9 @@ export const READER_CSS: string = `
 }
 
 /* ── Scrollbar ─── */
-[data-theme='dark'] .preview-content pre,
-[data-theme='dark'] .preview-content .table-wrap,
-[data-theme='dark'] .preview-content .katex-block {
-  scrollbar-width: thin;
-  scrollbar-color: var(--reader-line-2) transparent;
-}
-
-[data-theme='dark'] .preview-content pre::-webkit-scrollbar,
-[data-theme='dark'] .preview-content .table-wrap::-webkit-scrollbar,
-[data-theme='dark'] .preview-content .katex-block::-webkit-scrollbar {
-  height: 8px;
-  width: 8px;
-}
-
-[data-theme='dark'] .preview-content pre::-webkit-scrollbar-thumb,
-[data-theme='dark'] .preview-content .table-wrap::-webkit-scrollbar-thumb,
-[data-theme='dark'] .preview-content .katex-block::-webkit-scrollbar-thumb {
-  background: var(--reader-line-2);
-  border-radius: 999px;
-}
-
-[data-theme='dark'] .preview-content pre::-webkit-scrollbar-track,
-[data-theme='dark'] .preview-content .table-wrap::-webkit-scrollbar-track,
-[data-theme='dark'] .preview-content .katex-block::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+/* 滚动条统一走系统原生 overlay（macOS 滚动显示、停止淡出）。不再自定义
+   ::-webkit-scrollbar：自定义任何一处都会让 Chromium 切换滚动条渲染模式，
+   导致正文滚动条粗细/显示不稳定（Bug #17）。 */
 @media (prefers-reduced-motion: reduce) {
   [data-theme='dark'] .preview-content .code-lang,
   [data-theme='dark'] .preview-content .code-copy {

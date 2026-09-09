@@ -12,6 +12,7 @@ import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { dropImages } from './dropImage';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIX = join(here, 'fixtures');
@@ -44,6 +45,8 @@ test('LeftRail 默认收起 + toggle 展开/收起', async ({ page }) => {
   await page.evaluate(() => localStorage.removeItem('md-bundle.left-rail'));
   await page.reload();
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 左栏默认收起：不可见
@@ -72,6 +75,8 @@ test('LeftRail 默认收起 + toggle 展开/收起', async ({ page }) => {
 test('LeftRail 页签 [文件|资源] + 切换', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 展开左栏
@@ -99,6 +104,8 @@ test('LeftRail 页签 [文件|资源] + 切换', async ({ page }) => {
 test('LeftRail 资源页签渲染 AssetPanel', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 展开左栏 → 切到资源页签
@@ -114,6 +121,8 @@ test('LeftRail 资源页签渲染 AssetPanel', async ({ page }) => {
 test('LeftRail 文件页签空态文案', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 展开左栏 → 文件页签（默认）
@@ -131,6 +140,8 @@ test('LeftRail 文件页签空态文案', async ({ page }) => {
 test('LeftRail 孤儿资源时 toggle 显示徽标点', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   await page.getByTestId('left-rail-toggle').click();
@@ -138,17 +149,19 @@ test('LeftRail 孤儿资源时 toggle 显示徽标点', async ({ page }) => {
   await page.getByTestId('left-rail-tab-assets').click();
   await expect(page.getByTestId('asset-list')).toBeVisible();
 
-  await page.getByTestId('import-images-input').setInputFiles({
-    name: 'orphan.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
-      0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
-      0x77, 0x53, 0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8,
-      0xcf, 0xc0, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33, 0x00, 0x00, 0x00,
-      0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
-    ]),
-  });
+  await dropImages(page, [
+    {
+      name: 'orphan.png',
+      mimeType: 'image/png',
+      data: Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
+        0x77, 0x53, 0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8,
+        0xcf, 0xc0, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33, 0x00, 0x00, 0x00,
+        0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+      ]),
+    },
+  ]);
   await expect(page.getByTestId('asset-orphan.png')).toBeVisible({ timeout: 10000 });
 
   // 聚焦 CM6 → Cmd+Z 撤销文本插入（资产状态不受影响 → 形成孤儿）
@@ -174,6 +187,8 @@ test('OutlineMenu hover 弹出、click 钉住、Esc 收起', async ({ page }) =>
     mimeType: 'text/markdown',
     buffer: Buffer.from('# 标题一\n\n段落\n\n## 标题二\n\n更多\n'),
   });
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   const btn = page.getByTestId('outline-btn');
@@ -207,6 +222,8 @@ test('大纲项与当前标题高亮', async ({ page }) => {
     mimeType: 'text/markdown',
     buffer: Buffer.from('# 第一\n\n段落\n\n## 第二\n\n段落\n\n### 第三\n'),
   });
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 钉住大纲
@@ -233,6 +250,8 @@ test('code-fence 内 # 不出现在大纲', async ({ page }) => {
     mimeType: 'text/markdown',
     buffer: Buffer.from('# 真标题\n\n```\n# 假标题\n## 也是假的\n```\n\n## 真二级\n'),
   });
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 钉住大纲
@@ -260,6 +279,8 @@ test('编辑/源码模式点击大纲项 → CM6 滚动到标题', async ({ page
     mimeType: 'text/markdown',
     buffer: Buffer.from(lines.join('\n') + '\n'),
   });
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 确保在 edit 模式
@@ -292,6 +313,8 @@ test('源码模式点击大纲项 → CM6 滚动', async ({ page }) => {
     mimeType: 'text/markdown',
     buffer: Buffer.from(lines.join('\n') + '\n'),
   });
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 切到源码模式
@@ -323,6 +346,8 @@ test('预览模式点击大纲项 → DOM 滚动', async ({ page }) => {
     mimeType: 'text/markdown',
     buffer: Buffer.from(lines.join('\n') + '\n'),
   });
+  // 切换到编辑模式以访问编辑器（先确保在edit模式，之后再切preview）
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 切到预览模式

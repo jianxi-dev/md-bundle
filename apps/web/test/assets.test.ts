@@ -11,6 +11,7 @@ import {
   hasImageAssets,
   removeAsset,
   replaceAsset,
+  resolveAssetDataUrl,
   stripReferences,
   uniqueName,
   wireReferences,
@@ -260,5 +261,51 @@ describe('computeOrphans', () => {
     const assets = [asset('local.png')];
     const doc = '![ext](https://example.com/local.png)';
     expect(computeOrphans(assets, doc).has('local.png')).toBe(true);
+  });
+});
+describe('resolveAssetDataUrl —— 编辑器 widget / inlineImages 共用匹配口径', () => {
+  const list: Asset[] = [
+    asset('one.png'),
+    asset('two.png'),
+    // mdpkg 包内条目以包内完整路径为名
+    asset('images/logo.png'),
+  ];
+
+  it('裸文件名 `one.png` → 精确匹配', () => {
+    expect(resolveAssetDataUrl(list, 'one.png')).toBe(list[0].dataUrl);
+  });
+
+  it('`./one.png` → 剥离前缀后精确匹配（两种书写形式等价）', () => {
+    expect(resolveAssetDataUrl(list, './one.png')).toBe(list[0].dataUrl);
+    expect(resolveAssetDataUrl(list, './two.png')).toBe(list[1].dataUrl);
+  });
+
+  it('子目录引用 `./images/logo.png` → 与包内完整路径精确匹配', () => {
+    expect(resolveAssetDataUrl(list, './images/logo.png')).toBe(list[2].dataUrl);
+    expect(resolveAssetDataUrl(list, 'images/logo.png')).toBe(list[2].dataUrl);
+  });
+
+  it('子目录下引用扁平资产名（应用导入场景）→ basename 回退命中', () => {
+    expect(resolveAssetDataUrl(list, 'sub/one.png')).toBe(list[0].dataUrl);
+  });
+
+  it('解析不到（缺失 / 空串 / 绝对 URL）→ null', () => {
+    expect(resolveAssetDataUrl(list, 'missing.png')).toBeNull();
+    expect(resolveAssetDataUrl(list, '')).toBeNull();
+    expect(resolveAssetDataUrl(list, 'https://x.com/one.png')).toBeNull();
+    expect(resolveAssetDataUrl(list, 'file:///tmp/one.png')).toBeNull();
+    expect(resolveAssetDataUrl([], 'one.png')).toBeNull();
+  });
+
+  it('裸文件名引用包内路径资产（名字不同）→ null（两方向不一致不解析）', () => {
+    // mdpkg 包内条目以完整路径为名；裸 `logo.png` 引用只能靠 basename 回退到
+    // 扁平资产，无法反向命中 `images/logo.png`（口径与 inlineImages 一致）。
+    expect(resolveAssetDataUrl(list, 'logo.png')).toBeNull();
+  });
+
+  it('basename 冲突时优先完整路径精确匹配', () => {
+    const mixed: Asset[] = [asset('a.png'), asset('x/a.png')];
+    expect(resolveAssetDataUrl(mixed, 'x/a.png')).toBe(mixed[1].dataUrl);
+    expect(resolveAssetDataUrl(mixed, 'a.png')).toBe(mixed[0].dataUrl);
   });
 });

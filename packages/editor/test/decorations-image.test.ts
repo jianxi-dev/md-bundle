@@ -115,6 +115,58 @@ describe('editorDecorations with image support', () => {
 
       expect(view.state.doc.toString()).toBe(original);
     });
+
+    it('passes `./`-prefixed path verbatim to the resolver and renders its src', () => {
+      const seen: string[] = [];
+      // 与 app 侧 resolveAssetDataUrl 同口径：剥 ./ 后按 basename 解析。
+      // 关键契约：编辑器把原文路径（含 ./）原样交给 resolver，不自行改写。
+      const pathResolver: ImageResolver = (path: string) => {
+        seen.push(path);
+        const base = path.replace(/^\.\//, '');
+        return base === 'photo.png' ? 'data:image/png;base64,abc123' : null;
+      };
+
+      view = createMarkdownEditor(parent, {
+        value: '![dot](./photo.png)',
+        extensions: [editorDecorations({ resolveImage: pathResolver })],
+      }).view;
+
+      view.dispatch({ selection: { anchor: view.state.doc.length } });
+      view.requestMeasure();
+
+      expect(seen).toContain('./photo.png');
+      const widget = view.dom.querySelector('.cm-image-widget');
+      expect(widget).not.toBeNull();
+      expect(widget?.querySelector('img')?.getAttribute('src')).toBe(
+        'data:image/png;base64,abc123',
+      );
+      expect(view.state.doc.toString()).toBe('![dot](./photo.png)');
+    });
+
+    it('rounds the img via clip-path with a theme-aware surface fallback (no dark corners)', () => {
+      view = createMarkdownEditor(parent, {
+        value: '![alt text](photo.png)',
+        extensions: [editorDecorations({ resolveImage: stubResolver })],
+      }).view;
+
+      view.dispatch({ selection: { anchor: view.state.doc.length } });
+      view.requestMeasure();
+
+      const widget = view.dom.querySelector('.cm-image-widget') as HTMLElement;
+      const img = widget?.querySelector('img') as HTMLElement;
+      expect(widget).not.toBeNull();
+      // The rounded clip lives on the <img> itself (clip-path), so no overflow
+      // halo is produced by clipping an overflowing child through a rounded
+      // container — this is the fix for the dark corner edges.
+      expect(img.style.clipPath).toBe('inset(0 round 4px)');
+      // The container must not set a hardcoded dark background; it uses a theme
+      // token so transparent corners composite over the surface colour instead
+      // of the near-black editor canvas.
+      expect(widget.style.backgroundColor).toBe('var(--mdb-surface)');
+      expect(widget.style.overflow).toBe('');
+      expect(widget.style.borderRadius).toBe('');
+      expect(img.style.borderRadius).toBe('');
+    });
   });
 
   // --- Code fence awareness ---
@@ -283,6 +335,50 @@ describe('editorDecorations with image support', () => {
       expect(() => (deleteBtn as HTMLElement).click()).not.toThrow();
       expect(() => (locateBtn as HTMLElement).click()).not.toThrow();
     });
+
+    it('lets the editor ignore mousedown on toolbar buttons so clicks fire', () => {
+      let deleteCalled = false;
+      view = createMarkdownEditor(parent, {
+        value: '![alt text](photo.png)',
+        extensions: [
+          editorDecorations({
+            resolveImage: stubResolver,
+            onImageDelete: () => {
+              deleteCalled = true;
+            },
+          }),
+        ],
+      }).view;
+
+      view.dispatch({ selection: { anchor: view.state.doc.length } });
+      view.requestMeasure();
+
+      const deleteBtn = view.dom.querySelector(
+        '[data-testid="img-hover-delete"]',
+      ) as HTMLElement;
+      expect(deleteBtn).not.toBeNull();
+
+      // Simulate a real browser click: mousedown → mouseup → click. CM6's
+      // mousedown handler calls preventDefault() on events it handles, which
+      // cancels the click. ignoreEvent() must let the editor skip toolbar
+      // events so the buttons stay clickable.
+      const down = new MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+      });
+      deleteBtn.dispatchEvent(down);
+      expect(down.defaultPrevented).toBe(false);
+
+      deleteBtn.dispatchEvent(
+        new MouseEvent('mouseup', { bubbles: true, cancelable: true, button: 0 }),
+      );
+      deleteBtn.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }),
+      );
+
+      expect(deleteCalled).toBe(true);
+    });
   });
 
   // --- Document value invariant ---
@@ -342,7 +438,7 @@ describe('editorDecorations with image support', () => {
 
       // Write evidence — tests count must match actual it() calls in this file
       const evidence = {
-        tests: 13, // keep in sync: grep -cE "^\s+it\(" this file
+        tests: 16, // keep in sync: grep -cE "^\s+it\(" this file
         ...facts,
       };
       const dir = path.resolve(

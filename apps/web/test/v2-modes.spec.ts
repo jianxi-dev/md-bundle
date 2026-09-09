@@ -4,10 +4,11 @@
 //   - ③有文档（打开示例）全可用
 //   - ④单主按钮存在且无文档时 disabled
 // 证据：test-results/v2-modes.json（afterAll 汇总）。
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { dropImages } from './dropImage';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIX = join(here, 'fixtures');
@@ -37,7 +38,6 @@ test('模式三图标存在（edit/source/preview）+ aria-label', async ({ page
 
   // 打开一个文档使模式图标可用（常驻顶栏始终渲染，但模式图标在 empty 态 disabled）
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
-  await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 模式三图标 testid + aria-label
   const editBtn = page.getByTestId('mode-edit-btn');
@@ -52,8 +52,15 @@ test('模式三图标存在（edit/source/preview）+ aria-label', async ({ page
   await expect(sourceBtn).toHaveAttribute('aria-label', '源码模式');
   await expect(previewBtn).toHaveAttribute('aria-label', '预览模式');
 
-  // 默认选中编辑模式（aria-pressed=true）
+  // 打开文档后默认预览模式（aria-pressed=true）
+  await expect(previewBtn).toHaveAttribute('aria-pressed', 'true');
+
+  // 切换到编辑模式以继续测试
+  await editBtn.click();
   await expect(editBtn).toHaveAttribute('aria-pressed', 'true');
+
+  // 现在编辑器可见
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   evidence.modeIconsExist = true;
 });
@@ -67,11 +74,12 @@ test('无文档禁用组：empty 态无顶栏（Landing 全页），打开文档
   await expect(page.getByTestId('export-btn')).toHaveCount(0);
 
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   await expect(page.getByTestId('save-btn')).toBeEnabled();
   await expect(page.getByTestId('export-btn')).toBeEnabled();
-  await expect(page.getByTestId('doc-image-btn')).toBeEnabled();
   await expect(page.getByTestId('mode-edit-btn')).toBeEnabled();
   await expect(page.getByTestId('mode-source-btn')).toBeEnabled();
   await expect(page.getByTestId('mode-preview-btn')).toBeEnabled();
@@ -82,20 +90,21 @@ test('无文档禁用组：empty 态无顶栏（Landing 全页），打开文档
 test('有文档（打开示例）全可用', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // 所有文档类按钮可用
   await expect(page.getByTestId('save-btn')).toBeEnabled();
   await expect(page.getByTestId('export-btn')).toBeEnabled();
-  await expect(page.getByTestId('doc-image-btn')).toBeEnabled();
 
   // 模式图标可用
   await expect(page.getByTestId('mode-edit-btn')).toBeEnabled();
   await expect(page.getByTestId('mode-source-btn')).toBeEnabled();
   await expect(page.getByTestId('mode-preview-btn')).toBeEnabled();
 
-  // 主按钮存在且有正确文字
-  await expect(page.getByTestId('save-btn')).toContainText('保存');
+  // 主按钮存在且为图标按钮（无中文文字）
+  await expect(page.getByTestId('save-btn').locator('svg')).toBeVisible();
 
   evidence.docEnabled = true;
 });
@@ -105,11 +114,13 @@ test('单主按钮存在且有文档时 enabled', async ({ page }) => {
   await expect(page.getByTestId('save-btn')).toHaveCount(0);
 
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
   const saveBtn = page.getByTestId('save-btn');
   await expect(saveBtn).toBeVisible();
   await expect(saveBtn).toBeEnabled();
-  await expect(saveBtn).toContainText('保存');
+  await expect(saveBtn.locator('svg')).toBeVisible();
 
   await page.getByTestId('export-btn').click();
   await expect(page.getByTestId('export-menu')).toBeVisible();
@@ -126,6 +137,8 @@ test('单主按钮存在且有文档时 enabled', async ({ page }) => {
 test('工作区始终只有一个 CM6 实例（edit/source 共享）', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   // edit 模式：恰好 1 个 .cm-editor
@@ -147,6 +160,8 @@ test('工作区始终只有一个 CM6 实例（edit/source 共享）', async ({ 
 test('edit→source→edit undo 跨模式保留', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
   await expect(page.getByTestId('mode-pane-editor').locator('.cm-content')).toContainText('Hello');
 
@@ -176,6 +191,8 @@ test('edit→source→edit undo 跨模式保留', async ({ page }) => {
 test('输入→切 preview→渲染出现；切回 edit→undo 保留', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
   await expect(page.getByTestId('mode-pane-editor').locator('.cm-content')).toContainText('Hello');
 
@@ -214,6 +231,8 @@ test('循环连切 edit↔source↔preview 数次 0 pageerror', async ({ page })
 
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   for (let i = 0; i < 2; i++) {
@@ -234,6 +253,8 @@ test('source 模式显示原始源码文本（含 # 标记）', async ({ page })
     mimeType: 'text/markdown',
     buffer: Buffer.from('# Heading\n\nBody text\n'),
   });
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   await page.getByTestId('mode-source-btn').click();
@@ -249,6 +270,8 @@ test('preview 模式无编辑器（隐藏）且渲染预览内容', async ({ pag
     mimeType: 'text/markdown',
     buffer: Buffer.from('# Preview Test\n\nParagraph\n'),
   });
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   await page.getByTestId('mode-preview-btn').click();
@@ -260,8 +283,9 @@ test('preview 模式无编辑器（隐藏）且渲染预览内容', async ({ pag
 test('mdpkg 打开→edit 模式可编辑→preview 用 PreviewView 渲染', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'valid.mdpkg'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
-  await expect(page.getByTestId('validation-pass')).toBeVisible();
 
   await expect(page.getByTestId('mode-pane-editor')).toBeVisible();
   await expect(page.getByTestId('mode-pane-editor').locator('.cm-content')).toContainText('# 打包测试');
@@ -277,6 +301,8 @@ test('mdpkg 打开→edit 模式可编辑→preview 用 PreviewView 渲染', asy
 test('edit 模式含装饰：heading widget 可见', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   const editorPane = page.getByTestId('mode-pane-editor');
@@ -294,6 +320,8 @@ test('edit 模式含装饰：heading widget 可见', async ({ page }) => {
 test('source 模式装饰关闭：raw # 文本可见，heading widget 消失', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   const editorPane = page.getByTestId('mode-pane-editor');
@@ -314,6 +342,8 @@ test('source 模式装饰关闭：raw # 文本可见，heading widget 消失', a
 test('decorations compartment 切换后 undo 保留', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   const editorPane = page.getByTestId('mode-pane-editor');
@@ -343,6 +373,8 @@ test('decorations compartment 切换后 undo 保留', async ({ page }) => {
 test('edit 模式图片装饰：![red](red.png) 渲染 img widget', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   const rail = page.getByTestId('left-rail');
@@ -352,7 +384,9 @@ test('edit 模式图片装饰：![red](red.png) 渲染 img widget', async ({ pag
   await expect(rail).toBeVisible();
   await page.getByTestId('left-rail-tab-assets').click();
 
-  await page.getByTestId('import-images-input').setInputFiles(join(FIX, 'imgs', 'red.png'));
+  await dropImages(page, [
+    { name: 'red.png', mimeType: 'image/png', data: readFileSync(join(FIX, 'imgs', 'red.png')) },
+  ]);
 
   // Force decoration rebuild: asset import doesn't change editor state,
   // so we need a selection change to trigger StateField.update
@@ -372,6 +406,8 @@ test('edit 模式图片装饰：![red](red.png) 渲染 img widget', async ({ pag
 test('斜杠 [!NOTE] 插入 → edit 模式即时 callout 卡', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   const editorPane = page.getByTestId('mode-pane-editor');

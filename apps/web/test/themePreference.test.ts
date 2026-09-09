@@ -166,7 +166,7 @@ describe('watchSystemTheme', () => {
 describe('currentThemeColor', () => {
   it('resolves color for the current effective theme', () => {
     storage.setItem(THEME_STORAGE_KEY, 'dark');
-    expect(currentThemeColor('bg')).toBe('#0d1117');
+    expect(currentThemeColor('bg')).toBe('#08090b');
     storage.setItem(THEME_STORAGE_KEY, 'light');
     expect(currentThemeColor('bg')).toBe('#ffffff');
   });

@@ -193,9 +193,9 @@ describe('theme token full set through the public API', () => {
     expect(lightKeys).toEqual(darkKeys);
   });
 
-  it('primary is #165DFF in both themes', () => {
-    expect(themeTokens.dark.primary).toBe('#165DFF');
-    expect(themeTokens.light.primary).toBe('#165DFF');
+  it('primary is indigo in both themes', () => {
+    expect(themeTokens.dark.primary).toBe('#7b86ea');
+    expect(themeTokens.light.primary).toBe('#4f5ad1');
   });
 
   it('getThemeColor resolves every token in both themes', () => {

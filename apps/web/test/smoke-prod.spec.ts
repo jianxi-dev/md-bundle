@@ -63,6 +63,7 @@ test.describe('production smoke', () => {
     await page.goto(`${base}/`);
     await expect(page.locator('[data-testid="featured-section"]')).toBeVisible();
     await page.locator('[data-testid="featured-card-1"]').click();
+    await page.getByTestId('mode-edit-btn').click();
     await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 10000 });
     expect(pageErrors).toEqual([]);
 

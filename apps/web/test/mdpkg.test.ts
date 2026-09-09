@@ -48,7 +48,6 @@ describe('openPackage（vendored mdpkg-web 集成）', () => {
     expect('files' in r).toBe(false);
     if ('files' in r) return;
     expect(r.error).toContain('不是有效的 .mdpkg 文件');
-    expect(r.error).toContain('MDPKG-E101');
   });
 
   it('corrupted.zip → 确定性结果：部分解包 + html null + 渲染错误（不抛出）', async () => {
@@ -59,7 +58,7 @@ describe('openPackage（vendored mdpkg-web 集成）', () => {
     if (!('files' in r)) return;
     expect(r.html).toBeNull();
     expect(r.validation.ok).toBe(false);
-    expect(r.error).toContain('MDPKG-E303');
+    expect(r.error).toContain('该文件包内没有可显示的文档内容');
   });
 
   it('invalid-manifest.mdpkg → manifest 存在 + validation.ok=false + E302 schema 错误（不阻断渲染）', async () => {

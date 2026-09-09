@@ -37,8 +37,8 @@ describe('themeTokens', () => {
   });
 
   it('getThemeColor returns expected values', () => {
-    expect(getThemeColor('dark', 'primary')).toBe('#165DFF');
-    expect(getThemeColor('dark', 'bg')).toBe('#0d1117');
+    expect(getThemeColor('dark', 'primary')).toBe('#7b86ea');
+    expect(getThemeColor('dark', 'bg')).toBe('#08090b');
     expect(getThemeColor('light', 'bg')).toBe('#ffffff');
   });
 

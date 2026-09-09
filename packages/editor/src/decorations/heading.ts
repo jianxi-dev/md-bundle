@@ -34,6 +34,7 @@ export function createHeadingDecorations(text: string): Range<Decoration>[] {
     // Replace only the "# " prefix, preserving the heading text
     const from = match.index;
     const to = from + level.length + 1; // "#" + space
+    const content = match[2];
 
     decorations.push(
       Decoration.replace({
@@ -41,6 +42,15 @@ export function createHeadingDecorations(text: string): Range<Decoration>[] {
         inclusive: false,
       }).range(from, to),
     );
+
+    // Mark the content so the decorations theme can scale h1..h6.
+    if (content.length > 0) {
+      decorations.push(
+        Decoration.mark({
+          class: `cm-heading cm-h${level.length}`,
+        }).range(to, to + content.length),
+      );
+    }
   }
 
   return decorations;

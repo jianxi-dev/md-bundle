@@ -47,7 +47,7 @@ test('rasterize all 4 invite templates into a composite PNG', async ({ page }) =
     return {
       pngs,
       allHaveUrl: templates.every((t) => t.html.includes('bundle.jianxi.me')),
-      allHaveBrand: templates.every((t) => t.html.includes('Made with MD-Bundle')),
+      allHaveBrand: templates.every((t) => t.html.includes('Made with 本兜 bundle.jianxi.me')),
     };
   }, NICKNAME);
 
@@ -81,7 +81,7 @@ test('rasterize all 4 invite templates into a composite PNG', async ({ page }) =
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#0d1117';
+    ctx.fillStyle = '#08090b';
     ctx.fillRect(0, 0, W, H);
 
     const positions = [

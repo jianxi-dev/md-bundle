@@ -10,7 +10,7 @@ import {
   buildHtmlDocument,
   inlineImages,
 } from '../src/lib/exportHtml';
-import { bylineFooterHtml } from '../src/lib/byline';
+import { bylineCenteredBadgeHtml } from '../src/lib/byline';
 import type { Asset } from '../src/lib/assets';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +42,32 @@ describe('inlineImages', () => {
     expect(out).toBe(
       `<img src="${PNG_1}" alt="a"><img src="${PNG_2}" alt="b">`,
     );
+  });
+
+  it('resolves relative paths in subfolders by basename', () => {
+    const html =
+      '<img src="./images/one.png" alt="a"><img src="sub/dir/two.png" alt="b">';
+    const out = inlineImages(html, ASSETS);
+    expect(out).toBe(
+      `<img src="${PNG_1}" alt="a"><img src="${PNG_2}" alt="b">`,
+    );
+  });
+
+  it('resolves mdpkg 包内完整路径资产（含 `./` 前缀引用）', () => {
+    const pkgAssets: Asset[] = [
+      { name: 'images/one.png', size: 100, dataUrl: PNG_1 },
+      { name: 'images/two.png', size: 100, dataUrl: PNG_2 },
+    ];
+    const html =
+      '<img src="./images/one.png" alt="a"><img src="images/two.png" alt="b">';
+    expect(inlineImages(html, pkgAssets)).toBe(
+      `<img src="${PNG_1}" alt="a"><img src="${PNG_2}" alt="b">`,
+    );
+  });
+
+  it('裸文件名无法匹配包内路径资产 → 整段移除（口径与编辑器回退一致）', () => {
+    const pkgAssets: Asset[] = [{ name: 'images/one.png', size: 100, dataUrl: PNG_1 }];
+    expect(inlineImages('<img src="one.png" alt="a">', pkgAssets)).toBe('');
   });
 
   it('keeps existing data: URIs untouched', () => {
@@ -91,17 +117,17 @@ describe('buildHtmlDocument', () => {
 
   it('includes the Made-with byline with the ?ref link', async () => {
     const html = await buildHtmlDocument({ markdown: '# t', assets: [] });
-    expect(html).toContain('Made with MD-Bundle');
-    expect(html).toContain('https://bundle.jianxi.me/?ref=md-html');
+    expect(html).toContain('Made with 本兜 bundle.jianxi.me');
+    expect(html).toContain('https://bundle.jianxi.me/?ref=md-png');
     expect(html).toContain(
-      '<footer><a href="https://bundle.jianxi.me/?ref=md-html">Made with MD-Bundle</a></footer>',
+      '<div style="position:absolute;left:50%;transform:translateX(-50%);bottom:12px;',
     );
   });
 
-  it('footer byline comes from the byline lib (byte-identical markup)', async () => {
+  it('centered byline comes from the byline lib (byte-identical markup)', async () => {
     const html = await buildHtmlDocument({ markdown: '# t', assets: [] });
-    expect(html).toContain(bylineFooterHtml());
-    expect(html).toContain(bylineFooterHtml('md-html'));
+    expect(html).toContain(bylineCenteredBadgeHtml());
+    expect(html).toContain(bylineCenteredBadgeHtml('md-png'));
   });
 
   it('inlines all styles with zero external references (byline is the only https)', async () => {
@@ -134,6 +160,20 @@ describe('buildHtmlDocument', () => {
     });
     expect(html).toContain('<title>A &lt;B&gt; &amp; C</title>');
     expect(html).toContain('data-theme="light"');
+  });
+
+  it('任务 6：含长文本表格的导出 HTML 包含表格自动换行样式覆盖', async () => {
+    // 使用含长文本的表格 markdown
+    const markdown = `| 短标题 | 非常长的内容导致需要自动换行才能完整显示 |
+|--------|------------------------------------------|
+| 单元格 | 这是一段很长很长的文本内容需要测试自动换行功能是否正常 |`;
+    const html = await buildHtmlDocument({ markdown, assets: [] });
+    // 验证表格样式覆盖存在
+    expect(html).toContain('.preview-content .table-wrap { overflow-x: visible; }');
+    expect(html).toContain('.preview-content table { width: 100%; table-layout: fixed; }');
+    expect(html).toContain('word-break: break-all');
+    expect(html).toContain('overflow-wrap: anywhere');
+    expect(html).toContain('white-space: normal');
   });
 });
 
@@ -199,7 +239,7 @@ afterAll(() => {
   const evidence = {
     tasks: '1.5',
     ...facts,
-    tests: 17, // keep in sync — real it() count
+    tests: 21, // keep in sync — real it() count
   };
   mkdirSync(dirname(EVIDENCE_PATH), { recursive: true });
   writeFileSync(EVIDENCE_PATH, JSON.stringify(evidence, null, 2) + '\n');

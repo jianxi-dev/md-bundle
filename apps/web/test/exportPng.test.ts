@@ -7,9 +7,9 @@ import {
   svgFromHtml,
   svgToPngBlob,
   exportPngFromMarkdown,
-  withCornerByline,
+  withCenteredByline,
 } from '../src/lib/exportPng';
-import { bylineCornerBadgeHtml } from '../src/lib/byline';
+import { bylineCenteredBadgeHtml } from '../src/lib/byline';
 import { parsePngSize } from '../src/lib/pngMeta';
 
 // 1x1 红色 PNG（与 exportHtml.test 同源 fixture，真实 PNG 字节）。
@@ -118,20 +118,20 @@ describe('svgFromHtml', () => {
   });
 });
 
-describe('withCornerByline（PNG 右下角徽标注入）', () => {
+describe('withCenteredByline（PNG 底部居中徽标注入）', () => {
   it('body 加 position:relative 锚点，徽标插在 </body> 前', () => {
     const doc = '<!doctype html><html><body><p>x</p></body></html>';
-    const out = withCornerByline(doc);
+    const out = withCenteredByline(doc);
     expect(out).toContain('<body style="position:relative">');
-    expect(out).toContain(bylineCornerBadgeHtml());
-    expect(out.indexOf(bylineCornerBadgeHtml())).toBeLessThan(out.indexOf('</body>'));
+    expect(out).toContain(bylineCenteredBadgeHtml());
+    expect(out.indexOf(bylineCenteredBadgeHtml())).toBeLessThan(out.indexOf('</body>'));
     expect(out).toContain('?ref=md-png');
   });
 
   it('幂等：重复注入不叠加（同一徽标只出现一次）', () => {
-    const once = withCornerByline('<html><body><p>x</p></body></html>');
-    const twice = withCornerByline(once);
-    expect(twice.match(/Made with MD-Bundle/g)?.length).toBe(1);
+    const once = withCenteredByline('<html><body><p>x</p></body></html>');
+    const twice = withCenteredByline(once);
+    expect(twice.match(/Made with 本兜 bundle.jianxi.me/g)?.length).toBe(1);
   });
 });
 
@@ -181,7 +181,7 @@ describe('svgToPngBlob (DI rasterizer)', () => {
       makeTestBlob(),
     );
     await svgToPngBlob(svgFromHtml('<p>x</p>', { width: 100, height: 50 }), {
-      background: '#0d1117',
+      background: '#08090b',
       createCanvas: (w, h) => {
         canvas.width = w;
         canvas.height = h;
@@ -258,7 +258,7 @@ describe('exportPngFromMarkdown', () => {
     expect(parsePngSize(new Uint8Array(await blob.arrayBuffer()))).toEqual({ width: 1, height: 1 });
   });
 
-  it('rasterized SVG contains the corner byline badge (string-level seam)', async () => {
+  it('rasterized SVG contains the centered byline badge (string-level seam)', async () => {
     let capturedSvg = '';
     const capturingImage = {
       _src: '',
@@ -289,9 +289,9 @@ describe('exportPngFromMarkdown', () => {
       makeImage: () => capturingImage,
     });
 
-    expect(capturedSvg).toContain(bylineCornerBadgeHtml());
+    expect(capturedSvg).toContain(bylineCenteredBadgeHtml());
     expect(capturedSvg).toContain('<body style="position:relative">');
     expect(capturedSvg).toContain('?ref=md-png');
-    expect(capturedSvg).toContain('Made with MD-Bundle');
+    expect(capturedSvg).toContain('Made with 本兜 bundle.jianxi.me');
   });
 });

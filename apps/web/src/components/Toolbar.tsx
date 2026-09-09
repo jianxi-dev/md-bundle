@@ -1,38 +1,39 @@
-// 顶栏 v2（任务 2.1）—— ghost 图标动作区 + 三模式切换图标 + 单一主按钮。
-// 右起读：主题◐（最右）→ 分享 → 导出▾ → 保存（主按钮）→ 复制正文为图片（最左）
-// + 三模式 ghost 图标（铅笔/代码/眼睛）在左侧独立区域。
-// 动作区 ghost 风格：透明底弱描边，默认低不透明度、hover 提亮（不抢眼）。
-// 保存主按钮为例外——保持主色高对比（primary button）。
-// 禁用组按动作分：无文档时保存/导出/复制正文 disabled；分享/主题已接线可用。
-// 任务 2.7：移动端 <768px → 动作区折叠入 more-btn 溢出菜单（排序同桌面右起），主题保留顶栏最右。
-import { useCallback, useEffect, useState } from 'react';
+// 顶栏 v2（任务 2.1）—— .gbtn ghost 图标动作区 + 三模式切换 + .btn primary 主按钮。
+// 右起读：主题◐（最右）→ 分享 → 导出▾ → 保存（主按钮）→ 打开新文件（最左）
+// + 三模式 .gbtn 图标（铅笔/代码/眼睛）在左侧独立区域（active 以靛青高亮）。
+// 图标全部用内联 SVG（无 emoji 即图标）；颜色走设计 token（var(--accent) 等）。
+// 禁用组按动作分：无文档时保存/导出 disabled；打开/分享/主题已接线可用。
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 
-export type ExportFormat = 'md' | 'mdpkg' | 'html' | 'png';
-export type EditorMode = 'edit' | 'source' | 'preview';
+export type ExportFormat = 'md' | 'mdpkg' | 'html' | 'png' | 'zip' | 'docx'
+export type EditorMode = 'edit' | 'source' | 'preview'
 
 export interface ToolbarProps {
   /** 保存按钮可用性（空态禁用）。 */
-  canSave: boolean;
+  canSave: boolean
   /** 当前文档来源（决定保存目标提示）。 */
-  sourceKind: 'md' | 'mdpkg';
+  sourceKind: 'md' | 'mdpkg'
   /** 导出失败的内联错误文案（role=status 展示；null = 无错误）。 */
-  error?: string | null;
+  error?: string | null
   /** 点击保存（内容驱动：有图 → .mdpkg，无图 → .md，打开 .mdpkg → 重打包）。 */
-  onSave: () => void;
+  onSave: () => void
   /** 点击导出下拉项（显式格式：.md / .mdpkg / HTML / PNG 长图）。 */
-  onExport: (format: ExportFormat) => void;
-  /** 点击「复制正文为图片」（文档正文 PNG → 剪贴板）。 */
-  onCopyImage?: () => void;
+  onExport: (format: ExportFormat) => void
+  /** 点击「打开新文件」（触发隐藏 FileOpen 文件选择器）。 */
+  onOpenFile: () => void
   /** 当前编辑模式（编辑/源码/预览）。 */
-  currentMode?: EditorMode;
+  currentMode?: EditorMode
   /** 切换编辑模式（派发 setMode 到 App 状态）。 */
-  onModeChange?: (mode: EditorMode) => void;
+  onModeChange?: (mode: EditorMode) => void
   /** 主题按钮点击（循环 system → dark → light）。 */
-  onThemeClick?: () => void;
+  onThemeClick?: () => void
   /** 复制邀请链接。 */
-  onCopyInviteLink?: () => void;
+  onCopyInviteLink?: () => void
   /** 生成邀请卡（随机模板 → PNG → 剪贴板/下载）。 */
-  onGenerateInviteCard?: () => void;
+  onGenerateInviteCard?: () => void
+  /** 复制正文为图片：导出 PNG → 尝试复制，失败兜底下载。 */
+  onCopyBodyAsImage?: () => void
 }
 
 const EXPORT_ITEMS: { format: ExportFormat; label: string }[] = [
@@ -40,23 +41,118 @@ const EXPORT_ITEMS: { format: ExportFormat; label: string }[] = [
   { format: 'mdpkg', label: '.mdpkg' },
   { format: 'html', label: 'HTML' },
   { format: 'png', label: 'PNG 长图' },
-];
+  { format: 'docx', label: 'Word (.docx)' },
+  { format: 'zip', label: '.zip' },
+]
 
 /** 窄屏检测（<768px）。 */
 function useIsNarrow(): boolean {
   const [narrow, setNarrow] = useState(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return false;
-    return window.matchMedia('(max-width: 767px)').matches;
-  });
+    if (typeof window === 'undefined' || !window.matchMedia) return false
+    return window.matchMedia('(max-width: 767px)').matches
+  })
   useEffect(() => {
-    if (!window.matchMedia) return;
-    const mq = window.matchMedia('(max-width: 767px)');
-    const handler = (e: MediaQueryListEvent) => setNarrow(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-  return narrow;
+    if (!window.matchMedia) return
+    const mq = window.matchMedia('(max-width: 767px)')
+    const handler = (e: MediaQueryListEvent) => setNarrow(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return narrow
 }
+
+/** 点击外部检测（Bug 20）：ref 容器外的点击触发 onOutside，用于下拉菜单自动关闭。 */
+function useClickOutside(ref: RefObject<HTMLElement | null>, onOutside: () => void): void {
+  const onOutsideRef = useRef(onOutside)
+  onOutsideRef.current = onOutside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const el = ref.current
+      if (!el) return
+      if (e.target instanceof Node && el.contains(e.target)) return
+      onOutsideRef.current()
+    }
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [ref])
+}
+
+// ── 图标（内联 SVG，16×16 stroke 风格，与设计稿同源） ──────────────
+const ICON = {
+  edit: (
+    <svg viewBox="0 0 24 24">
+      <path d="M17 3l4 4L8 20l-5 1 1-5L17 3z" />
+    </svg>
+  ),
+  source: (
+    <svg viewBox="0 0 24 24">
+      <path d="M8 6l-6 6 6 6M16 6l6 6-6 6" />
+    </svg>
+  ),
+  preview: (
+    <svg viewBox="0 0 24 24">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  open: (
+    <svg viewBox="0 0 24 24">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </svg>
+  ),
+  save: (
+    <svg viewBox="0 0 24 24">
+      <path d="M12 4v12m0 0l-4-4m4 4l4-4" />
+      <path d="M4 20h16" />
+    </svg>
+  ),
+  export: (
+    <svg viewBox="0 0 24 24">
+      <path d="M14 4h6v6" />
+      <path d="M20 4 10 14" />
+      <path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+    </svg>
+  ),
+  copyBody: (
+    <svg viewBox="0 0 24 24">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="8.5" cy="10" r="1.5" />
+      <path d="M21 15l-5-5-8 8" />
+    </svg>
+  ),
+  share: (
+    <svg viewBox="0 0 24 24">
+      <path d="M12 16V4m0 0l-4 4m4-4l4 4" />
+      <path d="M4 14v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5" />
+    </svg>
+  ),
+  invite: (
+    <svg viewBox="0 0 24 24">
+      <path d="M12 16V4m0 0l-4 4m4-4l4 4" />
+      <path d="M4 14v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5" />
+    </svg>
+  ),
+  card: (
+    <svg viewBox="0 0 24 24">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="8.5" cy="10" r="1.5" />
+      <path d="M21 15l-5-5-8 8" />
+    </svg>
+  ),
+  theme: (
+    <svg viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  more: (
+    <svg viewBox="0 0 24 24">
+      <circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+} as const
 
 export function Toolbar({
   canSave,
@@ -64,22 +160,30 @@ export function Toolbar({
   error,
   onSave,
   onExport,
-  onCopyImage,
+  onOpenFile,
   currentMode = 'edit',
   onModeChange,
   onThemeClick,
   onCopyInviteLink,
   onGenerateInviteCard,
+  onCopyBodyAsImage,
 }: ToolbarProps): JSX.Element {
-  const [exportOpen, setExportOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const isNarrow = useIsNarrow();
+  const [exportOpen, setExportOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const isNarrow = useIsNarrow()
 
-  const closeMore = useCallback(() => setMoreOpen(false), []);
+  const exportMenuRef = useRef<HTMLDivElement>(null)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
+  const shareMenuRef = useRef<HTMLDivElement>(null)
+  useClickOutside(exportMenuRef, () => setExportOpen(false))
+  useClickOutside(moreMenuRef, () => setMoreOpen(false))
+  useClickOutside(shareMenuRef, () => setShareOpen(false))
 
-  const modeIcons = (
-    <div className="flex items-center gap-1">
+  const closeMore = useCallback(() => setMoreOpen(false), [])
+
+  const modeButtons = (
+    <>
       <button
         type="button"
         data-testid="mode-edit-btn"
@@ -88,13 +192,9 @@ export function Toolbar({
         disabled={!canSave}
         onClick={() => onModeChange?.('edit')}
         title="编辑模式"
-        className={`rounded p-1.5 text-sm transition-colors ${
-          currentMode === 'edit'
-            ? 'bg-[#30363d] text-slate-100'
-            : 'text-slate-400 opacity-60 hover:text-slate-200 hover:opacity-100'
-        } disabled:cursor-not-allowed disabled:opacity-30`}
+        className="mode-btn disabled:cursor-not-allowed disabled:opacity-30"
       >
-        ✏️
+        {ICON.edit}
       </button>
       <button
         type="button"
@@ -104,13 +204,9 @@ export function Toolbar({
         disabled={!canSave}
         onClick={() => onModeChange?.('source')}
         title="源码模式"
-        className={`rounded p-1.5 text-sm transition-colors ${
-          currentMode === 'source'
-            ? 'bg-[#30363d] text-slate-100'
-            : 'text-slate-400 opacity-60 hover:text-slate-200 hover:opacity-100'
-        } disabled:cursor-not-allowed disabled:opacity-30`}
+        className="mode-btn disabled:cursor-not-allowed disabled:opacity-30"
       >
-        &lt;/&gt;
+        {ICON.source}
       </button>
       <button
         type="button"
@@ -120,16 +216,23 @@ export function Toolbar({
         disabled={!canSave}
         onClick={() => onModeChange?.('preview')}
         title="预览模式"
-        className={`rounded p-1.5 text-sm transition-colors ${
-          currentMode === 'preview'
-            ? 'bg-[#30363d] text-slate-100'
-            : 'text-slate-400 opacity-60 hover:text-slate-200 hover:opacity-100'
-        } disabled:cursor-not-allowed disabled:opacity-30`}
+        className="mode-btn disabled:cursor-not-allowed disabled:opacity-30"
       >
-        👁️
+        {ICON.preview}
       </button>
+    </>
+  )
+
+  // 桌面：三模式切换居中于顶栏（.mode-switch 绝对居中），其余动作靠右。
+  const desktopModeSwitch = (
+    <div
+      className="mode-switch flex items-center gap-0.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-2)] p-0.5"
+      role="group"
+      aria-label="视图模式"
+    >
+      {modeButtons}
     </div>
-  );
+  )
 
   const themeBtn = (
     <button
@@ -138,19 +241,43 @@ export function Toolbar({
       onClick={onThemeClick}
       title="切换主题（系统 / 深色 / 浅色）"
       aria-label="切换主题"
-      className="rounded p-1.5 text-sm text-slate-400 opacity-60 transition-colors hover:text-slate-200 hover:opacity-100"
+      className="gbtn"
     >
-      ◐
+      {ICON.theme}
     </button>
-  );
+  )
 
-  // 移动端：模式图标 + more-btn + 主题
+  // 移动端：打开新文件 + 模式图标 + more-btn + 主题
   if (isNarrow) {
     return (
       <div className="flex items-center gap-2">
-        {modeIcons}
+        <button
+          type="button"
+          data-testid="open-file-btn"
+          onClick={onOpenFile}
+          title="打开新文件"
+          aria-label="打开新文件"
+          className="gbtn"
+        >
+          {ICON.open}
+        </button>
 
-        <div className="relative">
+        <button
+          type="button"
+          data-testid="copy-body-image-btn"
+          onClick={onCopyBodyAsImage}
+          title="复制正文为图片"
+          aria-label="复制正文为图片"
+          className="gbtn"
+        >
+          {ICON.copyBody}
+        </button>
+
+        <div className="flex items-center gap-0.5" role="group" aria-label="视图模式">
+          {modeButtons}
+        </div>
+
+        <div className="relative" ref={moreMenuRef}>
           <button
             type="button"
             data-testid="more-menu-btn"
@@ -159,39 +286,45 @@ export function Toolbar({
             aria-expanded={moreOpen}
             title="更多操作"
             aria-label="更多操作"
-            className="rounded p-1.5 text-sm text-slate-400 opacity-60 transition-colors hover:text-slate-200 hover:opacity-100"
+            className="gbtn"
           >
-            ⋯
+            {ICON.more}
           </button>
           {moreOpen && (
             <div
               role="menu"
               data-testid="more-menu"
-              className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22] shadow-lg"
+              className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--glass-strong)] shadow-[var(--shadow)] backdrop-blur"
             >
               <button
                 type="button"
                 role="menuitem"
                 data-testid="more-share"
                 onClick={() => {
-                  closeMore();
-                  onCopyInviteLink?.();
+                  closeMore()
+                  onCopyInviteLink?.()
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--fg)] transition-colors hover:bg-[var(--surface-2)]"
               >
-                🔗 复制邀请链接
+                <span className="gbtn accent" style={{ height: 24, minWidth: 24, padding: 0 }}>
+                  {ICON.share}
+                </span>
+                复制邀请链接
               </button>
               <button
                 type="button"
                 role="menuitem"
                 data-testid="more-invite-card"
                 onClick={() => {
-                  closeMore();
-                  onGenerateInviteCard?.();
+                  closeMore()
+                  onGenerateInviteCard?.()
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--fg)] transition-colors hover:bg-[var(--surface-2)]"
               >
-                🎴 邀请卡
+                <span className="gbtn accent" style={{ height: 24, minWidth: 24, padding: 0 }}>
+                  {ICON.card}
+                </span>
+                邀请卡
               </button>
               <button
                 type="button"
@@ -199,15 +332,18 @@ export function Toolbar({
                 data-testid="more-save"
                 disabled={!canSave}
                 onClick={() => {
-                  closeMore();
-                  onSave();
+                  closeMore()
+                  onSave()
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--fg)] transition-colors hover:bg-[var(--surface-2)] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                💾 保存
+                <span className="gbtn" style={{ height: 24, minWidth: 24, padding: 0 }}>
+                  {ICON.save}
+                </span>
+                保存
               </button>
-              <div className="border-t border-[#30363d]" />
-              <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[#8b949e]">
+              <div className="border-t border-[var(--border-soft)]" />
+              <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--meta)]">
                 导出
               </div>
               {EXPORT_ITEMS.map(({ format, label }) => (
@@ -218,74 +354,74 @@ export function Toolbar({
                   data-testid={`more-export-${format}`}
                   disabled={!canSave}
                   onClick={() => {
-                    closeMore();
-                    onExport(format);
+                    closeMore()
+                    onExport(format)
                   }}
-                  className="block w-full px-3 py-1.5 text-left text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  className="block w-full px-3 py-1.5 text-left text-xs text-[var(--fg)] transition-colors hover:bg-[var(--surface-2)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {label}
                 </button>
               ))}
-              <div className="border-t border-[#30363d]" />
-              <button
-                type="button"
-                role="menuitem"
-                data-testid="more-copy-image"
-                disabled={!canSave || !onCopyImage}
-                onClick={() => {
-                  closeMore();
-                  onCopyImage?.();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                📋 复制正文为图片
-              </button>
-            </div>
+              </div>
           )}
         </div>
 
         {themeBtn}
 
         {error && (
-          <p role="status" aria-live="polite" data-testid="export-error" className="text-xs text-red-400">
+          <p
+            role="status"
+            aria-live="polite"
+            data-testid="export-error"
+            className="text-xs text-[var(--danger)]"
+          >
             {error}
           </p>
         )}
       </div>
-    );
+    )
   }
 
-  // 桌面：模式图标 + 复制正文 + 保存 + 导出▾ + 分享 + 主题
+  // 桌面：三模式切换居中于顶栏（.mode-switch 绝对居中），动作簇靠右。
   return (
-    <div className="flex items-center gap-2">
-      {modeIcons}
-
-      {onCopyImage && (
+    <>
+      {desktopModeSwitch}
+      <div className="flex items-center gap-1">
         <button
           type="button"
-          data-testid="doc-image-btn"
-          disabled={!canSave}
-          onClick={onCopyImage}
+          data-testid="open-file-btn"
+          onClick={onOpenFile}
+          title="打开新文件"
+          aria-label="打开新文件"
+          className="gbtn"
+        >
+          {ICON.open}
+        </button>
+
+        <button
+          type="button"
+          data-testid="copy-body-image-btn"
+          onClick={onCopyBodyAsImage}
           title="复制正文为图片"
           aria-label="复制正文为图片"
-          className="rounded p-1.5 text-sm text-slate-400 opacity-60 transition-colors hover:text-slate-200 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
+          className="gbtn"
         >
-          📋
+          {ICON.copyBody}
         </button>
-      )}
 
-      <button
-        type="button"
-        data-testid="save-btn"
-        disabled={!canSave}
-        onClick={onSave}
-        title={sourceKind === 'mdpkg' ? '重新打包为 .mdpkg' : '保存文档'}
-        className="rounded-lg bg-[#165DFF] px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-[#3c7dff] disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        保存
-      </button>
+        <button
+          type="button"
+          data-testid="save-btn"
+          disabled={!canSave}
+          onClick={onSave}
+          title={sourceKind === 'mdpkg' ? '重新打包为 .mdpkg' : '保存文档'}
+          aria-label={sourceKind === 'mdpkg' ? '重新打包为 .mdpkg' : '保存文档'}
+          className="gbtn disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {ICON.save}
+        </button>
 
-      <div className="relative">
+      <div className="relative" ref={exportMenuRef}>
         <button
           type="button"
           data-testid="export-btn"
@@ -295,15 +431,15 @@ export function Toolbar({
           aria-expanded={exportOpen}
           title="导出"
           aria-label="导出"
-          className="rounded p-1.5 text-sm text-slate-400 opacity-60 transition-colors hover:text-slate-200 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
+          className="gbtn disabled:cursor-not-allowed disabled:opacity-30"
         >
-          📥
+          {ICON.export}
         </button>
         {exportOpen && (
           <div
             role="menu"
             data-testid="export-menu"
-            className="absolute right-0 z-20 mt-1 w-32 overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22] shadow-lg"
+            className="absolute right-0 z-20 mt-1 w-32 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--glass-strong)] shadow-[var(--shadow)] backdrop-blur"
           >
             {EXPORT_ITEMS.map(({ format, label }) => (
               <button
@@ -312,10 +448,10 @@ export function Toolbar({
                 role="menuitem"
                 data-testid={`export-${format}`}
                 onClick={() => {
-                  setExportOpen(false);
-                  onExport(format);
+                  setExportOpen(false)
+                  onExport(format)
                 }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white"
+                className="block w-full px-3 py-1.5 text-left text-xs text-[var(--fg)] transition-colors hover:bg-[var(--surface-2)]"
               >
                 {label}
               </button>
@@ -324,7 +460,7 @@ export function Toolbar({
         )}
       </div>
 
-      <div className="relative">
+      <div className="relative" ref={shareMenuRef}>
         <button
           type="button"
           data-testid="share-menu-btn"
@@ -333,39 +469,45 @@ export function Toolbar({
           aria-label="分享"
           aria-haspopup="menu"
           aria-expanded={shareOpen}
-          className="rounded p-1.5 text-sm text-slate-400 opacity-60 transition-colors hover:text-slate-200 hover:opacity-100"
+          className="gbtn"
         >
-          🔗
+          {ICON.share}
         </button>
         {shareOpen && (
           <div
             role="menu"
             data-testid="share-menu"
-            className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22] shadow-lg"
+            className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--glass-strong)] shadow-[var(--shadow)] backdrop-blur"
           >
             <button
               type="button"
               role="menuitem"
               data-testid="share-invite-link"
               onClick={() => {
-                setShareOpen(false);
-                onCopyInviteLink?.();
+                setShareOpen(false)
+                onCopyInviteLink?.()
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white"
+              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--fg)] transition-colors hover:bg-[var(--surface-2)]"
             >
-              🔗 复制邀请链接
+              <span className="gbtn accent" style={{ height: 24, minWidth: 24, padding: 0 }}>
+                {ICON.invite}
+              </span>
+              复制邀请链接
             </button>
             <button
               type="button"
               role="menuitem"
               data-testid="share-invite-card"
               onClick={() => {
-                setShareOpen(false);
-                onGenerateInviteCard?.();
+                setShareOpen(false)
+                onGenerateInviteCard?.()
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-[#21262d] hover:text-white"
+              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--fg)] transition-colors hover:bg-[var(--surface-2)]"
             >
-              🎴 邀请卡
+              <span className="gbtn accent" style={{ height: 24, minWidth: 24, padding: 0 }}>
+                {ICON.card}
+              </span>
+              邀请卡
             </button>
           </div>
         )}
@@ -374,10 +516,16 @@ export function Toolbar({
       {themeBtn}
 
       {error && (
-        <p role="status" aria-live="polite" data-testid="export-error" className="text-xs text-red-400">
+        <p
+          role="status"
+          aria-live="polite"
+          data-testid="export-error"
+          className="text-xs text-[var(--danger)]"
+        >
           {error}
         </p>
       )}
-    </div>
-  );
+      </div>
+    </>
+  )
 }

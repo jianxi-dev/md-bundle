@@ -114,10 +114,10 @@ describe('buildShareCardHtml', () => {
       markdown: 'x',
       stats: { chars: 1, images: 0 },
     });
-    expect(html).toContain('background:#161b22');
-    expect(html).toContain('border:1px solid #30363d');
-    expect(html).toContain('color:#e6edf3');
-    expect(html).toContain('color:#8b949e');
+    expect(html).toContain('background:#0e0f12');
+    expect(html).toContain('border:1px solid rgba(255,255,255,0.08)');
+    expect(html).toContain('color:#f5f6f8');
+    expect(html).toContain('color:#858b96');
   });
 
   it('uses light card palette when theme is light', () => {
@@ -128,16 +128,16 @@ describe('buildShareCardHtml', () => {
       theme: 'light',
     });
     expect(html).toContain('background:#ffffff');
-    expect(html).toContain('border:1px solid #d0d7de');
-    expect(html).toContain('color:#1f2328');
-    expect(html).toContain('color:#656d76');
+    expect(html).toContain('border:1px solid rgba(0,0,0,0.10)');
+    expect(html).toContain('color:#191a1e');
+    expect(html).toContain('color:#6b6f78');
   });
 
   it('cardColors resolves theme tokens for both themes', () => {
-    expect(cardColors('dark').bg).toBe('#161b22');
+    expect(cardColors('dark').bg).toBe('#0e0f12');
     expect(cardColors('light').bg).toBe('#ffffff');
-    expect(cardColors('dark').border).toBe('#30363d');
-    expect(cardColors('light').border).toBe('#d0d7de');
+    expect(cardColors('dark').border).toBe('rgba(255,255,255,0.08)');
+    expect(cardColors('light').border).toBe('rgba(0,0,0,0.10)');
   });
 
   it('XML-escapes user content (title/preview) so the SVG stays well-formed', () => {
@@ -185,7 +185,7 @@ describe('cardToPngBlob (delegates to svgToPngBlob)', () => {
     );
     const svg = shareCardSvg('<div>x</div>');
     const blob = await cardToPngBlob(svg, {
-      background: '#0d1117',
+      background: '#08090b',
       createCanvas: (w, h) => {
         canvas.width = w;
         canvas.height = h;

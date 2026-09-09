@@ -26,14 +26,14 @@ test('landing renders nav, hero slogan and format line', async ({ page }) => {
 
   // 细导航
   await expect(page.locator('[data-testid="landing-nav"]')).toBeVisible();
-  await expect(page.locator('[data-testid="landing-nav"]').getByText('MD-Bundle（本兜）')).toBeVisible();
+  await expect(page.locator('[data-testid="landing-nav"]').getByText('MD-Bundle', { exact: true })).toBeVisible();
   evidence.nav = true;
 
   // 双行 slogan
   const slogan = page.locator('[data-testid="hero-slogan"]');
   await expect(slogan).toBeVisible();
   await expect(slogan).toContainText('Markdown');
-  await expect(slogan).toContainText('不再裂图');
+  await expect(slogan).toContainText('文本与图片');
   evidence.heroSlogan = true;
 
   // 格式范围标注行
@@ -57,8 +57,9 @@ test('landing shows three featured cards and clicking loads editor', async ({ pa
   await expect(cards).toHaveCount(3);
   evidence.featuredCards = true;
 
-  // 点击卡片 1 → 载入编辑器
+  // 点击卡片 1 → 载入编辑器（默认预览模式，需切换到编辑模式）
   await page.locator('[data-testid="featured-card-1"]').click();
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 10000 });
 
   expect(pageErrors).toEqual([]);

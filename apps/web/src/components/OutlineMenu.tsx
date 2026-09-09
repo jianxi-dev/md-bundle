@@ -3,9 +3,9 @@
 // 标题解析 code-fence aware：编辑/源码模式从 markdown 文本解析；预览模式从 DOM h1–h6 解析。
 // 点击标题只导航（scrollIntoView）；不做折叠/块拖拽。
 // 键盘可达：Tab 进按钮、Enter 钉住、Esc 收起、列表项可 Tab/Enter 导航。
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { extractHeadings, type OutlineHeading } from '../lib/outline';
-import type { EditorMode } from './Toolbar';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { extractHeadings, type OutlineHeading } from '../lib/outline'
+import type { EditorMode } from './Toolbar'
 
 /**
  * CM6 视图最小接口 —— 避免直接 import @codemirror/view（apps/web 无该依赖）。
@@ -14,27 +14,27 @@ import type { EditorMode } from './Toolbar';
 interface CM6ViewLike {
   state: {
     doc: {
-      toString(): string;
-      lines: number;
-      length: number;
-      line(n: number): { from: number };
-    };
-  };
-  viewport: { from: number; to: number };
-  focus(): void;
+      toString(): string
+      lines: number
+      length: number
+      line(n: number): { from: number }
+    }
+  }
+  viewport: { from: number; to: number }
+  focus(): void
   /** DOM 根元素（用于查找 .cm-scroller）。 */
-  dom: HTMLElement;
+  dom: HTMLElement
 }
 
 export interface OutlineMenuProps {
   /** 当前编辑模式。 */
-  mode: EditorMode;
+  mode: EditorMode
   /** markdown 文本（编辑/源码模式用于文本解析）。 */
-  documentText: string;
+  documentText: string
   /** CM6 EditorView 实例（编辑/源码模式用于 scrollIntoView）。编辑/源码模式必传。 */
-  editorView: CM6ViewLike | null;
+  editorView: CM6ViewLike | null
   /** 预览面板 DOM ref（预览模式用于 scrollIntoView）。 */
-  previewRef: React.RefObject<HTMLDivElement | null>;
+  previewRef: React.RefObject<HTMLDivElement | null>
 }
 
 /**
@@ -42,19 +42,19 @@ export interface OutlineMenuProps {
  * 返回与 extractHeadings 相同的形状，line 字段为 -1（DOM 模式无行号）。
  */
 function extractHeadingsFromDom(container: HTMLElement): OutlineHeading[] {
-  const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
-  const result: OutlineHeading[] = [];
+  const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6')
+  const result: OutlineHeading[] = []
   headings.forEach((el) => {
-    const level = parseInt(el.tagName[1], 10);
+    const level = parseInt(el.tagName[1], 10)
     result.push({
       level,
       text: el.textContent?.trim() ?? '',
       line: -1, // DOM 模式无行号
       // 存储 DOM 元素引用供 scrollIntoView 使用
       _domEl: el,
-    } as OutlineHeading & { _domEl: HTMLElement });
-  });
-  return result;
+    } as OutlineHeading & { _domEl: HTMLElement })
+  })
+  return result
 }
 
 /**
@@ -62,9 +62,9 @@ function extractHeadingsFromDom(container: HTMLElement): OutlineHeading[] {
  * 行号从 0 开始。
  */
 function offsetAtLine(view: CM6ViewLike, line: number): number {
-  const doc = view.state.doc;
-  if (line >= doc.lines) return doc.length;
-  return doc.line(line + 1).from;
+  const doc = view.state.doc
+  if (line >= doc.lines) return doc.length
+  return doc.line(line + 1).from
 }
 
 /**
@@ -73,19 +73,19 @@ function offsetAtLine(view: CM6ViewLike, line: number): number {
  */
 function scrollToLineInCM6(view: CM6ViewLike, line: number): void {
   // 找到 .cm-content 元素中的行元素
-  const scroller = view.dom.querySelector('.cm-scroller');
-  if (!scroller) return;
+  const scroller = view.dom.querySelector('.cm-scroller')
+  if (!scroller) return
 
   // 用 CM6 内部 line widget 测量：创建一个临时 marker 获取坐标
   // 简化方案：用 scrollTop 按行高估算
-  const lineEl = view.dom.querySelector(`.cm-line:nth-child(${line + 1})`);
+  const lineEl = view.dom.querySelector(`.cm-line:nth-child(${line + 1})`)
   if (lineEl) {
-    lineEl.scrollIntoView({ block: 'start', behavior: 'instant' });
-    return;
+    lineEl.scrollIntoView({ block: 'start', behavior: 'instant' })
+    return
   }
 
-  const estimatedTop = line * 20;
-  scroller.scrollTo({ top: estimatedTop, behavior: 'instant' });
+  const estimatedTop = line * 20
+  scroller.scrollTo({ top: estimatedTop, behavior: 'instant' })
 }
 
 /**
@@ -98,33 +98,33 @@ function findCurrentHeadingIndex(
   editorView: CM6ViewLike | null,
   previewEl: HTMLElement | null,
 ): number {
-  if (headings.length === 0) return -1;
+  if (headings.length === 0) return -1
 
   if ((mode === 'edit' || mode === 'source') && editorView) {
     // CM6 viewport：找到 viewport 中最顶部的标题
-    const vp = editorView.viewport;
+    const vp = editorView.viewport
     for (let i = headings.length - 1; i >= 0; i--) {
-      const h = headings[i];
-      const pos = offsetAtLine(editorView, h.line);
-      if (pos >= vp.from) return i;
+      const h = headings[i]
+      const pos = offsetAtLine(editorView, h.line)
+      if (pos >= vp.from) return i
     }
-    return 0;
+    return 0
   }
 
   if (mode === 'preview' && previewEl) {
     // DOM 模式：找到最接近视口顶部的标题
-    const containerRect = previewEl.getBoundingClientRect();
+    const containerRect = previewEl.getBoundingClientRect()
     for (let i = 0; i < headings.length; i++) {
-      const h = headings[i] as OutlineHeading & { _domEl?: HTMLElement };
+      const h = headings[i] as OutlineHeading & { _domEl?: HTMLElement }
       if (h._domEl) {
-        const rect = h._domEl.getBoundingClientRect();
-        if (rect.top >= containerRect.top - 10) return i;
+        const rect = h._domEl.getBoundingClientRect()
+        if (rect.top >= containerRect.top - 10) return i
       }
     }
-    return headings.length - 1;
+    return headings.length - 1
   }
 
-  return 0;
+  return 0
 }
 
 export function OutlineMenu({
@@ -133,71 +133,82 @@ export function OutlineMenu({
   editorView,
   previewRef,
 }: OutlineMenuProps): JSX.Element {
-  const [pinned, setPinned] = useState(false);
-  const [hovering, setHovering] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pinned, setPinned] = useState(false)
+  const [hovering, setHovering] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
 
-  const visible = pinned || hovering;
+  const visible = pinned || hovering
 
   // 根据模式解析标题
   const headings: OutlineHeading[] = useMemo(() => {
     if (mode === 'preview' && previewRef?.current) {
-      return extractHeadingsFromDom(previewRef.current);
+      return extractHeadingsFromDom(previewRef.current)
     }
-    return extractHeadings(documentText);
-  }, [mode, documentText, previewRef?.current]);
+    return extractHeadings(documentText)
+  }, [mode, documentText, previewRef?.current])
 
   // 当前高亮标题（仅用于视觉指示，不做精确实时追踪）
   const currentIndex = useMemo(
     () => findCurrentHeadingIndex(headings, mode, editorView, previewRef?.current ?? null),
     [headings, mode, editorView, previewRef?.current],
-  );
+  )
 
   // 点击标题导航
   const scrollToHeading = useCallback(
     (h: OutlineHeading) => {
       if ((mode === 'edit' || mode === 'source') && editorView) {
-        scrollToLineInCM6(editorView, h.line);
-        editorView.focus();
+        scrollToLineInCM6(editorView, h.line)
+        editorView.focus()
       } else if (mode === 'preview' && previewRef?.current) {
-        const domH = h as OutlineHeading & { _domEl?: HTMLElement };
+        const domH = h as OutlineHeading & { _domEl?: HTMLElement }
         if (domH._domEl) {
-          domH._domEl.scrollIntoView({ behavior: 'instant', block: 'start' });
+          domH._domEl.scrollIntoView({ behavior: 'instant', block: 'start' })
         }
       }
     },
     [mode, editorView, previewRef],
-  );
+  )
 
   // Esc 收起
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setPinned(false);
-        setHovering(false);
-        btnRef.current?.focus();
+        setPinned(false)
+        setHovering(false)
+        btnRef.current?.focus()
       }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [visible]);
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [visible])
 
   // 点击外部收起（仅 hover 模式）
   useEffect(() => {
-    if (!hovering || pinned) return;
+    if (!hovering || pinned) return
     const onDown = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setHovering(false);
+        setHovering(false)
       }
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [hovering, pinned]);
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [hovering, pinned])
+
+  // 高亮：点击后锁定 activeIndex，否则跟随滚动位置（currentIndex）。
+  const highlightedIndex = activeIndex >= 0 ? activeIndex : currentIndex
 
   return (
-    <div className="absolute right-2 top-2 z-10">
+    <div
+      data-testid="outline-wrap"
+      className="absolute right-2 top-2 z-10 before:absolute before:left-0 before:right-0 before:top-full before:h-2 before:content-['']"
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => {
+        if (!pinned) setHovering(false)
+      }}
+    >
       {/* 触发钮 —— ghost 风格 */}
       <button
         ref={btnRef}
@@ -206,10 +217,6 @@ export function OutlineMenu({
         aria-label="大纲"
         title="大纲"
         aria-expanded={visible}
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => {
-          if (!pinned) setHovering(false);
-        }}
         onClick={() => setPinned((p) => !p)}
         className="rounded p-1.5 text-sm text-slate-400 opacity-60 transition-colors hover:text-slate-200 hover:opacity-100"
       >
@@ -223,14 +230,27 @@ export function OutlineMenu({
           data-testid="outline-menu"
           role="menu"
           aria-label="文档大纲"
-          onMouseEnter={() => setHovering(true)}
-          onMouseLeave={() => {
-            if (!pinned) setHovering(false);
-          }}
-          className="absolute right-0 top-full mt-1 max-h-[50vh] w-56 overflow-auto rounded-lg border border-[#30363d]/60 bg-[#161b22]/80 shadow-2xl backdrop-blur-xl"
+          className="absolute right-0 top-full mt-1 max-h-[min(50vh,420px)] w-60 overflow-auto rounded-lg border border-[var(--border)]/60 bg-[var(--surface)]/85 shadow-2xl backdrop-blur-xl"
         >
+          <div className="hd flex items-center justify-between px-3 pb-1.5 pt-2.5">
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '10.5px',
+                color: 'var(--meta)',
+                letterSpacing: '0.05em',
+              }}
+            >
+              文档大纲
+            </span>
+            <span
+              style={{ fontFamily: 'var(--font-body)', fontSize: '10px', color: 'var(--meta)', opacity: 0.8 }}
+            >
+              点击图标钉住
+            </span>
+          </div>
           {headings.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-[#8b949e]">无标题</p>
+            <p className="px-3 py-2 text-xs text-[var(--muted)]">无标题</p>
           ) : (
             <ul className="py-1" role="list">
               {headings.map((h, i) => (
@@ -238,16 +258,22 @@ export function OutlineMenu({
                   <button
                     type="button"
                     role="menuitem"
-                    {...(i === currentIndex ? { 'data-testid': 'outline-current' } : {})}
+                    {...(i === highlightedIndex ? { 'data-testid': 'outline-current' } : {})}
                     tabIndex={0}
-                    onClick={() => scrollToHeading(h)}
+                    onClick={() => {
+                      setActiveIndex(i)
+                      scrollToHeading(h)
+                    }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') scrollToHeading(h);
+                      if (e.key === 'Enter') {
+                        setActiveIndex(i)
+                        scrollToHeading(h)
+                      }
                     }}
                     className={`flex w-full items-center gap-2 py-1.5 text-left text-xs transition-colors ${
-                      i === currentIndex
-                        ? 'border-l-2 border-[#165DFF] bg-[#165DFF]/10 text-slate-100'
-                        : 'border-l-2 border-transparent text-slate-400 hover:bg-[#21262d] hover:text-slate-200'
+                      i === highlightedIndex
+                        ? 'border-l-2 border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--fg)]'
+                        : 'border-l-2 border-transparent text-[var(--muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
                     }`}
                     style={{ paddingLeft: `${(h.level - 1) * 12 + 8}px` }}
                   >
@@ -256,7 +282,9 @@ export function OutlineMenu({
                       className="inline-block h-3 w-0.5 shrink-0 rounded-full"
                       style={{
                         backgroundColor:
-                          i === currentIndex ? '#165DFF' : `rgba(139,148,158,${0.2 + h.level * 0.1})`,
+                          i === highlightedIndex
+                            ? 'var(--accent)'
+                            : `rgba(139,148,158,${0.2 + h.level * 0.1})`,
                       }}
                     />
                     <span className="truncate">{h.text}</span>
@@ -268,5 +296,5 @@ export function OutlineMenu({
         </div>
       )}
     </div>
-  );
+  )
 }

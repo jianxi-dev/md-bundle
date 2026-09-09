@@ -18,7 +18,7 @@ import {
 import type { SaveKind } from './save';
 
 /** 导出格式（与 Toolbar 的 ExportFormat 结构一致，lib 层不依赖组件）。 */
-export type ExportFormat = 'md' | 'mdpkg' | 'html' | 'png';
+export type ExportFormat = 'md' | 'mdpkg' | 'html' | 'png' | 'zip' | 'docx';
 
 /** 徽章 id → 用户可见文案（toast 用）。 */
 export const BADGE_LABELS: Record<BadgeId, string> = {

@@ -32,10 +32,9 @@ test('landing page renders nav with brand and links', async ({ page }) => {
 
   // 细导航：品牌名「MD-Bundle（本兜）」+ 链接
   await expect(page.locator('[data-testid="landing-nav"]')).toBeVisible();
-  await expect(page.locator('[data-testid="landing-nav"]').getByText('MD-Bundle（本兜）')).toBeVisible();
+  await expect(page.locator('[data-testid="landing-nav"]').getByText('MD-Bundle', { exact: true })).toBeVisible();
 
-  // 导航链接
-  await expect(page.locator('[data-testid="landing-nav"] a[href="#workspace"]')).toBeVisible();
+  // 导航链接（#format-info + #about 锚点）
   await expect(page.locator('[data-testid="landing-nav"] a[href="#format-info"]')).toBeVisible();
   await expect(page.locator('[data-testid="landing-nav"] a[href="#about"]')).toBeVisible();
 
@@ -49,7 +48,7 @@ test('landing page renders hero with two-line slogan', async ({ page }) => {
   const slogan = page.locator('[data-testid="hero-slogan"]');
   await expect(slogan).toBeVisible();
   await expect(slogan).toContainText('Markdown');
-  await expect(slogan).toContainText('不再裂图');
+  await expect(slogan).toContainText('文本与图片');
 
   evidence.heroSlogan = true;
 });
@@ -157,9 +156,10 @@ test('clicking a featured card loads the editor', async ({ page }) => {
   const pageErrors: string[] = [];
   page.on('pageerror', (e) => pageErrors.push(String(e)));
 
-  // 点击卡片 1（md 型）→ 载入编辑器
+  // 点击卡片 1（md 型）→ 载入编辑器（默认预览模式，需切换到编辑模式）
   const card1 = page.locator('[data-testid="featured-card-1"]');
   await card1.click();
+  await page.getByTestId('mode-edit-btn').click();
 
   // 编辑器可见
   await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 10000 });

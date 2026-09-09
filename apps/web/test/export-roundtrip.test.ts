@@ -134,8 +134,8 @@ describe('round-trip：valid.mdpkg → HTML 导出（THE MOAT）', () => {
     expect(html).not.toContain('src="http');
     for (const p of imagePaths) expect(html).not.toContain(p);
     // byline 品牌链接在。
-    expect(html).toContain('?ref=md-html');
-    expect(html).toContain('Made with MD-Bundle');
+    expect(html).toContain('?ref=md-png');
+    expect(html).toContain('Made with 本兜 bundle.jianxi.me');
 
     facts.kImages = imgs.length;
     facts.kDataUris = dataUris.length;
@@ -199,10 +199,10 @@ describe('空文档确定性（C）', () => {
 });
 
 describe('聚合（D）：3.5 已提交 PNG 证据可解析', () => {
-  it('export-png.png → parsePngSize {1600, 840}（魔数 + IHDR 尺寸）', () => {
+  it('export-png.png → parsePngSize {1600, 922}（魔数 + IHDR 尺寸）', () => {
     const bytes = new Uint8Array(readFileSync(join(TEST_RESULTS, 'export-png.png')));
     const size = parsePngSize(bytes);
-    expect(size).toEqual({ width: 1600, height: 840 });
+    expect(size).toEqual({ width: 1600, height: 922 });
     facts.pngArtifactValid = true;
   });
 });

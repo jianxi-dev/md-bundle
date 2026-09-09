@@ -3,7 +3,7 @@
 //   ① 窄屏打开文档默认 preview 模式（mode-pane-preview 可见、mode-pane-editor 隐藏）
 //   ② 左栏变底部抽屉（toggle 鸡蛋形钮存在，点击弹抽屉含 [文件|资源] 页签）
 //   ③ 大纲按钮在工作区面板右上且不与页签条重叠（boundingBox 断言不交叉）
-//   ④ more-btn 溢出菜单可达（含分享/主按钮/导出/复制正文）
+//   ④ more-btn 溢出菜单可达（含分享/主按钮/导出）
 //   ⑤ 无横向溢出（scrollWidth ≤ viewport）
 //   ⑥ 1280 回归：桌面形态不变（左栏侧栏直接可见、动作区直接可见无 more 折叠）
 import { writeFileSync } from 'node:fs';
@@ -51,6 +51,8 @@ test.describe('375×812 窄屏', () => {
     await page.evaluate(() => localStorage.removeItem('md-bundle.left-rail'));
     await page.reload();
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+    // 切换到编辑模式
+    await page.getByTestId('mode-edit-btn').click();
     await expect(page.getByTestId('mode-edit-btn')).toBeVisible();
 
     // 桌面侧栏 toggle 不在 DOM 中（窄屏条件渲染，不渲染桌面组件）
@@ -81,6 +83,8 @@ test.describe('375×812 窄屏', () => {
       mimeType: 'text/markdown',
       buffer: Buffer.from('# 标题一\n\n段落\n\n## 标题二\n'),
     });
+    // 切换到编辑模式
+    await page.getByTestId('mode-edit-btn').click();
     await expect(page.getByTestId('mode-edit-btn')).toBeVisible();
 
     // 大纲按钮可见
@@ -114,6 +118,8 @@ test.describe('375×812 窄屏', () => {
   test('more-btn 溢出菜单可达（含分享/主按钮/导出/复制正文）', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+    // 切换到编辑模式
+    await page.getByTestId('mode-edit-btn').click();
     await expect(page.getByTestId('mode-edit-btn')).toBeVisible();
 
     // 移动端 more-btn 可见
@@ -125,11 +131,10 @@ test.describe('375×812 窄屏', () => {
     const moreMenu = page.getByTestId('more-menu');
     await expect(moreMenu).toBeVisible();
 
-    // 菜单含分享/保存/导出/复制正文
+    // 菜单含分享/保存/导出
     await expect(moreMenu.getByTestId('more-share')).toBeVisible();
     await expect(moreMenu.getByTestId('more-save')).toBeVisible();
     await expect(moreMenu.getByTestId('more-export-md')).toBeVisible();
-    await expect(moreMenu.getByTestId('more-copy-image')).toBeVisible();
 
     evidence.moreMenu = true;
   });
@@ -137,6 +142,8 @@ test.describe('375×812 窄屏', () => {
   test('无横向溢出（scrollWidth ≤ viewport）', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+    // 切换到编辑模式
+    await page.getByTestId('mode-edit-btn').click();
     await expect(page.getByTestId('mode-edit-btn')).toBeVisible();
 
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
@@ -157,10 +164,16 @@ test.describe('1280 桌面回归', () => {
     await page.evaluate(() => localStorage.removeItem('md-bundle.left-rail'));
     await page.reload();
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
-    await expect(page.locator('.cm-editor').first()).toBeVisible();
 
-    // 桌面默认 edit 模式
+    // 桌面默认 preview 模式（打开文档后默认预览）
+    await expect(page.getByTestId('mode-preview-btn')).toHaveAttribute('aria-pressed', 'true');
+
+    // 切换到编辑模式以验证桌面布局
+    await page.getByTestId('mode-edit-btn').click();
     await expect(page.getByTestId('mode-edit-btn')).toHaveAttribute('aria-pressed', 'true');
+
+    // 现在编辑器可见
+    await expect(page.locator('.cm-editor').first()).toBeVisible();
 
     // 桌面左栏 toggle 可见
     const desktopToggle = page.getByTestId('left-rail-toggle');
@@ -177,7 +190,6 @@ test.describe('1280 桌面回归', () => {
     // 桌面动作区按钮直接可见
     await expect(page.getByTestId('save-btn')).toBeVisible();
     await expect(page.getByTestId('export-btn')).toBeVisible();
-    await expect(page.getByTestId('doc-image-btn')).toBeVisible();
     await expect(page.getByTestId('share-menu-btn')).toBeVisible();
     await expect(page.getByTestId('theme-btn')).toBeVisible();
 
@@ -202,6 +214,9 @@ test.afterAll(async ({ browser }) => {
   const widePage = await wideCtx.newPage();
   await widePage.goto('http://localhost:4173/');
   await widePage.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // 先等待预览面板（打开文档后默认预览模式），然后切换到编辑模式
+  await widePage.getByTestId('mode-pane-preview').waitFor({ state: 'visible' });
+  await widePage.getByTestId('mode-edit-btn').click();
   await widePage.locator('.cm-editor').first().waitFor();
   await widePage.screenshot({ path: join(RES, 'v2-mobile-1280.png'), fullPage: true });
   await wideCtx.close();

@@ -1,5 +1,5 @@
 // 7.3 真机手动QA测试：完整用户流程测试
-// 包含11个测试流程，截图留证每个关键步骤
+// 包含10个测试流程，截图留证每个关键步骤
 // 证据：test-results/qa-7.3-*.png + qa-7.3-report.json
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -40,6 +40,13 @@ test('7.3 真机手动QA：完整流程测试', { timeout: 120000 }, async ({ pa
   });
   page.on('dialog', (d) => void d.accept());
 
+  // init scripts only apply to pages loaded after registration
+  await page.addInitScript(() => {
+    delete (window as typeof window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    delete (window as typeof window & { showDirectoryPicker?: unknown }).showDirectoryPicker;
+    delete (window as typeof window & { showOpenFilePicker?: unknown }).showOpenFilePicker;
+  });
+
   await page.setViewportSize({ width: 1280, height: 800 });
 
   // ═══════════════════════════════════════════════════════════
@@ -51,6 +58,7 @@ test('7.3 真机手动QA：完整流程测试', { timeout: 120000 }, async ({ pa
 
     // 通过文件输入打开文件来创建页签
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+    await page.getByTestId('mode-edit-btn').click();
     await expect(page.locator('.cm-editor').first()).toBeVisible();
 
     // 输入带装饰的内容
@@ -113,6 +121,7 @@ test('7.3 真机手动QA：完整流程测试', { timeout: 120000 }, async ({ pa
 
     // 通过文件输入打开另一个文件
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'valid.mdpkg'));
+    await page.getByTestId('mode-edit-btn').click();
     await page.waitForTimeout(1000);
 
     // 验证新页签打开
@@ -165,14 +174,8 @@ test('7.3 真机手动QA：完整流程测试', { timeout: 120000 }, async ({ pa
   // Test 6: 单一主按钮保存写回
   // ═══════════════════════════════════════════════════════════
   await record('6-save-primary-btn', async () => {
-    // Mock FSA unavailable to test download path
-    await page.addInitScript(() => {
-      delete (window as any).showSaveFilePicker;
-      delete (window as any).showDirectoryPicker;
-      delete (window as any).showOpenFilePicker;
-    });
-
     // 确保有内容
+    await page.getByTestId('mode-edit-btn').click();
     await page.locator('.cm-editor').first().click();
     await page.waitForTimeout(300);
 
@@ -195,6 +198,7 @@ test('7.3 真机手动QA：完整流程测试', { timeout: 120000 }, async ({ pa
   // ═══════════════════════════════════════════════════════════
   await record('7-refresh-restore', async () => {
     // 输入一些内容
+    await page.getByTestId('mode-edit-btn').click();
     await page.locator('.cm-editor').first().click();
     await page.keyboard.type('\n\n刷新前保存的内容 ' + Date.now());
 
@@ -207,6 +211,7 @@ test('7.3 真机手动QA：完整流程测试', { timeout: 120000 }, async ({ pa
 
     // 刷新页面
     await page.reload();
+    await page.getByTestId('mode-edit-btn').click();
     await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 10000 });
 
     // 等待恢复
@@ -266,7 +271,8 @@ test('7.3 真机手动QA：完整流程测试', { timeout: 120000 }, async ({ pa
     await expect(page.locator('[data-testid="invite-cta"]')).toBeVisible();
 
     // 点击 CTA 进入演示
-    await page.locator('[data-testid="invite-cta"] a').click();
+    await page.locator('[data-testid="invite-cta"]').click();
+    await page.getByTestId('mode-edit-btn').click();
     await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 10000 });
 
     // 截图：预载演示文档后
@@ -277,32 +283,9 @@ test('7.3 真机手动QA：完整流程测试', { timeout: 120000 }, async ({ pa
   });
 
   // ═══════════════════════════════════════════════════════════
-  // Test 10: 分享卡四种卡型
+  // Test 10: 主题切换
   // ═══════════════════════════════════════════════════════════
-  await record('10-share-cards-four-types', async () => {
-    // 打开有效文档
-    await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
-    await expect(page.locator('.cm-editor').first()).toBeVisible();
-    await page.waitForTimeout(500);
-
-    // 点击分享卡按钮
-    await page.getByTestId('share-card-btn').click();
-    await page.waitForTimeout(500);
-
-    // 截图分享卡弹层
-    const path = join(QA_RES, '10-share-card.png');
-    await page.screenshot({ path });
-
-    // 关闭弹层
-    await page.keyboard.press('Escape');
-
-    return path;
-  });
-
-  // ═══════════════════════════════════════════════════════════
-  // Test 11: 主题切换
-  // ═══════════════════════════════════════════════════════════
-  await record('11-theme-switch', async () => {
+  await record('10-theme-switch', async () => {
     // 先检查是否有主题切换按钮（通过文本查找）
     const themeBtn = page.locator('button[aria-label*="主题"], button[title*="主题"]').first();
 

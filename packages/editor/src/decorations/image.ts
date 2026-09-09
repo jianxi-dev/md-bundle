@@ -72,15 +72,29 @@ class ImageWidget extends WidgetType {
     container.style.position = 'relative';
     container.style.maxWidth = '100%';
     container.style.verticalAlign = 'middle';
+    // The <img> carries the rounded clip via clip-path (below), so this
+    // container is NOT rounded. An overflow:hidden + border-radius container
+    // anti-aliases its clipped child against the near-black editor canvas —
+    // the dark corner halo reported as "black edges". Clipping the image's own
+    // pixels rounds them with no overflowing child to halo against.
+    // A theme-aware surface background still sits on the container so pixels
+    // revealed through the rounded corners (transparent PNG corners, or the
+    // notches left by opaque images) composite over the surface, never the canvas.
+    container.style.backgroundColor = 'var(--mdb-surface)';
 
     if (this._src) {
-      // Render actual image
+      // Render actual image at natural size (capped to container width by
+      // the .cm-image-widget maxWidth). No max-height constraint — otherwise
+      // pasted/dropped images render tiny.
       const img = document.createElement('img');
       img.src = this._src;
       img.alt = this._alt;
       img.style.maxWidth = '100%';
-      img.style.maxHeight = '24px';
       img.style.display = 'block';
+      // Round the image's own pixels here — a clip-path on the element (not a
+      // rounded container clipping an overflowing child) leaves no dark halo
+      // and no dependence on fragile canvas corner sampling.
+      img.style.clipPath = 'inset(0 round 4px)';
       container.appendChild(img);
     } else {
       // Fallback text for unresolved images
@@ -92,15 +106,15 @@ class ImageWidget extends WidgetType {
       container.appendChild(fallback);
     }
 
-    // Hover toolbar
+    // Hover toolbar — overlays the top of the image (inside the container
+    // bounds) so moving the mouse from the image onto the toolbar does not
+    // leave the container and hide it.
     const toolbar = document.createElement('span');
     toolbar.className = 'cm-image-toolbar';
     toolbar.style.display = 'none';
     toolbar.style.position = 'absolute';
-    toolbar.style.top = '-28px';
-    toolbar.style.left = '0';
-    toolbar.style.background = '#fff';
-    toolbar.style.border = '1px solid #ddd';
+    toolbar.style.top = '4px';
+    toolbar.style.left = '4px';
     toolbar.style.borderRadius = '4px';
     toolbar.style.padding = '2px 4px';
     toolbar.style.fontSize = '12px';
@@ -113,6 +127,10 @@ class ImageWidget extends WidgetType {
     replaceBtn.textContent = '替换';
     replaceBtn.style.marginRight = '4px';
     replaceBtn.style.cursor = 'pointer';
+    replaceBtn.style.color = 'inherit';
+    replaceBtn.style.background = 'transparent';
+    replaceBtn.style.border = 'none';
+    replaceBtn.style.padding = '0';
     replaceBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this._callbacks.onImageReplace?.(this._path);
@@ -123,6 +141,10 @@ class ImageWidget extends WidgetType {
     deleteBtn.textContent = '删除';
     deleteBtn.style.marginRight = '4px';
     deleteBtn.style.cursor = 'pointer';
+    deleteBtn.style.color = 'inherit';
+    deleteBtn.style.background = 'transparent';
+    deleteBtn.style.border = 'none';
+    deleteBtn.style.padding = '0';
     deleteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this._callbacks.onImageDelete?.(this._path);
@@ -132,6 +154,10 @@ class ImageWidget extends WidgetType {
     locateBtn.dataset.testid = 'img-hover-locate';
     locateBtn.textContent = '定位';
     locateBtn.style.cursor = 'pointer';
+    locateBtn.style.color = 'inherit';
+    locateBtn.style.background = 'transparent';
+    locateBtn.style.border = 'none';
+    locateBtn.style.padding = '0';
     locateBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this._callbacks.onImageLocate?.(this._path);
@@ -142,11 +168,14 @@ class ImageWidget extends WidgetType {
     toolbar.appendChild(locateBtn);
     container.appendChild(toolbar);
 
-    // Show/hide toolbar on hover
+    // Show/hide toolbar on hover. mouseleave checks relatedTarget so moving
+    // onto the toolbar (or any descendant) does not hide it prematurely.
     container.addEventListener('mouseenter', () => {
       toolbar.style.display = 'block';
     });
-    container.addEventListener('mouseleave', () => {
+    container.addEventListener('mouseleave', (e) => {
+      const related = e.relatedTarget as Node | null;
+      if (related && container.contains(related)) return;
       toolbar.style.display = 'none';
     });
 
@@ -154,10 +183,14 @@ class ImageWidget extends WidgetType {
   }
 
   /**
-   * Allow mouse events to reach the widget (needed for hover toolbar).
+   * Let the editor ignore events that target the hover toolbar so its buttons
+   * receive real clicks. CM6's mousedown handler calls preventDefault() on
+   * events it handles, which cancels the subsequent click event on the
+   * buttons — leaving them unresponsive.
    */
-  ignoreEvent(): boolean {
-    return false;
+  ignoreEvent(event: Event): boolean {
+    const target = event.target as Node | null;
+    return target instanceof Element && target.closest('.cm-image-toolbar') !== null;
   }
 }
 

@@ -138,7 +138,7 @@ describe('theme support', () => {
     const dark = buildInviteCard('product', { nickname: NICKNAME, theme: 'dark', scheme: 'midnight' });
     const light = buildInviteCard('product', { nickname: NICKNAME, theme: 'light', scheme: 'midnight' });
     // 暗色 vs 亮色背景不同
-    expect(dark.html).toContain('#0d1117');
+    expect(dark.html).toContain('#08090b');
     expect(light.html).toContain('#ffffff');
   });
 });

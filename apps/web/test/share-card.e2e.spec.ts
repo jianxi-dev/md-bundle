@@ -109,7 +109,7 @@ test('string-level seams: SVG carries md-share byline; canShare gates empty docs
       mod.buildShareCardHtml({ ...args, markdown: args.markdown }),
     );
     return {
-      byline: svg.includes('?ref=md-share') && svg.includes('Made with MD-Bundle'),
+      byline: svg.includes('?ref=md-share') && svg.includes('Made with 本兜 bundle.jianxi.me'),
       foreignObject: svg.includes('<foreignObject'),
       emptyDisabled: mod.canShare({ title: '', stats: { chars: 0, images: 0 } }),
       withData: mod.canShare({ title: '我的文档', stats: { chars: 42, images: 2 } }),

@@ -41,6 +41,8 @@ async function openFile(page: import('@playwright/test').Page, filename: string)
 test('打开 hello.md → 出现 1 个页签', async ({ page }) => {
   await page.goto('/');
   await openFile(page, 'hello.md');
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   // 页签栏可见，包含 1 个页签
   await expect(page.getByTestId('tab-strip')).toBeVisible();
   await expect(page.getByTestId('tab-strip').locator('[role="tab"]')).toHaveCount(1);
@@ -54,9 +56,13 @@ test('打开 hello.md → 出现 1 个页签', async ({ page }) => {
 test('打开 replace.md → 2 个页签，active 为 replace', async ({ page }) => {
   await page.goto('/');
   await openFile(page, 'hello.md');
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.getByTestId('tab-strip').locator('[role="tab"]')).toHaveCount(1);
 
   await openFile(page, 'replace.md');
+  // 新打开的文件也需要切换到编辑模式
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.getByTestId('tab-strip').locator('[role="tab"]')).toHaveCount(2);
   // active 页签是 replace.md（aria-selected=true）
   await expect(
@@ -68,7 +74,11 @@ test('打开 replace.md → 2 个页签，active 为 replace', async ({ page }) 
 test('点击 hello.md 页签 → 编辑器内容切换回 hello', async ({ page }) => {
   await page.goto('/');
   await openFile(page, 'hello.md');
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await openFile(page, 'replace.md');
+  // 新打开的文件也需要切换到编辑模式
+  await page.getByTestId('mode-edit-btn').click();
 
   // 当前 active 是 replace.md，编辑器应含 Replaced
   const cmContent = page.locator('[data-testid="mode-pane-editor"] .cm-content');
@@ -89,7 +99,11 @@ test('点击 hello.md 页签 → 编辑器内容切换回 hello', async ({ page 
 test('两页签内容独立：编辑 tab1 不影响 tab2', async ({ page }) => {
   await page.goto('/');
   await openFile(page, 'hello.md');
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await openFile(page, 'replace.md');
+  // 新打开的文件也需要切换到编辑模式
+  await page.getByTestId('mode-edit-btn').click();
 
   // 在 replace.md 页签中输入
   const cmContent = page.locator('[data-testid="mode-pane-editor"] .cm-content');
@@ -112,7 +126,11 @@ test('两页签内容独立：编辑 tab1 不影响 tab2', async ({ page }) => {
 test('关闭 replace.md 页签 → 只剩 hello.md', async ({ page }) => {
   await page.goto('/');
   await openFile(page, 'hello.md');
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   await openFile(page, 'replace.md');
+  // 新打开的文件也需要切换到编辑模式
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.getByTestId('tab-strip').locator('[role="tab"]')).toHaveCount(2);
 
   // 关闭 replace.md 页签（点击其关闭按钮）
@@ -121,6 +139,8 @@ test('关闭 replace.md 页签 → 只剩 hello.md', async ({ page }) => {
 
   await expect(page.getByTestId('tab-strip').locator('[role="tab"]')).toHaveCount(1);
   await expect(page.getByTestId('tab-strip').getByText('hello.md')).toBeVisible();
+  // 切换到编辑模式以访问编辑器
+  await page.getByTestId('mode-edit-btn').click();
   // 编辑器仍显示 hello.md
   await expect(page.locator('.cm-editor').first()).toBeVisible();
   evidence.closeTab = true;
@@ -129,6 +149,8 @@ test('关闭 replace.md 页签 → 只剩 hello.md', async ({ page }) => {
 test('关闭唯一页签 → 回落地页', async ({ page }) => {
   await page.goto('/');
   await openFile(page, 'hello.md');
+  // 切换到编辑模式
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.getByTestId('tab-strip')).toBeVisible();
 
   // 关闭唯一页签

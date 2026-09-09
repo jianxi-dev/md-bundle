@@ -6,8 +6,8 @@
 // KaTeX 字体条件注入：仅当序列化 HTML 含 class="katex" 时内联 woff2 data URI（零多余字节）。
 import { renderMarkdown, readerCssText, hydrateLazyFeatures } from '@md-bundle/renderer';
 import { getThemeColor, type ThemeName } from '@md-bundle/editor';
-import type { Asset } from './assets';
-import { bylineFooterHtml } from './byline';
+import { resolveAssetDataUrl, type Asset } from './assets';
+import { bylineCenteredBadgeHtml } from './byline';
 import { hasKatex, getKatexCssInlined } from './katexFonts';
 
 /** 匹配一个 `<img ...>` 标签（容忍属性值里的 `>`）。 */
@@ -19,19 +19,21 @@ const SRC_ATTR = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i;
 /**
  * 把 HTML 里的图片引用解析为 data URI：
  * - src 已是 `data:` URI → 原样保留
- * - src 是资产名（`name.png` 或 `./name.png`）→ 替换为资产的 dataUrl
+ * - src 是资产名或相对路径（`name.png`、`./name.png`、`./images/name.png`）→
+ *   交给 resolveAssetDataUrl（与编辑器 widget 同一匹配口径：剥 `./` → 精确 → basename）
  * - 其余（绝对 http(s)/file:// URL、空 src、解析不到资产）→ 整段移除 `<img>`
  * 确定性、纯字符串操作；alt 等其余属性原样保留。
  */
 export function inlineImages(html: string, assets: Asset[]): string {
-  const byName = new Map(assets.map((a) => [a.name, a.dataUrl]));
   return html.replace(IMG_TAG, (tag) => {
     const m = tag.match(SRC_ATTR);
     if (!m) return '';
     const src = m[1] ?? m[2] ?? m[3] ?? '';
     if (src.startsWith('data:')) return tag;
-    const bare = src.startsWith('./') ? src.slice(2) : src;
-    const dataUrl = byName.get(bare);
+    // 绝对 URL（http/https/file）→ 整段移除（不裂图、无外链）
+    if (/^(?:https?:|file:)/i.test(src)) return '';
+    // 相对路径解析口径统一在 resolveAssetDataUrl（与编辑器 image widget 共用）
+    const dataUrl = resolveAssetDataUrl(assets, src);
     if (dataUrl) return tag.replace(SRC_ATTR, `src="${dataUrl}"`);
     return '';
   });
@@ -80,32 +82,33 @@ export async function buildHtmlDocument({
 
   const body = inlineImages(hydrated, assets);
   const bg = getThemeColor(theme, 'bg');
-  const text = getThemeColor(theme, 'text');
-  const primary = getThemeColor(theme, 'primary');
-  const muted = getThemeColor(theme, 'muted');
+  const surface = getThemeColor(theme, 'surface');
 
+  // 注：readerCss 的主题选择器是 [data-theme='x'] .preview-content，
+  // 所以 data-theme 必须放在 <html> 上（祖先），而非 .preview-content 自身。
   const overrides = [
-    '.preview-content {',
+    // 非正文区底色（body 整体），与预览态 shell 背景一致。
+    // position:relative 作为底部居中 byline 徽标的锚点（bylineCenteredBadgeHtml 绝对定位）。
+    'body {',
     `  background: ${bg};`,
-    `  color: ${text};`,
+    '  margin: 0;',
+    '  position: relative;',
+    '  min-height: 100vh;',
+    '}',
+    // 正文纸面区：用 surface 色（与预览态 --reader-paper 一致）。
+    '.preview-content {',
+    `  background: ${surface};`,
     '  max-width: 800px;',
     '  margin: 0 auto;',
     '  padding: 32px 20px;',
     '  box-sizing: border-box;',
     '}',
     '.preview-content img { max-width: 100%; }',
-    'footer {',
-    '  text-align: center;',
-    '  padding: 24px 0 32px;',
-    `  color: ${muted};`,
-    "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;",
-    '  font-size: 14px;',
-    '}',
-    'footer a {',
-    `  color: ${primary};`,
-    '  text-decoration: none;',
-    '}',
-    'footer a:hover { text-decoration: underline; }',
+    // 任务 6：导出长图/复制正文图片中表格文字截断修复
+    // 让表格内容自动换行并完整显示，避免 foreignObject overflow:hidden 截断
+    '.preview-content .table-wrap { overflow-x: visible; }',
+    '.preview-content table { width: 100%; table-layout: fixed; }',
+    '.preview-content th, .preview-content td { word-break: break-all; overflow-wrap: anywhere; white-space: normal; }',
   ].join('\n');
 
   // 条件注入 KaTeX CSS + 内联字体（仅当文档含公式时）
@@ -115,7 +118,7 @@ export async function buildHtmlDocument({
 
   return [
     '<!doctype html>',
-    '<html lang="zh-CN">',
+    `<html lang="zh-CN" data-theme="${theme}">`,
     '<head>',
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
@@ -125,8 +128,8 @@ export async function buildHtmlDocument({
     `<style>${overrides}</style>`,
     '</head>',
     '<body>',
-    `<div class="preview-content" data-theme="${theme}">${body}</div>`,
-    bylineFooterHtml(),
+    `<div class="preview-content">${body}</div>`,
+    bylineCenteredBadgeHtml(),
     '</body>',
     '</html>',
   ].join('\n');

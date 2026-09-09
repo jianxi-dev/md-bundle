@@ -1,13 +1,14 @@
-// 图片导入 e2e（任务 3.1）：批量选择（含自动接线 + 去重）+ 粘贴 + 文本粘贴 noop + 侧栏。
+// 图片导入 e2e（任务 3.1）：批量拖入（含自动接线 + 去重）+ 粘贴 + 文本粘贴 noop + 侧栏。
 // 打开 hello.md（内含 `![red](red.png)` 既有引用）后：
-//   - 批量导入 red.png + green.png → red 自动接线（不重复插入），green 光标处插入，侧栏 2 项
-//   - 再次导入 red.png → 去重为 red_1.png，原引用不重复
+//   - 批量拖入 red.png + green.png → red 自动接线（不重复插入），green 光标处插入，侧栏 2 项
+//   - 再次拖入 red.png → 去重为 red_1.png，原引用不重复
 //   - 粘贴图片（构造 ClipboardEvent + DataTransfer）→ 光标处插入引用 + 侧栏条目
 //   - 粘贴文本 → 编辑器内容原样不动
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
+import { dropImages } from './dropImage';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIX = join(here, 'fixtures');
@@ -17,6 +18,8 @@ const RES = join(here, '..', 'test-results');
 const openMd = async (page: Page) => {
   await page.goto('/');
   await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+  // Product defaults to preview mode; switch to edit mode to access editor
+  await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
   // Editor mounts empty; the value prop syncs in a later effect — wait for content
   // so `before` snapshots aren't captured mid-load (race surfaced by hero banner).
@@ -54,14 +57,14 @@ const docText = async (page: Page): Promise<string> => {
 const count = (text: string, needle: string): number =>
   (text.match(new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) ?? []).length;
 
-test('batch select: import + auto-wire + dedupe + sidebar', async ({ page }) => {
+test('batch drop: import + auto-wire + dedupe + sidebar', async ({ page }) => {
   await openMd(page);
   await openAssetsPanel(page);
 
-  // 批量选择 red.png + green.png
-  await page.getByTestId('import-images-input').setInputFiles([
-    join(IMGS, 'red.png'),
-    join(IMGS, 'green.png'),
+  // 批量拖入 red.png + green.png
+  await dropImages(page, [
+    { name: 'red.png', mimeType: 'image/png', data: readFileSync(join(IMGS, 'red.png')) },
+    { name: 'green.png', mimeType: 'image/png', data: readFileSync(join(IMGS, 'green.png')) },
   ]);
 
   // 侧栏：2 个资源，含路径名与大小
@@ -76,8 +79,10 @@ test('batch select: import + auto-wire + dedupe + sidebar', async ({ page }) => 
   expect(count(text, '![red](red.png)')).toBe(1);
   expect(count(text, '![green.png](green.png)')).toBe(1);
 
-  // 去重：再次导入 red.png → red_1.png，原资源不被覆盖、引用不重复
-  await page.getByTestId('import-images-input').setInputFiles(join(IMGS, 'red.png'));
+  // 去重：再次拖入 red.png → red_1.png，原资源不被覆盖、引用不重复
+  await dropImages(page, [
+    { name: 'red.png', mimeType: 'image/png', data: readFileSync(join(IMGS, 'red.png')) },
+  ]);
   await expect(list).toContainText('资源清单 (3)');
   await expect(list).toContainText('red_1.png');
   expect(count(await docText(page), '![red](red.png)')).toBe(1);
