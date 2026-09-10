@@ -13,6 +13,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { dropImages } from './dropImage';
+import { UNDO_KEY } from './keys';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIX = join(here, 'fixtures');
@@ -166,7 +167,7 @@ test('LeftRail 孤儿资源时 toggle 显示徽标点', async ({ page }) => {
 
   // 聚焦 CM6 → Cmd+Z 撤销文本插入（资产状态不受影响 → 形成孤儿）
   await page.locator('.cm-content').click();
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press(UNDO_KEY);
   await page.waitForTimeout(300);
 
   // 收起左栏 → 徽标点应出现

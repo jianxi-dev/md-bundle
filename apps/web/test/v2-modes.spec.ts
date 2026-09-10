@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { dropImages } from './dropImage';
+import { UNDO_KEY } from './keys';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIX = join(here, 'fixtures');
@@ -184,7 +185,7 @@ test('edit→source→edit undo 跨模式保留', async ({ page }) => {
   // undo 撤销 source 中的输入（同一 undo 栈）
   await cmContent.click();
   await page.keyboard.press('Control+End');
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press(UNDO_KEY);
   await expect(cmContent).not.toContainText(' from-source');
 });
 
@@ -205,7 +206,7 @@ test('输入→切 preview→渲染出现；切回 edit→undo 保留', async ({
   await page.keyboard.insertText('testundo');
   await expect(cmContent).toContainText('testundo');
 
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press(UNDO_KEY);
   await expect(cmContent).not.toContainText('testundo');
 
   await page.keyboard.insertText('testundo');
@@ -221,7 +222,7 @@ test('输入→切 preview→渲染出现；切回 edit→undo 保留', async ({
 
   await cmContent.click();
   await page.keyboard.press('Control+End');
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press(UNDO_KEY);
   await expect(cmContent).not.toContainText('testundo');
 });
 
@@ -364,7 +365,7 @@ test('decorations compartment 切换后 undo 保留', async ({ page }) => {
 
   await cmContent.click();
   await page.keyboard.press('Control+End');
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press(UNDO_KEY);
   await expect(cmContent).not.toContainText('decor-test');
 
   evidence.undoPreserved = true;
