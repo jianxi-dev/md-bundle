@@ -7,8 +7,12 @@
 #   ./scripts/pr-automation.sh --role fix    --issue 42 --risk low
 #   ./scripts/pr-automation.sh --list-ready
 #
-# 流程: 校验仓库干净 → 基于 origin/main 建分支 → 显式 git add 白名单提交
-#        → push → gh pr create(模板+风险标签) → 按风险分级启用 auto-merge
+# 流程: 校验仓库干净 → 基于 origin/main 建分支 → 本地验证四件套硬门禁
+#        → 显式 git add 白名单提交 → push → gh pr create(模板+风险标签)
+#        → 按风险分级启用 auto-merge
+#
+# 质量保证(2026-09-12 起): push 前强制跑 pnpm -r typecheck/lint/test,
+#        任一失败即中止(防浪费 CI 轮次)。--skip-checks 为逃生舱,不推荐。
 #
 # 规则(见 docs/agents/):
 #   - 1 分支 = 1 PR,绝不复用
@@ -22,12 +26,12 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 usage() {
-  sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit 1
 }
 
 # --- 参数解析 ---------------------------------------------------------------
-ROLE="" ISSUE="" TITLE="" RISK="medium" SLUG="" FILES=()
+ROLE="" ISSUE="" TITLE="" RISK="medium" SLUG="" SKIP_CHECKS="0" FILES=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +40,7 @@ while [[ $# -gt 0 ]]; do
     --title)   TITLE="$2"; shift 2 ;;
     --risk)    RISK="$2"; shift 2 ;;
     --slug)    SLUG="$2"; shift 2 ;;
+    --skip-checks) SKIP_CHECKS="1"; shift ;;
     --list-ready) gh issue list --label ready-for-agent --state open --json number,title,labels \
                     --jq '.[] | "#\(.number) [\(.labels|map(.name)|join(","))] \(.title)"'; exit 0 ;;
     --help|-h) usage ;;
@@ -86,6 +91,19 @@ echo "==> 2/6 实施改动(由 agent/人在分支上完成)"
 # 提示: 在此完成代码修改后继续,或直接指定 --files 提交
 
 if [[ ${#FILES[@]} -gt 0 ]]; then
+  echo "==> 2.5/6 本地验证四件套(硬门禁,任一失败即中止)"
+  if [[ "$SKIP_CHECKS" == "1" ]]; then
+    echo "    --skip-checks 已设置,跳过本地验证(不推荐)"
+  else
+    echo "    [1/4] pnpm -r typecheck"
+    pnpm -r typecheck || { echo "❌ typecheck 失败,中止(加 --skip-checks 强制提交)"; exit 1; }
+    echo "    [2/4] pnpm -r lint"
+    pnpm -r lint || { echo "❌ lint 失败,中止(加 --skip-checks 强制提交)"; exit 1; }
+    echo "    [3/4] pnpm -r test"
+    pnpm -r test || { echo "❌ test 失败,中止(加 --skip-checks 强制提交)"; exit 1; }
+    echo "    [4/4] 完成,本地验证全绿"
+  fi
+
   echo "==> 3/6 显式 add 白名单提交"
   git add "${FILES[@]}"
   git status --short
