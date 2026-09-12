@@ -14,7 +14,7 @@
 
 | #   | 标题                                                      | 严重级别 | 模块  | GitHub Issue | 状态  | 备注                                                                                           |
 | --- | ------------------------------------------------------- | ---- | --- | ------------ | --- | -------------------------------------------------------------------------------------------- |
-| 1   | 导出不支持 docx                                              | P0  | 编辑器 | #1 | 待评估 | [已同步到 GitHub](https://github.com/jianxi-dev/md-bundle/issues/1) |
+| 1   | 导出不支持 docx                                              | P0  | 编辑器 | #1 | 已实现 | [已同步到 GitHub](https://github.com/jianxi-dev/md-bundle/issues/1)，已关闭；变更 [#32](https://github.com/jianxi-dev/md-bundle/issues/32) |
 | 5   | 复制正文为图片，剪贴板里是默认的模版                                      | P1  | 分享  | #5 | 待评估 | [已同步到 GitHub](https://github.com/jianxi-dev/md-bundle/issues/5) |
 | 6   | 打开文档默认改为预览                                              | P3  | 编辑器 | #6 | 待评估 | [已同步到 GitHub](https://github.com/jianxi-dev/md-bundle/issues/6) |
 | 7   | 深浅色切换应该是全屏切换，不应只是正文区变化                                  | P1  | 主题  | #7 | 待评估 | [已同步到 GitHub](https://github.com/jianxi-dev/md-bundle/issues/7) |
