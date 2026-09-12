@@ -29,3 +29,4 @@ blob-report/
 
 # 本地恢复备份（不入库）
 .recovery/
+.gbrain-source
