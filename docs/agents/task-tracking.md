@@ -93,8 +93,15 @@ to-tickets 流程在本仓库一律发布为 GitHub issue（不使用本地 `.sc
 
 | Skill | 作用 | 时机 |
 |---|---|---|
-| `learn` | 沉淀经验（模式/陷阱/偏好），`/learn` 管理 | ✅ 合并后 |
-| `sync-gbrain` | 刷新代码索引，后续 agent 可语义检索新代码 | ✅ learn 之后 |
+| `learn` | 沉淀经验（模式/陷阱/偏好），`/learn` 管理 | ✅ **ship（push + PR 创建）后立即** |
+| `sync-gbrain` | 刷新代码索引，后续 agent 可语义检索新代码 | ✅ learn 之后立即 |
+
+> **时序修正（2026-09-12）**：learn + sync-gbrain 在 **ship（推送 + 创建 PR）后立即执行，不等合并**。理由：
+> - learn/sync-gbrain 操作的是**本地工作区文件**，代码推送后本地即最新，无需等远端合并
+> - risk-medium/high 的 PR 需人工合并，若等合并才收尾，会**阻塞下一个 change 启动**
+> - 合并发生时只需一次增量 `gbrain sync` 对账（秒级），不构成依赖
+>
+> 正确闭环：实现 → 四件套 → code-review → commit → push + PR → **learn → sync-gbrain → 下一轮 change**；合并为异步事件，事后可选增量 sync。
 
 ### 7.4 重复点优化（按风险分级的最小充分集）
 
