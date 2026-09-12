@@ -61,6 +61,7 @@ test('landing page shows format annotation line', async ({ page }) => {
   await expect(formatLine).toBeVisible();
   await expect(formatLine).toContainText('.md');
   await expect(formatLine).toContainText('.mdpkg');
+  await expect(formatLine).toContainText('Word');
   await expect(formatLine).toContainText('HTML');
   await expect(formatLine).toContainText('PNG');
 
