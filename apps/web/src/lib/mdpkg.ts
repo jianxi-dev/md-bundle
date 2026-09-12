@@ -20,6 +20,7 @@ function translateVendorError(msg: string): string {
     [/MDPKG-E103/i, '文件格式不正确，无法打开此文件'],
     [/MDPKG-E101/i, '不是有效的 .mdpkg 文件'],
     [/MDPKG-E303/i, '该文件包内没有可显示的文档内容'],
+    [/MDPKG-E401/i, '文档引用了未导入的本地资源，请先导入图片或移除引用后重试'],
   ];
   for (const [pattern, friendly] of map) {
     if (pattern.test(msg)) return friendly;

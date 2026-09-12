@@ -1,3 +1,4 @@
+// Vendored from jianxi-dev/mdpkg @ bbc1f1c75af368202b17966a4f0a3137cd0ed21d (v0.3.0.0, docx export wave 2/3, post PR #6 merge)
 // Ambient type declaration for the vendored mdpkg-web.js ESM bundle.
 // The bundle is a plain .js file (no allowJs in tsconfig) — this .d.ts gives
 // TypeScript the module surface without touching the vendored bytes.
@@ -71,3 +72,33 @@ export declare function expand(files: Map<string, Uint8Array>, entry: string): E
 
 /** 生成 manifest：机器事实重算，作者意图继承 */
 export declare function buildManifest(files: Map<string, Uint8Array>, prev?: Manifest): Manifest;
+
+// --- DOCX / ZIP / Markdown export (upstream bbc1f1c web entry re-exports) ---
+
+export interface DocxOptions {
+  /** 符号扩展开关（默认 true，跟随 manifest.extensions.symbols，与 HTML 路径一致） */
+  symbols?: boolean;
+  /** 图片默认宽度（EMU，1 英寸 = 914400），默认 6 英寸 */
+  imageWidthEmu?: number;
+  /** 图片默认高度（EMU），默认按 4:3（宽 × 0.75） */
+  imageHeightEmu?: number;
+}
+
+export interface ZipExportOptions {
+  /** 自定义 README 内容；缺省用内置中文模板 */
+  readme?: string;
+}
+
+export interface MarkdownExportOptions {
+  /** include 展开开关：缺省跟随 manifest.extensions.include（无 manifest 时默认展开）；显式 false 不展开（<<< 降级为可见文本） */
+  include?: boolean;
+}
+
+/** DOCX 导出（OOXML 最小写入器，浏览器/Node 通用）。渲染错误抛 MdeError（调用方需 try/catch） */
+export declare function toDocx(files: Map<string, Uint8Array>, opts?: DocxOptions, onWarning?: (msg: string) => void): Uint8Array;
+
+/** Zip 导出（buildZipExport 别名）：包 → 标准 zip 交付物（include 展开、无 manifest.json、附 README.md） */
+export declare function toZip(pkg: Map<string, Uint8Array>, opts?: ZipExportOptions): Uint8Array;
+
+/** Markdown 导出：入口文档展开后单文件文本（符号保持源文本，不转换） */
+export declare function toMarkdown(files: Map<string, Uint8Array>, opts?: MarkdownExportOptions): string;
