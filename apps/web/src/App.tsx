@@ -158,11 +158,13 @@ export default function App() {
   const isNarrow = useIsNarrow()
   const [importHint, setImportHint] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [docxWarning, setDocxWarning] = useState<string | null>(null)
   const [inviteCardStatus, setInviteCardStatus] = useState<string | null>(null)
   const assetsRef = useRef<Asset[]>([])
   const editorViewRef = useRef<MarkdownEditorHandle['view'] | null>(null)
   const [editorViewState, setEditorViewState] = useState<MarkdownEditorHandle['view'] | null>(null)
   const exportErrorTimer = useRef<number | null>(null)
+  const docxWarningTimer = useRef<number | null>(null)
   const inviteCardTimer = useRef<number | null>(null)
   const workspaceRef = useRef<HTMLElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -756,15 +758,29 @@ export default function App() {
           wire.onExportResult(format, true)
           return true
         }
-        case 'docx':
-          await exportDocx({
+        case 'docx': {
+          const warnings: string[] = []
+          const result = await exportDocx({
             markdown: activeTab.source,
             title: docTitle,
             assets: assetsRef.current,
             filename: `${docBase}.docx`,
+            onWarning: (m) => warnings.push(m),
           })
+          if (!result.ok) {
+            showExportError(result.error)
+            return false
+          }
+          if (warnings.length > 0) {
+            setDocxWarning(`导出完成，部分内容已降级：${warnings[0]}`)
+            if (docxWarningTimer.current !== null) {
+              window.clearTimeout(docxWarningTimer.current)
+            }
+            docxWarningTimer.current = window.setTimeout(() => setDocxWarning(null), 4000)
+          }
           wire.onExportResult(format, true)
           return true
+        }
         case 'zip':
           downloadBlob(
             new Blob(
@@ -989,6 +1005,17 @@ export default function App() {
                 className="mb-2 text-xs text-[var(--warn)]"
               >
                 {importHint}
+              </p>
+            )}
+
+            {docxWarning && (
+              <p
+                data-testid="docx-warning"
+                role="status"
+                aria-live="polite"
+                className="mb-2 text-xs text-[var(--warn)]"
+              >
+                {docxWarning}
               </p>
             )}
 
