@@ -110,15 +110,58 @@ to-tickets 流程在本仓库一律发布为 GitHub issue（不使用本地 `.sc
 - **code-review 与 review 错开**：low → 仅 code-review；medium/high → 加 review。
 - **净效果**：low = tdd→四件套→CI→code-review；medium/high = 上述 + review。
 
-### 7.5 闭环示意
+### 7.5 闭环示意（任务级）
 
 ```
 捡 issue → implement(tdd+typecheck/test) → 四件套硬门禁 → code-review
   → git-master 提交 fixes #N → push → pr create(risk 分级)
   → CI → low:auto-merge / medium/high:review+人工
-  → 合并 → learn → sync-gbrain → 下一轮
+  → learn → sync-gbrain → 下一轮 issue
 qa(发布前真机) / ship(正式发版) 按需接入
 ```
+
+## 8. Change 级收尾（自动触发，无需手动喊）
+
+> OpenSpec change 是任务的**上级单元**：一个 change 含多个 tasks（→ 多个 issues）。任务级闭环（§7）管单个 issue；本节管整个 change 的生命周期终点——**全部 tasks 完成 + 关联 PR 全合并后，自动 sync + archive，不等人触发**。
+
+### 8.1 自动触发条件（agent 每轮收尾检查）
+
+agent 在每次任务级收尾（learn + sync-gbrain 后）自动运行：
+
+```bash
+openspec status --change <名> --json   # 检查 completedTasks == totalTasks
+gh issue list --label ready-for-agent --state open   # 检查该 change 无残留任务
+gh pr list --state open --head <关联分支>            # 检查无未合并 PR
+```
+
+**全部满足 → 自动进入 §8.2 收尾序列**（无需用户确认；risk-low 文档/归档操作为可逆，直接执行）。
+
+### 8.2 收尾序列（自动执行）
+
+| 步骤 | 命令 | 作用 | 失败处理 |
+|---|---|---|---|
+| 1. 一致性修订 | `/opsx-update` | 实施中若有漂移，先修订规划产物与代码对齐 | 无漂移则跳过 |
+| 2. 主 spec 同步 | `/opsx-sync` | delta specs 智能合并回 `openspec/specs/<capability>/spec.md` | 无 delta 则跳过 |
+| 3. 严格验证 | `npx openspec validate <名> --strict` | 验证 change + 主 spec 一致性 | 失败 → 修复后重跑，不归档 |
+| 4. 归档 | `/opsx-archive` | change 移入 `openspec/changes/archive/YYYY-MM-DD-<名>` | — |
+| 5. 看板收口 | `gh issue close` parent issue + 看板置 Done | 生命周期终点记录 | — |
+| 6. 索引刷新 | `gbrain sync` 增量 | main specs 变更入索引 | — |
+
+### 8.3 与任务级闭环的关系（两级闭环）
+
+```
+【任务级】(每个 issue,§7)
+  issue → implement → 四件套 → code-review → push+PR → learn → sync-gbrain → 下个 issue
+【Change 级】(整个 change,§8,自动触发)
+  全部 tasks [x] + PR 全合并
+    → /opsx-update(如有漂移) → /opsx-sync → validate --strict
+    → /opsx-archive → 看板 Done → gbrain 增量
+```
+
+**设计要点**：
+- 任务级闭环管"单 issue 是否交付"，change 级管"整个 change 是否收口"——两级串行，互不阻塞
+- 收尾全程自动：agent 检测到完成条件即执行，无需用户喊 `/opsx-sync` `/opsx-archive`
+- 唯一人工介入点：risk-medium/high 的 PR 合并确认（机制既有规则）
 
 ---
 
