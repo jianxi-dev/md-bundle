@@ -66,14 +66,14 @@ describe('openFile（打开分发，确定性结果，绝不抛出）', () => {
     expect((o.result.html!.match(/data:image\/png;base64,/g) ?? []).length).toBe(2);
   });
 
-  it('截断的 .mdpkg（corrupted.zip）→ 确定性结果（html null + 友好错误提示），不抛出', async () => {
+  it('截断的 .mdpkg（corrupted.zip）→ 上游 throw，包装层捕获返回 { error }，不抛出', async () => {
+    // 上游 v0.3.0.0 对损坏 ZIP 数据改为 throw，包装层捕获后返回 { error }。
     const o = await openFile(fileOf('broken.mdpkg', fixture('corrupted.zip')));
     expect(o.kind).toBe('mdpkg');
     if (o.kind !== 'mdpkg') return;
-    expect('files' in o.result).toBe(true);
-    if (!('files' in o.result)) return;
-    expect(o.result.html).toBeNull();
-    expect(o.result.error).toContain('该文件包内没有可显示的文档内容');
+    expect('files' in o.result).toBe(false);
+    if ('files' in o.result) return;
+    expect(o.result.error).toBeTruthy();
   });
 
   it('非 ZIP 但扩展名为 .mdpkg → 确定性 { error }（包装层翻译），不抛出', async () => {

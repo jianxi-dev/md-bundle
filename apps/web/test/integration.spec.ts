@@ -57,7 +57,8 @@ test('corrupted.zip → error alert, no white screen, no pageerror', async ({ pa
   await fileInput(page).setInputFiles(join(FIX, 'corrupted.zip'));
 
   await expect(errorAlert(page)).toBeVisible();
-  await expect(errorAlert(page)).toContainText('该文件包内没有可显示的文档内容');
+  // 上游 mdpkg v0.3.0.0 对损坏 zip 改抛 "invalid zip data"（旧版为部分解包 + "无文档内容"）
+  await expect(errorAlert(page)).toContainText('invalid zip');
   await expect(page.getByRole('heading', { name: 'MD-Bundle' })).toBeVisible();
   await expect(page.getByRole('button', { name: '重新选择' })).toBeVisible();
   expect(pageErrors).toEqual([]);
