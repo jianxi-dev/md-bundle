@@ -85,7 +85,9 @@ to-tickets 流程在本仓库一律发布为 GitHub issue（不使用本地 `.sc
 | `code-review` | 双轴自审（Standards 代码规范 + Spec 需求符合，并行防互相掩盖） | ✅ 每次提交后 |
 | `review` | Pre-Landing 结构审查（SQL 安全/LLM trust boundary/条件副作用/scope drift） | ⚠️ 仅 risk-medium/high |
 | `qa` | 浏览器真机验证（diff-aware），health score + ship-readiness | 发布前 |
-| `ship` | 全自动发布（版本 bump + CHANGELOG + PR）；**不重跑 test**（CI 已权威验证） | 正式发版 |
+| `ship` | 全自动发布（版本 bump + CHANGELOG + PR） | 正式发版 |
+
+> **关于 ship 与测试的重复（2026-09-12 实测修正）**：ship skill 源码硬编码 "Never skip tests"（SKILL.md:1406）且禁止因 CI 已跑而跳过验证（line 879）。**ship 每次都会重跑测试——这是 skill 的强制行为，无法通过文档说明省略**。但实测本仓库 test 仅 ~3s（371 passed / 3.10s），且 ship 测的是 merge-base 合并后状态（与 CI 测的 PR head 状态不完全等同），重复成本可忽略、有独立价值。**结论：ship 测试保留，不算冗余**。真正该省的"大重复"是本地四件套与 CI 之间的浪费（本地 30s 拦截 vs CI 3min 权威），已在 §7.1 通过硬门禁解决。
 
 ### 7.3 收尾（闭环，每轮必做）
 
