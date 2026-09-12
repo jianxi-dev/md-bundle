@@ -1,36 +1,31 @@
 # 完成跟踪看板(GitHub Projects)
 
 > 生效日期：2026-09-12
-> 状态：**需手动创建一次**(agent token 缺 `project` scope,无法走 API;创建后日常维护可全自动)
+> 状态：**已创建并配置完成**（2026-09-12，token 已补 `project` scope，API 全自动）
 
-## 创建步骤(一次性,约 30 秒)
+## 看板信息
 
-1. 打开 https://github.com/jianxi-dev/md-bundle/projects
-2. 点 **New project**(若提示需开启 Projects,先在仓库 Settings → General → Projects 启用)
-3. 选择 **Table**(或 Board)模板,命名如 `MD-Bundle 开发看板`
-4. 添加列(Table 用 Status 字段,Board 用列):
-   - `Backlog`(对应 `needs-triage` / 待排期)
-   - `Ready`(对应 `ready-for-agent`)
-   - `In Progress`(对应 PR 打开中 / 实施中)
-   - `Done`(对应 issue closed)
-5. 配置自动化(可选):在 Workflows 中设置
-   - Issue 打 `ready-for-agent` → 移入 Ready
-   - PR 打开 → 移入 In Progress
-   - Issue 关闭 → 移入 Done
+- 看板：**MD-Bundle 开发看板** → https://github.com/orgs/jianxi-dev/projects/1
+- Project ID（GraphQL）：`PVT_kwDOE0POlM4BjPai`
+- Status 字段 ID：`PVTSSF_lADOE0POlM4BjPaizhiEhFM`
+- 列（Status 单选项）：`Backlog`(GRAY) / `Ready`(BLUE) / `In Progress`(YELLOW) / `Done`(GREEN)
+- 已实测：`addProjectV2ItemById` + `updateProjectV2ItemFieldValue` 全链路通过（issue #16 已在看板 Backlog）
 
-## 若希望 agent 用 API 自动建板/自动化
+## 日常维护（无需手动）
 
-当前 `gh` token scopes: `gist, read:org, repo, workflow` —— 缺 `read:project` 和 `project`。
+- 看板按 label 自动归类，不手动拖卡
+- 每轮开发会话末：`openspec status --change <名> --json` 对账 tasks.md 与 issue 关闭数
+- 完成跟踪入口 = GitHub Issues 列表 + 本看板（双视图同源）
 
-在 https://github.com/settings/tokens 给 token 追加 `project` scope(含 read:project)后,agent 即可:
-- `gh api graphql` 建 Projects v2 看板
-- 配置 label → column 自动化 workflow
+## 常用 API（agent 可复用）
 
-## 日常维护(创建后,无需手动)
+```bash
+# 添加 issue 到看板
+gh api graphql -f query='mutation { addProjectV2ItemById(input: {projectId: "PVT_kwDOE0POlM4BjPai", contentId: "<issue-node-id>"}) { item { id } } }'
 
-- 看板按 label 自动归类,不手动拖卡
-- 每轮开发会话末:`openspec status --change <名> --json` 对账 tasks.md 与 issue 关闭数
-- 完成跟踪入口 = GitHub Issues 列表 + 本看板(双视图同源)
+# 设置状态列（optionId: Backlog=8c7f2979 Ready=a50766ca InProgress=a7011ca0 Done=4cbd348f）
+gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: {projectId: "PVT_kwDOE0POlM4BjPai", itemId: "<item-id>", fieldId: "PVTSSF_lADOE0POlM4BjPaizhiEhFM", value: {singleSelectOptionId: "8c7f2979"}}) { projectV2Item { id } } }'
+```
 
 ## 与 label 状态机的对应
 
@@ -40,6 +35,8 @@
 | Ready | `ready-for-agent` | 可执行 |
 | In Progress | — | PR 打开中 |
 | Done | — | issue closed |
+
+> 注：GraphQL 无 workflow 更新 mutation，label→列自动化的开关在 UI（Workflows）配置。内置 workflow（Auto-add / Item closed 等）已存在，按需在 UI 启用。
 
 ---
 
