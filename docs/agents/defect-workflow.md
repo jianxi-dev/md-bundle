@@ -3,6 +3,8 @@
 > 本仓库所有缺陷统一使用 **GitHub Issues** 管理，仓库：`jianxi-dev/md-bundle`
 > 
 > 本地文件 `bug-registry-*.md` 仅作为缓存，**GitHub Issues 是唯一事实来源**。
+> 
+> **缓存策略（2026-09-12 起）**：废弃本地 `bug-registry-*.md` 缓存维护，一律以 `gh issue list` 为准。需要本地快照时临时生成，不再维护"缓存 ↔ GitHub"双向同步。
 
 > 涉及未提交改动、错误计划、snapshot 恢复或 `reset`/批量覆盖时，先阅读 `docs/agents/incident-uncommitted-work-loss.md`；该文档是共享工作区保护和恢复流程的唯一来源。
 
@@ -58,9 +60,10 @@ gh issue list --state open --json number,title,labels,assignees
 cd /Users/mason/ToHighs/md-bundle
 gh issue comment <编号> --body "修复中..."
 
-# 添加标签
-cd /Users/mason/ToHighs/md-bundle
-gh issue edit <编号> --add-label "in-progress"
+# 移交 triage 状态（5 个 canonical 标签）
+gh issue edit <编号> --add-label "ready-for-agent"    # 已充分定义，可交给 agent 执行
+gh issue edit <编号> --add-label "ready-for-human"    # 需要人类决策或实现
+gh issue edit <编号> --remove-label "needs-triage"    # 离开待评估队列
 
 # 关闭缺陷（修复完成）
 cd /Users/mason/ToHighs/md-bundle
@@ -100,7 +103,7 @@ gh issue close <编号> --comment "已修复，提交 commit: xxx"
     ↓
 已确认 (open + bug)
     ↓
-修复中 (open + in-progress)
+待执行 (open + ready-for-agent) / 待人工 (open + ready-for-human)
     ↓
 已关闭 (closed)
 ```
