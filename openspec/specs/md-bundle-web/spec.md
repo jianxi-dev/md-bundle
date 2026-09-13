@@ -3,9 +3,7 @@
 ## Purpose
 
 MD-Bundle Web is a browser-based Markdown packaging tool that bundles images and attachments into a self-contained `.mdpkg` file, enabling zero-crack image sharing.
-
 ## Requirements
-
 ### Requirement: Open markdown and package files
 
 **Status:** MODIFIED in v2
@@ -86,7 +84,7 @@ The system SHALL surface the validation result returned by `openMdpkg` (`validat
 
 ### Requirement: Format-driven export of markdown source
 
-The export dropdown SHALL explicitly offer five formats: `.md`, `.mdpkg`, Word (`.docx`), HTML, and PNG long-image. Exporting `.md` SHALL download the source text byte-identical to the editor content. When the document contains images, exporting `.md` SHALL first warn that images will be lost; cancelling SHALL abort the export. Word export SHALL be produced by the upstream mdpkg `toDocx` engine from a files Map assembled from the current editor source (`document.md`) and each imported asset's raw bytes, and SHALL yield a standard OOXML document (ZIP container with `[Content_Types].xml` + `word/document.xml`) whose images are embedded as `word/media/*` entries; the artifact SHALL download as a `Blob` with filename derived from the document name (default `document.docx`). An empty document SHALL still produce a valid, non-empty `.docx`. Export failures SHALL surface through the deterministic `{ error }` result path of the export wrapper and MUST NOT crash or render a white screen.
+The export dropdown SHALL explicitly offer five formats: `.md`, `.mdpkg`, Word (`.docx`), HTML, and PNG long-image. Exporting `.md` SHALL download the source text byte-identical to the editor content. When the document contains images, exporting `.md` SHALL first warn that images will be lost; cancelling SHALL abort the export. Word export SHALL be produced by the upstream mdpkg `toDocx` engine from a files Map assembled from the current editor source (`document.md`) and each imported asset's raw bytes, and SHALL yield a standard OOXML document (ZIP container with `[Content_Types].xml` + `word/document.xml`) whose images are embedded as `word/media/*` entries; the artifacts SHALL download as a `Blob` with filename derived from the document name (default `document.docx`). An empty document SHALL still produce a valid, non-empty `.docx`. Export failures SHALL surface through the deterministic `{ error }` result path of the export wrapper and MUST NOT crash or render a white screen.
 
 #### Scenario: Export markdown with image-loss warning
 - **WHEN** the user exports `.md` from a document that contains images
@@ -481,3 +479,4 @@ The system SHALL generate one statically crawlable page per featured example doc
 #### Scenario: Sitemap includes example pages
 - **WHEN** `sitemap.xml` is inspected
 - **THEN** it lists the example page URLs alongside the landing, /spec, and /about pages
+
