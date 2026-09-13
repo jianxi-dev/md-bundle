@@ -27,10 +27,19 @@ Markdown 自包含在线工具 —— 把图片、附件打包进一个 `.mdpkg`
 - **Clairis（渐晰）**：[lqtdys/clairis](https://github.com/lqtdys/clairis) — 桌面旗舰产品，Markdown 阅读编辑与学习成长伙伴
 - **规划域名**：bundle.jianxi.me（待部署）
 
+## 开发流程
+
+- **变更生命周期**：启动/接手/拆票/提交/收尾一律经 `.opencode/skills/change-workflow/`（G0-G4 五 gate，fix-first 自愈回路）
+- **拆票与 PR 规范**：1 task = 1 ticket，1 issue = 1 PR（详见 `docs/agents/task-tracking.md`）
+- **缺陷流程**：GitHub Issues 唯一事实来源，`[bug]` 票 + triage 状态机流转（详见 `docs/agents/defect-workflow.md`）
+
 ## 计划能力
 
-- 网页端打包：编辑 Markdown + 导入图片 → 下载 `.mdpkg`
-- 网页端预览：上传 `.mdpkg` → 双模式预览（普通文本 / 完整资源）
+- 网页端编辑与导出：编辑 Markdown + 导入图片 → 下载 `.md` / `.mdpkg`，导出 HTML / PNG 长图 / 分享卡片
+- 网页端预览：上传 `.md` / `.mdpkg` → 双模式预览（普通文本 / 完整资源）
+- FSA 文件夹工作区（仅 Chromium，渐进增强）：目录授权 + 文件树 + 持句柄保存回写
+- 多页签会话：IndexedDB 自动保存 + 刷新恢复 + 最近文档
+- 邀请分享：`?ref=invite` 链接与 4 款邀请分享卡片；主题三态
 - 开源（MIT）
 
 ## 技术栈

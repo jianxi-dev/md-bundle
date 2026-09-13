@@ -1,0 +1,204 @@
+---
+name: change-workflow
+description: 变更生命周期总编排——保证 change 全流程（spec 归一化 → openspec 规划 → 拆票 → 实施 → 提交/PR → 收尾 → 归档）按仓库规范执行。启动新 change / 接手进行中 change / 拆子票 / 任务级收尾 / change 级收尾检测时使用。
+allowed-tools: Bash(gh:*|git:*|openspec:*|pnpm:*)
+---
+
+# Change Workflow — 变更生命周期总编排
+
+本 skill 是仓库变更流程的**唯一执行入口**：把 `docs/agents/` 规范（task-tracking / issue-tracker / project-board / triage-labels / defect-workflow）与 openspec 生命周期编码为五个 gate（G0-G4），每个 gate 有显式执行 skill、checklist、自证命令；gate 失败进入 **fix-first 自愈回路**（默认自行修复，不等待用户）。配套脚本：`scripts/pr-automation.sh`（G2 机械动作）。
+
+## 何时使用
+
+- 用户提出新需求/新功能 → 启动新 change（走 G0）
+- 接手进行中的 change/子票（分支已存在）→ 确认后继续
+- 完成任务级/change 级收尾检测
+- 需要拆票、建 PR、归档 change
+
+## 规范前置（每次进入强制执行）
+
+1. 读取规范索引：`docs/agents/task-tracking.md`、`issue-tracker.md`、`project-board.md`、`triage-labels.md`、`defect-workflow.md`
+2. **核对各文档头部「最后更新/生效日期」**——以最新版为准；发现旧认知与规范相悖 → 以新规范为准并记入 learnings（规范在演进，禁止按旧认知操作）
+3. 术语速查（阶段 ≠ 工具 ≠ skill ≠ 脚本）：
+
+| 名称 | 是什么 |
+|---|---|
+| G0-G4 | gate（流程检查点，非工具） |
+| G0-PRE / G0-POST / 阶段二 | G0 的时序子阶段标签；阶段二 = openspec-propose 调用窗口（非独立 gate） |
+| E2（G1 出口） | G1 内的检查点子阶段（code-review 必做 + review 条件） |
+| `to-spec` / `openspec-propose` / `to-tickets` / `implement` / `tdd` / `code-review` / `review` / `learn` / `sync-gbrain` / `triage` / `qa` | skill（执行者） |
+| `pr-automation.sh` | 脚本（G2 机械动作：门禁/提交/push/PR） |
+| `gh` / `git` / `openspec` CLI / `pnpm` | CLI 工具（被 skill/脚本调用） |
+
+## 编排路线图
+
+```mermaid
+flowchart TB
+  subgraph 输入源["输入源（四类）"]
+    A1["grill-me-doc 产物"]
+    A2["office-hours design doc"]
+    A3["wayfinder 决策工单"]
+    A4["手工纪要/其他"]
+  end
+  A1 & A2 & A3 & A4 -->|"① 统一综合"| T["to-spec 归一化<br/>spec issue（Problem/Solution/Stories/Out of Scope/Testing）"]
+  T -->|"② 四要素映射"| A5["requirements.md<br/>What/Why/Scope/Non-goals"]
+  subgraph 主流程["change 主流程（G0-G4）"]
+    A5 -->|"归一化完成"| B["G0-PRE｜读规范(核日期)；不建分支"]
+    B -->|"③ 包装调用"| C["阶段二｜openspec-propose<br/>生成 proposal/design/tasks.md（垂直切片）"]
+    C -->|"④ tasks.md 就绪"| D["G0-POST｜必调 to-tickets<br/>子票(Parent=spec issue)<br/>artifacts docs PR 先行(risk-low)"]
+    D -->|"⑤ 拆票完成"| Q["子票队列<br/>N 张，frontier 排序"]
+    Q -->|"⑥ 取下一张未阻塞子票"| E["G1 实施｜建分支→implement(内嵌 tdd)<br/>四件套硬门禁"]
+    E -->|"⑦ 出口审查"| E2["G1 出口<br/>code-review(每次必做)→review(仅 risk≥medium)"]
+    E2 -->|"⑧ 通过才允许 commit"| F["G2 提交/PR｜pr-automation.sh<br/>1 issue = 1 PR（resume 收口，feat/fix 同 gate）"]
+    F -->|"⑨ push+PR 后立即"| G["G3 收尾（非阻塞）<br/>learn→sync-gbrain→对账"]
+    G -->|"⑩ 队列未完"| Q
+    G -->|"⑪ 全部合并后自动触发"| H["G4 收尾<br/>opsx-update/sync→validate→archive→Done→gbrain→关 spec issue"]
+  end
+  subgraph 缺陷线["缺陷分支（§10.11，与主流程并行）"]
+    X1["发现真实缺陷<br/>G1测试/CI/review/用户反馈"]
+    X1 -->|"flaky 复核"| X2["[bug] 票 + triage 状态机<br/>needs-triage→验证→ready-for-agent"]
+    X2 -->|"P0/P1 阻塞且小修复"| X3["当前 PR 内修复<br/>refs#N + fixes#N（合并自动关票）"]
+    X2 -->|"其余"| X4["fix 线<br/>fix/<slug>（worktree 或主工作区）<br/>P0/P1 插队、冲突先合 fix"]
+    X3 -->|"fix 收口经 G2"| F
+    X4 -->|"fix 收口经 G2（--role fix）"| F
+  end
+  E -.->|"发现缺陷"| X1
+  F -.->|"发现缺陷"| X1
+  F -->|"⑫ 发布节奏触发"| S["ship 发版通道（正式发版）<br/>前置：QA 已通过<br/>bump VERSION/CHANGELOG/TODOS→push→发版 PR"]
+  S -.->|"⑬ ship 推送即收尾"| L1["learn→sync-gbrain 增量<br/>覆盖版本文件"]
+  H -.->|"⑭ change 收口后：下一 change 输入"| A1
+```
+
+## skill 调用总表
+
+| Skill | 调用环节 | 调用方式 | 作用 / 产物 |
+|---|---|---|---|
+| `change-workflow` | 全流程 G0-G4 | 本 skill，总编排 | 发起 gate 检查、fix-first 自愈回路、按本表调用各 skill |
+| `to-spec` | G0-PRE 步骤 1 | 必调（非结构化输入统一先综合；结构化工单可直接读） | 输入 → 1 张 spec issue（Problem/Solution/User Stories/Out of Scope/Testing，ready-for-agent），供四要素映射与 propose 输入 |
+| `openspec-propose` | G0 阶段二 | 包装调用（必调） | 以归一化四要素生成 proposal/design/**tasks.md**（拆票前提；注入垂直切片约束） |
+| `to-tickets` | G0-POST（阶段三） | 必调 | 以 spec issue 为输入拆子票（1 task=1 ticket，AC/Blocked by，**Parent=spec issue #S**，沿用输入源阻塞边；含 quiz 用户确认） |
+| `implement` | G1 | 必调（总编排，task-tracking §7.1 ✅） | 按 spec/tickets 实施，内嵌 tdd + 定期 typecheck/test，完成后调 code-review |
+| `tdd` | G1（implement 内嵌） | 必调（内嵌） | 测试先行（红→绿 + 垂直切片），锁定行为契约 |
+| `programming` | G1 | 可选叠加（task-tracking §7.1） | 代码规范对照（no any / 250 LOC 上限） |
+| `openspec-apply-change` | G1 | 可选（按需） | 按 openspec 官方 tasks 指令流实施（`/opsx-apply`） |
+| `code-review` | G1 出口·步骤 1 | 必调（每任务后） | 双轴自审（Standards 代码规范 + Spec 需求符合，并行防互相掩盖）；通过才允许 commit |
+| `review` | G1 出口·步骤 2 | 条件调（risk-medium/high） | pre-landing 结构审查（SQL 安全/LLM trust boundary/条件副作用/scope drift）；risk-low 跳过 |
+| `qa` | 发版前（ship 前置）/日常按需 | **发版前必做**（ship-readiness 门禁）；日常 risk-high/核心模块收口前按需 | 浏览器真机验证（Quick/Standard/Exhaustive；分支上自动 diff-aware），产出 health score + ship-readiness；QA 截图贴入缺陷票作复现基线 |
+| `triage` | 缺陷状态机 | 条件调（缺陷流程内） | needs-triage → 验证/grill → ready-for-agent（附 agent brief）→ 修复 → 验证 → close |
+| `learn` | G3 | 必调 | 沉淀经验（模式/陷阱/偏好）到 learnings |
+| `sync-gbrain` | G3（learn 后立即） | 必调 | 刷新代码索引；push + PR 后立即，不等合并 |
+| `ship`（发版通道） | G3 之后（按发布节奏） | 触发条件=正式发版 **且 QA 已通过** | ship 内全链：test + coverage audit + review + 版本 bump + CHANGELOG + TODOS + commit + push + 发版 PR；**ship 推送即收尾：ship 后同样立即 learn → sync-gbrain 增量** |
+| `openspec-update-change` / `openspec-sync-specs` / `openspec-archive-change` | G4 | 必调（自动触发，§8.2） | 实施漂移修订（有则做）/ 主 spec 同步（**仅合并后**）/ 归档 change |
+| **明确不纳入** | — | — | `ship` 不进入日常 change 流程（仅发版通道）；`momus`（方案审计非 runtime）；`grill-with-docs`/`office-hours`/`wayfinder`（输入源识别对象，非流程内调用） |
+
+## 五个 gate
+
+### G0 启动 gate（严格三段时序）
+
+**阶段一 G0-PRE（仅 3 步）｜执行：本 skill（步骤 1 包装调用 to-spec）**
+
+1. **输入归一化**：先调 `to-spec` 综合产出 spec issue（需求定义面）→ 四要素映射写入 requirements.md（What/Why/Scope/Non-goals，引用 spec issue URL）——产出四要素后方可继续
+2. 读规范核对日期（见规范前置）
+3. 分支：本阶段**不建任何分支**；票级分支在 G1 起步创建；接手进行中单票（分支已存在）→ 确认后走 `--resume-branch`
+
+**阶段二 调用 openspec-propose｜执行：openspec-propose skill（本 skill 包装）**
+
+- 以四要素为输入调用 propose，生成 proposal/design/tasks.md，并确认 `openspec status --change <名> --json` 中 tasks 就绪
+- **切片约束注入**（切片只切一次）：propose 生成 tasks.md 时要求每条 task 满足 to-tickets 垂直切片原则（贯穿 schema→API→UI→test 全层 / 独立可演示可验证 / 适配单个 context window / prefactor 单独成条；过大或横向的 task 在 propose 阶段即切细）
+
+**阶段三 G0-POST（issue 发布面）｜执行：必调 to-tickets skill**
+
+- 拆票逻辑与原则（垂直切片/Blocked by/frontier/expand-contract）**以 to-tickets SKILL.md 为准，本 skill 不复制**；此处仅保留仓库特化规则：**Parent 引用 = spec issue（to-tickets 原文「源 issue」语义，不另建 change parent）**、标题前缀 `[change=<名>/<task号>]`、标签 `ready-for-agent`、Blocked by 沿用输入源既有阻塞边
+- 调用 to-tickets 传参 spec issue 编号（fetch 读全文评论）：输入 = #S 全文 + tasks.md → **不重复切片**，职责：quiz 验收粒度（过粗/过细 → 先 `/opsx-update` 修订 tasks.md 再发）→ 确认 Blocked by → GitHub 建子票（1 task = 1 ticket，每票 What/AC/Blocked by/Parent=#S/ready-for-agent）→ 按依赖序发布
+- artifacts docs PR 先行：`pr-automation.sh --role feat --issue <parent> --slug <change>-artifacts --risk low --files openspec/changes/...`
+- 看板入列（Ready 列）
+- **对账自证**：`gh issue list --label ready-for-agent --state open --json number,title --jq '.[] | select(.title | startswith("[change=<change 名>/"))'` 数量 == tasks.md task 数（spec issue 标题不含该前缀天然排除）；逐条核对 task 编号 ↔ issue 标题；**禁止占位符原样传入命令**
+
+### G1 实施 gate｜执行：implement skill（总编排，task-tracking §7.1 ✅ 必用）
+
+- **第 0 步·建票级分支**：`git checkout -b feat/<slug> origin/main`（基于当时 origin/main，含已合并前票代码；被 Blocked by 卡住的票不得提前开工）
+- implement 按 spec/tickets 实施，**内嵌 tdd**（红→绿 + 垂直切片）+ 定期 typecheck/test
+- 四件套硬门禁：`pnpm -r typecheck` / `pnpm -r lint` / `pnpm -r test`（涉 e2e 另跑）
+- commit 引用 `fixes #N` / `refs #N`
+- **任何「flaky」结论必须附复核证据**（重跑输出）；复核确认真实回归 → 进入缺陷处理机制（§7）
+- **G1 出口（顺序固定，全部通过才允许 commit）**：
+  1. `code-review` 双轴（Standards + Spec）——每任务后必做
+  2. `review`（pre-landing 结构审查）——仅 risk-medium/high 追加
+  3. 通过后 → G2
+
+### G2 提交/PR gate｜执行：pr-automation.sh（脚本机械动作）
+
+> 前置：G1 出口通过方可进入
+
+- **1 issue = 1 PR，feat 与 fix 双角色同 gate**：分支已在 G1 第 0 步创建，G2 统一用 `--resume-branch <分支> --issue <票号> [--files ...] [--risk r]` 收口——resume 跳过建分支，执行四件套硬门禁 → commit `fixes #N` → push → PR 检测/创建 → 按 risk 分级合并；功能子票 `--role feat`，缺陷票 `--role fix`
+- **从头模式适用场景**：artifacts docs PR（文件就绪一次成型）；单文件快速改动
+- PR 模板必填项全填（impact/verification/risk）；禁止 `--skip-checks`
+
+### G3 任务级收尾（每轮必做，非阻塞）｜执行：learn + sync-gbrain
+
+- **时机**：push + PR 创建后立即执行，不等合并
+- **不阻塞下一 change**：下一 change 自 commit/push 完成后即可启动；learn/sync 是收尾动作而非前置 gate，可并行
+- **frontier 自动推进**：G3 后自动运行 `gh issue list --label ready-for-agent --state open --json number,title,body` 按 `[change=<名>/` 精确筛选 → 逐票解析 Blocked by 确认全部 closed → 取第一张可开工票自动进入其 G1（单 agent 会话内自动循环）；无票可做 → change 收口检查（completedTasks==totalTasks 且无残留且无未合并 PR）→ 自动进入 G4
+- **自动化边界**：单 agent 会话内自动；跨会话需外部触发器（超出 scope）；唯一人工介入 = risk-medium/high PR 合并确认
+- **learn/sync 不依赖 ship**：每轮交付后的知识闭环服务下一 change/会话；ship 若触发，其后额外增量一次
+
+### G4 change 级收尾（§8.2 自动触发，合并后）｜执行：openspec 套件 + gbrain
+
+- 全部 tasks [x] + 关联 PR 全合并 → 主 spec `/opsx-sync`（合并后唯一时机，零差异确认）→ `validate --strict` → archive → 看板 Done → **关闭 spec issue #S**（`gh issue close --comment "change 已收口"`）→ gbrain 增量
+- **仅 `/opsx-sync`（主 spec 同步）限合并后执行**；任务级 `sync-gbrain` 不受此限（push+PR 后立即）
+
+## gate 失败处理：fix-first 自愈回路（禁止停等用户、禁止跳过）
+
+1. **S1 诊断**：识别偏差类别（缺产物/状态错误/顺序错误/内容与规范相悖/判断错误）
+2. **S2 定位正解**：读对应规范文档最新版（核对日期），确定规范要求
+3. **S3 修复**：执行修复，修复动作本身符合规范（例：`gh issue reopen` 修正误标；`gh issue create` 补建；`git checkout -b` 补分支；重读规范修正台账），跑命令自证
+4. **S4 重验**：重跑 gate 验证，通过 → 继续并记入 learnings
+5. **升级条件（仅限 3 类）**：同一 gate 连续 2 轮修复未通过；涉及人工权限/不可逆操作；规范冲突无法裁决——升级时带完整报告（已尝试修复记录+当前状态+卡点+请裁决的具体问题）
+
+自愈示例：
+
+| 偏差 | 自愈动作 |
+|---|---|
+| 未建分支 | `git checkout -b feat/<slug> origin/main` |
+| 未建 spec issue/子票 | 按 G0-PRE 1 / G0-POST 补建，Blocked by 补标注 |
+| 子票被误标 CLOSED | `gh issue reopen` + 核对关闭规则（PR 合并才自动关） |
+| 台账按旧规范更新 | 重读最新版规范文档，按新规则修正 |
+| flaky 结论无证据 | 重跑测试附输出；流程误判 → 继续；真实回归 → 缺陷机制（建 `[bug]` 票） |
+| 主 spec 提前同步（未合并） | 可回退则回退；不可回退记录偏差，合并后 sync 仅确认 |
+
+## 交付单元关系（分支 × PR × issue：1 issue = 1 PR 轻量模型）
+
+- **1 task = 1 issue = 1 分支 = 1 PR**：G1 第 0 步建分支 → 实施 → G2 `--resume-branch` 收口 → 独立 PR → 按 risk 独立合并 → 自动关票 → G3 对账
+- **1 change 无贯穿分支**：分支生命周期 = 单票（建于 G1 第 0 步、合后即删）；Blocked by 决定开工顺位；分支基点 = 创建时刻 origin/main（含已合并前票）；并行无依赖票冲突时 rebase 消化
+- **spec issue ↔ task ↔ 子票（1 : N : N）**：spec issue #S（需求定义+Parent）→ tasks.md N 条（垂直切片规划）→ N 张子票（1 task = 1 ticket）；标题前缀承载 task→ticket 对应，Parent=#S 维系三层
+- **缺陷线对称**：1 bug 票 = 1 fix/<slug> = 1 PR（--role fix），与 feat 同 gate
+
+## 缺陷处理机制（§10.11 要点，异常发现时先二分）
+
+- **判定**：流程偏差 → 自愈回路；产品缺陷（真实回归/行为不符 spec/崩溃）→ 本机制
+- **填报三通道**：① 聊天直报 → agent 自动补全（推断模块/级别/复现，回编号）② 手动走 bug.yml（自动带 needs-triage）③ 批量录入 → 自动拆分 N 票
+- **建票**：bug.yml 模板（截图/附件作复现基线）；标题 `[bug]`（涉及 change 的再带 `[change=<名>]`）；标签 `bug, p<级别>, <模块>, needs-triage`；gh issue list 唯一事实来源（禁止本地 bug-registry 缓存）
+- **状态机**：needs-triage → 验证/grill（triage skill，产 agent brief）→ ready-for-agent → 修复 → 验证 → close
+- **分流**：P0/P1 阻塞且小修复（<30 行、在当前 PR 文件内）→ 当前 PR 内修复（refs#N + fixes#N）；其余 → fix 线（**两种承载**：有并行 feat 线 → worktree 隔离；无（`git branch --list 'feat/*'` 非空且 OPEN PR 判定）→ 主工作区直建）——P0/P1 插队、冲突先合 fix
+- **修复闭环**：复现（红）→ 建 fix/<slug> → 修复（绿）→ 四件套 → code-review → G2 `--role fix --resume-branch` 收口（fixes #N 关票）→ 回归验证重跑发现场景
+
+## 速查命令
+
+```bash
+# 子票精确匹配（对账）
+gh issue list --label ready-for-agent --state open --json number,title --jq '.[] | select(.title | startswith("[change=<change 名>/"))'
+# frontier 下一张可开工票（解析 Blocked by 全 closed）
+gh issue view <票号> --json body
+# change 收口检查
+openspec status --change <名> --json
+# 缺陷待评估队列
+gh issue list --label needs-triage --state open
+```
+
+## 明确不做
+
+- ✗ 修改 `.opencode/skills/openspec-propose/SKILL.md` 等上游 skill（零侵入）
+- ✗ 修改 `.github/ISSUE_TEMPLATE/bug.yml`（已是 `[bug]` 前缀）
+- ✗ ship 进入日常 change 流程（仅发版通道）
+- ✗ 复制 to-tickets/to-spec 的拆票/规格逻辑（以其 SKILL.md 为单一事实来源）
+- ✗ cross-repo 复用部署（mdpkg/clairis 各仓独立配置）

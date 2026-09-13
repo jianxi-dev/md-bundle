@@ -17,12 +17,12 @@
 ```bash
 # 交互式创建
 cd /Users/mason/ToHighs/md-bundle
-gh issue create --title "[P0] 缺陷标题" --body "详细描述" --label "bug,p0,editor"
+gh issue create --title "[bug] 缺陷标题" --body "详细描述" --label "bug,p0,editor"
 
 # 或一次性创建（推荐用于批量导入）
 cd /Users/mason/ToHighs/md-bundle
 gh issue create \
-  --title "[P0] 缺陷标题" \
+  --title "[bug] 缺陷标题" \
   --body "## 问题描述
 描述问题...
 
@@ -125,7 +125,7 @@ gh issue close <编号> --comment "已修复，提交 commit: xxx"
    ```bash
    cd /Users/mason/ToHighs/md-bundle
    gh issue create \
-     --title "[Px] 问题摘要" \
+     --title "[bug] 问题摘要" \
      --body "## 用户反馈
 问题描述...
 
@@ -175,4 +175,4 @@ https://github.com/jianxi-dev/md-bundle/issues
 
 ---
 
-_最后更新：2026-09-08_
+_最后更新：2026-09-12_
