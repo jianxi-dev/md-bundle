@@ -571,6 +571,11 @@ export function FileTree({ onOpenFile, activeTabName }: FileTreeProps): JSX.Elem
     setError(null)
     const result = await grantWorkspaceFolder()
     if (result.ok) {
+      // 更换/首次授权：清空旧树的展开态与操作弹窗，避免残留指向旧工作区
+      setExpandedFolders(new Set())
+      setDeleteTarget(null)
+      setRenameTarget(null)
+      setNewItemMode(null)
       setRootHandle(result.handle)
       // 持久化句柄（重入免二次授权）
       await persistWorkspaceHandle(result.handle)
@@ -806,7 +811,7 @@ export function FileTree({ onOpenFile, activeTabName }: FileTreeProps): JSX.Elem
   // ── 树渲染 ──
   return (
     <div className="flex flex-col" data-testid="filetree">
-      {/* 工具栏：新建 + 刷新 */}
+      {/* 工具栏：更换文件夹 + 新建 + 刷新 */}
       <div className="mb-2 flex items-center gap-1">
         <span className="truncate text-sm font-medium text-[var(--fg)]">{rootHandle.name}</span>
         <button
@@ -852,6 +857,29 @@ export function FileTree({ onOpenFile, activeTabName }: FileTreeProps): JSX.Elem
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             <path d="M12 11v6" />
             <path d="M9 14h6" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleGrant()}
+          disabled={loading}
+          data-testid="filetree-switch-btn"
+          className="rounded p-1 text-[var(--muted)] transition-colors hover:bg-[var(--border)] hover:text-[var(--fg)] disabled:opacity-50"
+          title="更换文件夹"
+          aria-label="更换文件夹"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <path d="M8 14h8" />
+            <path d="M13 11l3 3-3 3" />
           </svg>
         </button>
         <button
