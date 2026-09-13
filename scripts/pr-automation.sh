@@ -7,6 +7,10 @@
 #   ./scripts/pr-automation.sh --role fix    --issue 42 --risk low
 #   ./scripts/pr-automation.sh --list-ready
 #   ./scripts/pr-automation.sh --role feat --issue 42 --title "..." --resume-branch feat/x [--files ...]
+#   ./scripts/pr-automation.sh --role feat --issue 42 --title "..." --refs-only   # PR body 用 Refs #N（不关 issue）
+#
+# --refs-only: PR body 关联用 `Refs #N`（parent/spec issue 场景，避免合并提前关闭）
+# auto-merge: risk-low 尝试启用；仓库未启用时 fail-open（提示手动合并，退出 0）
 #
 # 流程: 校验仓库干净 → 基于 origin/main 建分支 → 本地验证四件套硬门禁
 #        → 显式 git add 白名单提交 → push → gh pr create(模板+风险标签)
@@ -36,7 +40,7 @@ usage() {
 }
 
 # --- 参数解析 ---------------------------------------------------------------
-ROLE="" ISSUE="" TITLE="" RISK="medium" SLUG="" RESUME_BRANCH="" SKIP_CHECKS="0" FILES=()
+ROLE="" ISSUE="" TITLE="" RISK="medium" SLUG="" RESUME_BRANCH="" SKIP_CHECKS="0" REFS_ONLY="0" FILES=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -47,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --slug)    SLUG="$2"; shift 2 ;;
     --resume-branch) RESUME_BRANCH="$2"; shift 2 ;;
     --files)   FILES+=("$2"); shift 2 ;;
+    --refs-only) REFS_ONLY="1"; shift ;;
     --skip-checks) SKIP_CHECKS="1"; shift ;;
     --list-ready) gh issue list --label ready-for-agent --state open --json number,title,labels \
                     --jq '.[] | "#\(.number) [\(.labels|map(.name)|join(","))] \(.title)"'; exit 0 ;;
@@ -191,7 +196,7 @@ if [[ "$PR_JSON" == "NO_PR" || "$PR_JSON" == "null" ]]; then
 $TITLE
 
 ## 关联 Issue
-Closes #$ISSUE
+$( [[ "$REFS_ONLY" == "1" ]] && echo "Refs #$ISSUE" || echo "Closes #$ISSUE" )
 
 ## 变更内容
 (待 agent/人填写: 改动模块、核心文件清单)
@@ -258,8 +263,11 @@ fi
 echo "==> 6/6 风险分级"
 if [[ "$RISK" == "low" ]]; then
   PR_NUM=$(echo "$PR_URL" | grep -o '[0-9]*$')
-  gh pr merge "$PR_NUM" --auto --squash
-  echo "    risk-low → 已启用 auto-merge(CI 绿自动合并)"
+  if gh pr merge "$PR_NUM" --auto --squash 2>/dev/null; then
+    echo "    risk-low → 已启用 auto-merge(CI 绿自动合并)"
+  else
+    echo "    risk-low → auto-merge 不可用(仓库未启用)，CI 绿后合并: gh pr merge $PR_NUM --squash"
+  fi
 else
   echo "    risk-$RISK → 人工评审,等待确认"
 fi
