@@ -1,0 +1,39 @@
+# Development Process
+
+## ADDED Requirements
+
+### Requirement: 合并后自动信号与收尾消费
+
+The repository CI MUST emit a `change-close-pending` signal when a merged pull request closes the last open sub-issue of a change, and the change workflow agent MUST consume that signal at session start to execute change-level closure (G4).
+
+#### Scenario: 合并关闭 change 最后一张子票
+
+- Given a change whose sub-issues are titled `[change=<name>/<task>]`
+- When a merged PR closes the last open sub-issue of that change
+- Then CI adds the `change-close-pending` label to the merged PR
+- And posts a comment describing the pending G4 closure
+
+#### Scenario: agent 会话启动消费信号
+
+- Given a merged PR labeled `change-close-pending`
+- When the change workflow agent starts a session
+- Then it runs the §8.1 closure check for that change
+- And executes G4 (sync → validate → archive → board Done → close spec issue) when complete
+- And removes the `change-close-pending` label
+
+### Requirement: pr-automation.sh 硬化
+
+The PR automation script MUST treat a successfully created PR as success even when the repository does not permit auto-merge, and MUST support a refs-only mode that references (not closes) the linked issue.
+
+#### Scenario: 仓库未启用 auto-merge
+
+- Given a repository where pull request auto-merge is disabled
+- When pr-automation.sh completes with risk-low
+- Then the PR is created and the script exits 0
+- And it prints a hint to merge manually after CI passes
+
+#### Scenario: refs-only 模式
+
+- Given pr-automation.sh is invoked with `--refs-only`
+- When it creates the PR body
+- Then the body references the issue with `Refs #N` instead of `Closes #N`
