@@ -86,7 +86,7 @@ MD-Bundle Web 是一个基于浏览器的 Markdown 打包工具，可将图片�
 
 ### 需求：格式驱动的 Markdown 源码导出
 
-导出下拉菜单 SHALL 显式提供四种格式：`.md`、`.mdpkg`、HTML 与 PNG 长图。导出 `.md` SHALL 下载与编辑器内容逐字节相同的源码文本。当文档包含图片时，导出 `.md` SHALL 先警告图片将丢失；取消 SHALL 中止导出。
+导出下拉菜单 SHALL 显式提供五种格式：`.md`、`.mdpkg`、Word (`.docx`)、HTML 与 PNG 长图。导出 `.md` SHALL 下载与编辑器内容逐字节相同的源码文本。当文档包含图片时，导出 `.md` SHALL 先警告图片将丢失；取消 SHALL 中止导出。Word 导出 SHALL 由上游 mdpkg `toDocx` 引擎从当前编辑器源码（`document.md`）与每个导入资产的原始字节组装的 files Map 生成，并 SHALL 产出标准 OOXML 文档（含 `[Content_Types].xml` + `word/document.xml` 的 ZIP 容器），其图片作为 `word/media/*` 条目嵌入；产物 SHALL 以 `Blob` 形式下载，文件名由文档名派生（默认 `document.docx`）。空文档 SHALL 仍产出合法非空 `.docx`。导出失败 SHALL 通过导出封装层的确定性 `{ error }` 结果路径呈现，且 MUST NOT 崩溃或渲染白屏。
 
 #### 场景：导出带图片丢失警告的 markdown
 - **当** 用户从一个含图片的文档导出 `.md`
@@ -95,6 +95,22 @@ MD-Bundle Web 是一个基于浏览器的 Markdown 打包工具，可将图片�
 #### 场景：导出空 markdown
 - **当** 用户从一个空文档导出 `.md`
 - **则** 下载一个空文件且无错误
+
+#### 场景：将文档导出为 Word
+- **当** 用户将一个含标题、列表、表格与导入图片的非空文档导出为 Word (`.docx`)
+- **则** 下载一个合法 OOXML 文档（ZIP magic 字节 `PK\x03\x04`，存在 `[Content_Types].xml` 与 `word/document.xml`），图片作为 `word/media/*` 条目嵌入，且下载通过导出结果路径完成
+
+#### 场景：将空文档导出为 Word
+- **当** 用户将空文档导出为 Word
+- **则** 产出合法非空 `.docx` 且无错误
+
+#### 场景：Word 导出中 SVG 图片降级
+- **当** 文档包含无法作为 Office 媒体嵌入的 SVG 图片
+- **则** 导出以占位替代文本与警告成功，不导致整体导出失败
+
+#### 场景：Word 导出失败被确定性上报
+- **当** 导出封装层在生成 `.docx` 时遇到错误
+- **则** 封装层返回 `{ error }` 结果（无未捕获异常、无白屏），且 UI 呈现错误信息
 
 ### 需求：自包含 HTML 导出
 
@@ -124,7 +140,7 @@ MD-Bundle Web 是一个基于浏览器的 Markdown 打包工具，可将图片�
 
 **状态：** 在 v2 中修改
 
-首页 SHALL 呈现一个重新设计的主视觉（hero），标语为「分享 Markdown，不再裂图。」，并有一行文字说明产品的格式范围（打开并编辑 `.md`、一键 `.mdpkg` 打包、导出 md·HTML·PNG 长图）、一个产品风格的工作区主视觉图、双行动号召按钮，以及三个价值徽章（仅本地不上传 / 单文件打包 / 复制即分享）。首页 SHALL 包含一个由 session storage 提供数据的「最近文档」区块，以及一个由官方示例文档（含 math+mermaid 的 markdown、含 callout+table 的 markdown、以及带图片的打包 mdpkg）组成的「精选作品」画廊。每张画廊卡片 SHALL 显示真实渲染内容的缩略图，附标题、自动摘要与格式徽章，并在点击时将该示例作为新标签页载入编辑器。缺失的促销资源 SHALL NOT 使主视觉塌陷（有兜底）。
+首页 SHALL 呈现一个重新设计的主视觉（hero），标语为「分享 Markdown，不再裂图。」，并有一行文字说明产品的格式范围（打开并编辑 `.md`、一键 `.mdpkg` 打包、导出 md·Word·HTML·PNG 长图）、一个产品风格的工作区主视觉图、双行动号召按钮，以及三个价值徽章（仅本地不上传 / 单文件打包 / 复制即分享）。首页 SHALL 包含一个由 session storage 提供数据的「最近文档」区块，以及一个由官方示例文档（含 math+mermaid 的 markdown、含 callout+table 的 markdown、以及带图片的打包 mdpkg）组成的「精选作品」画廊。每张画廊卡片 SHALL 显示真实渲染内容的缩略图，附标题、自动摘要与格式徽章，并在点击时将该示例作为新标签页载入编辑器。缺失的促销资源 SHALL NOT 使主视觉塌陷（有兜底）。
 
 #### 场景：重新设计的主视觉文案与格式范围可见
 - **当** 首页加载

@@ -9,14 +9,14 @@
 
 | 类别 | 数量 | 占比 |
 |------|------|------|
-| 已修复 | 7 | 50% |
+| 已修复 | 8 | 57% |
 | 部分修复 | 1 | 7% |
-| 未修复 | 6 | 43% |
+| 未修复 | 5 | 36% |
 | **总计** | **14** | 100% |
 
 ---
 
-## ✅ 已修复（7个）
+## ✅ 已修复（8个）
 
 ### Bug 7 - 深浅色切换应该是全屏切换
 - **GitHub**: #7
@@ -99,6 +99,13 @@
   - 使用 `.gbtn` 和 `.btn.primary` 类
   - 显示为图标而非纯文字
 
+### Bug 1 - 导出不支持 docx
+- **GitHub**: #1
+- **状态**: ✅ 已修复
+- **关联变更**: openspec change `mdpkg-docx-export-capability`，GitHub issue [#32](https://github.com/jianxi-dev/md-bundle/issues/32)
+- **修复方式**: 采用上游 mdpkg v0.3.0.0（PR #6 docx wave 2/3，merge `bbc1f1c`）→ vendored `apps/web/vendor/mdpkg-web.js` 重建 → `exportDocx.ts` 重写为 `toDocx` 薄封装（移除 `docx` npm 依赖）→ spec 五格式导出（md / mdpkg / HTML / PNG / docx）
+- **备注**: GitHub issue #1 已由维护者关闭
+
 ---
 
 ## ⚠️ 部分修复（1个）
@@ -125,13 +132,7 @@
 
 ---
 
-## ❌ 未修复（6个）
-
-### Bug 1 - 导出不支持 docx
-- **GitHub**: #1
-- **状态**: ❌ 未修复
-- **当前支持格式**: `.md`, `.mdpkg`, `HTML`, `PNG 长图`
-- **备注**: docx 导出需要额外库支持（如 mammoth.js 或 pandoc-wasm）
+## ❌ 未修复（5个）
 
 ### Bug 2 - 拖入 zip 文件窗口没反应
 - **GitHub**: #2

@@ -50,15 +50,13 @@ describe('openPackage（vendored mdpkg-web 集成）', () => {
     expect(r.error).toContain('不是有效的 .mdpkg 文件');
   });
 
-  it('corrupted.zip → 确定性结果：部分解包 + html null + 渲染错误（不抛出）', async () => {
-    // 实测上游行为（见 learnings）：截断包不抛错 —— fflate 解出首个完整条目
-    // （manifest.json），渲染阶段因入口 document.md 缺失失败 → html null + error 字段。
+  it('corrupted.zip → 包装层捕获上游 throw，返回确定性 { error }，不抛出', async () => {
+    // 上游 v0.3.0.0（docx wave 2/3）对损坏 ZIP 数据改为 throw MdeError，
+    // 包装层 openPackage 捕获后返回 { error }，绝不抛出。
     const r = await openPackage(fixture('corrupted.zip'));
-    expect('files' in r).toBe(true);
-    if (!('files' in r)) return;
-    expect(r.html).toBeNull();
-    expect(r.validation.ok).toBe(false);
-    expect(r.error).toContain('该文件包内没有可显示的文档内容');
+    expect('files' in r).toBe(false);
+    if ('files' in r) return;
+    expect(r.error).toBeTruthy();
   });
 
   it('invalid-manifest.mdpkg → manifest 存在 + validation.ok=false + E302 schema 错误（不阻断渲染）', async () => {

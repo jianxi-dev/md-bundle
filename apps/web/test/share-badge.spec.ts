@@ -147,6 +147,18 @@ test('导出 .zip → 下载 .zip 文件（复用 mdpkg 打包字节）', async 
     delete (window as typeof window & { showOpenFilePicker?: unknown }).showOpenFilePicker;
   });
   await openMd(page);
+  // hello.md 引用了 red.png，需先导入资产再打包（否则上游 packMdpkg 报 MDPKG-E401）
+  const rail = page.getByTestId('left-rail');
+  if ((await rail.count()) === 0 || (await rail.isHidden())) {
+    await page.getByTestId('left-rail-toggle').click();
+  }
+  await expect(rail).toBeVisible();
+  await page.getByTestId('left-rail-tab-assets').click();
+  await dropImages(page, [
+    { name: 'red.png', mimeType: 'image/png', data: readFileSync(join(IMGS, 'red.png')) },
+  ]);
+  await expect(page.getByTestId('asset-list')).toContainText('red.png');
+
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     clickExport(page, 'zip'),

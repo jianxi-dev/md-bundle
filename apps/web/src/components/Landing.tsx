@@ -555,7 +555,7 @@ export function Landing({
               >
                 <CheckIcon />
               </span>
-              导出 <span className="font-mono font-bold">md · HTML · PNG</span> 长图
+              导出 <span className="font-mono font-bold">md · Word · HTML · PNG</span> 长图
             </span>
           </div>
 
