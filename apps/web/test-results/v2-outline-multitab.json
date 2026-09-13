@@ -4,5 +4,7 @@
   "switchTabOutlineMatches": true,
   "switchBackOutlineMatches": true,
   "noCrossContamination": true,
-  "scrollOnFarHeading": true
+  "scrollOnFarHeading": true,
+  "previewCrosstalk": true,
+  "previewScrollOnFarHeading": true
 }

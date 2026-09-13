@@ -3,7 +3,7 @@
 // 标题解析 code-fence aware：编辑/源码模式从 markdown 文本解析；预览模式从 DOM h1–h6 解析。
 // 点击标题只导航（scrollIntoView）；不做折叠/块拖拽。
 // 键盘可达：Tab 进按钮、Enter 钉住、Esc 收起、列表项可 Tab/Enter 导航。
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { extractHeadings, type OutlineHeading } from '../lib/outline'
 import type { EditorMode } from './Toolbar'
 
@@ -152,17 +152,35 @@ export function OutlineMenu({
 
   const visible = pinned || hovering
 
+  // 预览模式 DOM 标题：在 useLayoutEffect 中读取，避免渲染阶段读到旧页签的 DOM。
+  // PreviewView 通过 dangerouslySetInnerHTML 在 commit 阶段更新 DOM；渲染阶段
+  // previewRef.current 仍持有上一文档的 HTML，若此时提取会得到串扰的大纲。
+  // useLayoutEffect 保证在 React 完成所有 DOM 变更后执行，此时读取的是当前文档的 DOM。
+  const [domHeadings, setDomHeadings] = useState<OutlineHeading[]>([])
+  useLayoutEffect(() => {
+    if (mode === 'preview' && previewRef?.current) {
+      setDomHeadings(extractHeadingsFromDom(previewRef.current))
+    }
+  }, [mode, documentText, previewRef])
+
   // 根据模式解析标题
   const headings: OutlineHeading[] = useMemo(() => {
     if (mode === 'preview' && previewRef?.current) {
-      return extractHeadingsFromDom(previewRef.current)
+      return domHeadings
     }
     return extractHeadings(documentText)
-  }, [mode, documentText, previewRef?.current])
+  }, [mode, documentText, previewRef?.current, domHeadings])
 
   // 当前高亮标题（仅用于视觉指示，不做精确实时追踪）
   const currentIndex = useMemo(
-    () => findCurrentHeadingIndex(headings, mode, editorView, previewRef?.current ?? null, documentText),
+    () =>
+      findCurrentHeadingIndex(
+        headings,
+        mode,
+        editorView,
+        previewRef?.current ?? null,
+        documentText,
+      ),
     [headings, mode, editorView, previewRef?.current, documentText],
   )
 
@@ -260,7 +278,12 @@ export function OutlineMenu({
               文档大纲
             </span>
             <span
-              style={{ fontFamily: 'var(--font-body)', fontSize: '10px', color: 'var(--meta)', opacity: 0.8 }}
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '10px',
+                color: 'var(--meta)',
+                opacity: 0.8,
+              }}
             >
               点击图标钉住
             </span>
