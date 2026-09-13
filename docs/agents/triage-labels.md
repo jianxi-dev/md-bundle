@@ -1,5 +1,7 @@
 # Triage 标签
 
+> 最后更新：2026-09-07
+
 工程 skill 使用 5 个 canonical triage 角色。本文件将这些角色映射到本仓库 issue tracker 中实际使用的标签字符串。
 
 | mattpocock/skills 标签 | 本仓库标签 | 含义 |
