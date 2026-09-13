@@ -30,3 +30,6 @@ blob-report/
 # 本地恢复备份（不入库）
 .recovery/
 .gbrain-source
+
+# Agent 本地配置（机器级，不入库）
+/CLAUDE.md
