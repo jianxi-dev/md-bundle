@@ -1042,6 +1042,7 @@ export default function App() {
                 onDragOver={(e) => e.preventDefault()}
               >
                 <OutlineMenu
+                  key={activeTab.id}
                   mode={mode}
                   documentText={activeTab.source}
                   editorView={editorViewState}
