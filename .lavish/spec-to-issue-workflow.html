@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spec → GitHub Issues 联动方案</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', 'Noto Sans SC', sans-serif; }
+    .decision-item { @apply border-l-4 border-blue-500 pl-4 py-2 mb-3 bg-blue-50 rounded-r; }
+    .gap-item { @apply border-l-4 border-red-400 pl-4 py-2 mb-3 bg-red-50 rounded-r; }
+    .ok-item { @apply border-l-4 border-green-500 pl-4 py-2 mb-3 bg-green-50 rounded-r; }
+    .warn-item { @apply border-l-4 border-amber-500 pl-4 py-2 mb-3 bg-amber-50 rounded-r; }
+    .phase-card { @apply bg-white rounded-lg border border-gray-200 p-6 shadow-sm; }
+    .tag { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
+    .mermaid { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; overflow: hidden; }
+    .mermaid svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">Spec → 开发 → 缺陷 → 完成跟踪 · GitHub Issues 联动方案</h1>
+          <p class="text-sm text-gray-600 mt-1">to-spec / to-tickets / triage / OpenSpec 角色定位研究 · <b class="text-green-600">Task A-E 全部完成</b>（2026-09-12，commit 1b86c2f / 9045320 / 56dd2f5 / 518fc14，feat/docx-export-quality）</p>
+        </div>
+        <div class="flex gap-2">
+          <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">保留 OpenSpec</span>
+          <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">✅ Task A-E 完成</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8 space-y-10">
+
+    <!-- 0. 结论摘要 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">0 · 研究结论摘要</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+          <div class="font-semibold text-gray-900 mb-2">✅ to-tickets 是核心桥梁</div>
+          <p class="text-sm text-gray-600">它把 OpenSpec 的 tasks 发布成 GitHub issue(带 AC + blocking edges + <code class="text-xs bg-gray-100 px-1 rounded">ready-for-agent</code>),正好补上"OpenSpec 本地 ↔ GitHub 远程"的缺口。不需要放弃 OpenSpec。</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+          <div class="font-semibold text-gray-900 mb-2">✅ 分支/PR 自动化可落地</div>
+          <p class="text-sm text-gray-600">你的《Git分支与PR全流程规范》已定义完整流水线(1分支=1PR + 分级风控 + 自动收尾)。当前 main 未设分支保护、未开 deleteBranchOnMerge —— 自动化地基待建。</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+          <div class="font-semibold text-gray-900 mb-2">🔴 根因:5 个 triage 标签从未创建</div>
+          <p class="text-sm text-gray-600"><code class="text-xs bg-gray-100 px-1 rounded">needs-triage / needs-info / ready-for-agent / ready-for-human</code> 在 GitHub 上不存在(实测 <code class="text-xs bg-gray-100 px-1 rounded">gh label list</code> 确认)。这是 to-tickets / triage / to-spec 全部无法工作的直接原因。</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+          <div class="font-semibold text-gray-900 mb-2">🔴 缺陷流程文档与实况脱节</div>
+          <p class="text-sm text-gray-600"><code class="text-xs bg-gray-100 px-1 rounded">defect-workflow.md</code> 仍引用已废弃的 <code class="text-xs bg-gray-100 px-1 rounded">in-progress</code> 标签;issue-tracker.md 已声明废弃。文档已就绪但状态机从未真正跑过。</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+          <div class="font-semibold text-gray-900 mb-2">✅ Bug 填报可全自动补全</div>
+          <p class="text-sm text-gray-600">聊天直报时你只描述现象,agent 自动推断模块/严重级/复现步骤生成结构化 issue;批量贴 N 个问题自动拆分 N 个 issue。缓存建议废弃,以 <code class="text-xs bg-gray-100 px-1 rounded">gh issue list</code> 为准。</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+          <div class="font-semibold text-gray-900 mb-2">✅ 跨仓复用 + 双线并行</div>
+          <p class="text-sm text-gray-600">同套机制在 mdpkg/clairis 每仓一份配置复用;功能与 bug 统一仓库分标签,主窗口 feat + worktree fix 双线并行、冲突时 fix 优先。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1. 现状诊断 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">1 · 现状诊断:四个断裂点</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 border-b border-gray-200">
+                <th class="py-2 pr-4">环节</th>
+                <th class="py-2 pr-4">现状载体</th>
+                <th class="py-2 pr-4">问题</th>
+                <th class="py-2">证据</th>
+              </tr>
+            </thead>
+            <tbody class="text-gray-700">
+              <tr class="border-b border-gray-100">
+                <td class="py-3 pr-4 font-medium">Spec 形成</td>
+                <td class="py-3 pr-4">OpenSpec change(<code class="text-xs bg-gray-100 px-1 rounded">openspec/changes/</code>)via <code class="text-xs bg-gray-100 px-1 rounded">opsx-propose</code></td>
+                <td class="py-3 pr-4">本地文件,不进 GitHub issue</td>
+                <td class="py-3"><code class="text-xs bg-gray-100 px-1 rounded">md-bundle-v2</code> 存在</td>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <td class="py-3 pr-4 font-medium">开发任务</td>
+                <td class="py-3 pr-4"><code class="text-xs bg-gray-100 px-1 rounded">tasks.md</code> checkboxes</td>
+                <td class="py-3 pr-4">29/33 完成,只有本地进度,issue 上看不到</td>
+                <td class="py-3"><code class="text-xs bg-gray-100 px-1 rounded">openspec status</code>: 29/33</td>
+              </tr>
+              <tr class="border-b border-gray-100">
+                <td class="py-3 pr-4 font-medium">缺陷记录</td>
+                <td class="py-3 pr-4">GitHub issues + <code class="text-xs bg-gray-100 px-1 rounded">bug-registry-*.md</code> 缓存</td>
+                <td class="py-3 pr-4">流程已定义但 triage 状态机未跑,标签缺失</td>
+                <td class="py-3"><code class="text-xs bg-gray-100 px-1 rounded">gh label list</code> 缺 4 个 canonical 标签</td>
+              </tr>
+              <tr>
+                <td class="py-3 pr-4 font-medium">完成跟踪</td>
+                <td class="py-3 pr-4"><code class="text-xs bg-gray-100 px-1 rounded">openspec status</code>(本地 CLI)</td>
+                <td class="py-3 pr-4">无看板、无 issue 级可见性、无自动回写</td>
+                <td class="py-3">无 GitHub Projects 配置</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 三个 skill 的角色评估 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">2 · to-spec / to-tickets / triage 角色评估</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="phase-card min-w-0">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-sm">⚠️</span>
+            <h3 class="font-semibold text-gray-900">to-spec</h3>
+          </div>
+          <p class="text-sm text-gray-600 mb-3">对话 → 合成 spec → 发 GitHub issue(<code class="text-xs bg-gray-100 px-1 rounded">ready-for-agent</code>)</p>
+          <div class="space-y-2 text-sm">
+            <div class="decision-item !mb-0 !py-1.5">
+              <span class="font-medium text-gray-800">推荐角色:</span> 轻量入口
+            </div>
+            <p class="text-xs text-gray-500 mt-2">临时想法/口头需求先落 issue,之后转正式 OpenSpec change。不取代 opsx-propose。</p>
+          </div>
+        </div>
+        <div class="phase-card border-green-300">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-8 h-8 rounded-lg bg-green-100 text-green-700 flex items-center justify-center font-bold text-sm">✅</span>
+            <h3 class="font-semibold text-gray-900">to-tickets</h3>
+          </div>
+          <p class="text-sm text-gray-600 mb-3">把 spec/plan 拆成垂直切片 tickets,每个带 AC + blocking edges,发 GitHub issue</p>
+          <div class="space-y-2 text-sm">
+            <div class="decision-item !mb-0 !py-1.5">
+              <span class="font-medium text-gray-800">推荐角色:</span> 核心桥梁
+            </div>
+            <p class="text-xs text-gray-500 mt-2">OpenSpec tasks 的<b>发布层</b>。tasks.md 继续是权威清单,issue 是执行与跟踪面。完成 → commit <code class="text-xs bg-gray-100 px-1 rounded">fixes #N</code> → 自动 close。</p>
+          </div>
+        </div>
+        <div class="phase-card min-w-0">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">🔄</span>
+            <h3 class="font-semibold text-gray-900">triage</h3>
+          </div>
+          <p class="text-sm text-gray-600 mb-3">issue 状态机:<code class="text-xs bg-gray-100 px-1 rounded">needs-triage → needs-info / ready-for-agent / ready-for-human / wontfix</code></p>
+          <div class="space-y-2 text-sm">
+            <div class="decision-item !mb-0 !py-1.5">
+              <span class="font-medium text-gray-800">推荐角色:</span> 缺陷状态机
+            </div>
+            <p class="text-xs text-gray-500 mt-2">已配好 <code class="text-xs bg-gray-100 px-1 rounded">triage-labels.md</code> 映射,但标签实体没建。建齐后缺陷走完整状态机,agent brief 成为可执行契约。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 推荐闭环架构 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">3 · 推荐闭环架构(保留 OpenSpec + PR 自动化)</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="mermaid">
+flowchart TD
+  subgraph A["① Spec 形成 (权威层)"]
+    P1[opsx-propose] --> P2[OpenSpec change<br/>proposal / design / tasks / specs]
+  end
+  subgraph B["② 任务发布 (桥接层)"]
+    P2 --> T1[to-tickets 拆垂直切片]
+    T1 --> T2[GitHub issues<br/>ready-for-agent + blocking + AC]
+  end
+  subgraph C["③ 开发执行 + PR 自动化 (执行层)"]
+    T2 --> D1[agent 捡 ready-for-agent issue]
+    D1 --> D2[建分支 fix/&lt;issue&gt;<br/>基于 origin/main, 1分支=1PR]
+    D2 --> D3[实施 + 本地验证四件套]
+    D3 --> D4[commit 引用 fixes #N<br/>显式 add 白名单]
+    D4 --> D5[push + gh pr create<br/>PR 模板 + 风险分级标签]
+    D5 --> D6[CI 门禁]
+    D6 --> D7{风险分级}
+    D7 -->|risk-low| D8[自动合并]
+    D7 -->|risk-medium/high| D9[人工评审]
+    D8 --> D10[合并 → 自动关 issue + 删分支]
+    D9 --> D10
+  end
+  subgraph E["④ 缺陷闭环 (triage 层)"]
+    F1[用户反馈] --> F2[gh issue create<br/>bug + p0-3 + 模块 + needs-triage]
+    F2 --> F3[triage 状态机<br/>验证 / grill / agent brief]
+    F3 --> F4[ready-for-agent]
+    F4 --> D1
+    F3 --> F5[ready-for-human / wontfix]
+  end
+  subgraph G["⑤ 完成跟踪 (总视图)"]
+    D10 --> G1[parent tracking issue checkboxes]
+    D10 --> G2[同步回写 tasks.md checkbox]
+    G1 --> G3[GitHub Projects 看板]
+    G1 --> G4[openspec status 定期回写]
+  end
+  E -. 缺陷关联 change .-> P2
+</div>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-5 gap-3 text-sm">
+          <div class="p-3 bg-blue-50 rounded-lg min-w-0"><div class="font-semibold text-blue-900 mb-1">① 权威层</div><div class="text-blue-700 text-xs">OpenSpec 本地,validate/archive 能力保留</div></div>
+          <div class="p-3 bg-green-50 rounded-lg min-w-0"><div class="font-semibold text-green-900 mb-1">② 桥接层</div><div class="text-green-700 text-xs">to-tickets 把 tasks 发布为 issue</div></div>
+          <div class="p-3 bg-purple-50 rounded-lg min-w-0"><div class="font-semibold text-purple-900 mb-1">③ 执行层</div><div class="text-purple-700 text-xs">分支+PR 全自动化,1分支=1PR,分级合并</div></div>
+          <div class="p-3 bg-red-50 rounded-lg min-w-0"><div class="font-semibold text-red-900 mb-1">④ 缺陷层</div><div class="text-red-700 text-xs">triage 状态机 + agent brief 契约</div></div>
+          <div class="p-3 bg-amber-50 rounded-lg min-w-0"><div class="font-semibold text-amber-900 mb-1">⑤ 跟踪层</div><div class="text-amber-700 text-xs">parent issue + Projects 看板 + 回写</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3.5 分支/PR 自动化设计 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">3.5 · 分支/PR 自动化设计(新增)</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">现状地基(已实测)</h3>
+            <div class="space-y-2 text-sm">
+              <div class="gap-item"><b>main 未设分支保护</b>:<code class="text-xs bg-gray-100 px-1 rounded">protected: false</code>,直推不拦。规范文档要求"主干开启分支保护,禁止直推"——待建。</div>
+              <div class="gap-item"><b>deleteBranchOnMerge: false</b>:合并后远程分支不自动删,与"用完即删"规范冲突。</div>
+              <div class="ok-item"><b>CI 已覆盖</b>:<code class="text-xs bg-gray-100 px-1 rounded">ci.yml</code> 有 build-test(install+build+test+typecheck+lint)与 e2e 两个 job,PR 触发。分级自动合并的"门禁"底座已具备。</div>
+              <div class="ok-item"><b>合并方式全开</b>:merge / squash / rebase 均允许。</div>
+            </div>
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">自动化流水线(按你的规范文档)</h3>
+            <div class="space-y-2 text-sm">
+              <div class="decision-item"><b>拉取原子任务</b>:agent 从 <code class="text-xs bg-gray-100 px-1 rounded">ready-for-agent</code> issue 捡活(缺陷 <code class="text-xs bg-gray-100 px-1 rounded">fix/&lt;slug&gt;</code> / 功能 <code class="text-xs bg-gray-100 px-1 rounded">feat/&lt;slug&gt;</code>)。</div>
+              <div class="decision-item"><b>建独立分支</b>:<code class="text-xs bg-gray-100 px-1 rounded">git checkout -b &lt;type&gt;/&lt;slug&gt; origin/main</code>,1分支=1PR,绝不复用。</div>
+              <div class="decision-item"><b>自检</b>:typecheck + lint + test(+e2e 涉及时)。</div>
+              <div class="decision-item"><b>提交推送</b>:显式 <code class="text-xs bg-gray-100 px-1 rounded">git add</code> 白名单,commit <code class="text-xs bg-gray-100 px-1 rounded">fixes #N</code>,push。</div>
+              <div class="decision-item"><b>自动建 PR</b>:模板填充(变更概述/关联Issue/变更内容/影响范围/验证方式/风险)+ AI 来源 + <code class="text-xs bg-gray-100 px-1 rounded">risk-low/medium/high</code> 标签。</div>
+              <div class="decision-item"><b>门禁分流</b>:CI 绿后低风险自动合并,中/高人工评审。</div>
+              <div class="decision-item"><b>自动收尾</b>:合并 → issue 自动 close(<code class="text-xs bg-gray-100 px-1 rounded">fixes #N</code>)→ 删分支 → 回写 tasks.md。</div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
+          <b>风险分级建议(单人维护版)</b>:
+          <code class="text-xs bg-gray-100 px-1 rounded mx-1">risk-low</code>=注释/日志/单测/简单容错 → CI 绿自动合并;
+          <code class="text-xs bg-gray-100 px-1 rounded mx-1">risk-medium</code>=普通功能/缺陷修复 → 人工确认;
+          <code class="text-xs bg-gray-100 px-1 rounded mx-1">risk-high</code>=核心逻辑/渲染/保存模型/FSA → 强制人工评审。单人可把 medium 降级为"合后即时验证"以提速。
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">3.6 · 人工测试发现的 Bug:填报与管理(新增)</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">填报入口(3 条通道,按场景选)</h3>
+            <div class="space-y-3 text-sm">
+              <div class="decision-item !py-2">
+                <b>① 聊天直报(最常用)→ 自动补全</b><br/>
+                <span class="text-xs">你只描述问题现象/贴截图,<b>agent 自动补全模板</b>:按描述推断模块(editor/renderer/fsa…)、严重级(p0-p3)、复现步骤/期望/实况,生成结构化 issue 后回你编号。你无需填字段。</span>
+              </div>
+              <div class="decision-item !py-2">
+                <b>② 手动开 issue(自查/记录)</b><br/>
+                <span class="text-xs">访问仓库 Issues 页点 New Issue,走 <code class="text-xs bg-gray-100 px-1 rounded">bug.yml</code> 表单(区域/严重级/复现/期望/实况/环境)。表单自动带 <code class="text-xs bg-gray-100 px-1 rounded">needs-triage</code> 标签。</span>
+              </div>
+              <div class="decision-item !py-2">
+                <b>③ 批量录入(真机 QA 攒一批)→ 自动拆分</b><br/>
+                <span class="text-xs">一段话贴 N 个问题(如"1. 保存按钮没反应;2. 深色模式下大纲看不清;3. …")→ agent <b>自动拆分</b>成 N 个独立 issue,逐个推断模块/等级/复现,批量创建后回你编号清单。</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">管理闭环(填报后自动流转)</h3>
+            <div class="space-y-2 text-sm">
+              <div class="ok-item"><b>四件套标签</b>:<code class="text-xs bg-gray-100 px-1 rounded">bug</code> + <code class="text-xs bg-gray-100 px-1 rounded">p0-p3</code> + 模块 + <code class="text-xs bg-gray-100 px-1 rounded">needs-triage</code>。<b>模块/等级由 agent 从描述自动推断</b>,你只需描述现象。</div>
+              <div class="ok-item"><b>triage 状态机</b>:<code class="text-xs bg-gray-100 px-1 rounded">needs-triage → ready-for-agent(附 agent brief)→ 修复 → 验证 → close</code>。<code class="text-xs bg-gray-100 px-1 rounded">/triage</code> 一键列出待评估队列。</div>
+              <div class="ok-item"><b>PR 修复路径</b>:agent 捡 <code class="text-xs bg-gray-100 px-1 rounded">ready-for-agent</code> → 建 <code class="text-xs bg-gray-100 px-1 rounded">fix/&lt;slug&gt;</code> 分支 → commit <code class="text-xs bg-gray-100 px-1 rounded">fixes #N</code> → PR 自动关 issue → 分级合并。</div>
+              <div class="ok-item"><b>截图/复现证据</b>:bug.yml 已有"截图或附件"字段;真机 QA 的截图、控制台报错一并贴入,agent brief 引用它们作为复现基线。</div>
+              <div class="ok-item"><b>缓存策略(推荐)</b>:<b>废弃 bug-registry 本地缓存</b>,一律以 <code class="text-xs bg-gray-100 px-1 rounded">gh issue list</code> 为准。需本地快照时临时生成,不用维护"缓存↔GitHub"双向同步。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3.7 双轨并行:主窗口 feat + worktree fix -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">3.7 · 双轨并行:主窗口开发 + worktree 修 Bug(新增)</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">双窗口分工(你已在用,机制可完全复用)</h3>
+            <div class="space-y-3 text-sm">
+              <div class="ok-item !py-2"><b>主窗口</b>(<code class="text-xs bg-gray-100 px-1 rounded">feat/docx-export-quality</code>)<br/><span class="text-xs">功能 agent 捡 <code class="text-xs bg-gray-100 px-1 rounded">feat</code> 类 ticket → 开发 → PR → 分级合并。长生命周期。</span></div>
+              <div class="ok-item !py-2"><b>worktree</b>(<code class="text-xs bg-gray-100 px-1 rounded">md-bundle-fix</code> 挂 <code class="text-xs bg-gray-100 px-1 rounded">fix</code>)<br/><span class="text-xs">缺陷 agent 捡 <code class="text-xs bg-gray-100 px-1 rounded">ready-for-agent</code> bug issue → <code class="text-xs bg-gray-100 px-1 rounded">fix/&lt;slug&gt;</code> → 原子修复 → PR → 分级合并。短生命周期。</span></div>
+              <div class="decision-item !py-2"><b>互不阻塞</b><br/><span class="text-xs">两窗口各自独立建 PR,CI 各自跑,合并各自回 main。<b>同一套 triage + PR 自动化机制直接复用</b>,只是分支前缀(feat vs fix)与起点不同。</span></div>
+            </div>
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">关键规则(避免冲突)</h3>
+            <div class="space-y-2 text-sm">
+              <div class="decision-item"><b>fix 分支基于 origin/main</b>,不基于 feat——修复可独立合入,不依赖功能线。</div>
+              <div class="decision-item"><b>重叠区域冲突</b>:若 fix 与 feat 改同一文件,先合 fix 到 main,feat 再 rebase main 消化,不反向。</div>
+              <div class="decision-item"><b>worktree 基线干净</b>:worktree 只检出 git 跟踪文件,无 .omo 噪音——天然适合原子 bug 修复,<code class="text-xs bg-gray-100 px-1 rounded">reset --hard</code> 也不伤主窗口规划。</div>
+              <div class="decision-item"><b>频繁同步</b>:feat 定期 merge main 保持落后可控;fix 完成即合入 main,不留堆积。</div>
+              <div class="warn-item"><b>worktree 环境注意</b>:worktree 里 openspec/.omo 等运行时需重建或直读主窗口路径(<code class="text-xs bg-gray-100 px-1 rounded">less /Users/mason/ToHighs/md-bundle/.omo/plans/xxx.md</code>)——你的 branch-workflow.md 6.3 已记录。</div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
+          <b>落地形态</b>:两个窗口各跑一套 <code class="text-xs bg-gray-100 px-1 rounded">pr-automation.sh</code>(参数区分 <code class="text-xs bg-gray-100 px-1 rounded">--role feat|fix</code>)。主窗口 agent 处理功能 ticket,worktree agent 处理 bug ticket,双方都从 <code class="text-xs bg-gray-100 px-1 rounded">gh issue list --label ready-for-agent</code> 拉活、按各自前缀建分支。这就是你的 <code class="text-xs bg-gray-100 px-1 rounded">branch-workflow.md</code> 6.1 分工原则 + 本方案自动化的合并。
+        </div>
+        <div class="mt-4 p-4 bg-blue-50 rounded-lg text-sm text-gray-700">
+          <b>执行调度模型(回答:并行还是串行?)</b><br/>
+          <b>默认双线并行,冲突时自动降级串行。</b> 功能 issue 与 bug issue 同时存在时:
+          <ul class="mt-2 space-y-1.5 list-disc pl-5">
+            <li><b>并行(默认)</b>:主窗口 agent 跑 feat 线(功能 issue → feat/&lt;slug&gt; → PR),worktree agent 跑 fix 线(bug issue → fix/&lt;slug&gt; → PR)。两线独立建分支、独立 CI、独立合并回 main。前提:两线改动文件<b>不重叠</b>(agent 开工前先 <code class="text-xs bg-gray-100 px-1 rounded">git diff origin/main --name-only</code> 预判冲突面)。</li>
+            <li><b>串行降级(重叠时)</b>:若两线触及同一文件/模块,自动串行——<b>先合 fix 到 main</b>(bug 小、快、稳),feat 再 rebase main 消化,不反向。此时 worktree fix 线先行,主窗口 feat 线等待 rebase。</li>
+            <li><b>多 agent 会话</b>:两条线可由<b>两个独立 agent 会话</b>各领一条(一个在主窗口、一个在 worktree),互不阻塞;也可单 agent 会话按"fix 优先"顺序处理。</li>
+            <li><b>优先级规则</b>:P0/P1 bug 永远插队先走(合入 main 后 feat rebase);P2/P3 bug 可等 feat 空闲窗口。</li>
+          </ul>
+          <div class="mt-2 text-xs text-blue-700">一句话:不是"一个分支串行做完所有事",而是"两条分支并行推进,冲突时 fix 优先、feat 跟随"。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3.8 多仓库复用 + issue 组织 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">3.8 · 多仓库复用(mdpkg / clairis)+ Issue 组织与查看(新增)</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">跨项目复用(同一套机制,每仓一份配置)</h3>
+            <div class="space-y-2 text-sm">
+              <div class="ok-item"><b>机制本身是通用的</b>:OpenSpec(每仓 <code class="text-xs bg-gray-100 px-1 rounded">openspec/</code> 本地)+ to-tickets/triage/to-spec(通用 skill)+ PR 自动化(<code class="text-xs bg-gray-100 px-1 rounded">pr-automation.sh</code> 与仓库无关)。skill 读的是"当前仓库"的 <code class="text-xs bg-gray-100 px-1 rounded">docs/agents/</code> 配置,天然按仓库隔离。</div>
+              <div class="decision-item"><b>每仓要做的</b>:① 跑一次 <code class="text-xs bg-gray-100 px-1 rounded">/setup-matt-pocock-skills</code>(建 <code class="text-xs bg-gray-100 px-1 rounded">docs/agents/{issue-tracker,triage-labels,domain}.md</code> + AGENTS.md 区块);② 建 5 个 canonical 标签 + 仓库自己的模块/severity 标签;③ 每个 OpenSpec change 对应 <code class="text-xs bg-gray-100 px-1 rounded">[change=xxx]</code> 前缀。之后同一套 to-tickets/triage/PR 脚本直接复用。</div>
+              <div class="warn-item"><b>仓库差异点</b>:标签表(模块不同)、bug.yml 模板字段、CI 门禁内容(各自 build/test)、分支命名前缀风格。机制不变,参数化。</div>
+              <div class="warn-item"><b>跨仓 bug 借鉴</b>:<code class="text-xs bg-gray-100 px-1 rounded">git-workflow-notes.md</code> 记录的 PR-A 案例(mdpkg 反哺 md-bundle)说明:跨仓的修复需求照常开各自仓库的 issue + PR,机制逐仓独立跑。</div>
+            </div>
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">功能 issue 与 bug:统一仓库、分标签、看板分列</h3>
+            <div class="space-y-2 text-sm">
+              <div class="ok-item"><b>不进同一个 issue</b>:每个功能任务一个票、每个 bug 一个票,各自独立。功能票标题带 <code class="text-xs bg-gray-100 px-1 rounded">[change=xxx]</code> + 任务号,bug 票带 <code class="text-xs bg-gray-100 px-1 rounded">[Px]</code> + 模块。二者都在同一仓库的 Issues 列表里,靠 label 区分。</div>
+              <div class="decision-item"><b>查看方式 1 · label 过滤</b>:<code class="text-xs bg-gray-100 px-1 rounded">gh issue list --label ready-for-agent</code>(待执行)/ <code class="text-xs bg-gray-100 px-1 rounded">--label bug</code>(全部缺陷)/ <code class="text-xs bg-gray-100 px-1 rounded">--label "bug,p0"</code>(阻塞级)。</div>
+              <div class="decision-item"><b>查看方式 2 · Projects 看板</b>:按 label 自动分列——Backlog / Ready / In Progress / Done,功能票与 bug 票同板共存,靠列 + 标签区分类型。</div>
+              <div class="decision-item"><b>查看方式 3 · 每 change 一个 parent issue</b>:功能任务的总清单(checkboxes)在一个跟踪 issue 里,子票引用它;bug 不并入,保持独立生命周期。</div>
+              <div class="ok-item"><b>结论</b>:功能票与 bug 票<b>统一仓库共存、分开标签、看板同列</b>。不建"一个 issue 装所有事",也不分两个 tracker——单一事实来源(GitHub Issues)+ label 分型即可。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3.9 skill 编排与质量保证 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">3.9 · Skill 编排与质量保证闭环(已落地)</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="mb-5 p-4 bg-blue-50 rounded-lg text-sm text-gray-700">
+          <b>你问的核心</b>:执行层"本地验证四件套 + push"如何调用 skill 加强质量保证?你用过 <code class="text-xs bg-gray-100 px-1 rounded">implement / review / qa / ship</code>,我推荐 <code class="text-xs bg-gray-100 px-1 rounded">tdd / code-review / programming / git-master</code> + 收尾 <code class="text-xs bg-gray-100 px-1 rounded">learn / sync-gbrain</code>。结论:<b>implement 总编排、tdd+code-review 内嵌、review 合并前闸、qa 发布前真机、ship 发版通道、learn→sync-gbrain 收尾</b>。<b class="text-green-600">✅ 已落地:pr-automation.sh 内置四件套硬门禁 + task-tracking.md §7 编排规范</b>。
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">你用过 vs 我推荐:对比分析</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs">
+                <thead>
+                  <tr class="text-left text-gray-500 border-b border-gray-200">
+                    <th class="py-2 pr-3">Skill</th>
+                    <th class="py-2 pr-3">定位</th>
+                    <th class="py-2 pr-3">质量保证角色</th>
+                    <th class="py-2">结论</th>
+                  </tr>
+                </thead>
+                <tbody class="text-gray-700">
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 pr-3 font-medium">implement</td>
+                    <td class="py-2 pr-3">按 spec/tickets 实施</td>
+                    <td class="py-2 pr-3">总编排:自动内嵌 <code class="text-xs bg-gray-100 px-1 rounded">tdd</code> + 定期 typecheck/test + 完成后调 <code class="text-xs bg-gray-100 px-1 rounded">code-review</code></td>
+                    <td class="py-2"><span class="tag bg-green-100 text-green-700">主用</span></td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 pr-3 font-medium">tdd</td>
+                    <td class="py-2 pr-3">红→绿循环</td>
+                    <td class="py-2 pr-3">实施阶段测试先行,锁定行为(seam 对齐 + 垂直切片)</td>
+                    <td class="py-2"><span class="tag bg-green-100 text-green-700">内嵌</span></td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 pr-3 font-medium">code-review</td>
+                    <td class="py-2 pr-3">双轴审查(Standards + Spec)</td>
+                    <td class="py-2 pr-3">实施后自审 diff,防 scope creep / 漏需求;两轴并行防互相掩盖</td>
+                    <td class="py-2"><span class="tag bg-green-100 text-green-700">内嵌</span></td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 pr-3 font-medium">review</td>
+                    <td class="py-2 pr-3">Pre-Landing PR Review</td>
+                    <td class="py-2 pr-3">合并前结构审查(SQL 安全/LLM trust boundary/条件副作用/scope drift)</td>
+                    <td class="py-2"><span class="tag bg-green-100 text-green-700">合并前闸</span></td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 pr-3 font-medium">qa</td>
+                    <td class="py-2 pr-3">测试→修复→验证循环</td>
+                    <td class="py-2 pr-3">浏览器真机验证(diff-aware 模式);health score + ship-readiness</td>
+                    <td class="py-2"><span class="tag bg-blue-100 text-blue-700">发布前用</span></td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 pr-3 font-medium">ship</td>
+                    <td class="py-2 pr-3">全自动发布</td>
+                    <td class="py-2 pr-3">测试+覆盖审计+review+版本+CHANGELOG+PR 全链</td>
+                    <td class="py-2"><span class="tag bg-blue-100 text-blue-700">发版通道</span></td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 pr-3 font-medium">programming</td>
+                    <td class="py-2 pr-3">代码规范(no any/250LOC/TDD)</td>
+                    <td class="py-2 pr-3">实施阶段类型/结构红线对照</td>
+                    <td class="py-2"><span class="tag bg-amber-100 text-amber-700">可选叠加</span></td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 pr-3 font-medium">git-master</td>
+                    <td class="py-2 pr-3">原子提交/commit 规范</td>
+                    <td class="py-2 pr-3">提交阶段(替代手写 git 纪律)</td>
+                    <td class="py-2"><span class="tag bg-amber-100 text-amber-700">可选叠加</span></td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 pr-3 font-medium">learn</td>
+                    <td class="py-2 pr-3">跨会话经验沉淀</td>
+                    <td class="py-2 pr-3"><b>合并后收尾</b>:记录模式/陷阱/偏好(本机已验证可用)</td>
+                    <td class="py-2"><span class="tag bg-green-100 text-green-700">收尾必做</span></td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 pr-3 font-medium">sync-gbrain</td>
+                    <td class="py-2 pr-3">代码索引刷新</td>
+                    <td class="py-2 pr-3"><b>learn 之后</b>:语义检索新代码(本机 gbrain 0.47.9 已装)</td>
+                    <td class="py-2"><span class="tag bg-green-100 text-green-700">收尾必做</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">完整闭环(learn → sync-gbrain 收尾)</h3>
+            <div class="mermaid">
+flowchart TD
+  A["agent 捡 ready-for-agent issue"] --> B["implement 总编排<br/>(内嵌 tdd + 定期 typecheck/test)"]
+  B --> C["tdd 测试先行<br/>红→绿循环 + 垂直切片"]
+  C --> D["本地验证四件套硬门禁<br/>typecheck + lint + test + e2e"]
+  D --> E["code-review 双轴自审<br/>(Standards + Spec 并行)"]
+  E --> F["git-master 原子提交<br/>fixes #N"]
+  F --> G["push + gh pr create<br/>risk 分级标签"]
+  G --> H["CI 门禁 build-test + e2e"]
+  H --> I{"风险分级"}
+  I -->|low| J["auto-merge"]
+  I -->|medium/high| K["review Pre-Landing 审查<br/>+ 人工确认"]
+  K --> J
+  G -. ship 推送即收尾 .-> M["learn 沉淀经验<br/>(不等合并,立即)"]
+  M --> N["sync-gbrain 刷新索引<br/>(本地代码已最新)"]
+  N --> O["下一轮 issue 循环<br/>(不被合并阻塞)"]
+  O -.-> A
+  J -. 合并后仅增量 sync 对账 .-> N
+  Q["qa 浏览器真机验证"] -. 发布前 .-> J
+  R["ship 发版通道<br/>(重跑 test 仅 3s,可接受)"] -. 正式发版 .-> J
+</div>
+            <div class="mt-3 p-3 bg-gray-50 rounded-lg text-xs text-gray-600">
+              <b>与 pr-automation.sh 的关系</b>:脚本负责<b>确定性机械动作</b>(建分支/提交/推 PR/分级合并),skill 负责<b>判断性质量保证</b>(implement 编排、tdd 写测试、code-review 审查、review 闸门)。脚本不能替代 skill,skill 不能替代脚本——"门禁 + 判断"组合,这正是"四件套 + push 如何加强质量"的答案。
+            </div>
+            <div class="mt-3 p-3 bg-blue-50 rounded-lg text-xs text-gray-700">
+              <b>时序修正(2026-09-12,用户提出)</b>:learn + sync-gbrain 在 <b>ship(push + PR 创建)后立即执行,不等合并</b>。learn/sync-gbrain 操作本地文件,推送后本地即最新;risk-medium/high 需人工合并,若等合并才收尾会阻塞下一轮 change。合并发生后仅需一次增量 <code class="text-xs bg-gray-100 px-1 rounded">gbrain sync</code> 对账(秒级)。
+            </div>
+            <div class="mt-3 p-3 bg-amber-50 rounded-lg text-xs text-gray-700">
+              <b>重复点分析 → 优化调整方案(用户质疑的验证冗余)</b>:流程中 test 出现 4 处——①tdd 单测(秒级反馈)②本地四件套(push 前全量)③CI build-test(权威环境)④ship 内(test)。前三层<b>价值递进不是冗余</b>:单测保行为、全量保回归、CI 保环境一致(锁文件/平台差异)。真正冗余与优化如下:
+              <ul class="mt-1.5 space-y-1 list-disc pl-4">
+                <li><b>✅ ship 测试不算冗余(实测修正)</b>:ship skill 硬编码 "Never skip tests"(SKILL.md:1406),无法通过说明省略——且本仓库 test 仅 ~3s(371 passed/3.10s),ship 测的是 merge-base 后状态(与 CI 测 PR head 不完全等同),有独立价值。真正的大浪费是本地四件套 vs CI(30s vs 3min),已用硬门禁解决。</li>
+                <li><b>⚠️ code-review 与 review 角度重叠</b> → <b>按 risk 分级错开</b>:low → 只用 code-review(双轴自审,快);medium/high → 再加 review(结构安全:SQL/LLM trust/副作用)。单人维护不必两个都跑全。</li>
+                <li><b>✅ 本地四件套保留</b>:它是 push 前最后防线,防浪费 CI 轮次(本地 30s 发现问题 vs CI 3 分钟)。与 CI 是"快速反馈 + 权威验证"互补。</li>
+                <li><b>✅ tdd 单测保留</b>:唯一"测试先行"层,锁定行为契约,后续所有测试都验证它定义的行为。</li>
+              </ul>
+              <div class="mt-1.5"><b>净效果</b>:从"4 层测试 + 2 层审查全跑"优化为<b>按风险分级的最小充分集</b>——low:tdd→四件套→CI→code-review;medium/high:加 review。ship 不再重跑测试。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div class="p-3 bg-green-50 rounded-lg">
+            <div class="font-semibold text-green-900 mb-1">执行前(实施阶段)</div>
+            <div class="text-green-700 text-xs">implement(编排)+ tdd(测试)+ programming(可选)+ 四件套硬门禁</div>
+          </div>
+          <div class="p-3 bg-blue-50 rounded-lg">
+            <div class="font-semibold text-blue-900 mb-1">执行后(发布阶段)</div>
+            <div class="text-blue-700 text-xs">code-review(自审)+ review(合并前闸)+ qa(真机,发布前)+ ship(正式发版)</div>
+          </div>
+          <div class="p-3 bg-purple-50 rounded-lg">
+            <div class="font-semibold text-purple-900 mb-1">收尾(闭环)</div>
+            <div class="text-purple-700 text-xs"><b>learn</b>(沉淀)→ <b>sync-gbrain</b>(索引)→ 下一轮</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3.10 change 级收尾自动触发 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">3.10 · Change 级收尾自动触发(新增,已落地)</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="mb-5 p-4 bg-blue-50 rounded-lg text-sm text-gray-700">
+          <b>你问的 opsx 命令</b>:sync / archive / update 在自动化流程中是否还有必要?结论:<b>必要,且已设计为自动触发</b>——agent 检测到 change 全部 tasks 完成 + PR 全合并,自动执行 update(如有漂移)→ sync → validate → archive,<b>无需手动喊命令</b>。propose 保留为起点,apply 被 implement 替代,continue 基本退出(propose 已一次生成全部 artifacts)。
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">opsx 命令在机制中的定位</h3>
+            <div class="space-y-2 text-sm">
+              <div class="ok-item"><b>propose</b> — change 起点,保留(现已在用)</div>
+              <div class="ok-item"><b>apply</b> — 实施通道,与 implement 二选一(机制已定 implement)</div>
+              <div class="ok-item"><b>update</b> — 实施中漂移修订,change 级收尾第 1 步(无漂移跳过)</div>
+              <div class="ok-item"><b>sync</b> — delta 合并回主 spec,change 级收尾第 2 步</div>
+              <div class="ok-item"><b>archive</b> — change 归档,change 级收尾第 4 步</div>
+              <div class="warn-item"><b>continue</b> — 补全缺失 artifacts,基本退出(propose 已一次生成全部)</div>
+            </div>
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-3">两级闭环(任务级 + Change 级)</h3>
+            <div class="mermaid">
+flowchart TD
+  subgraph T["任务级闭环(每个 issue,§7)"]
+    A["issue"] --> B["implement + 四件套 + code-review"]
+    B --> C["push + PR → CI → 合并"]
+    C --> D["learn → sync-gbrain"]
+    D --> E["下一 issue"]
+  end
+  subgraph C2["Change 级收尾(整个 change,§8,自动触发)"]
+    D -. 每轮收尾检查 .-> F{"全部 tasks [x]<br/>+ PR 全合并?"}
+    F -->|是| G["/opsx-update 漂移修订<br/>(无则跳过)"]
+    G --> H["/opsx-sync delta 合并主 spec"]
+    H --> I["validate --strict"]
+    I --> J["/opsx-archive 归档"]
+    J --> K["看板 Done + gbrain 增量"]
+    F -->|否| E
+  end
+  E -.-> A
+</div>
+            <div class="mt-3 p-3 bg-gray-50 rounded-lg text-xs text-gray-600">
+              <b>自动触发设计</b>:agent 在每次任务级收尾(learn + sync-gbrain 后)自动检查 <code class="text-xs bg-gray-100 px-1 rounded">openspec status --json</code> 完成度 + 无残留 ready-for-agent issue + 无未合并 PR → 全部满足即自动执行收尾序列,无需用户喊命令。唯一人工介入:risk-medium/high PR 合并确认。
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. 落地清单 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">4 · 一次性搭建清单(分 4 阶段)</h2>
+      <div class="space-y-4">
+        <div class="phase-card min-w-0">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-gray-900">Phase 0 · 基础设施(前提,必须先做)</h3>
+            <span class="tag bg-red-100 text-red-700">阻塞所有下游</span>
+          </div>
+          <ul class="space-y-2 text-sm text-gray-700">
+            <li class="flex items-start gap-2"><span class="text-red-500 mt-0.5">▸</span><span><b>创建 4 个缺失 canonical 标签</b>:<code class="text-xs bg-gray-100 px-1 rounded ml-1">gh label create needs-triage --color BFDADC</code> + <code class="text-xs bg-gray-100 px-1 rounded">needs-info / ready-for-agent / ready-for-human</code>(<code class="text-xs bg-gray-100 px-1 rounded">wontfix</code> 已有)。<b>这一步是全部 skill 能否工作的开关。</b></span></li>
+            <li class="flex items-start gap-2"><span class="text-gray-400 mt-0.5">▸</span><span>修正 <code class="text-xs bg-gray-100 px-1 rounded">defect-workflow.md</code> 中废弃的 <code class="text-xs bg-gray-100 px-1 rounded">in-progress</code> 引用(改回 needs-triage/ready-for-agent 状态机)。</span></li>
+          </ul>
+        </div>
+        <div class="phase-card min-w-0">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-gray-900">Phase 1 · 桥接规范(to-tickets 落地)</h3>
+            <span class="tag bg-blue-100 text-blue-700">核心价值</span>
+          </div>
+          <ul class="space-y-2 text-sm text-gray-700">
+            <li class="flex items-start gap-2"><span class="text-blue-500 mt-0.5">▸</span><span><b>Parent tracking issue 模板</b>:每个 change 一个总 issue,body 贴 tasks 清单 checkboxes,所有子 ticket 引用它。完成情况一眼可见。</span></li>
+            <li class="flex items-start gap-2"><span class="text-blue-500 mt-0.5">▸</span><span><b>to-tickets 发布规则</b>:走 GitHub issue(而非本地 <code class="text-xs bg-gray-100 px-1 rounded">.scratch/</code>),因为 tracker 配置就是 GitHub。每个 ticket 带 AC + Blocked by。</span></li>
+            <li class="flex items-start gap-2"><span class="text-blue-500 mt-0.5">▸</span><span><b>commit 规范</b>:<code class="text-xs bg-gray-100 px-1 rounded">fixes #N</code> / <code class="text-xs bg-gray-100 px-1 rounded">refs #N</code> 写进提交,让 GitHub 自动关 issue,形成审计链。</span></li>
+            <li class="flex items-start gap-2"><span class="text-blue-500 mt-0.5">▸</span><span><b>分支/PR 地基</b>:开 main 分支保护(要求 CI 通过,禁止直推)+ 开 <code class="text-xs bg-gray-100 px-1 rounded">deleteBranchOnMerge</code>。建 <code class="text-xs bg-gray-100 px-1 rounded">risk-low/medium/high</code> 3 个风险标签 + 1 个 <code class="text-xs bg-gray-100 px-1 rounded">ai-generated</code> 来源标记。</span></li>
+          </ul>
+        </div>
+        <div class="phase-card min-w-0">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-gray-900">Phase 2 · 缺陷流程激活 + PR 自动化落地</h3>
+            <span class="tag bg-purple-100 text-purple-700">已有文档基础</span>
+          </div>
+          <ul class="space-y-2 text-sm text-gray-700">
+            <li class="flex items-start gap-2"><span class="text-purple-500 mt-0.5">▸</span><span><b>bug.yml 模板已存在</b>(<code class="text-xs bg-gray-100 px-1 rounded">.github/ISSUE_TEMPLATE/bug.yml</code>),含区域/严重级/复现/期望/实况/环境字段。</span></li>
+            <li class="flex items-start gap-2"><span class="text-purple-500 mt-0.5">▸</span><span><b>缺陷创建(自动补全)</b>:聊天直报只描述现象,agent 推断模块/严重级/复现,生成 <code class="text-xs bg-gray-100 px-1 rounded">bug,px,模块</code> + <code class="text-xs bg-gray-100 px-1 rounded">needs-triage</code>;批量录入自动拆分整理。涉及 OpenSpec change 时标题带 <code class="text-xs bg-gray-100 px-1 rounded">[change=xxx]</code> 前缀 <b>(Q4 已定:需要关联)</b>。</span></li>
+            <li class="flex items-start gap-2"><span class="text-purple-500 mt-0.5">▸</span><span><b>状态机跑起来</b>:triage skill 走 needs-triage → 验证/grill → ready-for-agent(附 agent brief)→ 修复 → 验证 → close。</span></li>
+            <li class="flex items-start gap-2"><span class="text-purple-500 mt-0.5">▸</span><span><b>PR 自动化脚本</b>:封装"捡 issue → 建分支 → 自检 → commit fixes #N → push → gh pr create(模板+风险标签)"为可复用流程/脚本,agent 一键执行。</span></li>
+          </ul>
+        </div>
+        <div class="phase-card min-w-0">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-gray-900">Phase 3 · 完成跟踪(总视图)</h3>
+            <span class="tag bg-amber-100 text-amber-700">已定:现在就要</span>
+          </div>
+          <ul class="space-y-2 text-sm text-gray-700">
+            <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">▸</span><span><b>GitHub Projects 看板</b>(Basic Kanban):列 = Backlog / Ready / In Progress / Done,按 label 自动归类。<b>(Q3 已定:现在就要)</b></span></li>
+            <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">▸</span><span><b>定期回写</b>:每轮开发会话结束,用 <code class="text-xs bg-gray-100 px-1 rounded">openspec status</code> 对账 tasks.md 与 issue 关闭数。</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. 风险与开放问题 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">5 · 风险与开放问题</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="phase-card min-w-0">
+          <h3 class="font-semibold text-gray-900 mb-3">风险</h3>
+          <div class="space-y-2">
+            <div class="warn-item"><b>双写漂移</b>:tasks.md ↔ GitHub issues 可能失同步。对策:约定 tasks.md 为唯一权威,issue 关闭时回写 checkbox;每轮对账一次。</div>
+            <div class="warn-item"><b>issue 噪音</b>:29 个任务全发 issue 会刷屏。对策:parent issue 折叠 + ticket 标题带 <code class="text-xs bg-gray-100 px-1 rounded">[change/task]</code> 前缀。</div>
+            <div class="warn-item"><b>agent brief 质量</b>:triage 转 ready-for-agent 必须附 agent brief(行为契约,不写文件路径),否则执行 agent 会乱猜。</div>
+            <div class="warn-item"><b>CI 假通过</b>:你的规范文档已点出"CI 假通过、AI 代码幻觉"风险。对策:medium/high 人工评审 + 定期抽样审计,low 才自动合并。</div>
+            <div class="warn-item"><b>锁文件/平台差异</b>:实战教训(lockfile 不同步、Mac Cmd+z vs Linux Ctrl+z)说明自动合并前 CI 必须完整绿,且 e2e 用平台感知按键。</div>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <div class="phase-card min-w-0">
+            <h3 class="font-semibold text-gray-900 mb-3">已定决策(上一轮确认)</h3>
+            <div class="space-y-2">
+              <div class="ok-item"><b>Q1 · 现有 v2 收尾(7.1-7.4)</b><br/><b>不走 to-tickets。</b> 发布前验证门非开发切片,留在 tasks.md,归档时发记录 issue。to-tickets 从下一个新 change 试点。</div>
+              <div class="ok-item"><b>Q2 · 拆票粒度</b><br/><b>一条 task 一票 + wave 级 parent issue。</b> 标题 <code class="text-xs bg-gray-100 px-1 rounded">[v2/1.3]</code> 前缀防刷屏。</div>
+              <div class="ok-item"><b>Q3 · 看板</b><br/><b>现在就要。</b> GitHub Projects(Basic Kanban):Backlog / Ready / In Progress / Done。</div>
+              <div class="ok-item"><b>Q4 · 缺陷关联 change</b><br/><b>需要。</b> 标题带 <code class="text-xs bg-gray-100 px-1 rounded">[change=xxx]</code> 前缀,修复时回写 tasks.md。</div>
+              <div class="ok-item"><b>Q7 · 双轨并行(worktree 自动化)</b><br/><b>主窗口 + worktree 同套机制。</b> 主窗口跑 <code class="text-xs bg-gray-100 px-1 rounded">feat</code> 线,worktree 跑 <code class="text-xs bg-gray-100 px-1 rounded">fix</code> 线,各自独立 PR/CI/合并;fix 基于 origin/main,重叠冲突先合 fix 再 rebase feat。详见 3.7 节。</div>
+              <div class="ok-item"><b>Q9 · 并行 or 串行调度</b><br/><b>默认双线并行,冲突自动降级串行。</b> 功能与 bug issue 同存时:两线独立分支/PR/合并;改动重叠则 fix 优先合入、feat rebase 跟随;P0/P1 bug 永远插队。详见 3.7 节"执行调度模型"。</div>
+              <div class="ok-item"><b>Q10 · 多仓复用(mdpkg/clairis)</b><br/><b>同套机制,每仓一份配置。</b> 每仓跑一次 <code class="text-xs bg-gray-100 px-1 rounded">/setup-matt-pocock-skills</code> + 建 canonical 标签 + 各自模块/severity 标签;OpenSpec/to-tickets/triage/PR 脚本通用。详见 3.8 节。</div>
+              <div class="ok-item"><b>Q11 · 功能与 bug 是否同仓</b><br/><b>统一仓库、分标签、看板同列。</b> 功能票带 <code class="text-xs bg-gray-100 px-1 rounded">[change=xxx]</code>,bug 票带 <code class="text-xs bg-gray-100 px-1 rounded">[Px]</code>;靠 label 过滤 + Projects 分列;不建"一个 issue 装所有事"。详见 3.8 节。</div>
+            </div>
+          </div>
+          <div class="phase-card min-w-0">
+            <h3 class="font-semibold text-gray-900 mb-3">新开放问题 → 推荐方案(分支/PR 自动化)</h3>
+            <div class="space-y-2">
+              <div class="ok-item"><b>Q5 · 自动合并执行方式?</b><br/><b>推荐:GitHub 原生 auto-merge + 分支保护。</b> main 设 required status checks(ci.yml 两个 job),PR 创建时 agent 按风险等级决定:<code class="text-xs bg-gray-100 px-1 rounded">risk-low</code> → <code class="text-xs bg-gray-100 px-1 rounded">gh pr merge --auto --squash</code> 启用 auto-merge(CI 绿自动合);中/高不启用,等人工。零新增 workflow 文件,原生可靠,配合 deleteBranchOnMerge 自动收尾。</div>
+              <div class="ok-item"><b>Q6 · risk-medium 单人提速?</b><br/><b>推荐:降级为"合后即时验证",核心模块例外。</b> 单人维护没有第二个人评审,等待=等自己。默认 medium 也自动合,但 merge 后立即跑线上检查(curl 首页 + CI deploy 绿 + console 无错);标 <code class="text-xs bg-gray-100 px-1 rounded">risk-high</code> 或涉及渲染/保存/FSA 的强制人工审 diff。实际等效两级:low+medium 自动、high 人工。</div>
+              <div class="ok-item"><b>Q8 · PR 自动化落地形态?</b><br/><b>推荐:先脚本 + 文档,验证稳定后再 skill 化。</b> 写 <code class="text-xs bg-gray-100 px-1 rounded">scripts/pr-automation.sh</code>(确定性命令序列:建分支→自检→commit→push→pr create→分级 auto-merge)并把流程规范写进 <code class="text-xs bg-gray-100 px-1 rounded">docs/agents/</code> 或你的 branch-workflow.md。跑通 3-5 个真实 PR 后,把经验包装成 skill。脚本不依赖 LLM 判断,可测可回滚。</div>
+              <div class="decision-item"><b>Q7 · worktree 还是主窗口?</b> 保持你的结论:顺序推进用主工作区分支切换,真并行才 worktree。md-bundle 现状维持。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. 下一步任务 -->
+    <section>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">6 · 下一步任务分析(结合你的全部需求)</h2>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="mb-5 p-4 bg-blue-50 rounded-lg text-sm text-gray-700">
+          <b>你的需求全景</b>:① spec 后自动化开发 · ② 缺陷修复自动化 · ③ 跟踪 spec 完成 · ④ BUG 记录修复(人工测试+聊天直报+批量) · ⑤ git issue 联动 · ⑥ 分支/PR 自动化 · ⑦ 双轨并行(主窗口+worktree) · ⑧ 多仓复用(mdpkg/clairis)。以下任务按依赖排序,全部落地后 ①-⑧ 全通。
+        </div>
+        <div class="space-y-4">
+          <div class="phase-card !p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold text-gray-900 text-sm">Task A · 仓库地基(唯一阻塞项,约 15 分钟)</h3>
+              <span class="tag bg-red-100 text-red-700">先做</span>
+            </div>
+            <ul class="space-y-1.5 text-sm text-gray-600 list-disc pl-5">
+              <li>创建 4 个缺失 canonical 标签:<code class="text-xs bg-gray-100 px-1 rounded">needs-triage / needs-info / ready-for-agent / ready-for-human</code>(<code class="text-xs bg-gray-100 px-1 rounded">wontfix</code> 已有)</li>
+              <li>建 3 个风险标签:<code class="text-xs bg-gray-100 px-1 rounded">risk-low / risk-medium / risk-high</code> + 来源标记 <code class="text-xs bg-gray-100 px-1 rounded">ai-generated</code></li>
+              <li>开 main 分支保护:required status checks(ci.yml 两 job)+ 禁止直推;开 <code class="text-xs bg-gray-100 px-1 rounded">deleteBranchOnMerge</code></li>
+              <li>修正 <code class="text-xs bg-gray-100 px-1 rounded">defect-workflow.md</code> 废弃的 <code class="text-xs bg-gray-100 px-1 rounded">in-progress</code> 引用</li>
+              <li>废弃 bug-registry 缓存策略写入文档(以 <code class="text-xs bg-gray-100 px-1 rounded">gh issue list</code> 为准)</li>
+            </ul>
+          </div>
+          <div class="phase-card !p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold text-gray-900 text-sm">Task B · to-tickets 桥接落地(核心价值)</h3>
+              <span class="tag bg-blue-100 text-blue-700">核心</span>
+            </div>
+            <ul class="space-y-1.5 text-sm text-gray-600 list-disc pl-5">
+              <li>定义 Parent tracking issue 模板(每 change 一个总 issue,tasks 清单 checkboxes)</li>
+              <li>定义 to-tickets 发布规则:一条 task 一票 + wave 级 parent + 标题 <code class="text-xs bg-gray-100 px-1 rounded">[change/task]</code> 前缀</li>
+              <li>试点:下一个新 OpenSpec change 全链路跑通(to-tickets 发票 → agent 捡活 → commit fixes #N → 自动关)</li>
+            </ul>
+          </div>
+          <div class="phase-card !p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold text-gray-900 text-sm">Task C · PR 自动化脚本 + 缺陷状态机</h3>
+              <span class="tag bg-purple-100 text-purple-700">执行层</span>
+            </div>
+            <ul class="space-y-1.5 text-sm text-gray-600 list-disc pl-5">
+              <li>写 <code class="text-xs bg-gray-100 px-1 rounded">scripts/pr-automation.sh</code>:捡 issue → 建分支(feat/fix) → 自检四件套 → commit fixes #N → push → gh pr create(模板+风险标签)→ 分级 auto-merge</li>
+              <li>PR 模板文件(PRO 6 必填字段 + AI 来源 + 风险等级)</li>
+              <li>跑通 triage 状态机:needs-triage → 验证/grill → ready-for-agent(附 agent brief)→ 修复 → 验证 → close</li>
+              <li>跑通 3-5 个真实 PR 后沉淀为 skill</li>
+            </ul>
+          </div>
+          <div class="phase-card !p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold text-gray-900 text-sm">Task D · 缺陷填报自动补全(agent 侧能力)</h3>
+              <span class="tag bg-green-100 text-green-700">零配置</span>
+            </div>
+            <ul class="space-y-1.5 text-sm text-gray-600 list-disc pl-5">
+              <li>聊天直报:只描述现象 → agent 推断模块/severity/复现,生成结构化 issue</li>
+              <li>批量录入:一段话 N 个问题 → 自动拆分 N 个 issue</li>
+              <li>人工测试 bug 走同一 triage 状态机(四件套标签)</li>
+            </ul>
+          </div>
+          <div class="phase-card !p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold text-gray-900 text-sm">Task E · 完成跟踪总视图</h3>
+              <span class="tag bg-amber-100 text-amber-700">已定:现在就要</span>
+            </div>
+            <ul class="space-y-1.5 text-sm text-gray-600 list-disc pl-5">
+              <li>GitHub Projects Basic Kanban:Backlog / Ready / In Progress / Done,按 label 归类</li>
+              <li>对账节奏:每轮开发会话末 <code class="text-xs bg-gray-100 px-1 rounded">openspec status</code> 回写 tasks.md</li>
+            </ul>
+          </div>
+          <div class="phase-card !p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold text-gray-900 text-sm">Task F · 多仓复用(mdpkg / clairis)</h3>
+              <span class="tag bg-gray-100 text-gray-700">按需</span>
+            </div>
+            <ul class="space-y-1.5 text-sm text-gray-600 list-disc pl-5">
+              <li>每仓跑一次 <code class="text-xs bg-gray-100 px-1 rounded">/setup-matt-pocock-skills</code> + 建 canonical 标签 + 各自模块/severity 标签</li>
+              <li>复用 pr-automation.sh 与 triage 流程(标签表/bug模板/CI 内容参数化)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-5 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
+          <b>执行顺序</b>:A(地基)→ B(桥接)→ C(自动化)→ D(填报)→ E(看板)→ F(多仓)。A 阻塞一切;D 是纯 agent 能力零成本;F 按需。当前状态:<b>Task A-E 全部完成</b>(标签/分支保护/脚本/文档/看板均已落地,看板 https://github.com/orgs/jianxi-dev/projects/1)。剩余:<b>Task B 试点与 Task C 实战待下一个新 change 触发;Task F 多仓复用按需</b>。
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-gray-200 py-6 mt-12">
+    <div class="max-w-7xl mx-auto px-6 text-sm text-gray-500">
+      研究依据:<code class="text-xs bg-gray-100 px-1 rounded">to-spec / to-tickets / triage / openspec-propose / openspec-apply-change</code> skill 文档 · <code class="text-xs bg-gray-100 px-1 rounded">implement / tdd / code-review / review / qa / ship / learn / sync-gbrain / programming / git-master</code> skill 文档 · <code class="text-xs bg-gray-100 px-1 rounded">docs/agents/{issue-tracker,triage-labels,defect-workflow}.md</code> · <code class="text-xs bg-gray-100 px-1 rounded">gh label list</code> / <code class="text-xs bg-gray-100 px-1 rounded">gh repo view</code> 实测 · <code class="text-xs bg-gray-100 px-1 rounded">openspec status</code>(29/33) · <code class="text-xs bg-gray-100 px-1 rounded">ToHigh/branch/</code> 三份分支/PR 规范文档
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { primaryColor: '#eff6ff', primaryBorderColor: '#93c5fd', fontSize: '13px' } });
+  </script>
+</body>
+</html>
