@@ -30,6 +30,23 @@ allowed-tools: Bash(gh:*|git:*|openspec:*|pnpm:*)
 | `pr-automation.sh` | 脚本（G2 机械动作：门禁/提交/push/PR） |
 | `gh` / `git` / `openspec` CLI / `pnpm` | CLI 工具（被 skill/脚本调用） |
 
+## 会话启动：消费合并信号（跨会话自动收尾）
+
+每次会话启动时（任何 gate 之前）自动执行：
+
+```bash
+gh pr list --state merged --label change-close-pending --json number,title,body
+```
+
+- 对每个带 `change-close-pending` 标签的已合并 PR：
+  1. 从该 PR 关闭的子票标题（`[change=<名>/`）提取 change 名
+  2. 运行 §8.1 收口检查：`openspec status --change <名> --json`（completedTasks==totalTasks）+ 无残留 open 子票 + 无未合并 PR
+  3. 满足 → **自动执行 G4**（sync → validate --strict → archive → 看板 Done → 关闭 spec issue）
+  4. 完成后移除该 PR 的 `change-close-pending` 标签（`gh pr edit <N> --remove-label change-close-pending`）
+- 不满足（仍有残留）→ 保留标签，按 G3 frontier 继续推进
+
+> 信号由 `.github/workflows/change-closure-signal.yml` 在合并时产生（Layer 1 确定性信号）；本节为 Layer 2a 消费端——保证「合并后无需人工提醒，agent 下次会话即自动收尾」。
+
 ## 编排路线图
 
 ```mermaid
@@ -111,7 +128,15 @@ flowchart TB
 - 拆票逻辑与原则（垂直切片/Blocked by/frontier/expand-contract）**以 to-tickets SKILL.md 为准，本 skill 不复制**；此处仅保留仓库特化规则：**Parent 引用 = spec issue（to-tickets 原文「源 issue」语义，不另建 change parent）**、标题前缀 `[change=<名>/<task号>]`、标签 `ready-for-agent`、Blocked by 沿用输入源既有阻塞边
 - 调用 to-tickets 传参 spec issue 编号（fetch 读全文评论）：输入 = #S 全文 + tasks.md → **不重复切片**，职责：quiz 验收粒度（过粗/过细 → 先 `/opsx-update` 修订 tasks.md 再发）→ 确认 Blocked by → GitHub 建子票（1 task = 1 ticket，每票 What/AC/Blocked by/Parent=#S/ready-for-agent）→ 按依赖序发布
 - artifacts docs PR 先行：`pr-automation.sh --role feat --issue <parent> --slug <change>-artifacts --risk low --files openspec/changes/...`
-- 看板入列（Ready 列）
+- **看板入列（Ready 列）——label 不会自动入列，需显式 gh project 操作**：
+  ```bash
+  # 一次性：取 Status 字段与选项 ID（本仓已缓存如下）
+  gh api graphql -f query='query { node(id: "<PROJECT_ID>") { ... on ProjectV2 { fields(first:20){ nodes { ... on ProjectV2SingleSelectField { name id options { id name } } } } } } }'
+  # 入列 + 置 Ready
+  ITEM=$(gh project item-add <N> --owner <owner> --url <issue-url> --format json --jq .id)
+  gh project item-edit --project-id <PROJECT_ID> --id "$ITEM" --field-id <STATUS_FIELD_ID> --single-select-option-id <READY_OPTION_ID>
+  ```
+  本仓常量：project=`PVT_kwDOE0POlM4BjPai`；Status 字段=`PVTSSF_lADOE0POlM4BjPaizhiEhFM`；选项 Ready=`a50766ca` / Done=`4cbd348f`（Backlog=`8c7f2979` / In Progress=`a7011ca0`）
 - **对账自证**：`gh issue list --label ready-for-agent --state open --json number,title --jq '.[] | select(.title | startswith("[change=<change 名>/"))'` 数量 == tasks.md task 数（spec issue 标题不含该前缀天然排除）；逐条核对 task 编号 ↔ issue 标题；**禁止占位符原样传入命令**
 
 ### G1 实施 gate｜执行：implement skill（总编排，task-tracking §7.1 ✅ 必用）
@@ -131,6 +156,9 @@ flowchart TB
 > 前置：G1 出口通过方可进入
 
 - **1 issue = 1 PR，feat 与 fix 双角色同 gate**：分支已在 G1 第 0 步创建，G2 统一用 `--resume-branch <分支> --issue <票号> [--files ...] [--risk r]` 收口——resume 跳过建分支，执行四件套硬门禁 → commit `fixes #N` → push → PR 检测/创建 → 按 risk 分级合并；功能子票 `--role feat`，缺陷票 `--role fix`
+- **resume 硬规则**：① 分支**已有 commit** 时必须用 `--resume-branch`（从头模式会从 origin/main 重建分支，导致既有提交的文件 pathspec 丢失）；② `--slug` 与 `--resume-branch` **互斥**（不可同时传）；③ 白名单：`--files` 外的任何工作区改动（含 untracked）都会被拒绝——规划文件未入库时先 rebase main 使其 tracked
+- **parent/spec issue 的 PR 用 `--refs-only`**：PR body 用 `Refs #N` 而非 `Closes #N`，避免合并提前关闭 parent/spec issue 生命周期（G4 才收口）
+- **auto-merge**：risk-low 尝试启用；仓库未启用时脚本 fail-open（提示 `gh pr merge <N> --squash`，CI 绿后执行）
 - **从头模式适用场景**：artifacts docs PR（文件就绪一次成型）；单文件快速改动
 - PR 模板必填项全填（impact/verification/risk）；禁止 `--skip-checks`
 
@@ -139,12 +167,13 @@ flowchart TB
 - **时机**：push + PR 创建后立即执行，不等合并
 - **不阻塞下一 change**：下一 change 自 commit/push 完成后即可启动；learn/sync 是收尾动作而非前置 gate，可并行
 - **frontier 自动推进**：G3 后自动运行 `gh issue list --label ready-for-agent --state open --json number,title,body` 按 `[change=<名>/` 精确筛选 → 逐票解析 Blocked by 确认全部 closed → 取第一张可开工票自动进入其 G1（单 agent 会话内自动循环）；无票可做 → change 收口检查（completedTasks==totalTasks 且无残留且无未合并 PR）→ 自动进入 G4
-- **自动化边界**：单 agent 会话内自动；跨会话需外部触发器（超出 scope）；唯一人工介入 = risk-medium/high PR 合并确认
+- **自动化边界**：单 agent 会话内自动（frontier 推进）；跨会话由「会话启动消费 `change-close-pending` 信号」覆盖（见上节）；唯一人工介入 = risk-medium/high PR 合并确认
 - **learn/sync 不依赖 ship**：每轮交付后的知识闭环服务下一 change/会话；ship 若触发，其后额外增量一次
 
 ### G4 change 级收尾（§8.2 自动触发，合并后）｜执行：openspec 套件 + gbrain
 
 - 全部 tasks [x] + 关联 PR 全合并 → 主 spec `/opsx-sync`（合并后唯一时机，零差异确认）→ `validate --strict` → archive → 看板 Done → **关闭 spec issue #S**（`gh issue close --comment "change 已收口"`）→ gbrain 增量
+- **`validate --strict` 与 spec delta**：spec-driven schema 要求 change 至少一个 `specs/<capability>/spec.md` delta（`## ADDED/MODIFIED Requirements` + `#### Scenario:`）。**纯文档/基建 change（tasks-only）会 validate 失败** → 处置：补最小 delta（新建/复用 capability，把变更固化为 Requirement），或确认无 spec 语义后走非 strict
 - **仅 `/opsx-sync`（主 spec 同步）限合并后执行**；任务级 `sync-gbrain` 不受此限（push+PR 后立即）
 
 ## gate 失败处理：fix-first 自愈回路（禁止停等用户、禁止跳过）
