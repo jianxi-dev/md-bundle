@@ -26,10 +26,11 @@ export function AssetPanel({
       data-testid="asset-list"
       aria-label="资源清单"
     >
-      <h2 className="mb-2 text-sm font-medium text-slate-200">
+      {/* 前景/告警/危险色一律走主题 token，保证浅色主题下同样可读（#74） */}
+      <h2 className="mb-2 text-sm font-medium text-[var(--fg)]">
         资源清单 ({assets.length})
         {orphanCount > 0 && (
-          <span className="ml-2 text-xs text-amber-400" data-testid="orphan-count">
+          <span className="ml-2 text-xs text-[var(--warn)]" data-testid="orphan-count">
             {orphanCount} 个未引用
           </span>
         )}
@@ -72,23 +73,23 @@ function AssetRow({
   return (
     <li
       className={`flex items-center gap-2 rounded-lg p-2 ${
-        isOrphan ? 'bg-amber-500/10 ring-1 ring-amber-500/30' : 'bg-[var(--bg)]/60'
+        isOrphan ? 'bg-[var(--warn)]/10 ring-1 ring-[var(--warn)]/30' : 'bg-[var(--bg)]/60'
       }`}
       data-testid={`asset-${asset.name}`}
     >
       <img
         src={asset.dataUrl}
         alt={asset.name}
-        className="h-10 w-10 shrink-0 rounded object-cover"
+        className="h-10 w-10 shrink-0 rounded border border-[var(--border)] object-cover"
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs text-slate-200" title={asset.name}>
+        <p className="truncate text-xs text-[var(--fg-2)]" title={asset.name}>
           {asset.name}
         </p>
         <p className="text-[10px] text-[var(--muted)]">
           {kb} KB
           {isOrphan && (
-            <span className="ml-1 text-amber-400" data-testid={`orphan-badge-${asset.name}`}>
+            <span className="ml-1 text-[var(--warn)]" data-testid={`orphan-badge-${asset.name}`}>
               · 未引用
             </span>
           )}
@@ -118,7 +119,7 @@ function AssetRow({
         type="button"
         onClick={() => onDelete(asset.name)}
         data-testid={`delete-btn-${asset.name}`}
-        className="rounded border border-red-500/30 px-2 py-1 text-[11px] text-red-400 transition-colors hover:border-red-500/60 hover:text-red-300"
+        className="rounded border border-[var(--danger)]/30 px-2 py-1 text-[11px] text-[var(--danger)] transition-colors hover:border-[var(--danger)]/60 hover:text-[var(--danger)]"
       >
         删除
       </button>
