@@ -1,5 +1,7 @@
 # 未提交代码丢失事故复盘与开发流程改进
 
+> 最后更新：2026-09-10
+
 > 事故类型：共享工作区中的未提交 UI 代码被破坏性回滚覆盖
 >
 > 影响范围：上一轮 mockup 驱动的 Toolbar、Landing、LeftRail、TabStrip、OutlineMenu 及相关导出/交互改动

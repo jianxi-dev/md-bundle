@@ -136,3 +136,13 @@ Issue 和 spec 统一以 GitHub issue 形式存在于 `jianxi-dev/md-bundle`。�
 ### Domain docs
 
 单上下文仓库：探索前阅读根目录 `CONTEXT.md`（若不存在则以 `AGENTS.md` 替代）和 `docs/adr/`。详见 `docs/agents/domain.md`。
+
+### Change workflow（变更流程 gate）
+
+启动新 change、接手进行中 change、拆票、提交/PR、收尾与归档，一律经 `.opencode/skills/change-workflow/`（G0-G4 五 gate + fix-first 自愈回路）。拆票/commit/闭环规范见 `docs/agents/task-tracking.md`（1 task = 1 ticket，1 issue = 1 PR）；看板入列 API 见 `docs/agents/project-board.md`。
+
+### Defect workflow（缺陷流程）
+
+本仓库所有缺陷统一走 GitHub Issues（唯一事实来源，**2026-09-12 起废弃本地 bug-registry 缓存**）。缺陷票标题 `[bug]` 前缀 + `bug,p<级别>,<模块>,needs-triage` 标签，triage 状态机流转。详见 `docs/agents/defect-workflow.md`。
+
+流程规范索引：`docs/agents/` 下 9 份规范文档（task-tracking / issue-tracker / project-board / triage-labels / defect-workflow / domain / incident-uncommitted-work-loss 等）头部均含「最后更新」日期，以最新版为准。

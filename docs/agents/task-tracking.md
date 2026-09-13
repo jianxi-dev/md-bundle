@@ -15,7 +15,7 @@
 ## 2. 拆票粒度
 
 - **一条 task 一票**：tasks.md 本身就是垂直切片粒度（每条约 1 commit），天然匹配。
-- **wave 级 parent issue**：每个 wave 一个总 issue，body 贴该 wave 的任务清单 checkboxes，子票引用它。
+- **Parent = 源 issue（to-tickets/to-spec 原语）**：每张子票统一引用其来源 spec issue（G0-PRE 由 to-spec 创建）作为 Parent，**不另设 wave/change 级 parent**；对账锚点即该 spec issue（§4）。
 - 标题前缀防刷屏：`[change=md-bundle-v2/1.3]` 格式。
 
 ## 3. 发布规则（走 GitHub issue）
@@ -23,35 +23,29 @@
 to-tickets 流程在本仓库一律发布为 GitHub issue（不使用本地 `.scratch/`），因为 tracker 配置就是 GitHub。
 
 每个 ticket 必须包含：
-- **Parent**：所属 wave parent issue 引用
+- **Parent**：源 spec issue（to-spec 创建的规格票）引用
 - **What to build**：从用户视角描述端到端行为
 - **Acceptance criteria**：具体可验证的 AC 清单
 - **Blocked by**：阻塞它的其他 ticket 引用（无则 "None — can start immediately"）
 - 标签：`ready-for-agent` + 模块标签
 
-## 4. Parent tracking issue 模板
+## 4. 子票关联与对账（Parent = 源 spec issue）
 
-每个 change 建一个总跟踪 issue，body 贴完整 tasks 清单 checkboxes：
+to-tickets 拆出的每张子票统一引用其**来源 issue**（G0-PRE 由 to-spec 创建的 spec issue）作为 Parent——**不另设 wave/change 级 tracking issue**（遵循 to-tickets/to-spec 原语；spec issue 即需求定义面与对账锚点）：
 
 ```markdown
-## OpenSpec Change 跟踪：<change 名>
+## 子票信息
 
-> 权威清单：`openspec/changes/<change 名>/tasks.md`
-> 关联：子任务 issue 见下方各 wave 链接
-
-## Wave 1 — <wave 名>
-
-- [ ] 1.1 <任务名> — #<issue号>
-- [ ] 1.2 <任务名> — #<issue号>
-
-## Wave 2 — <wave 名>
-
-- [ ] 2.1 <任务名> — #<issue号>
+**Parent**: #<spec issue 号>（源规格票：需求定义与对账锚点）
+**What to build**: 从用户视角描述端到端行为
+**Acceptance criteria**: 具体可验证的 AC 清单
+**Blocked by**: 阻塞它的其他子票引用（无则 "None — can start immediately"）
 ```
 
-- parent issue 标签：`ready-for-agent` + `enhancement`
 - 子票标题统一 `[change=<名>/<task号>]` 前缀
-- 子票完成 → 勾选 parent checkbox → 全部勾完 → 归档 change
+- 标签：`ready-for-agent` + 模块标签
+- **生命周期**：spec issue 保持 OPEN 贯穿整个 change（需求可评论迭代）→ 全部子票随 PR 合并 `fixes #N` 自动关闭 → change 收口（§8）时主流程 `gh issue close` 关闭 spec issue
+- **对账**：子票（`[change=<名>/` 前缀精确匹配）数量与 tasks.md task 数一致；tasks.md checkbox ↔ 子票关闭数逐条对账（§5）
 
 ## 5. 完成回写
 
@@ -144,7 +138,7 @@ gh pr list --state open --head <关联分支>            # 检查无未合并 PR
 | 2. 主 spec 同步 | `/opsx-sync` | delta specs 智能合并回 `openspec/specs/<capability>/spec.md` | 无 delta 则跳过 |
 | 3. 严格验证 | `npx openspec validate <名> --strict` | 验证 change + 主 spec 一致性 | 失败 → 修复后重跑，不归档 |
 | 4. 归档 | `/opsx-archive` | change 移入 `openspec/changes/archive/YYYY-MM-DD-<名>` | — |
-| 5. 看板收口 | `gh issue close` parent issue + 看板置 Done | 生命周期终点记录 | — |
+| 5. 看板收口 | `gh issue close` spec issue + 看板置 Done | 生命周期终点记录 | — |
 | 6. 索引刷新 | `gbrain sync` 增量 | main specs 变更入索引 | — |
 
 ### 8.3 与任务级闭环的关系（两级闭环）

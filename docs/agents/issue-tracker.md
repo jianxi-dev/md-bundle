@@ -1,5 +1,7 @@
 # Issue tracker: GitHub
 
+> 最后更新：2026-09-10
+
 本仓库的 issue、spec、缺陷统一使用 GitHub Issues 管理，仓库为 `jianxi-dev/md-bundle`。所有操作优先使用 `gh` CLI。
 
 ## 开发事故与恢复
