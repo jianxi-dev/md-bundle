@@ -231,8 +231,9 @@ export default function App() {
     const { url } = createInviteLink()
     try {
       await navigator.clipboard.writeText(url)
+      showInviteCardStatus('邀请链接已复制')
     } catch {
-      // 剪贴板不可用 → 静默失败（用户仍可从 URL 手动复制）
+      showInviteCardStatus('复制失败：剪贴板不可用')
     }
   }
 
