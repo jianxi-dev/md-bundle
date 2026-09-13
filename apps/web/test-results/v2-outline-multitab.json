@@ -1,0 +1,8 @@
+{
+  "tasks": "outline-multitab",
+  "openTwoDocs": true,
+  "switchTabOutlineMatches": true,
+  "switchBackOutlineMatches": true,
+  "noCrossContamination": true,
+  "scrollOnFarHeading": true
+}

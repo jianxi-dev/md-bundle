@@ -9,7 +9,7 @@ import type { EditorMode } from './Toolbar'
 
 /**
  * CM6 视图最小接口 —— 避免直接 import @codemirror/view（apps/web 无该依赖）。
- * 只声明本组件使用的属性：doc 字符串 + viewport 范围 + focus。
+ * 只声明本组件使用的属性：doc 字符串 + viewport 范围 + focus + 滚动定位。
  */
 interface CM6ViewLike {
   state: {
@@ -22,8 +22,14 @@ interface CM6ViewLike {
   }
   viewport: { from: number; to: number }
   focus(): void
-  /** DOM 根元素（用于查找 .cm-scroller）。 */
-  dom: HTMLElement
+  /** CM6 的滚动容器（EditorView.scrollDOM），设置 scrollTop 即可滚动。 */
+  scrollDOM: HTMLElement
+  /**
+   * 返回指定字符偏移处的行块几何信息（相对于文档顶部）。
+   * 用 lineBlockAt 获取精确像素坐标后设置 scrollDOM.scrollTop，
+   * 避免 nth-child 索引 ≠ 文档行号的问题（CM6 仅渲染视口附近的行）。
+   */
+  lineBlockAt(pos: number): { top: number; bottom: number }
 }
 
 export interface OutlineMenuProps {
@@ -68,39 +74,44 @@ function offsetAtLine(view: CM6ViewLike, line: number): number {
 }
 
 /**
- * 通过 DOM 滚动 CM6 编辑器到指定行。
- * 找到 .cm-scroller → 计算行偏移 → 设置 scrollTop。
+ * 滚动 CM6 编辑器到指定行（0-based）。
+ * 用 view.lineBlockAt 获取精确像素坐标后设置 scrollDOM.scrollTop，
+ * 避免 nth-child 索引 ≠ 文档行号的问题（CM6 仅渲染视口附近的行）。
  */
 function scrollToLineInCM6(view: CM6ViewLike, line: number): void {
-  // 找到 .cm-content 元素中的行元素
-  const scroller = view.dom.querySelector('.cm-scroller')
-  if (!scroller) return
+  const doc = view.state.doc
+  if (line >= doc.lines) return
+  // 目标行的字符偏移（doc.line 是 1-based）
+  const pos = doc.line(line + 1).from
 
-  // 用 CM6 内部 line widget 测量：创建一个临时 marker 获取坐标
-  // 简化方案：用 scrollTop 按行高估算
-  const lineEl = view.dom.querySelector(`.cm-line:nth-child(${line + 1})`)
-  if (lineEl) {
-    lineEl.scrollIntoView({ block: 'start', behavior: 'instant' })
-    return
+  try {
+    const block = view.lineBlockAt(pos)
+    view.scrollDOM.scrollTop = block.top
+  } catch {
+    // jsdom 无布局 → 忽略
   }
-
-  const estimatedTop = line * 20
-  scroller.scrollTo({ top: estimatedTop, behavior: 'instant' })
 }
 
 /**
  * 找到当前视口中最顶部可见的标题索引。
  * 编辑/源码模式：CM6 viewport；预览模式：DOM 可见区域。
+ * @param documentText 当前文档文本；用于在共享 CM6 view 场景下检测 doc 是否已同步。
  */
 function findCurrentHeadingIndex(
   headings: OutlineHeading[],
   mode: EditorMode,
   editorView: CM6ViewLike | null,
   previewEl: HTMLElement | null,
+  documentText: string,
 ): number {
   if (headings.length === 0) return -1
 
   if ((mode === 'edit' || mode === 'source') && editorView) {
+    // 页签切换后首帧：共享 CM6 view 的 doc 可能仍是旧文档。
+    // 用 doc.length 作廉价代理：长度不同 → 文档不同 → viewport 不可信，返回 -1 不高亮。
+    // 权衡：极罕见情况下两篇不同文档长度恰好相同会漏检，但此时 viewport 范围
+    // 通常仍在合理区间，不会产生可见的错误高亮。
+    if (editorView.state.doc.length !== documentText.length) return -1
     // CM6 viewport：找到 viewport 中最顶部的标题
     const vp = editorView.viewport
     for (let i = headings.length - 1; i >= 0; i--) {
@@ -151,8 +162,8 @@ export function OutlineMenu({
 
   // 当前高亮标题（仅用于视觉指示，不做精确实时追踪）
   const currentIndex = useMemo(
-    () => findCurrentHeadingIndex(headings, mode, editorView, previewRef?.current ?? null),
-    [headings, mode, editorView, previewRef?.current],
+    () => findCurrentHeadingIndex(headings, mode, editorView, previewRef?.current ?? null, documentText),
+    [headings, mode, editorView, previewRef?.current, documentText],
   )
 
   // 点击标题导航
@@ -196,6 +207,11 @@ export function OutlineMenu({
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [hovering, pinned])
+
+  // 切换文档或模式时重置 activeIndex，防止高亮跨页签泄漏（#73）。
+  useEffect(() => {
+    setActiveIndex(-1)
+  }, [documentText, mode])
 
   // 高亮：点击后锁定 activeIndex，否则跟随滚动位置（currentIndex）。
   const highlightedIndex = activeIndex >= 0 ? activeIndex : currentIndex
