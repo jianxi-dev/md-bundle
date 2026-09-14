@@ -8,6 +8,10 @@
 
 Browser-only web tool for opening, editing, and exporting `.md` files and self-contained `.mdpkg` Markdown packages. pnpm monorepo, TypeScript + React 18 + Vite + Vitest + Playwright. Pure frontend, no backend, no CLI.
 
+## 用户约定（MANDATORY）
+
+- **对用户的一切反馈使用中文**。所有文档均为中文撰写，交流语言保持一致。
+
 ## STRUCTURE
 
 ```
