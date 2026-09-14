@@ -243,6 +243,44 @@ describe('exportDocx', () => {
   });
 });
 
+  it('docx 结构断言：表格满宽 + 固定布局 + callout 色 + styles 行距 + 无 callout 标记残留', async () => {
+  const { calls, download } = captureDownload();
+  // 输入含表格（触发 w:tblW）和 tip callout（触发 ECF7EC 色）
+  const md = [
+    '# 结构断言测试',
+    '',
+    '| 列A | 列B |',
+    '|-----|-----|',
+    '| a1  | b1  |',
+    '',
+    '> [!tip] 提示标题',
+    '> 提示正文内容',
+    '',
+  ].join('\n');
+  const result = await exportDocx({ markdown: md, download });
+
+  expect(result).toEqual({ ok: true });
+  expect(calls).toHaveLength(1);
+
+  const docXml = await readZipEntryText(calls[0].blob, 'word/document.xml');
+  const stylesXml = await readZipEntryText(calls[0].blob, 'word/styles.xml');
+  expect(docXml).not.toBeNull();
+  expect(stylesXml).not.toBeNull();
+
+  // 1. 表格存在
+  expect(docXml).toContain('<w:tbl>');
+  // 2. 表格列宽满宽 9026（twips = 100% A4 页面宽度）
+  expect(docXml).toContain('w:tblW w:w="9026"');
+  // 3. 表格固定布局
+  expect(docXml).toContain('<w:tblLayout w:type="fixed"/>');
+  // 4. callout tip 类型色 ECF7EC（浅绿色背景）
+  expect(docXml).toContain('w:fill="ECF7EC"');
+  // 5. styles.xml 含标准行距 240 twips（单倍行距）
+  expect(stylesXml).toContain('w:line="240"');
+  // 6. document.xml 不含 callout 标记残留（[!tip] 应被渲染为视觉样式而非文本）
+  expect(docXml).not.toContain('[!');
+});
+
 /** 最小 document stub：仅满足 bundle 顶层 decodeNamedCharacterReference 的 createElement 调用 */
 function installDocumentStub(): void {
   if (typeof globalThis.document !== 'undefined') return;
