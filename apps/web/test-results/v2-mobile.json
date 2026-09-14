@@ -2,6 +2,7 @@
   "tasks": "2.7",
   "narrowPreviewDefault": true,
   "railDrawer": true,
+  "mobileDrawerDismiss": true,
   "outlineNoOverlap": true,
   "moreMenu": true,
   "noOverflow": true,

@@ -19,6 +19,7 @@ const evidence = {
   tasks: '2.7',
   narrowPreviewDefault: false,
   railDrawer: false,
+  mobileDrawerDismiss: false,
   outlineNoOverlap: false,
   moreMenu: false,
   noOverflow: false,
@@ -74,6 +75,43 @@ test.describe('375×812 窄屏', () => {
     await expect(page.getByTestId('left-rail-tab-assets')).toBeVisible();
 
     evidence.railDrawer = true;
+  });
+
+  test('点击抽屉遮罩关闭抽屉（移动端外部点击）', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.removeItem('md-bundle.left-rail'));
+    await page.reload();
+    await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
+    // 切换到编辑模式
+    await page.getByTestId('mode-edit-btn').click();
+    await expect(page.getByTestId('mode-edit-btn')).toBeVisible();
+
+    // 打开抽屉
+    const mobileToggle = page.getByTestId('mobile-rail-toggle');
+    await mobileToggle.click();
+    const drawer = page.getByTestId('mobile-rail-drawer');
+    await expect(drawer).toBeVisible();
+
+    // 遮罩可见（覆盖抽屉外区域）
+    const mask = page.getByTestId('mobile-rail-drawer-mask');
+    await expect(mask).toBeVisible();
+
+    // 点击抽屉上方（外部区域）→ 抽屉关闭
+    const drawerBox = await drawer.boundingBox();
+    expect(drawerBox).not.toBeNull();
+    if (drawerBox) {
+      await mask.click({ position: { x: 180, y: Math.max(10, Math.round(drawerBox.y) - 20) } });
+    }
+    await expect(drawer).toHaveCount(0);
+    await expect(mask).toHaveCount(0);
+
+    // 再次打开 → toggle 关闭路径照旧可用
+    await mobileToggle.click();
+    await expect(drawer).toBeVisible();
+    await mobileToggle.click();
+    await expect(drawer).toHaveCount(0);
+
+    evidence.mobileDrawerDismiss = true;
   });
 
   test('大纲按钮在工作区面板右上且不与页签条重叠', async ({ page }) => {
