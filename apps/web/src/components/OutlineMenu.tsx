@@ -64,6 +64,17 @@ function extractHeadingsFromDom(container: HTMLElement): OutlineHeading[] {
 }
 
 /**
+ * 是否具备 hover 能力（桌面指针设备）。
+ * 触屏设备 `(hover: none)`：tap 会合成 mouseenter/mouseover，若启用 hover 分支会让浮层
+ * 卡在 hover 残留态；因此无 hover 设备退化为纯 pinned 交互（点图标弹出、点外部/再点收起）。
+ * jsdom 等无 matchMedia 的环境视为具备 hover，保持既有桌面行为。
+ */
+function detectHoverCapable(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
+  return !window.matchMedia('(hover: none)').matches
+}
+
+/**
  * 计算 CM6 中某行的字符偏移量（用于 scrollIntoView）。
  * 行号从 0 开始。
  */
@@ -146,6 +157,8 @@ export function OutlineMenu({
 }: OutlineMenuProps): JSX.Element {
   const [pinned, setPinned] = useState(false)
   const [hovering, setHovering] = useState(false)
+  // 无 hover 能力（触屏）时不做 hover 分支检测，避免 tap 合成事件把浮层卡住。
+  const [hoverCapable] = useState(detectHoverCapable)
   const [activeIndex, setActiveIndex] = useState(-1)
   const menuRef = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -214,16 +227,18 @@ export function OutlineMenu({
     return () => document.removeEventListener('keydown', onKey)
   }, [visible])
 
-  // 点击外部收起（仅 hover 模式）
+  // 点击外部收起（hover 与 pinned 通用）：pointerdown 同时覆盖鼠标与触屏。
+  // 触发钮自身不在此关闭，交由 onClick 的 toggle 处理，避免 pointerdown 先关、click 再开。
   useEffect(() => {
-    if (!hovering || pinned) return
-    const onDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setHovering(false)
-      }
+    if (!hovering && !pinned) return
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Node
+      if (menuRef.current?.contains(target) || btnRef.current?.contains(target)) return
+      setHovering(false)
+      setPinned(false)
     }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
   }, [hovering, pinned])
 
   // 切换文档或模式时重置 activeIndex，防止高亮跨页签泄漏（#73）。
@@ -238,9 +253,11 @@ export function OutlineMenu({
     <div
       data-testid="outline-wrap"
       className="absolute right-2 top-2 z-10 before:absolute before:left-0 before:right-0 before:top-full before:h-2 before:content-['']"
-      onMouseEnter={() => setHovering(true)}
+      onMouseEnter={() => {
+        if (hoverCapable) setHovering(true)
+      }}
       onMouseLeave={() => {
-        if (!pinned) setHovering(false)
+        if (hoverCapable && !pinned) setHovering(false)
       }}
     >
       {/* 触发钮 —— ghost 风格 */}
