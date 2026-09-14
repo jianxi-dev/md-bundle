@@ -7,11 +7,15 @@ import type { ValidationResult } from '../src/lib/mdpkg';
 afterEach(cleanup);
 
 describe('ValidationPanel', () => {
-  it('renders pass state for a valid result', () => {
+  it('renders nothing when validation passes', () => {
     const validation: ValidationResult = { ok: true, errors: [], warnings: [], externalCount: 0 };
-    render(<ValidationPanel validation={validation} />);
-    expect(screen.getByTestId('validation-pass')).toBeInTheDocument();
-    expect(screen.getByText('✅ 通过')).toBeInTheDocument();
+    const { container } = render(<ValidationPanel validation={validation} />);
+    // 正向锚点：组件完全不产出 DOM（弱于缺席断言的反向验证）
+    expect(container.firstChild).toBeNull();
+    // 回归锁：旧缺陷（#82）会渲染 validation-pass 面板，此处断言其不存在
+    expect(screen.queryByTestId('validation-pass')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('validation-fail')).not.toBeInTheDocument();
+    expect(screen.queryByText('✅ 通过')).not.toBeInTheDocument();
   });
 
   it('renders fail state with every error, warnings, and external notice', () => {
@@ -41,14 +45,28 @@ describe('ValidationPanel', () => {
   });
 
   it('does not show external notice when externalCount is 0', () => {
-    const validation: ValidationResult = { ok: true, errors: [], warnings: [], externalCount: 0 };
+    const validation: ValidationResult = { ok: false, errors: ['err'], warnings: [], externalCount: 0 };
     render(<ValidationPanel validation={validation} />);
     expect(screen.queryByTestId('validation-external')).not.toBeInTheDocument();
   });
 
   it('shows the document name in the header when provided', () => {
-    const validation: ValidationResult = { ok: true, errors: [], warnings: [], externalCount: 0 };
+    const validation: ValidationResult = { ok: false, errors: ['err'], warnings: [], externalCount: 0 };
     render(<ValidationPanel validation={validation} name="document.md" />);
     expect(screen.getByText('document.md')).toBeInTheDocument();
+  });
+
+  it('renders nothing when validation passes even with warnings', () => {
+    const validation: ValidationResult = {
+      ok: true,
+      errors: [],
+      warnings: ['[MDPKG-E404] 孤儿资源: images/orphan.png'],
+      externalCount: 0,
+    };
+    const { container } = render(<ValidationPanel validation={validation} />);
+    // 正向锚点：ok 态（含 warnings）也不产出任何 DOM
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByTestId('validation-pass')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('validation-fail')).not.toBeInTheDocument();
   });
 });
