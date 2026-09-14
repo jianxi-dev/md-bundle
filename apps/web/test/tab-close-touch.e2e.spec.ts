@@ -8,7 +8,7 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { devices, expect, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIX = join(here, 'fixtures');
@@ -42,8 +42,15 @@ async function closeBtnOpacity(
 
 // ── 触屏（无 hover 能力）──────────────────────────────────────
 
-test.describe('触屏（iPhone 13，无 hover 能力）', () => {
-  test.use({ ...devices['iPhone 13'] });
+test.describe('触屏（无 hover 能力）', () => {
+  // 显式触屏 context（不用 devices 预设：其 defaultBrowserType 会强制新 worker，
+  // 与 config 的 chromium project 冲突）。hasTouch + isMobile 使 (hover: none) 命中。
+  test.use({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    deviceScaleFactor: 2,
+  });
 
   test('浅色主题：页签关闭按钮常显（opacity = 1）', async ({ page }) => {
     expect(await closeBtnOpacity(page, 'light')).toBe('1');
