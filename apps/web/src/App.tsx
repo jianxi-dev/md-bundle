@@ -983,6 +983,7 @@ export default function App() {
               currentMode={mode}
               onModeChange={setMode}
               onThemeClick={handleThemeClick}
+              themeProp={themePref}
               onCopyInviteLink={() => void handleCopyInviteLink()}
               onGenerateInviteCard={() => void handleGenerateInviteCard()}
               onCopyBodyAsImage={() => void handleCopyBodyAsImage()}

@@ -47,6 +47,7 @@ describe('Toolbar', () => {
     onSave: vi.fn(),
     onExport: vi.fn(),
     onOpenFile: vi.fn(),
+    themeProp: 'system' as const,
   };
 
   it('renders the copy-body-as-image button next to 打开, with title/aria-label = 复制正文为图片', () => {
