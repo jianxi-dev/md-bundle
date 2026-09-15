@@ -295,13 +295,11 @@ export default function App() {
     }
   }, [activeTab?.id, isNarrow]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 预览模式 ESC 退出（Bug 13：全屏预览按 ESC 返回编辑；修复：全屏时只退出全屏不切编辑）──
+  // ── 预览模式 ESC 退出（非全屏 preview → edit）──
+  // 注意：全屏时由 exitFullscreenOnEscape 处理（先注册，stopImmediatePropagation 阻止本 handler）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      // 全屏态下按 ESC：由 exitFullscreenOnExit 处理退出全屏，此处不切编辑态
-      if (document.fullscreenElement) return
-      // 大纲浮层打开时由 OutlineMenu 自己处理 ESC（收起浮层），不抢
       if (document.querySelector('[data-testid="outline-menu"]')) return
       setMode((m) => (m === 'preview' ? 'edit' : m))
     }
@@ -316,55 +314,63 @@ export default function App() {
   }
 
   // ── 文件打开：解析 → 新增 tab ──
+  // 使用 functional updater 避免快速拖入多个文件时的 stale closure 竞态
   const openFileObject = async (file: File, diskHandle?: FileSystemFileHandle) => {
     const outcome = await openFile(file)
     switch (outcome.kind) {
       case 'md': {
-        const r = addTab(tabsState, {
-          kind: 'md',
-          name: outcome.name,
-          source: outcome.content,
-          diskHandle,
+        setTabsState((prev) => {
+          const r = addTab(prev, {
+            kind: 'md',
+            name: outcome.name,
+            source: outcome.content,
+            diskHandle,
+          })
+          return updateTab(r.state, r.tabId, { mode: 'preview' })
         })
-        setTabsState(updateTab(r.state, r.tabId, { mode: 'preview' }))
         break
       }
       case 'mdpkg': {
         const pkg = outcome.result
         if ('files' in pkg && pkg.html !== null) {
           const packageAssets = assetsFromPackageFiles(pkg.files)
-          const r = addTab(tabsState, {
-            kind: 'mdpkg',
-            name: outcome.name,
-            source: readEntrySource(pkg.files, pkg.manifest?.entrypoint),
-            assets: packageAssets,
-            mdpkgFiles: pkg.files,
-            manifest: pkg.manifest,
-            validation: pkg.validation,
-            diskHandle,
+          setTabsState((prev) => {
+            const r = addTab(prev, {
+              kind: 'mdpkg',
+              name: outcome.name,
+              source: readEntrySource(pkg.files, pkg.manifest?.entrypoint),
+              assets: packageAssets,
+              mdpkgFiles: pkg.files,
+              manifest: pkg.manifest,
+              validation: pkg.validation,
+              diskHandle,
+            })
+            return updateTab(r.state, r.tabId, { mode: 'preview' })
           })
-          setTabsState(updateTab(r.state, r.tabId, { mode: 'preview' }))
         } else {
           const err = 'files' in pkg ? (pkg.error ?? '未知渲染错误') : pkg.error
-          // 错误态：新增一个 error tab（source 存错误信息）
-          const r = addTab(tabsState, {
-            kind: 'md',
-            name: '错误',
-            source: `错误：${err}`,
-            diskHandle,
+          setTabsState((prev) => {
+            const r = addTab(prev, {
+              kind: 'md',
+              name: '错误',
+              source: `错误：${err}`,
+              diskHandle,
+            })
+            return r.state
           })
-          setTabsState(r.state)
         }
         break
       }
       case 'error': {
-        const r = addTab(tabsState, {
-          kind: 'md',
-          name: '错误',
-          source: `错误：${outcome.message}`,
-          diskHandle,
+        setTabsState((prev) => {
+          const r = addTab(prev, {
+            kind: 'md',
+            name: '错误',
+            source: `错误：${outcome.message}`,
+            diskHandle,
+          })
+          return r.state
         })
-        setTabsState(r.state)
         break
       }
     }
