@@ -28,6 +28,8 @@ export interface ToolbarProps {
   onModeChange?: (mode: EditorMode) => void
   /** 主题按钮点击（循环 system → dark → light）。 */
   onThemeClick?: () => void
+  /** 当前主题偏好（三态）——决定主题按钮图标与可访问文案。 */
+  themeProp: 'system' | 'dark' | 'light'
   /** 复制邀请链接。 */
   onCopyInviteLink?: () => void
   /** 生成邀请卡（随机模板 → PNG → 剪贴板/下载）。 */
@@ -143,10 +145,22 @@ const ICON = {
       <path d="M21 15l-5-5-8 8" />
     </svg>
   ),
-  theme: (
+  // 主题三态图标（change: theme-icon-tri-state）：跟随系统 = 半月，浅色 = 太阳，深色 = 月亮。
+  themeSystem: (
     <svg viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="9" />
       <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  themeLight: (
+    <svg viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
+  ),
+  themeDark: (
+    <svg viewBox="0 0 24 24">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
     </svg>
   ),
   more: (
@@ -168,6 +182,7 @@ export function Toolbar({
   currentMode = 'edit',
   onModeChange,
   onThemeClick,
+  themeProp,
   onCopyInviteLink,
   onGenerateInviteCard,
   onCopyBodyAsImage,
@@ -244,16 +259,39 @@ export function Toolbar({
     </div>
   )
 
+  // 主题按钮按偏好呈现：浅色 → 太阳，深色 → 月亮，跟随系统 → 半月（文案同步提示下一步）。
+  const THEME_BUTTON: Record<
+    'system' | 'dark' | 'light',
+    { icon: JSX.Element; title: string; label: string }
+  > = {
+    light: {
+      icon: ICON.themeLight,
+      title: '当前：浅色（点击切换到深色）',
+      label: '当前浅色主题',
+    },
+    dark: {
+      icon: ICON.themeDark,
+      title: '当前：深色（点击切换到跟随系统）',
+      label: '当前深色主题',
+    },
+    system: {
+      icon: ICON.themeSystem,
+      title: '当前：跟随系统（点击切换到浅色）',
+      label: '当前跟随系统主题',
+    },
+  }
+  const themeButton = THEME_BUTTON[themeProp]
+
   const themeBtn = (
     <button
       type="button"
       data-testid="theme-btn"
       onClick={onThemeClick}
-      title="切换主题（系统 / 深色 / 浅色）"
-      aria-label="切换主题"
+      title={themeButton.title}
+      aria-label={themeButton.label}
       className="gbtn"
     >
-      {ICON.theme}
+      {themeButton.icon}
     </button>
   )
 
