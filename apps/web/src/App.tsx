@@ -295,10 +295,12 @@ export default function App() {
     }
   }, [activeTab?.id, isNarrow]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 预览模式 ESC 退出（Bug 13：全屏预览按 ESC 返回编辑）──
+  // ── 预览模式 ESC 退出（Bug 13：全屏预览按 ESC 返回编辑；修复：全屏时只退出全屏不切编辑）──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      // 全屏态下按 ESC：由 exitFullscreenOnExit 处理退出全屏，此处不切编辑态
+      if (document.fullscreenElement) return
       // 大纲浮层打开时由 OutlineMenu 自己处理 ESC（收起浮层），不抢
       if (document.querySelector('[data-testid="outline-menu"]')) return
       setMode((m) => (m === 'preview' ? 'edit' : m))
