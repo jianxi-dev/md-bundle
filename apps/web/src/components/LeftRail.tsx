@@ -281,15 +281,24 @@ export function LeftRail({
         </button>
 
         {open && (
-          <div
-            data-testid="mobile-rail-drawer"
-            className="fixed inset-x-0 bottom-0 z-30 flex max-h-[60vh] flex-col rounded-t-2xl border-t border-[var(--border)] bg-[var(--surface)] shadow-2xl"
-          >
-            <div className="flex justify-center py-2">
-              <div className="h-1 w-8 rounded-full bg-[var(--border)]" />
+          <>
+            {/* 遮罩层：点击抽屉外部关闭（z-20 低于抽屉 z-30 与 toggle z-40，不遮挡面板交互） */}
+            <div
+              data-testid="mobile-rail-drawer-mask"
+              aria-hidden="true"
+              onClick={onToggle}
+              className="fixed inset-0 z-20 bg-black/20"
+            />
+            <div
+              data-testid="mobile-rail-drawer"
+              className="fixed inset-x-0 bottom-0 z-30 flex max-h-[60vh] flex-col rounded-t-2xl border-t border-[var(--border)] bg-[var(--surface)] shadow-2xl"
+            >
+              <div className="flex justify-center py-2">
+                <div className="h-1 w-8 rounded-full bg-[var(--border)]" />
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{content}</div>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{content}</div>
-          </div>
+          </>
         )}
       </>
     )

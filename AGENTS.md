@@ -145,6 +145,8 @@ Issue 和 spec 统一以 GitHub issue 形式存在于 `jianxi-dev/md-bundle`。�
 
 启动新 change、接手进行中 change、拆票、提交/PR、收尾与归档，一律经 `.opencode/skills/change-workflow/`（G0-G4 五 gate + fix-first 自愈回路）。拆票/commit/闭环规范见 `docs/agents/task-tracking.md`（1 task = 1 ticket，1 issue = 1 PR）；看板入列 API 见 `docs/agents/project-board.md`。
 
+> 收尾铁律：合并后本地工作区停留在 main（详见 docs/agents/incident-merge-local-workspace.md）
+
 ### Defect workflow（缺陷流程）
 
 本仓库所有缺陷统一走 GitHub Issues（唯一事实来源，**2026-09-12 起废弃本地 bug-registry 缓存**）。缺陷票标题 `[bug]` 前缀 + `bug,p<级别>,<模块>,needs-triage` 标签，triage 状态机流转。详见 `docs/agents/defect-workflow.md`。

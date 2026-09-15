@@ -64,3 +64,45 @@ jobs:
           name: playwright-evidence
           path: apps/web/test-results/
           if-no-files-found: ignore
+
+  # vendor 漂移检测：比较本仓库 vendor/mdpkg-web.js 与上游最新构建产物是否一致
+  vendor-drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout md-bundle
+        uses: actions/checkout@v4
+
+      - name: Compute local vendor sha256
+        id: local-hash
+        run: |
+          LOCAL_SHA=$(sha256sum apps/web/vendor/mdpkg-web.js | awk '{print $1}')
+          echo "sha=$LOCAL_SHA" >> "$GITHUB_OUTPUT"
+          echo "本地 vendor sha256: $LOCAL_SHA"
+
+      - name: Checkout upstream mdpkg
+        uses: actions/checkout@v4
+        with:
+          repository: jianxi-dev/mdpkg
+          path: upstream
+          ref: main
+          fetch-depth: 1
+
+      - name: Compute upstream bundle sha256
+        id: upstream-hash
+        run: |
+          UP_SHA=$(sha256sum upstream/packages/mdpkg/web/mdpkg-web.js | awk '{print $1}')
+          echo "sha=$UP_SHA" >> "$GITHUB_OUTPUT"
+          echo "上游 bundle sha256: $UP_SHA"
+
+      - name: Compare sha256
+        run: |
+          LOCAL="${{ steps.local-hash.outputs.sha }}"
+          UPSTREAM="${{ steps.upstream-hash.outputs.sha }}"
+          if [[ "$LOCAL" != "$UPSTREAM" ]]; then
+            echo "::error::vendor 过期！本地 vendor/mdpkg-web.js 与上游不一致。"
+            echo "::error::本地: $LOCAL"
+            echo "::error::上游: $UPSTREAM"
+            echo "::error::请运行: bash scripts/sync-vendor.sh <上游commit>"
+            exit 1
+          fi
+          echo "✓ vendor 与上游一致 ($LOCAL)"

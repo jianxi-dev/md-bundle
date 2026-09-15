@@ -205,7 +205,7 @@ export function TabStrip({
             <button
               type="button"
               aria-label={`关闭 ${tab.name}`}
-              className="ml-1 rounded p-0.5 text-[var(--muted)] opacity-0 transition-opacity hover:bg-[var(--surface-3)] hover:text-[var(--fg)] group-hover:opacity-100"
+              className="tab-close-btn ml-1 rounded p-1.5 text-[var(--muted)] opacity-0 transition-opacity hover:bg-[var(--surface-3)] hover:text-[var(--fg)] group-hover:opacity-100"
               onClick={(e) => handleDirtyCloseClick(tab.id, e)}
             >
               ×

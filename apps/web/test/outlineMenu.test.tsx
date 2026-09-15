@@ -90,6 +90,84 @@ describe('OutlineMenu 多页签', () => {
 
   afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('hover 能力设备：mouseover 弹出、mouseout 收起（桌面行为保持）', () => {
+    render(
+      <OutlineMenu
+        mode="edit"
+        documentText={DOC_A}
+        editorView={makeMockView({ docText: DOC_A }) as never}
+        previewRef={{ current: null }}
+      />,
+    );
+
+    const wrap = screen.getByTestId('outline-wrap');
+    fireEvent.mouseOver(wrap, { relatedTarget: document.body });
+    expect(screen.getByTestId('outline-menu')).toBeTruthy();
+
+    fireEvent.mouseOut(wrap, { relatedTarget: document.body });
+    expect(screen.queryByTestId('outline-menu')).toBeNull();
+  });
+
+  it('钉住后点击浮层外部（pointerdown）即收起', () => {
+    const view = makeMockView({ docText: DOC_A });
+    renderPinned({ mode: 'edit', documentText: DOC_A, editorView: view as never });
+    expect(screen.getByTestId('outline-menu')).toBeTruthy();
+
+    // 外部 pointerdown（鼠标/触屏统一）→ 无论 pinned 与否都应关闭
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByTestId('outline-menu')).toBeNull();
+  });
+
+  it('在触发钮上 pointerdown 不触发外部关闭（toggle 交给 onClick）', () => {
+    const view = makeMockView({ docText: DOC_A });
+    renderPinned({ mode: 'edit', documentText: DOC_A, editorView: view as never });
+
+    fireEvent.pointerDown(screen.getByTestId('outline-btn'));
+    // 未被外部关闭逻辑误关，菜单保持打开；随后 onClick toggle 才能正常收起
+    expect(screen.getByTestId('outline-menu')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('outline-btn'));
+    expect(screen.queryByTestId('outline-menu')).toBeNull();
+  });
+
+  it('无 hover 设备：触屏合成的 mouseenter/mouseover 不弹出，点外部关闭', () => {
+    // 模拟触屏设备：matchMedia('(hover: none)') → matches
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('hover: none'),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }));
+
+    render(
+      <OutlineMenu
+        mode="edit"
+        documentText={DOC_A}
+        editorView={makeMockView({ docText: DOC_A }) as never}
+        previewRef={{ current: null }}
+      />,
+    );
+
+    const wrap = screen.getByTestId('outline-wrap');
+    // 触屏 tap 会合成 mouseover/mouseenter —— 无 hover 设备上不应弹出（不再卡 hover 态）
+    fireEvent.mouseOver(wrap, { relatedTarget: document.body });
+    fireEvent.mouseEnter(wrap);
+    expect(screen.queryByTestId('outline-menu')).toBeNull();
+
+    // 点触发钮 → 弹出（纯 pinned 模式）
+    fireEvent.click(screen.getByTestId('outline-btn'));
+    expect(screen.getByTestId('outline-menu')).toBeTruthy();
+
+    // 点外部 → 关闭
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByTestId('outline-menu')).toBeNull();
   });
 
   it('切换 documentText 后大纲条目反映新文档', () => {

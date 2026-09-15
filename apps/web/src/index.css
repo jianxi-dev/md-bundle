@@ -2,6 +2,17 @@
 @import './styles/design.css';
 @import 'tailwindcss';
 
+/* 触屏设备（无 hover 能力）下页签关闭按钮常显（issue #91）：
+   TabStrip 关闭钮默认 opacity-0，仅靠 :hover / group-hover 显现；触屏没有 hover，
+   导致按钮恒不可见。此处在媒体查询内直接置为不透明，纯 CSS、不引入 JS 检测。
+   未分层的规则优先于 Tailwind utilities 层，因此可覆盖 opacity-0。
+   桌面（hover: hover）不匹配该查询，原有「默认隐藏 + hover 显现」行为不变。 */
+@media (hover: none) {
+  .tab-close-btn {
+    opacity: 1;
+  }
+}
+
 /* MarkdownEditor 宿主撑满分栏（CM6 .cm-editor 默认不继承父高） */
 .mdb-split-editor > div {
   height: 100%;
