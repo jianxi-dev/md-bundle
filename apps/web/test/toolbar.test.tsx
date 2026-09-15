@@ -61,17 +61,17 @@ describe('Toolbar 主题按钮：三态图标', () => {
     const { rerender } = render(<Toolbar {...baseProps()} themeProp="light" />)
     let btn = screen.getByTestId('theme-btn')
     expect(btn).toHaveAttribute('aria-label', '当前浅色主题')
-    expect(btn).toHaveAttribute('title', '当前：浅色（点击切换到深色）')
+    expect(btn).toHaveAttribute('title', '当前：浅色（点击切换到跟随系统）')
 
     rerender(<Toolbar {...baseProps()} themeProp="dark" />)
     btn = screen.getByTestId('theme-btn')
     expect(btn).toHaveAttribute('aria-label', '当前深色主题')
-    expect(btn).toHaveAttribute('title', '当前：深色（点击切换到跟随系统）')
+    expect(btn).toHaveAttribute('title', '当前：深色（点击切换到浅色）')
 
     rerender(<Toolbar {...baseProps()} themeProp="system" />)
     btn = screen.getByTestId('theme-btn')
     expect(btn).toHaveAttribute('aria-label', '当前跟随系统主题')
-    expect(btn).toHaveAttribute('title', '当前：跟随系统（点击切换到浅色）')
+    expect(btn).toHaveAttribute('title', '当前：跟随系统（点击切换到深色）')
   })
 
   it('点击后图标随 themeProp 更新：system → dark → light → system', () => {
