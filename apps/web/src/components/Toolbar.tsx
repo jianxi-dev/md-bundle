@@ -41,12 +41,12 @@ export interface ToolbarProps {
 }
 
 const EXPORT_ITEMS: { format: ExportFormat; label: string }[] = [
-  { format: 'md', label: '.md' },
-  { format: 'mdpkg', label: '.mdpkg' },
-  { format: 'html', label: 'HTML' },
-  { format: 'png', label: 'PNG 长图' },
+  { format: 'md', label: 'Markdown 单文件 (.md)' },
+  { format: 'mdpkg', label: '自包含包 (.mdpkg)' },
+  { format: 'html', label: '网页 (.html)' },
+  { format: 'png', label: '长图 (.png)' },
   { format: 'docx', label: 'Word (.docx)' },
-  { format: 'zip', label: '.zip' },
+  { format: 'zip', label: '压缩包 (.zip)' },
 ]
 
 /** 窄屏检测（<768px）。 */
@@ -358,7 +358,7 @@ export function Toolbar({
               </button>
               <div className="border-t border-[var(--border-soft)]" />
               <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--meta)]">
-                导出
+                导出交付物
               </div>
               {EXPORT_ITEMS.map(({ format, label }) => (
                 <button
@@ -444,8 +444,8 @@ export function Toolbar({
           onClick={() => setExportOpen((o) => !o)}
           aria-haspopup="menu"
           aria-expanded={exportOpen}
-          title="导出"
-          aria-label="导出"
+          title="导出交付物"
+          aria-label="导出交付物"
           className="gbtn disabled:cursor-not-allowed disabled:opacity-30"
         >
           {ICON.export}
