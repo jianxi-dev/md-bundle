@@ -39,7 +39,7 @@ import {
   type ThemePreference,
 } from './lib/themePreference'
 import { createInviteLink } from './lib/shareLink'
-import { exitFullscreenOnEscape } from './lib/fullscreen'
+import { exitFullscreenOnEscape, wasJustFullscreen } from './lib/fullscreen'
 import { pickTemplate } from './lib/inviteShareCards'
 import { bytesToDataUrl, dataUrlToBytes } from './lib/dataUrl'
 import {
@@ -295,11 +295,12 @@ export default function App() {
     }
   }, [activeTab?.id, isNarrow]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 预览模式 ESC 退出（非全屏 preview → edit）──
-  // 注意：全屏时由 exitFullscreenOnEscape 处理（先注册，stopImmediatePropagation 阻止本 handler）
+  // ── 预览模式 ESC 退出（非全屏 preview → edit；刚退出全屏时跳过）──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      // 刚退出全屏（Chrome 浏览器默认行为 / Safari JS 触发）→ 跳过模式切换
+      if (wasJustFullscreen()) return
       if (document.querySelector('[data-testid="outline-menu"]')) return
       setMode((m) => (m === 'preview' ? 'edit' : m))
     }
