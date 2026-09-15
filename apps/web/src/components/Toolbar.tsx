@@ -266,17 +266,17 @@ export function Toolbar({
   > = {
     light: {
       icon: ICON.themeLight,
-      title: '当前：浅色（点击切换到深色）',
+      title: '当前：浅色（点击切换到跟随系统）',
       label: '当前浅色主题',
     },
     dark: {
       icon: ICON.themeDark,
-      title: '当前：深色（点击切换到跟随系统）',
+      title: '当前：深色（点击切换到浅色）',
       label: '当前深色主题',
     },
     system: {
       icon: ICON.themeSystem,
-      title: '当前：跟随系统（点击切换到浅色）',
+      title: '当前：跟随系统（点击切换到深色）',
       label: '当前跟随系统主题',
     },
   }
