@@ -470,7 +470,7 @@ export function Toolbar({
           aria-label={fsaAvailable ? '保存文档' : '下载文档'}
           className={saveIsPrimary ? 'gbtn accent disabled:cursor-not-allowed disabled:opacity-50' : 'gbtn disabled:cursor-not-allowed disabled:opacity-50'}
         >
-          {saveIsPrimary ? ICON.save : ICON.export}
+          {ICON.save}
           <span data-testid="save-btn-label">{saveLabel}</span>
         </button>
 
