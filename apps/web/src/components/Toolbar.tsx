@@ -114,9 +114,9 @@ const ICON = {
   ),
   export: (
     <svg viewBox="0 0 24 24">
-      <path d="M12 3v12" />
-      <path d="M7 8l5-5 5 5" />
-      <path d="M5 21h14" />
+      <path d="M14 4h6v6" />
+      <path d="M20 4 10 14" />
+      <path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
     </svg>
   ),
   copyBody: (
