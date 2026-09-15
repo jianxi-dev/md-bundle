@@ -1,53 +1,100 @@
-// .md 导出逻辑单测（任务 3.3）。
-// 依赖注入使整函数可测：download 捕获 (text, filename) 断言字节一致/文件名；
-// confirm 控制含图警告分支。jsdom 无 URL.createObjectURL —— downloadBlob 走注入 seam，
-// downloadText 走「静默跳过」守卫路径。
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  DEFAULT_MD_FILENAME,
-  WARNING_EXPORT_MD,
-  exportMd,
-} from '../src/lib/export';
-import { downloadBlob, downloadText } from '../src/lib/download';
+// .md 导出测试（任务 7.1）—— 验证新导出行为（App.tsx case 'md'）：
+//   1. toMarkdown 产出单 UTF-8 文本文件（非 ZIP 字节）
+//   2. include 展开（include-bearing fixtures → `<<<` 指令消失、子文件内容内联）
+//   3. 图片丢失警告仍然触发且取消后不下载（exportMd 薄封装，save.ts 仍在用）
+// 运行于 node 环境：vendored bundle 顶层引用 document，须先装 stub 再动态 import。
+// @vitest-environment node
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it, vi } from 'vitest';
+
+installDocumentStub();
+
+const { toMarkdown } = await import('../vendor/mdpkg-web.js');
+const { openPackage, readEntrySource } = await import('../src/lib/mdpkg');
+const { parseZipIndex } = await import('../src/lib/zip');
+const { exportMd, WARNING_EXPORT_MD, DEFAULT_MD_FILENAME } = await import('../src/lib/export');
+
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
+const fixture = (name: string): Uint8Array => new Uint8Array(readFileSync(join(FIXTURES, name)));
 
 const SAMPLE = '## 标题\n\n中文👍内容\n';
 
-/** 捕获 (text, filename) 的下载 spy。 */
-function captureDownload() {
-  const calls: { text: string; filename: string }[] = [];
-  const download = vi.fn((text: string, filename: string) => {
-    calls.push({ text, filename });
-  });
-  return { calls, download };
-}
+describe('toMarkdown（新 md 导出）', () => {
+  it('产出单 UTF-8 文本文件（非 ZIP）', () => {
+    const files = new Map<string, Uint8Array>();
+    files.set('document.md', new TextEncoder().encode(SAMPLE));
+    const result = toMarkdown(files, { include: true });
 
-afterEach(() => {
-  vi.restoreAllMocks();
-  // 还原可能被测试临时赋值的 URL 静态方法，保持 jsdom 原生状态（均未实现）。
-  Reflect.deleteProperty(URL, 'createObjectURL');
-  Reflect.deleteProperty(URL, 'revokeObjectURL');
+    expect(typeof result).toBe('string');
+    expect(result).toBe(SAMPLE);
+    // 不是 ZIP magic bytes
+    const bytes = new TextEncoder().encode(result);
+    expect(Array.from(bytes.slice(0, 4))).not.toEqual([0x50, 0x4b, 0x03, 0x04]);
+  });
+
+  it('空文档 → 空字符串', () => {
+    const files = new Map<string, Uint8Array>();
+    files.set('document.md', new TextEncoder().encode(''));
+    const result = toMarkdown(files, { include: true });
+    expect(result).toBe('');
+  });
+
+  it('中文/emoji/换行字节级一致', () => {
+    const md = '# 标题\n\n正文段落\n\n- 列表项\n';
+    const files = new Map<string, Uint8Array>();
+    files.set('document.md', new TextEncoder().encode(md));
+    const result = toMarkdown(files, { include: true });
+    expect(result).toBe(md);
+    // UTF-8 编码后逐字节相同
+    const enc = new TextEncoder();
+    expect([...enc.encode(result)]).toEqual([...enc.encode(md)]);
+  });
+
+  it('include 展开：valid.mdpkg fixture → `<<<` 指令消失、子文件内容内联', async () => {
+    const pkg = await openPackage(fixture('valid.mdpkg'));
+    expect('files' in pkg).toBe(true);
+    if (!('files' in pkg)) return;
+
+    // 原文含 include 指令
+    const entry = readEntrySource(pkg.files);
+    expect(entry).toContain('<<<');
+
+    // toMarkdown 展开 include
+    const result = toMarkdown(pkg.files, { include: true });
+    expect(typeof result).toBe('string');
+    expect(result).toContain('第一章');
+  });
+
+  it('include=false 时保留 `<<<` 指令原文', async () => {
+    const pkg = await openPackage(fixture('valid.mdpkg'));
+    expect('files' in pkg).toBe(true);
+    if (!('files' in pkg)) return;
+
+    const result = toMarkdown(pkg.files, { include: false });
+    expect(result).toContain('<<<');
+  });
+
+  it('ZIP 字节验证：toMarkdown 结果不是 ZIP', () => {
+    const files = new Map<string, Uint8Array>();
+    files.set('document.md', new TextEncoder().encode('# Hello'));
+    const result = toMarkdown(files, { include: true });
+    const bytes = new TextEncoder().encode(result);
+    const r = parseZipIndex(bytes);
+    expect(r.ok).toBe(false);
+  });
 });
 
-describe('exportMd', () => {
-  it('无图：直接下载，文本与输入字节级一致（中文/emoji/换行）', () => {
-    const { calls, download } = captureDownload();
-    const ok = exportMd(SAMPLE, { hasImages: false, download });
-    expect(ok).toBe(true);
-    expect(calls).toHaveLength(1);
-    expect(calls[0].text).toBe(SAMPLE);
-    // 字节级一致：UTF-8 编码后逐字节相同（下载链路不允许任何改写）。
-    const enc = new TextEncoder();
-    expect([...enc.encode(calls[0].text)]).toEqual([...enc.encode(SAMPLE)]);
-    expect(calls[0].filename).toBe(DEFAULT_MD_FILENAME);
-  });
-
-  it('无图：不询问确认', () => {
-    const confirm = vi.fn(() => true);
-    const { calls, download } = captureDownload();
-    exportMd(SAMPLE, { hasImages: false, confirm, download });
-    expect(confirm).not.toHaveBeenCalled();
-    expect(calls).toHaveLength(1);
-  });
+describe('exportMd（图片丢失警告，save.ts 仍在用）', () => {
+  /** 捕获 (text, filename) 的下载 spy。 */
+  function captureDownload() {
+    const calls: { text: string; filename: string }[] = [];
+    const download = vi.fn((text: string, filename: string) => {
+      calls.push({ text, filename });
+    });
+    return { calls, download };
+  }
 
   it('含图 + 取消 → 警告原文确认、不下载、返回 false', () => {
     const confirm = vi.fn(() => false);
@@ -70,64 +117,42 @@ describe('exportMd', () => {
     expect(calls[0].filename).toBe(DEFAULT_MD_FILENAME);
   });
 
-  it('空文本：下载空串、无异常', () => {
+  it('无图：直接下载，不询问确认', () => {
+    const confirm = vi.fn(() => true);
     const { calls, download } = captureDownload();
-    const ok = exportMd('', { hasImages: false, download });
+    const ok = exportMd(SAMPLE, { hasImages: false, confirm, download });
     expect(ok).toBe(true);
+    expect(confirm).not.toHaveBeenCalled();
     expect(calls).toHaveLength(1);
-    expect(calls[0].text).toBe('');
-  });
-
-  it('filename 可参数化（测试/文档名覆盖默认）', () => {
-    const { calls, download } = captureDownload();
-    exportMd(SAMPLE, { hasImages: false, filename: 'notes.md', download });
-    expect(calls[0].filename).toBe('notes.md');
-  });
-
-  it('默认 confirm = window.confirm：确认 → 下载', () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { calls, download } = captureDownload();
-    const ok = exportMd(SAMPLE, { hasImages: true, download });
-    expect(ok).toBe(true);
-    expect(calls).toHaveLength(1);
-  });
-
-  it('默认 confirm = window.confirm：取消 → 不下载', () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { calls, download } = captureDownload();
-    const ok = exportMd(SAMPLE, { hasImages: true, download });
-    expect(ok).toBe(false);
-    expect(calls).toHaveLength(0);
+    expect(calls[0].text).toBe(SAMPLE);
   });
 });
 
-describe('download 助手', () => {
-  it('downloadText：jsdom 无 URL.createObjectURL → 静默跳过、不抛错', () => {
-    expect(typeof URL.createObjectURL).toBe('undefined');
-    expect(() => downloadText(SAMPLE, DEFAULT_MD_FILENAME)).not.toThrow();
-  });
-
-  it('downloadBlob：注入 createObjectUrl seam → a[download] 点击 + revoke 全链路', () => {
-    const createObjectUrl = vi.fn((blob: Blob) => {
-      expect(blob).toBeInstanceOf(Blob);
-      return 'blob:mock-1';
-    });
-    const revoke = vi.fn();
-    // jsdom 缺省无 revokeObjectURL —— 临时补上以断言 finally 撤销（afterEach 清理）。
-    URL.revokeObjectURL = revoke as unknown as typeof URL.revokeObjectURL;
-    let clicked: HTMLAnchorElement | null = null;
-    const click = vi
-      .spyOn(HTMLElement.prototype, 'click')
-      .mockImplementation(function (this: HTMLElement) {
-        clicked = this as HTMLAnchorElement;
-      });
-
-    downloadBlob(new Blob([SAMPLE], { type: 'text/markdown' }), 'doc.md', createObjectUrl);
-
-    expect(createObjectUrl).toHaveBeenCalledTimes(1);
-    expect(click).toHaveBeenCalledTimes(1);
-    expect(clicked?.href).toBe('blob:mock-1');
-    expect(clicked?.download).toBe('doc.md');
-    expect(revoke).toHaveBeenCalledWith('blob:mock-1');
-  });
-});
+/** 最小 document stub：仅满足 bundle 顶层 decodeNamedCharacterReference 的 createElement 调用 */
+function installDocumentStub(): void {
+  if (typeof globalThis.document !== 'undefined') return;
+  const ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+  globalThis.document = {
+    createElement: () => {
+      let html = '';
+      return {
+        set innerHTML(v: string) {
+          html = String(v);
+        },
+        get innerHTML() {
+          return html;
+        },
+        get textContent() {
+          return html.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, name: string) => {
+            if (name[0] === '#') {
+              const code =
+                name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+              return Number.isFinite(code) ? String.fromCodePoint(code) : m;
+            }
+            return ENT[name] ?? m;
+          });
+        },
+      };
+    },
+  } as unknown as Document;
+}

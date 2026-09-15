@@ -86,11 +86,15 @@ MD-Bundle Web 是一个基于浏览器的 Markdown 打包工具，可将图片�
 
 ### 需求：格式驱动的 Markdown 源码导出
 
-导出下拉菜单 SHALL 显式提供五种格式：`.md`、`.mdpkg`、Word (`.docx`)、HTML 与 PNG 长图。导出 `.md` SHALL 下载与编辑器内容逐字节相同的源码文本。当文档包含图片时，导出 `.md` SHALL 先警告图片将丢失；取消 SHALL 中止导出。Word 导出 SHALL 由上游 mdpkg `toDocx` 引擎从当前编辑器源码（`document.md`）与每个导入资产的原始字节组装的 files Map 生成，并 SHALL 产出标准 OOXML 文档（含 `[Content_Types].xml` + `word/document.xml` 的 ZIP 容器），其图片作为 `word/media/*` 条目嵌入；产物 SHALL 以 `Blob` 形式下载，文件名由文档名派生（默认 `document.docx`）。空文档 SHALL 仍产出合法非空 `.docx`。导出失败 SHALL 通过导出封装层的确定性 `{ error }` 结果路径呈现，且 MUST NOT 崩溃或渲染白屏。
+导出下拉菜单 SHALL 显式提供六种格式：`.md`、`.mdpkg`、Word (`.docx`)、HTML、PNG 长图与 `.zip`。导出 `.md` SHALL 通过上游 `toMarkdown` 引擎生成单一 Markdown 文件（include 指令展开，符号保留为源码文本）；对于不含 include 的文档，其结果等价于编辑器源码文本。导出 `.zip` SHALL 通过上游 `toZip` 引擎生成标准 zip 交付物（include 展开，无 `manifest.json`，附带 `README.md`）。当文档包含图片时，导出 `.md` SHALL 先警告图片将丢失；取消 SHALL 中止导出。Word 导出 SHALL 由上游 mdpkg `toDocx` 引擎从当前编辑器源码（`document.md`）与每个导入资产的原始字节组装的 files Map 生成，并 SHALL 产出标准 OOXML 文档（含 `[Content_Types].xml` + `word/document.xml` 的 ZIP 容器），其图片作为 `word/media/*` 条目嵌入；产物 SHALL 以 `Blob` 形式下载，文件名由文档名派生（默认 `document.docx`）。空文档 SHALL 仍产出合法非空 `.docx`。导出失败 SHALL 通过导出封装层的确定性 `{ error }` 结果路径呈现，且 MUST NOT 崩溃或渲染白屏。
 
 #### 场景：导出带图片丢失警告的 markdown
 - **当** 用户从一个含图片的文档导出 `.md`
 - **则** 导出前显示「图片将丢失」警告，且取消后不产生下载
+
+#### 场景：导出 markdown 展开 include
+- **当** 用户从一个含 `<<< include` 指令的 `.mdpkg` 文档导出 `.md`
+- **则** 下载的单一文件已内联 include，且与 CLI `export --md` 输出逐字节相同
 
 #### 场景：导出空 markdown
 - **当** 用户从一个空文档导出 `.md`
@@ -111,6 +115,14 @@ MD-Bundle Web 是一个基于浏览器的 Markdown 打包工具，可将图片�
 #### 场景：Word 导出失败被确定性上报
 - **当** 导出封装层在生成 `.docx` 时遇到错误
 - **则** 封装层返回 `{ error }` 结果（无未捕获异常、无白屏），且 UI 呈现错误信息
+
+#### 场景：导出 zip 为标准交付物
+- **当** 用户将一个含 include 的 `.mdpkg` 文档导出为 `.zip`
+- **则** 下载的文件为合法 ZIP（PK magic），包含 `README.md`，不含 `manifest.json`，include 已展开，且与 CLI `export --zip` 输出逐字节相同
+
+#### 场景：从无图片文档导出 zip
+- **当** 用户将一个无图片的 `.md` 文档导出为 `.zip`
+- **则** 下载一个合法 ZIP，包含入口文档与 `README.md`，且无错误
 
 ### 需求：自包含 HTML 导出
 

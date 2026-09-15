@@ -65,11 +65,11 @@ describe('Toolbar', () => {
     expect(onCopyBodyAsImage).toHaveBeenCalledTimes(1);
   });
 
-  it('export button keeps title 导出 and renders the external-link arrow glyph', () => {
+  it('export button keeps title 导出交付物 and renders the external-link arrow glyph', () => {
     render(<Toolbar {...baseProps} />);
     const exportBtn = screen.getByTestId('export-btn');
-    expect(exportBtn).toHaveAttribute('title', '导出');
-    expect(exportBtn).toHaveAttribute('aria-label', '导出');
+    expect(exportBtn).toHaveAttribute('title', '导出交付物');
+    expect(exportBtn).toHaveAttribute('aria-label', '导出交付物');
     // 图标是 stroke SVG（无 rect 文档壳 + 内部下箭头，改用外部链接箭头）
     const svg = exportBtn.querySelector('svg');
     expect(svg).not.toBeNull();
