@@ -39,7 +39,7 @@ import {
   type ThemePreference,
 } from './lib/themePreference'
 import { createInviteLink } from './lib/shareLink'
-import { exitFullscreenOnEscape, wasJustFullscreen } from './lib/fullscreen'
+import { exitFullscreenOnEscape, didJustExitFullscreen } from './lib/fullscreen'
 import { pickTemplate } from './lib/inviteShareCards'
 import { bytesToDataUrl, dataUrlToBytes } from './lib/dataUrl'
 import {
@@ -299,8 +299,8 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      // 刚退出全屏（Chrome 浏览器默认行为 / Safari JS 触发）→ 跳过模式切换
-      if (wasJustFullscreen()) return
+      // exitFullscreenOnEscape（先注册）已同步设置标志 → 跳过模式切换
+      if (didJustExitFullscreen()) return
       if (document.querySelector('[data-testid="outline-menu"]')) return
       setMode((m) => (m === 'preview' ? 'edit' : m))
     }
