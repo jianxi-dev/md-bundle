@@ -22,9 +22,10 @@ import { useBadges, wireBadgeEvents } from './lib/useBadges'
 import { openFile } from './lib/openFile'
 import { readEntrySource } from './lib/mdpkg'
 import { saveDocument, type SaveResult } from './lib/save'
-import { exportMdpkg } from './lib/exportMdpkg'
-import { exportMd } from './lib/export'
+import { exportMdpkg, ENTRY_FILENAME } from './lib/exportMdpkg'
+import { WARNING_EXPORT_MD } from './lib/export'
 import { exportDocx } from './lib/exportDocx'
+import { toZip, toMarkdown } from '../vendor/mdpkg-web.js'
 import { buildHtmlDocument } from './lib/exportHtml'
 import { exportPngFromMarkdown } from './lib/exportPng'
 import { downloadBlob, downloadText } from './lib/download'
@@ -40,7 +41,7 @@ import {
 import { createInviteLink } from './lib/shareLink'
 import { exitFullscreenOnEscape } from './lib/fullscreen'
 import { pickTemplate } from './lib/inviteShareCards'
-import { bytesToDataUrl } from './lib/dataUrl'
+import { bytesToDataUrl, dataUrlToBytes } from './lib/dataUrl'
 import {
   MAX_ASSET_BYTES,
   addAssets,
@@ -711,12 +712,23 @@ export default function App() {
     try {
       switch (format) {
         case 'md': {
-          const ok = exportMd(activeTab.source, {
-            hasImages: assetsRef.current.length > 0,
-            filename: `${docBase}.md`,
-          })
-          wire.onExportResult(format, ok)
-          return ok
+          if (assetsRef.current.length > 0) {
+            if (!window.confirm(WARNING_EXPORT_MD)) return false
+          }
+          const files = new Map<string, Uint8Array>()
+          files.set(ENTRY_FILENAME, new TextEncoder().encode(activeTab.source))
+          for (const asset of assetsRef.current) {
+            files.set(asset.name, dataUrlToBytes(asset.dataUrl))
+          }
+          if (extraFiles) {
+            for (const [name, bytes] of extraFiles) {
+              files.set(name, bytes)
+            }
+          }
+          const result = toMarkdown(files, { include: true })
+          downloadText(result, `${docBase}.md`)
+          wire.onExportResult(format, true)
+          return true
         }
         case 'mdpkg':
           downloadBlob(
@@ -782,25 +794,25 @@ export default function App() {
           wire.onExportResult(format, true)
           return true
         }
-        case 'zip':
+        case 'zip': {
+          const zipFiles = new Map<string, Uint8Array>()
+          zipFiles.set(ENTRY_FILENAME, new TextEncoder().encode(activeTab.source))
+          for (const asset of assetsRef.current) {
+            zipFiles.set(asset.name, dataUrlToBytes(asset.dataUrl))
+          }
+          if (extraFiles) {
+            for (const [name, bytes] of extraFiles) {
+              zipFiles.set(name, bytes)
+            }
+          }
+          const zipResult = toZip(zipFiles, {})
           downloadBlob(
-            new Blob(
-              [
-                new Uint8Array(
-                  exportMdpkg({
-                    markdown: activeTab.source,
-                    assets: assetsRef.current,
-                    prevManifest,
-                    extraFiles,
-                  }),
-                ),
-              ],
-              { type: 'application/zip' },
-            ),
+            new Blob([new Uint8Array(zipResult)], { type: 'application/zip' }),
             `${docBase}.zip`,
           )
           wire.onExportResult(format, true)
           return true
+        }
       }
     } catch (e) {
       showExportError(e instanceof Error ? e.message : String(e))
