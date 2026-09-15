@@ -39,7 +39,7 @@ import {
   type ThemePreference,
 } from './lib/themePreference'
 import { createInviteLink } from './lib/shareLink'
-import { exitFullscreenOnEscape, shouldSkipModeSwitch } from './lib/fullscreen'
+import { exitFullscreenOnEscape } from './lib/fullscreen'
 import { pickTemplate } from './lib/inviteShareCards'
 import { bytesToDataUrl, dataUrlToBytes } from './lib/dataUrl'
 import {
@@ -295,21 +295,7 @@ export default function App() {
     }
   }, [activeTab?.id, isNarrow]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 预览模式 ESC 退出（非全屏 preview → edit；刚退出全屏时跳过）──
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // Chrome: 浏览器默认行为先退出 fullscreen → fullscreenchange 先于 keydown 触发
-      // Safari: exitFullscreenOnEscape 先执行 → fullscreenchange 在 keydown 之后触发
-      // 两种路径都通过 shouldSkipModeSwitch() 检测
-      if (shouldSkipModeSwitch()) return
-      if (document.querySelector('[data-testid="outline-menu"]')) return
-      setMode((m) => (m === 'preview' ? 'edit' : m))
-      console.log(`[FS-DIAG] preview ESC handler: mode switched preview→edit`)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [])
+  // ── 预览态 ESC 不再切编辑态（规格变更：ESC 只用于退出全屏/收起浮层）──
 
   // ── 编辑器 onChange → 更新 activeTab.source ──
   const handleEditorChange = (value: string) => {
