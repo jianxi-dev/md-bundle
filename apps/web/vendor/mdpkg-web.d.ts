@@ -1,4 +1,4 @@
-// Vendored from jianxi-dev/mdpkg @ bbc1f1c75af368202b17966a4f0a3137cd0ed21d (v0.3.0.0, docx export wave 2/3, post PR #6 merge)
+// Vendored from jianxi-dev/mdpkg @ 59d5df2d4fa76152f25acf6425cb78530ccb0225 (v0.3.0.0+, docx quality fixes + toHtml/openFiles/openMarkdown web entry)
 // Ambient type declaration for the vendored mdpkg-web.js ESM bundle.
 // The bundle is a plain .js file (no allowJs in tsconfig) — this .d.ts gives
 // TypeScript the module surface without touching the vendored bytes.
@@ -33,6 +33,11 @@ export interface OpenOptions {
   symbols?: boolean;
 }
 
+export interface OpenFilesOptions extends OpenOptions {
+  /** include 展开开关（缺省跟随 manifest.extensions.include；无 manifest 时默认展开） */
+  include?: boolean;
+}
+
 export interface OpenResult {
   files: Map<string, Uint8Array>;
   manifest: Manifest | null;
@@ -60,6 +65,15 @@ export declare function openMdpkg(bytes: Uint8Array, opts?: OpenOptions): Promis
 
 /** 编辑后重新打包：删除旧 manifest.json 并按规范重建，返回新的 .mdpkg 字节流 */
 export declare function packMdpkg(files: Map<string, Uint8Array>, prevManifest?: Manifest): Uint8Array;
+
+/** 任意文件 Map 直开（目录/多条目拖入统一入口，lenient 渲染，include 缺省展开） */
+export declare function openFiles(files: Map<string, Uint8Array>, opts?: OpenFilesOptions): Promise<OpenResult>;
+
+/** 单 .md 文件直开（无需打包，include 关闭、<<< 降级为可见文本） */
+export declare function openMarkdown(name: string, bytes: Uint8Array, opts?: OpenOptions): Promise<OpenResult>;
+
+/** 包 → 完整自包含 HTML 字符串（主题/样式内联，用于预览 iframe） */
+export declare function toHtml(files: Map<string, Uint8Array>, opts?: OpenOptions): string;
 
 /** 读取入口 Markdown 原文（include 未展开）。预览源码用 */
 export declare function readEntrySource(files: Map<string, Uint8Array>, entry?: string): string;
