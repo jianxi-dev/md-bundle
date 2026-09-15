@@ -45,6 +45,8 @@ function createTheme(theme: ThemeName): Extension {
       },
       '.cm-content': {
         caretColor: getThemeColor(theme, 'primary'),
+        fontSize: '17px',
+        lineHeight: '1.7',
       },
       '&.cm-focused': {
         outlineColor: getThemeColor(theme, 'primary'),
