@@ -54,12 +54,8 @@ import {
   computeOrphans,
   type Asset,
 } from './lib/assets'
-import { filesToAssets, imagesFromClipboard, imagesFromDataTransfer } from './lib/importImages'
-import {
-  extractDocFromDirectory,
-  extractDocFromZip,
-  getDirectoryHandle,
-} from './lib/dropFiles'
+import { filesToAssets, imagesFromClipboard } from './lib/importImages'
+import { extractDocFromDirectory, extractDocFromZip } from './lib/dropFiles'
 import { isFsaAvailable } from './lib/fsa'
 import {
   createTabsState,
@@ -306,7 +302,16 @@ export default function App() {
   // ── 文件打开：解析 → 新增 tab ──
   // 使用 functional updater 避免快速拖入多个文件时的 stale closure 竞态
   const openFileObject = async (file: File, diskHandle?: FileSystemFileHandle) => {
+    ;(window as unknown as { __openFileObjDebug?: unknown }).__openFileObjDebug = {
+      called: true,
+      fileName: file.name,
+      fileSize: file.size,
+    }
     const outcome = await openFile(file)
+    ;(window as unknown as { __openFileObjDebug?: unknown }).__openFileObjDebug = {
+      ...(window as unknown as { __openFileObjDebug?: Record<string, unknown> }).__openFileObjDebug,
+      outcomeKind: outcome.kind,
+    }
     switch (outcome.kind) {
       case 'md': {
         setTabsState((prev) => {
@@ -422,37 +427,51 @@ export default function App() {
     }
   }
 
+  // Bug #105：在 drop 事件同步阶段启动所有 getAsFileSystemHandle() promise（仅调用，不 await），
+  // 同时同步读取 getAsFile() / webkitGetAsEntry()。
   // 拖放文档分流（Bug 2/3/4）：.md/.mdpkg 直接打开；.zip 解压找文档；文件夹遍历找文档。
   // 返回 true 表示已处理（打开文档或给出提示）；false 表示无文档可处理。
+  // Bug #105：所有 DataTransfer 读取在 drop 事件同步阶段完成（getAsFile/getAsFileSystemHandle/webkitGetAsEntry），
+  // 异步阶段只 await 已启动的 promise 和读取文件内容。Chromium 在 await 后会清空 DataTransfer 数据。
   const openDroppedDocs = async (dt: DataTransfer | null): Promise<boolean> => {
     if (!dt) return false
-    const docFiles: File[] = []
-    const dirItems: DataTransferItem[] = []
+    // ── 同步阶段：一次性读取所有 DataTransfer 数据 ──
+    const files: File[] = []
+    const fsHandlePromises: Promise<FileSystemHandle | null>[] = []
     if (dt.items.length > 0) {
       for (let i = 0; i < dt.items.length; i++) {
         const item = dt.items[i]
         if (item.kind !== 'file') continue
-        // Bug 4 修复：item.kind 对文件夹也返回 "file"，需用 getDirectoryHandle 检测
-        const dirHandle = await getDirectoryHandle(item)
-        if (dirHandle) {
-          dirItems.push(item)
-          continue
+        if (typeof item.getAsFileSystemHandle === 'function') {
+          fsHandlePromises.push(item.getAsFileSystemHandle())
+        } else {
+          fsHandlePromises.push(Promise.resolve(null))
         }
+        if (item.webkitGetAsEntry?.()?.isDirectory) continue
         const f = item.getAsFile()
         if (!f) continue
-        if (f.type.startsWith('image/')) continue
-        docFiles.push(f)
+        if (f.size === 0 && !f.type && typeof item.getAsFileSystemHandle === 'function') continue
+        files.push(f)
       }
     } else {
       for (const f of Array.from(dt.files)) {
-        if (f.type.startsWith('image/')) continue
-        docFiles.push(f)
+        files.push(f)
       }
     }
-    for (const f of docFiles) {
+    ;(window as unknown as { __openDroppedDebug?: unknown }).__openDroppedDebug = {
+      filesCount: files.length,
+      fileNames: files.map((f) => f.name),
+      fsHandlePromisesCount: fsHandlePromises.length,
+    }
+    for (const f of files) {
       const lower = f.name.toLowerCase()
       if (lower.endsWith('.md') || lower.endsWith('.mdpkg')) {
         void openFileObject(f)
+        ;(window as unknown as { __openDroppedDebug?: unknown }).__openDroppedDebug = {
+          ...(window as unknown as { __openDroppedDebug?: Record<string, unknown> }).__openDroppedDebug,
+          action: 'called openFileObject',
+          fileName: f.name,
+        }
         return true
       }
       if (lower.endsWith('.zip')) {
@@ -465,19 +484,24 @@ export default function App() {
         return true
       }
     }
-    if (dirItems.length > 0) {
-      const handle = await getDirectoryHandle(dirItems[0])
-      if (!handle) {
-        setImportHint('无法读取文件夹（当前浏览器不支持文件夹拖入）')
+    if (fsHandlePromises.length > 0) {
+      const handles = await Promise.all(fsHandlePromises)
+      const dirHandle = handles.find((h) => h && h.kind === 'directory')
+      if (dirHandle) {
+        const result = await extractDocFromDirectory(dirHandle as FileSystemDirectoryHandle)
+        if (result.ok) {
+          void openFileObject(result.file)
+        } else {
+          setImportHint(result.message)
+        }
         return true
       }
-      const result = await extractDocFromDirectory(handle)
-      if (result.ok) {
-        void openFileObject(result.file)
-      } else {
-        setImportHint(result.message)
+      const fileHandle = handles.find((h) => h && h.kind === 'file')
+      if (fileHandle) {
+        const file = await (fileHandle as FileSystemFileHandle).getFile()
+        void openFileObject(file)
+        return true
       }
-      return true
     }
     return false
   }
@@ -498,9 +522,24 @@ export default function App() {
     e.stopPropagation()
     void (async () => {
       const dt = e.dataTransfer ?? (e.nativeEvent as DragEvent).dataTransfer
-      const imageFiles = await imagesFromDataTransfer(dt)
+      if (!dt) return
+      // Bug #105：同步阶段读取所有 DataTransfer 数据
+      const files: File[] = []
+      if (dt.items.length > 0) {
+        for (let i = 0; i < dt.items.length; i++) {
+          const item = dt.items[i]
+          if (item.kind !== 'file') continue
+          if (item.webkitGetAsEntry?.()?.isDirectory) continue
+          const f = item.getAsFile()
+          if (!f) continue
+          if (f.size === 0 && !f.type && typeof item.getAsFileSystemHandle === 'function') continue
+          files.push(f)
+        }
+      } else {
+        for (const f of Array.from(dt.files)) files.push(f)
+      }
+      const imageFiles = files.filter((f) => f.type.startsWith('image/'))
       if (imageFiles.length > 0) {
-        // 编辑器可见时按落点插入；预览/源码仍插到光标处。
         const view = editorViewRef.current
         const dropAt =
           mode !== 'preview' && view
@@ -509,14 +548,20 @@ export default function App() {
         void insertImages(imageFiles, dropAt)
         return
       }
-      const rawFiles = dt?.files
-      if (!rawFiles) return
-      const handled = await openDroppedDocs(dt)
-      if (handled) return
-      for (const f of Array.from(rawFiles)) {
+      const docFiles = files.filter((f) => !f.type.startsWith('image/'))
+      for (const f of docFiles) {
         const lower = f.name.toLowerCase()
         if (lower.endsWith('.md') || lower.endsWith('.mdpkg')) {
           void openFileObject(f)
+          return
+        }
+        if (lower.endsWith('.zip')) {
+          const result = await extractDocFromZip(f)
+          if (result.ok) {
+            void openFileObject(result.file)
+          } else {
+            setImportHint(result.message)
+          }
           return
         }
       }
@@ -644,26 +689,17 @@ export default function App() {
       e.preventDefault()
       const dt = e.dataTransfer
       if (!dt) return
-
-      const imageFiles: File[] = []
-      for (let i = 0; i < dt.items.length; i++) {
-        const item = dt.items[i]
-        if (item.kind === 'directory') continue
-        if (item.kind !== 'file') continue
-        const f = item.getAsFile()
-        if (!f) continue
-        if (f.type.startsWith('image/')) {
-          imageFiles.push(f)
-        }
-      }
-
-      if (imageFiles.length > 0) {
-        if (!activeTab) {
-          setImportHint('请先打开文档再拖入图片')
-          return
-        }
-        void insertImages(imageFiles)
-        return
+      // Bug #105：openDroppedDocs 内部同步快照 DataTransfer.items，
+      // 此处不做任何 getAsFile() 调用，避免与 openDroppedDocs 竞争消费。
+      ;(window as unknown as { __dropDebug?: unknown }).__dropDebug = {
+        itemsLength: dt.items.length,
+        firstItemKind: dt.items[0]?.kind,
+        firstItemType: dt.items[0]?.type,
+        getAsFileResult: dt.items[0]?.getAsFile()?.name ?? null,
+        fsHandleResult:
+          typeof dt.items[0]?.getAsFileSystemHandle === 'function'
+            ? 'has getAsFileSystemHandle'
+            : 'no getAsFileSystemHandle',
       }
       void openDroppedDocs(dt)
     }
