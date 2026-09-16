@@ -437,8 +437,7 @@ export const READER_CSS: string = `
 [data-theme='light'] .preview-content table {
   border-collapse: separate;
   border-spacing: 0;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   font-size: 0.95em;
 }
 
@@ -448,6 +447,7 @@ export const READER_CSS: string = `
   border-bottom: 1px solid var(--reader-line);
   text-align: start;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 [data-theme='light'] .preview-content thead th {
@@ -1084,8 +1084,7 @@ export const READER_CSS: string = `
 [data-theme='dark'] .preview-content table {
   border-collapse: separate;
   border-spacing: 0;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   font-size: 0.95em;
 }
 
@@ -1095,6 +1094,7 @@ export const READER_CSS: string = `
   border-bottom: 1px solid var(--reader-line);
   text-align: start;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 [data-theme='dark'] .preview-content thead th {
