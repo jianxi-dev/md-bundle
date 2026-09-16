@@ -302,16 +302,7 @@ export default function App() {
   // ── 文件打开：解析 → 新增 tab ──
   // 使用 functional updater 避免快速拖入多个文件时的 stale closure 竞态
   const openFileObject = async (file: File, diskHandle?: FileSystemFileHandle) => {
-    ;(window as unknown as { __openFileObjDebug?: unknown }).__openFileObjDebug = {
-      called: true,
-      fileName: file.name,
-      fileSize: file.size,
-    }
     const outcome = await openFile(file)
-    ;(window as unknown as { __openFileObjDebug?: unknown }).__openFileObjDebug = {
-      ...(window as unknown as { __openFileObjDebug?: Record<string, unknown> }).__openFileObjDebug,
-      outcomeKind: outcome.kind,
-    }
     switch (outcome.kind) {
       case 'md': {
         setTabsState((prev) => {
@@ -321,14 +312,7 @@ export default function App() {
             source: outcome.content,
             diskHandle,
           })
-          const next = updateTab(r.state, r.tabId, { mode: 'preview' })
-          ;(window as unknown as { __setTabsDebug?: unknown }).__setTabsDebug = {
-            prevTabCount: prev.tabs.length,
-            nextTabCount: next.tabs.length,
-            nextActiveId: next.activeId,
-            newTabName: outcome.name,
-          }
-          return next
+          return updateTab(r.state, r.tabId, { mode: 'preview' })
         })
         break
       }
@@ -434,15 +418,12 @@ export default function App() {
     }
   }
 
-  // Bug #105：在 drop 事件同步阶段启动所有 getAsFileSystemHandle() promise（仅调用，不 await），
-  // 同时同步读取 getAsFile() / webkitGetAsEntry()。
   // 拖放文档分流（Bug 2/3/4）：.md/.mdpkg 直接打开；.zip 解压找文档；文件夹遍历找文档。
   // 返回 true 表示已处理（打开文档或给出提示）；false 表示无文档可处理。
   // Bug #105：所有 DataTransfer 读取在 drop 事件同步阶段完成（getAsFile/getAsFileSystemHandle/webkitGetAsEntry），
   // 异步阶段只 await 已启动的 promise 和读取文件内容。Chromium 在 await 后会清空 DataTransfer 数据。
   const openDroppedDocs = async (dt: DataTransfer | null): Promise<boolean> => {
     if (!dt) return false
-    // ── 同步阶段：一次性读取所有 DataTransfer 数据 ──
     const files: File[] = []
     const fsHandlePromises: Promise<FileSystemHandle | null>[] = []
     if (dt.items.length > 0) {
@@ -465,20 +446,10 @@ export default function App() {
         files.push(f)
       }
     }
-    ;(window as unknown as { __openDroppedDebug?: unknown }).__openDroppedDebug = {
-      filesCount: files.length,
-      fileNames: files.map((f) => f.name),
-      fsHandlePromisesCount: fsHandlePromises.length,
-    }
     for (const f of files) {
       const lower = f.name.toLowerCase()
       if (lower.endsWith('.md') || lower.endsWith('.mdpkg')) {
         void openFileObject(f)
-        ;(window as unknown as { __openDroppedDebug?: unknown }).__openDroppedDebug = {
-          ...(window as unknown as { __openDroppedDebug?: Record<string, unknown> }).__openDroppedDebug,
-          action: 'called openFileObject',
-          fileName: f.name,
-        }
         return true
       }
       if (lower.endsWith('.zip')) {
@@ -696,19 +667,7 @@ export default function App() {
       e.preventDefault()
       const dt = e.dataTransfer
       if (!dt) return
-      // Bug #105：openDroppedDocs 内部同步快照 DataTransfer.items，
-      // 此处不做任何 getAsFile() 调用，避免与 openDroppedDocs 竞争消费。
-      ;(window as unknown as { __dropDebug?: unknown }).__dropDebug = {
-        itemsLength: dt.items.length,
-        firstItemKind: dt.items[0]?.kind,
-        firstItemType: dt.items[0]?.type,
-        getAsFileResult: dt.items[0]?.getAsFile()?.name ?? null,
-        fsHandleResult:
-          typeof dt.items[0]?.getAsFileSystemHandle === 'function'
-            ? 'has getAsFileSystemHandle'
-            : 'no getAsFileSystemHandle',
-      }
-      // 有 activeTab 时，图片拖入走导入；无 activeTab 时走文档打开
+      // Bug #105：同步快照 DataTransfer.items，异步阶段只处理已读取的数据
       void (async () => {
         const files: File[] = []
         if (dt.items.length > 0) {
