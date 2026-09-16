@@ -321,7 +321,14 @@ export default function App() {
             source: outcome.content,
             diskHandle,
           })
-          return updateTab(r.state, r.tabId, { mode: 'preview' })
+          const next = updateTab(r.state, r.tabId, { mode: 'preview' })
+          ;(window as unknown as { __setTabsDebug?: unknown }).__setTabsDebug = {
+            prevTabCount: prev.tabs.length,
+            nextTabCount: next.tabs.length,
+            nextActiveId: next.activeId,
+            newTabName: outcome.name,
+          }
+          return next
         })
         break
       }
