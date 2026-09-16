@@ -10,8 +10,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
-    "lint": "eslint src",
-    "test:manual-dragdrop": "python3 -m http.server 3334 --directory test"
+    "lint": "eslint src"
   },
   "dependencies": {
     "@md-bundle/editor": "workspace:*",
