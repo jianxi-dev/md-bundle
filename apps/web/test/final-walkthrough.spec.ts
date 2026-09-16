@@ -11,7 +11,8 @@ import { parsePngSize } from '../src/lib/pngMeta';
 import { dropImages } from './dropImage';
 
 test.describe.configure({ mode: 'serial' });
-test.setTimeout(60_000);
+// P3 #56: 10 步串行旅程 + 多次 download，CI 负载下 60s 偏紧 → 120s
+test.setTimeout(120_000);
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIX = join(here, 'fixtures');
@@ -50,6 +51,10 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
     }
   };
 
+  /** 带重试的可见性等待（CI 负载下元素渲染可能慢）。 */
+  const waitForVisible = (locator: Parameters<typeof expect>[0], timeout = 15_000) =>
+    expect(locator).toBeVisible({ timeout });
+
   // ── Step 1: Landing ──────────────────────────────────────────────
   await record('1-landing', async () => {
     await page.goto('/');
@@ -65,7 +70,7 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
   await record('2-open-md', async () => {
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
     await page.getByTestId('mode-edit-btn').click();
-    await expect(page.locator('.cm-editor').first()).toBeVisible();
+    await waitForVisible(page.locator('.cm-editor').first());
     await expect(page.locator('.cm-content').first()).toContainText('Hello');
     // first-open 徽章 toast（旅程中至少观察一次徽章 toast）
     const toast = page.getByTestId('badge-toast');
@@ -131,7 +136,7 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
   // ── Step 5: Save (content-driven → .mdpkg) ───────────────────────
   await record('5-save-mdpkg', async () => {
     const [saveDl] = await Promise.all([
-      page.waitForEvent('download'),
+      page.waitForEvent('download', { timeout: 30_000 }),
       page.getByTestId('save-btn').click(),
     ]);
     expect(saveDl.suggestedFilename()).toMatch(/\.mdpkg$/);
@@ -153,7 +158,7 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
     // HTML：Made with MD-Bundle + data:image 内联
     await page.getByTestId('export-btn').click();
     const [htmlDl] = await Promise.all([
-      page.waitForEvent('download'),
+      page.waitForEvent('download', { timeout: 30_000 }),
       page.getByTestId('export-html').click(),
     ]);
     expect(htmlDl.suggestedFilename()).toMatch(/\.html$/);
@@ -165,7 +170,7 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
     // PNG 长图：魔数 + 尺寸
     await page.getByTestId('export-btn').click();
     const [pngDl] = await Promise.all([
-      page.waitForEvent('download'),
+      page.waitForEvent('download', { timeout: 30_000 }),
       page.getByTestId('export-png').click(),
     ]);
     expect(pngDl.suggestedFilename()).toMatch(/\.png$/);
@@ -190,7 +195,7 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
     // .md 含图 → confirm（已自动接受）→ 下载
     await page.getByTestId('export-btn').click();
     const [mdDl] = await Promise.all([
-      page.waitForEvent('download'),
+      page.waitForEvent('download', { timeout: 30_000 }),
       page.getByTestId('export-md').click(),
     ]);
     expect(mdDl.suggestedFilename()).toMatch(/\.md$/);
@@ -204,8 +209,8 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
   await record('7-open-mdpkg', async () => {
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'valid.mdpkg'));
     await page.getByTestId('mode-edit-btn').click();
-    await expect(page.locator('.cm-editor').first()).toBeVisible();
-    await expect(page.getByText('5 个资源')).toBeVisible();
+    await waitForVisible(page.locator('.cm-editor').first());
+    await waitForVisible(page.getByText('5 个资源'));
 
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'corrupted.zip'));
     await expect(page.getByRole('alert')).toBeVisible();
@@ -238,10 +243,10 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
   // ── Step 9: Gallery → mdpkg example ──────────────────────────────
   await record('9-gallery', async () => {
     await page.goto('/');
-    await expect(page.locator('[data-testid="featured-section"]')).toBeVisible();
+    await waitForVisible(page.locator('[data-testid="featured-section"]'));
     await page.locator('[data-testid="featured-card-2"]').click();
     await page.getByTestId('mode-edit-btn').click();
-    await expect(page.locator('.cm-editor').first()).toBeVisible({ timeout: 10000 });
+    await waitForVisible(page.locator('.cm-editor').first(), 20_000);
     await page.screenshot({ path: join(RES, 'final-09-gallery.png') });
   });
 
