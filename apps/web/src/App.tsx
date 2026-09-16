@@ -708,7 +708,38 @@ export default function App() {
             ? 'has getAsFileSystemHandle'
             : 'no getAsFileSystemHandle',
       }
-      void openDroppedDocs(dt)
+      // 有 activeTab 时，图片拖入走导入；无 activeTab 时走文档打开
+      void (async () => {
+        const files: File[] = []
+        if (dt.items.length > 0) {
+          for (let i = 0; i < dt.items.length; i++) {
+            const item = dt.items[i]
+            if (item.kind !== 'file') continue
+            if (item.webkitGetAsEntry?.()?.isDirectory) continue
+            const f = item.getAsFile()
+            if (!f) continue
+            if (f.size === 0 && !f.type && typeof item.getAsFileSystemHandle === 'function') continue
+            files.push(f)
+          }
+        } else {
+          for (const f of Array.from(dt.files)) files.push(f)
+        }
+        const imageFiles = files.filter((f) => f.type.startsWith('image/'))
+        if (imageFiles.length > 0) {
+          if (activeTab) {
+            const view = editorViewRef.current
+            const dropAt =
+              mode !== 'preview' && view
+                ? (view.posAtCoords({ x: e.clientX, y: e.clientY }) ?? undefined)
+                : undefined
+            void insertImages(imageFiles, dropAt)
+          } else {
+            setImportHint('请先打开文档再拖入图片')
+          }
+          return
+        }
+        void openDroppedDocs(dt)
+      })()
     }
     const onDocDragOver = (e: DragEvent) => {
       e.preventDefault()
