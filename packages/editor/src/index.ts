@@ -28,36 +28,31 @@ export type { ImageResolver, ImageCallbacks } from './decorations/image';
 export { getBlocks, getBlockAt, type Block, type BlockType } from './block-model';
 export { CommandRegistry, type Command } from './commands';
 export {
-  resolveProvider,
-  createLocalProvider,
-  createBYOKeyProvider,
-  createAIProposal,
-  applyProposal,
-  rejectProposal,
-  createAIDiffViewPlugin,
-  aiDiffAcceptHunk,
-  aiDiffRejectHunk,
-  aiDiffAcceptAll,
-  createPrivacyLedger,
-  type AIProvider,
-  type AIProviderConfig,
-  type AIResolution,
-  type AICapability,
-  type StreamParams,
-  type AIProposal,
-  type AIDiffViewPlugin,
-  type AIDiffState,
-  type PrivacyLedger,
-  type PrivacyLedgerEntry,
-} from './ai';
+  contextToolbar,
+  updateToolbar,
+  hideContextToolbar,
+  detectContext,
+  getButtonsForContext,
+  type ToolbarContext,
+  type ToolbarButton,
+} from './toolbar';
 export {
-  getHeadings,
-  buildTree,
-  computeSections,
-  moveSection,
-  extractSubtree,
-  flattenTree,
-  chapterReorgExtension,
-} from './chapter-reorg';
-export { floatingToolbar, type FloatingToolbarOptions } from './floating-toolbar';
-export { floatingToolbar, type FloatingToolbarOptions } from './floating-toolbar';
+  smartInput,
+  handleMarkdownShortcut,
+  smartEnter,
+  smartBackspace,
+  handleAutoPair,
+  handleChinesePair,
+} from './smart-input';
+export {
+  contextToolbar, updateToolbar, hideContextToolbar,
+  detectContext, getButtonsForContext,
+  type ToolbarContext, type ToolbarButton,
+} from './toolbar';
+export {
+  smartInput, handleMarkdownShortcut, smartEnter,
+  smartBackspace, handleAutoPair, handleChinesePair,
+} from './smart-input';
+export { lintStructure, type Diagnostic, type LintResult } from './structure-linter';
+export { structureLinterExtension } from './structure-linter-extension';
+export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';
