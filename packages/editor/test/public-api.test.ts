@@ -26,6 +26,8 @@ import {
   getBlocks,
   getBlockAt,
   CommandRegistry,
+  lintStructure,
+  structureLinterExtension,
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
   type MarkdownEditorComponentProps,
@@ -38,6 +40,8 @@ import {
   type Block,
   type BlockType,
   type Command,
+  type Diagnostic,
+  type LintResult,
 } from '../src/index';
 
 function installPolyfills(): void {
@@ -71,6 +75,8 @@ const _typeProbe: MarkdownEditorOptions & {
   block: Block;
   blockType: BlockType;
   command: Command;
+  diagnostic: Diagnostic;
+  lintResult: LintResult;
 } = {
   value: 'x',
   theme: 'dark',
@@ -85,6 +91,8 @@ const _typeProbe: MarkdownEditorOptions & {
   block: undefined as unknown as Block,
   blockType: 'paragraph',
   command: undefined as unknown as Command,
+  diagnostic: undefined as unknown as Diagnostic,
+  lintResult: undefined as unknown as LintResult,
 };
 void _typeProbe;
 
@@ -117,6 +125,11 @@ describe('public export contract', () => {
     expect(typeof getBlocks).toBe('function');
     expect(typeof getBlockAt).toBe('function');
     expect(typeof CommandRegistry).toBe('function');
+  });
+
+  it('exports the structure linter API surface', () => {
+    expect(typeof lintStructure).toBe('function');
+    expect(typeof structureLinterExtension).toBe('function');
   });
 });
 
@@ -224,3 +237,5 @@ describe('theme token full set through the public API', () => {
     }
   });
 });
+
+
