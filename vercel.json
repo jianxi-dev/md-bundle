@@ -3,6 +3,17 @@
   "framework": "vite",
   "buildCommand": "pnpm --filter @md-bundle/web build",
   "outputDirectory": "apps/web/dist",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/spec", "destination": "/spec.html" },
     { "source": "/about", "destination": "/about.html" }
