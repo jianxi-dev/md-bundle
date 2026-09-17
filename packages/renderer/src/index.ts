@@ -42,11 +42,10 @@ export const readerCssText: string = READER_CSS;
 
 /**
  * Callout type registry shared with the editor's callout decoration so both
- * render and editing surfaces agree on labels and tones. The final map is a
- * 23-key snapshot pinned to the clairis source.
+ * render and editing surfaces agree on labels, icons and tones.
  */
 export const calloutTypeMap: Readonly<
-  Record<string, { label: string; tone: string }>
+  Record<string, { label: string; tone: string; icon: string }>
 > = CALLOUT_TYPE_MAP;
 
 /**

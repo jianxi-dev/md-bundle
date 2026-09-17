@@ -250,7 +250,7 @@ describe('CJK spacing', () => {
 });
 
 describe('calloutTypeMap snapshot', () => {
-  it('exposes exactly 22 keys with label and tone on every entry', () => {
+  it('exposes exactly 22 keys with label, tone and icon on every entry', () => {
     const keys = Object.keys(calloutTypeMap).sort();
     facts.calloutKeys = keys.length;
     expect(keys).toEqual([
@@ -280,6 +280,7 @@ describe('calloutTypeMap snapshot', () => {
     for (const key of keys) {
       expect(calloutTypeMap[key].label.length).toBeGreaterThan(0);
       expect(calloutTypeMap[key].tone.length).toBeGreaterThan(0);
+      expect(calloutTypeMap[key].icon.length).toBeGreaterThan(0);
     }
   });
 
