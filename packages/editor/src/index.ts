@@ -59,3 +59,5 @@ export {
   flattenTree,
   chapterReorgExtension,
 } from './chapter-reorg';
+export { lintStructure, type Diagnostic, type LintResult } from './structure-linter';
+export { structureLinterExtension } from './structure-linter-extension';
