@@ -6,14 +6,21 @@
  * extension is what actually makes them *look* like rendered Markdown in edit
  * mode — Typora-style "living source".
  *
+ * Semantic editing mode: two visual states per block.
+ * - Non-active (`.cm-block-inactive`): fully rendered, zero syntax markers.
+ * - Active (`.cm-block-active`): semantic reveal — structure markers shown at
+ *   low opacity for structural awareness.
+ *
+ * Layout stability: line height is fixed at 1.7em for all states so that
+ * toggling marker visibility never causes CLS. Heading sizes use em-based
+ * scaling within the fixed line box.
+ *
+ * Transitions: opacity fades for marker reveal (100–150ms) so state changes
+ * feel smooth. Bold/italic have no transition (instant, as they never change).
+ *
  * Deliberately written as an `EditorView.baseTheme` so the styles are present
  * whenever decorations are enabled, while referencing the global `--mdb-*`
  * design tokens so both dark and light `data-theme` values are honoured.
- *
- * The selection-reveal filter (see index.ts) leaves these classes in place
- * and only swaps the marker widgets back to raw source; the mark classes here
- * keep describing the styled content so the surface stays coherent while the
- * cursor is inside a decorated region.
  */
 import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
@@ -65,6 +72,12 @@ const calloutToneSpecs = (): Record<string, Record<string, string>> => ({
  * produced by the decoration field renders as styled Markdown.
  */
 export const editorDecorationsTheme: Extension = EditorView.baseTheme({
+  // ── Layout stability: fixed line height for all decorated lines ──────
+  '.cm-content .cm-line': {
+    lineHeight: '1.7em',
+    transition: 'opacity 100ms ease-out',
+  },
+
   // ── Heading marker badge (e.g. [H1]) ─────────────────────────────────
   '.cm-content .cm-heading-marker': {
     display: 'inline-block',
@@ -79,12 +92,25 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     marginRight: '0.35em',
     verticalAlign: 'middle',
     userSelect: 'none',
+    // Non-active: fully visible badge replaces the ## prefix.
+    opacity: '1',
+    transition: 'opacity 120ms ease-out',
+  },
+
+  // Active block: heading marker shown at low opacity (semantic reveal).
+  '.cm-content .cm-heading-marker-active': {
+    opacity: '0.4',
+    backgroundColor: 'transparent',
+    padding: '0',
+    marginRight: '0.25em',
   },
 
   // ── Heading text scaling (mark applied over the heading content) ─────
   '.cm-content .cm-heading': {
     fontWeight: '650',
-    lineHeight: '1.3',
+    lineHeight: '1.35em',
+    // Fixed line height ensures no CLS when ## visibility toggles.
+    transition: 'font-size 120ms ease-out',
   },
   '.cm-content .cm-heading.cm-h1': { fontSize: '1.6em', letterSpacing: '0.01em' },
   '.cm-content .cm-heading.cm-h2': { fontSize: '1.35em', letterSpacing: '0.005em' },
@@ -93,15 +119,20 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-heading.cm-h5': { fontSize: '0.95em' },
   '.cm-content .cm-heading.cm-h6': { fontSize: '0.875em', letterSpacing: '0.04em' },
 
-  // ── Bold / italic ─────────────────────────────────────────────────────
+  // ── Bold / italic (no transition — instant) ─────────────────────────
   '.cm-content .cm-strong': { fontWeight: '650', color: 'var(--mdb-text)' },
   '.cm-content .cm-em': { fontStyle: 'italic' },
 
   // ── Lists ─────────────────────────────────────────────────────────────
-  '.cm-content .cm-line.cm-list': { paddingInlineStart: '0.35em' },
+  '.cm-content .cm-line.cm-list': {
+    paddingInlineStart: '0.35em',
+    lineHeight: '1.7em',
+  },
   '.cm-content .cm-line.cm-list::before': {
     content: "'•  '",
     color: 'var(--mdb-muted)',
+    // Fade in/out when toggling between active/inactive.
+    transition: 'opacity 100ms ease-out',
   },
   '.cm-content .cm-line.cm-task-done::before': {
     content: "'✓  '",
@@ -112,12 +143,33 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     color: 'var(--mdb-muted)',
   },
 
+  // Active list block: show the raw marker at low opacity.
+  '.cm-content .cm-list-marker-active': {
+    color: 'var(--mdb-muted)',
+    opacity: '0.4',
+    fontFamily: 'var(--mdb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
+    fontSize: '0.85em',
+    transition: 'opacity 100ms ease-out',
+  },
+
   // ── Blockquote ────────────────────────────────────────────────────────
   '.cm-content .cm-line.cm-quote': {
     borderInlineStart: '3px solid var(--mdb-primary-fg)',
     paddingInlineStart: '0.6em',
     color: 'var(--mdb-text-secondary)',
     marginBlock: '0.15em 0',
+    lineHeight: '1.7em',
+    transition: 'border-color 100ms ease-out',
+  },
+
+  // Active quote block: show the > marker at low opacity.
+  '.cm-content .cm-quote-marker-active': {
+    color: 'var(--mdb-primary-fg)',
+    opacity: '0.4',
+    fontFamily: 'var(--mdb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
+    fontSize: '0.85em',
+    marginInlineEnd: '0.25em',
+    transition: 'opacity 100ms ease-out',
   },
 
   // ── Inline code ───────────────────────────────────────────────────────
@@ -130,6 +182,16 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     border: '1px solid var(--mdb-border)',
     borderRadius: '4px',
     padding: '0.1em 0.35em',
+    transition: 'background-color 100ms ease-out, border-color 100ms ease-out',
+  },
+
+  // Active code block: show faint backticks.
+  '.cm-content .cm-code-marker-active': {
+    color: 'var(--mdb-muted)',
+    opacity: '0.4',
+    fontFamily: 'var(--mdb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
+    fontSize: '0.85em',
+    transition: 'opacity 100ms ease-out',
   },
 
   // ── Inline image widget ───────────────────────────────────────────────

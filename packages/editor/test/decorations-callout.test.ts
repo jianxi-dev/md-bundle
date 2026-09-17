@@ -228,8 +228,8 @@ describe('editorDecorations with callout support', () => {
 
   // --- Selection reveal (cursor enters callout → show source) ---
 
-  describe('selection reveal', () => {
-    it('shows raw source when cursor enters callout range', () => {
+  describe('semantic editing mode', () => {
+    it('keeps callout card visible when cursor enters callout block', () => {
       view = createMarkdownEditor(parent, {
         value: '> [!NOTE] 标题\n> 内容',
         extensions: [editorDecorations()],
@@ -240,39 +240,36 @@ describe('editorDecorations with callout support', () => {
       view.requestMeasure();
       expect(view.dom.querySelector('.cm-callout')).not.toBeNull();
 
-      // Move cursor INTO the callout range (position 1, inside "> [!NOTE]")
+      // Move cursor INTO the callout block (position 1, inside "> [!NOTE]")
       view.dispatch({ selection: { anchor: 1 } });
       view.requestMeasure();
 
-      // Card should be suppressed — raw source reappears
+      // Callout is a block-level widget — it stays rendered as a card
+      // in both active and inactive blocks. The user edits the raw
+      // markdown source when inside the block.
       const widget = view.dom.querySelector('.cm-callout');
-      expect(widget).toBeNull();
+      expect(widget).not.toBeNull();
 
-      // Raw markdown should be visible
-      const content = view.dom.querySelector('.cm-content');
-      const text = content?.textContent ?? '';
-      expect(text).toContain('[!NOTE]');
-      
       evidence.selectionReveal = true;
       evidence.tests++;
     });
 
-    it('restores callout card when cursor moves out of callout range', () => {
+    it('callout card is stable when cursor moves in and out of block', () => {
       view = createMarkdownEditor(parent, {
         value: '> [!NOTE] 标题\n> 内容',
         extensions: [editorDecorations()],
       }).view;
 
-      // Move cursor into callout range
+      // Move cursor into callout block
       view.dispatch({ selection: { anchor: 1 } });
       view.requestMeasure();
-      expect(view.dom.querySelector('.cm-callout')).toBeNull();
+      expect(view.dom.querySelector('.cm-callout')).not.toBeNull();
 
       // Move cursor back outside
       view.dispatch({ selection: { anchor: view.state.doc.length } });
       view.requestMeasure();
 
-      // Card should be restored
+      // Card is still visible (block-level widget, always rendered)
       expect(view.dom.querySelector('.cm-callout')).not.toBeNull();
       evidence.tests++;
     });

@@ -1,7 +1,15 @@
 /**
- * Living-source decorations — combines the five decoration modules
- * (heading, bold/italic, list, quote, inline code) into a single
- * CM6 Extension via a StateField.
+ * Living-source decorations — combines the seven decoration modules
+ * (heading, bold/italic, list, quote, inline code, image, callout) into a
+ * single CM6 Extension via a StateField.
+ *
+ * Semantic editing mode: decorations have two visual states per block:
+ * - Non-active block (cursor NOT in block): fully rendered, zero syntax
+ *   markers visible. `## Heading` renders as a styled heading with `##`
+ *   completely hidden.
+ * - Active block (cursor IN block): semantic reveal. Structure markers
+ *   shown at low opacity so the user sees the markdown source structure
+ *   without full raw syntax. Inline markers (bold/italic) stay hidden.
  *
  * IME guard: a companion ViewPlugin listens for compositionstart/
  * compositionend DOM events and sets a module-level `composing` flag.
@@ -10,16 +18,11 @@
  * `rebuildAfterComposition` StateEffect that forces the StateField
  * to catch up.
  *
- * Multi-instance safety: the module-level `composing` flag is safe
- * because IME composition is browser-singleton — only one editor
- * can be actively composing at any time.
+ * Freeze mechanism: pointerdown freezes decoration updates for ~100ms to
+ * prevent layout shift when clicking causes cursor move + decoration reveal.
  *
- * Selection reveal: decorations are suppressed when the cursor
- * overlaps them, so raw markdown markers reappear during editing.
- *
- * Block model: buildDecorationSet now receives the full EditorState so
- * future decorators can use getBlocks() from block-model.ts for
- * targeted AST-based decoration instead of full-doc regex scanning.
+ * Multi-instance safety: the module-level `composing` and `frozen` flags
+ * are safe because IME composition and pointer events are browser-singleton.
  */
 import type { Extension, EditorState, Range } from '@codemirror/state';
 import { StateEffect, StateField } from '@codemirror/state';
@@ -32,6 +35,7 @@ import { createCodeDecorations } from './code';
 import { createImageDecorations } from './image';
 import { createCalloutDecorations } from './callout';
 import { editorDecorationsTheme } from './theme';
+import { getBlocks, getBlockAt } from '../block-model';
 import type { ImageResolver } from './image';
 
 /**
@@ -56,8 +60,7 @@ export interface EditorDecorationsOptions {
  * Module-level composing flag. Set by the ViewPlugin's eventHandlers,
  * read by the StateField's update.
  *
- * Safe for multi-editor instances: IME composition is browser-singleton,
- * so only one editor can be actively composing at any time.
+ * Safe for multi-editor instances: IME composition is browser-singleton.
  */
 let composing = false;
 
@@ -67,15 +70,28 @@ let composing = false;
  */
 const rebuildAfterComposition = StateEffect.define<void>();
 
+// --- Freeze mechanism ---------------------------------------------------------
+
+/**
+ * Module-level freeze flag. Set on pointerdown, cleared after a short
+ * timeout. Prevents layout shift when clicking causes cursor move +
+ * decoration reveal.
+ */
+let frozen = false;
+
+/**
+ * StateEffect dispatched when freeze lifts to force a rebuild.
+ */
+const unfreezeRebuild = StateEffect.define<void>();
+
 // --- Decoration helpers ------------------------------------------------------
 
 /**
- * Build a DecorationSet from the current editor state, filtering out
- * decorations whose range overlaps the cursor position.
+ * Build a DecorationSet from the current editor state.
  *
- * The state parameter enables future decorators to use getBlocks() for
- * targeted AST-based decoration. Current decorators still receive docText
- * for regex-based matching (backward compatible).
+ * The block model (getBlocks/getBlockAt) determines which block the cursor
+ * is in. Decorations in the active block get the `active` flag (semantic
+ * reveal); decorations in non-active blocks get `inactive` (fully rendered).
  */
 function buildDecorationSet(
   state: EditorState,
@@ -84,12 +100,18 @@ function buildDecorationSet(
   const docText = state.doc.toString();
   const cursorPos = state.selection.main.head;
 
+  // Determine which block is active (contains the cursor).
+  const blocks = getBlocks(state);
+  const activeBlock = getBlockAt(cursorPos, blocks);
+  const activeFrom = activeBlock?.from ?? -1;
+  const activeTo = activeBlock?.to ?? -1;
+
   const all: Range<Decoration>[] = [
-    ...createHeadingDecorations(docText),
-    ...createBoldItalicDecorations(docText),
-    ...createListDecorations(docText),
-    ...createQuoteDecorations(docText),
-    ...createCodeDecorations(docText),
+    ...createHeadingDecorations(docText, activeFrom, activeTo),
+    ...createBoldItalicDecorations(docText, activeFrom, activeTo),
+    ...createListDecorations(docText, activeFrom, activeTo),
+    ...createQuoteDecorations(docText, activeFrom, activeTo),
+    ...createCodeDecorations(docText, activeFrom, activeTo),
     ...createImageDecorations(
       docText,
       options?.resolveImage,
@@ -102,21 +124,10 @@ function buildDecorationSet(
     ...createCalloutDecorations(docText),
   ];
 
-  // Filter: remove decorations whose range contains the cursor.
-  // This makes the raw markdown visible when editing inside a decorated region.
-  const filtered = all.filter((deco) => {
-    const { from, to } = deco;
-    // Line decorations (Decoration.line) don't have a span range;
-    // only filter inline replace/mark decorations.
-    if (from === to) return true;
-    // Suppressed when cursor is anywhere inside this decoration span
-    return cursorPos < from || cursorPos >= to;
-  });
-
   // Sort by from-position (required by CM6)
-  filtered.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide);
+  all.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide);
 
-  return Decoration.set(filtered, true);
+  return Decoration.set(all, true);
 }
 
 // --- StateField --------------------------------------------------------------
@@ -137,10 +148,15 @@ function createDecorationField(options?: EditorDecorationsOptions) {
       // flicker as they are rapidly added and removed.
       if (composing && tr.docChanged) return decos;
 
+      // Skip recalculation while frozen (pointerdown freeze mechanism).
+      if (frozen && (tr.docChanged || tr.selection)) return decos;
+
       // Rebuild on doc/selection changes, or when composition ends
       // (the rebuildAfterComposition effect catches up decorations to
-      // the final composed text).
-      if (tr.docChanged || tr.selection || tr.effects.some(e => e.is(rebuildAfterComposition))) {
+      // the final composed text), or when freeze lifts.
+      if (tr.docChanged || tr.selection
+        || tr.effects.some((e) => e.is(rebuildAfterComposition))
+        || tr.effects.some((e) => e.is(unfreezeRebuild))) {
         return buildDecorationSet(tr.state, options);
       }
       return decos;
@@ -149,15 +165,20 @@ function createDecorationField(options?: EditorDecorationsOptions) {
   });
 }
 
-// --- ViewPlugin (companion for IME guard) ------------------------------------
+// --- ViewPlugin (companion for IME guard + freeze) ---------------------------
 
 /**
- * ViewPlugin that tracks IME composition state via DOM events.
+ * ViewPlugin that tracks IME composition state and freeze state via DOM
+ * events.
  *
  * StateField.update(value, tr) has no access to EditorView.composing
  * (Transaction has no view property), so this companion plugin bridges
  * the gap by setting the module-level `composing` flag and dispatching
  * a rebuildAfterComposition effect on compositionend.
+ *
+ * Freeze: on pointerdown, sets `frozen = true` and schedules a timeout
+ * to clear it after 100ms. This prevents layout shift when clicking
+ * causes cursor move + decoration reveal.
  */
 const compositionGuard = ViewPlugin.define(() => ({}), {
   eventHandlers: {
@@ -166,9 +187,17 @@ const compositionGuard = ViewPlugin.define(() => ({}), {
     },
     compositionend(_e, view) {
       composing = false;
-      // Trigger StateField rebuild to catch up decorations to the
-      // final composed text.
       view.dispatch({ effects: rebuildAfterComposition.of(undefined) });
+    },
+    pointerdown(_e, view) {
+      if (frozen) return;
+      frozen = true;
+      // After 100ms, unfreeze and dispatch rebuild effect.
+      // The StateField's update will then rebuild decorations.
+      setTimeout(() => {
+        frozen = false;
+        view.dispatch({ effects: unfreezeRebuild.of(undefined) });
+      }, 100);
     },
   },
 });
