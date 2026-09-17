@@ -44,15 +44,6 @@ export {
   handleAutoPair,
   handleChinesePair,
 } from './smart-input';
-export {
-  contextToolbar, updateToolbar, hideContextToolbar,
-  detectContext, getButtonsForContext,
-  type ToolbarContext, type ToolbarButton,
-} from './toolbar';
-export {
-  smartInput, handleMarkdownShortcut, smartEnter,
-  smartBackspace, handleAutoPair, handleChinesePair,
-} from './smart-input';
 export { lintStructure, type Diagnostic, type LintResult } from './structure-linter';
 export { structureLinterExtension } from './structure-linter-extension';
 export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';
