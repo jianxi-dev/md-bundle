@@ -59,7 +59,5 @@ export {
   flattenTree,
   chapterReorgExtension,
 } from './chapter-reorg';
-export { lintStructure, type Diagnostic, type LintResult } from './structure-linter';
-export { structureLinterExtension } from './structure-linter-extension';
-export { lintStructure, type Diagnostic, type LintResult } from './structure-linter';
-export { structureLinterExtension } from './structure-linter-extension';
+export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';
+export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';
