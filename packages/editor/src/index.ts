@@ -59,3 +59,4 @@ export {
   flattenTree,
   chapterReorgExtension,
 } from './chapter-reorg';
+export { floatingToolbar, type FloatingToolbarOptions } from './floating-toolbar';
