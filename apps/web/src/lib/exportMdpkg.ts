@@ -8,6 +8,7 @@ import { packMdpkg } from '../../vendor/mdpkg-web.js';
 import type { Manifest } from './mdpkg';
 import type { Asset } from './assets';
 import { dataUrlToBytes } from './dataUrl';
+import { STANDALONE_RENDERER_JS, getStandaloneStyles } from './exportRenderer';
 
 export interface ExportMdpkgOptions {
   markdown: string;
@@ -42,5 +43,7 @@ export function exportMdpkg({
   if (extraFiles) {
     for (const [name, bytes] of extraFiles) files.set(name, bytes);
   }
+  files.set('renderer/renderer.js', new TextEncoder().encode(STANDALONE_RENDERER_JS));
+  files.set('styles/styles.css', new TextEncoder().encode(getStandaloneStyles()));
   return packMdpkg(files, prevManifest);
 }

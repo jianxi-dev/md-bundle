@@ -63,7 +63,14 @@ describe('exportMdpkg（复用上游 packMdpkg）', () => {
     expect(r.validation.errors).toEqual([]);
 
     const keys = [...r.files.keys()].sort();
-    expect(keys).toEqual(['assets/blue.png', 'assets/red.png', 'document.md', 'manifest.json']);
+    expect(keys).toEqual([
+      'assets/blue.png',
+      'assets/red.png',
+      'document.md',
+      'manifest.json',
+      'renderer/renderer.js',
+      'styles/styles.css',
+    ]);
 
     // document.md 内容一致（UTF-8 往返无损）。
     expect(readEntrySource(r.files)).toBe(MARKDOWN);
