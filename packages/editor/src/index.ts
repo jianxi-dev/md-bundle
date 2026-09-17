@@ -56,3 +56,4 @@ export {
 export { lintStructure, type Diagnostic, type LintResult } from './structure-linter';
 export { structureLinterExtension } from './structure-linter-extension';
 export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';
+export { floatingToolbar, type FloatingToolbarOptions } from './floating-toolbar';
