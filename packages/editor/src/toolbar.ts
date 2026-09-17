@@ -362,3 +362,144 @@ export function updateToolbar(view: EditorView): void {
 export function hideContextToolbar(view: EditorView): void {
   hideToolbar(view);
 }
+
+/**
+ * Register all toolbar commands with the global commandRegistry.
+ * Call once at module load.
+ */
+export function registerToolbarCommands(): void {
+  commandRegistry.register({
+    id: 'toggle-bold',
+    label: 'Bold',
+    icon: 'B',
+    keyBinding: 'Mod-b',
+    execute(view) {
+      const { state } = view;
+      const { main } = state.selection;
+      if (!main.empty) {
+        const text = state.doc.sliceString(main.from, main.to);
+        view.dispatch({
+          changes: [
+            { from: main.from, insert: '**' },
+            { from: main.to, insert: '**' },
+          ],
+          selection: { anchor: main.from + 2 + text.length + 2 },
+        });
+      }
+    },
+  });
+  commandRegistry.register({
+    id: 'toggle-link',
+    label: 'Link',
+    icon: '🔗',
+    keyBinding: 'Mod-k',
+    execute(view) {
+      const { state } = view;
+      const { main } = state.selection;
+      if (!main.empty) {
+        const text = state.doc.sliceString(main.from, main.to);
+        view.dispatch({
+          changes: [
+            { from: main.from, insert: '[' },
+            { from: main.to, insert: '](url)' },
+          ],
+          selection: { anchor: main.from + text.length + 5 },
+        });
+      }
+    },
+  });
+  commandRegistry.register({
+    id: 'link-remove',
+    label: 'Remove Link',
+    icon: '❌',
+    execute(_view) {
+      // TODO: implement link removal
+    },
+  });
+  commandRegistry.register({
+    id: 'table-add-row',
+    label: 'Add Row',
+    icon: '➕',
+    execute(_view) {
+      // TODO: implement table row addition
+    },
+  });
+  commandRegistry.register({
+    id: 'table-add-col',
+    label: 'Add Column',
+    icon: '➕',
+    execute(_view) {
+      // TODO: implement table column addition
+    },
+  });
+  commandRegistry.register({
+    id: 'image-replace',
+    label: 'Replace Image',
+    icon: '🔄',
+    execute(_view) {
+      // TODO: implement image replacement
+    },
+  });
+  commandRegistry.register({
+    id: 'image-alt',
+    label: 'Edit Alt',
+    icon: '✏️',
+    execute(_view) {
+      // TODO: implement alt text editing
+    },
+  });
+  commandRegistry.register({
+    id: 'image-resize',
+    label: 'Resize',
+    icon: '📐',
+    execute(_view) {
+      // TODO: implement image resizing
+    },
+  });
+  commandRegistry.register({
+    id: 'code-copy',
+    label: 'Copy Code',
+    icon: '📋',
+    execute(view) {
+      const { state } = view;
+      const { main } = state.selection;
+      const text = state.doc.sliceString(main.from, main.to);
+      navigator.clipboard.writeText(text).catch(() => {});
+    },
+  });
+  commandRegistry.register({
+    id: 'code-lang',
+    label: 'Change Language',
+    icon: '🎨',
+    execute(_view) {
+      // TODO: implement language change
+    },
+  });
+  commandRegistry.register({
+    id: 'code-explain',
+    label: 'Explain Code',
+    icon: '✨',
+    execute(_view) {
+      // TODO: implement code explanation
+    },
+  });
+  commandRegistry.register({
+    id: 'link-edit',
+    label: 'Edit Link',
+    icon: '✏️',
+    execute(_view) {
+      // TODO: implement link editing
+    },
+  });
+  commandRegistry.register({
+    id: 'link-open',
+    label: 'Open Link',
+    icon: '🔗',
+    execute(_view) {
+      // TODO: implement link opening
+    },
+  });
+}
+
+// Auto-register on module load
+registerToolbarCommands();

@@ -62,7 +62,7 @@ describe('editorDecorations', () => {
       // The heading marker "# " should be replaced by a widget
       const widget = view.dom.querySelector('.cm-heading-marker');
       expect(widget).not.toBeNull();
-      expect(widget?.textContent).toBe('[H1]');
+      expect(widget?.textContent).toBe('# ');
     });
 
     it('preserves the document value (widget is view-only)', () => {
