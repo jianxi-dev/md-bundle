@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown WYSIWYG 编辑器设计方案 v2 — 审查</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg: #08090b;
+  --bg-secondary: #0e0f12;
+  --text: #f5f6f8;
+  --text-secondary: #858b96;
+  --primary: #7b86ea;
+  --border: rgba(255,255,255,0.08);
+  --success: #3fb950;
+  --warning: #e3b341;
+  --danger: #f0616d;
+}
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-secondary: #f0f0f3;
+  --text: #191a1e;
+  --text-secondary: #6b6f78;
+  --primary: #4f5ad1;
+  --border: rgba(0,0,0,0.10);
+}
+body { background: var(--bg); color: var(--text); font-family: -apple-system, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+.container { max-width: 960px; margin: 0 auto; padding: 48px 24px; }
+h1 { font-size: 2.2em; font-weight: 700; margin-bottom: 8px; }
+h2 { font-size: 1.6em; font-weight: 600; margin-top: 48px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+h3 { font-size: 1.25em; font-weight: 600; margin-top: 32px; margin-bottom: 12px; }
+h4 { font-size: 1.05em; font-weight: 600; margin-top: 24px; margin-bottom: 8px; }
+.subtitle { color: var(--text-secondary); font-size: 1.1em; margin-bottom: 32px; }
+.card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin: 16px 0; }
+.card-highlight { border-left: 4px solid var(--primary); }
+.card-warning { border-left: 4px solid var(--warning); }
+.card-success { border-left: 4px solid var(--success); }
+.card-danger { border-left: 4px solid var(--danger); }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+th, td { padding: 10px 12px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+th { background: var(--bg-secondary); font-weight: 600; }
+code { background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; font-family: 'SF Mono', 'Fira Code', monospace; }
+pre { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 0.85em; line-height: 1.6; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.78em; font-weight: 600; margin: 2px; }
+.tag-new { background: rgba(123,134,234,0.2); color: var(--primary); }
+.tag-fix { background: rgba(240,97,109,0.2); color: var(--danger); }
+.tag-phase { background: rgba(63,185,80,0.2); color: var(--success); }
+.tag-risk { background: rgba(227,179,65,0.2); color: var(--warning); }
+.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+.comparison > div { padding: 16px; border-radius: 8px; }
+.comparison .before { background: rgba(240,97,109,0.08); border: 1px solid rgba(240,97,109,0.2); }
+.comparison .after { background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.2); }
+.toc { position: sticky; top: 0; z-index: 100; display: flex; flex-wrap: nowrap; gap: 2px; align-items: center; background: rgba(8,9,15,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 8px 24px; margin: 0 -24px 32px -24px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.toc::-webkit-scrollbar { display: none; }
+.toc > strong { display: none; }
+.toc a { display: inline-block; padding: 4px 12px; color: var(--text-secondary); text-decoration: none; font-size: 0.82em; border-radius: 6px; border: 1px solid transparent; white-space: nowrap; transition: all 0.15s; }
+.toc a:hover { color: var(--primary); border-color: var(--border); background: rgba(123,134,234,0.08); }
+.toc a.active { color: var(--primary); background: rgba(123,134,234,0.12); border-color: rgba(123,134,234,0.25); }
+.toc .toc-h3 { font-size: 0.78em; padding: 3px 8px; }
+.toc .sep { width: 1px; height: 16px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+.phase-timeline { position: relative; padding-left: 32px; }
+.phase-timeline::before { content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+.phase-item { position: relative; margin-bottom: 24px; }
+.phase-item::before { content: ''; position: absolute; left: -24px; top: 8px; width: 12px; height: 12px; border-radius: 50%; background: var(--primary); border: 2px solid var(--bg); }
+.phase-item.phase-new::before { background: var(--success); }
+.phase-item.phase-risk::before { background: var(--warning); }
+ul, ol { padding-left: 24px; }
+li { margin: 4px 0; }
+.highlight { color: var(--primary); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Header -->
+<h1>📝 Markdown 所见即所得编辑器 — 设计方案 v2</h1>
+<p class="subtitle">基于 Momus 审查报告全面重写 · 可验证的差异化护城河 · 17 周交付</p>
+
+<!-- TOC Top Nav -->
+<div class="toc" id="tocNav">
+<a href="#section-0" class="active">0. 现状审计</a>
+<a href="#section-1">1. 竞品分析</a>
+<a href="#section-2">2. 核心概念</a>
+<a href="#section-3">3. 功能设计</a>
+<a href="#section-4">4. 错误边界</a>
+<a href="#section-5">5. 技术架构</a>
+<a href="#section-6">6. 路线图</a>
+<a href="#section-7">7. 超越性总结</a>
+</div>
+
+<div class="card card-highlight">
+<strong>v2 核心变更</strong>：修正竞品事实错误 · 解决键位冲突 · 新增 Phase 0（块模型 + 风险 spike）· 补齐 IME/中文/移动端/无障碍 · 聚焦四大独占差异化
+</div>
+
+<!-- Section 0 -->
+<h2 id="section-0">0. 现状审计 — 我们已有什么</h2>
+
+<div class="card card-success">
+<strong>方案不是从零开始。</strong>仓库已有大量基础设施，Phase 必须建立在现有代码之上：
+</div>
+
+<table>
+<tr><th>已有资产</th><th>位置</th><th>方案如何复用</th></tr>
+<tr><td><code>editorDecorations()</code></td><td><code>packages/editor/src/decorations/</code></td><td>7 个装饰器 + IME guard + 光标抑制，Phase 1 <strong>重构</strong>而非重写</td></tr>
+<tr><td><code>[H2]</code> Widget 占位</td><td><code>decorations/heading.ts</code></td><td>替换为淡色前缀方案</td></tr>
+<tr><td><code>Decoration.replace</code> 隐藏 **</td><td><code>decorations/boldItalic.ts</code></td><td>保留并扩展</td></tr>
+<tr><td><code>decorations</code> Compartment</td><td><code>editor.ts</code></td><td>运行时开关，语义编辑态默认开启</td></tr>
+<tr><td>三模式状态机</td><td><code>sessionStore.ts</code></td><td><code>edit</code> 重定义为语义编辑态</td></tr>
+<tr><td><code>slashKeymap</code> + 6 命令</td><td><code>slash.ts</code></td><td>扩展为统一命令注册表</td></tr>
+<tr><td><code>renderMarkdown</code></td><td><code>@md-bundle/renderer</code></td><td>编辑态/导出态共享的 SSOT</td></tr>
+<tr><td>图片替换/删除/定位</td><td><code>decorations/image.ts</code></td><td>合并到统一图片工作流</td></tr>
+<tr><td>IME composition guard</td><td><code>decorations/index.ts</code></td><td>所有新装饰必须兼容</td></tr>
+</table>
+
+<!-- Section 1 -->
+<h2 id="section-1">1. 竞品深度分析（可核验）</h2>
+
+<h3>1.1 竞品能力矩阵</h3>
+
+<table>
+<tr><th>能力</th><th>Obsidian</th><th>Typora</th><th>Sarala</th><th>Notion</th><th>Atomic</th><th>Silkdown</th><th>我们 v2</th></tr>
+<tr><td>语法隐藏</td><td>当前行</td><td>全部</td><td>当前块</td><td>N/A</td><td>块级+行内</td><td>当前行</td><td><span class="tag tag-new">块级语义化</span></td></tr>
+<tr><td>块拖拽</td><td>❌</td><td>❌</td><td>❌</td><td>✅</td><td>❌</td><td>❌</td><td><span class="tag tag-new">✅</span></td></tr>
+<tr><td>块转换</td><td>插件</td><td>❌</td><td>❌</td><td>✅</td><td>❌</td><td>❌</td><td><span class="tag tag-new">✅</span></td></tr>
+<tr><td>浮动工具栏</td><td>❌</td><td>❌</td><td>❌</td><td>✅</td><td>✅</td><td>❌</td><td><span class="tag tag-new">✅</span></td></tr>
+<tr><td>命令面板</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td><td><span class="tag tag-new">✅</span></td></tr>
+<tr><td>表格 WYSIWYG</td><td>插件</td><td>基础</td><td>❌</td><td>✅</td><td>✅</td><td>❌</td><td><span class="tag tag-new">✅</span></td></tr>
+<tr><td>IME 支持</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>⚠️难点</td><td>✅</td><td><span class="tag tag-new">中文优先</span></td></tr>
+<tr><td>源码保真</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td><td>✅</td><td>✅</td><td>✅</td></tr>
+<tr><td>同源导出</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td><span class="tag tag-new">✅ 独占</span></td></tr>
+</table>
+
+<h3>1.2 真正的差异化（不喊口号，可核验）</h3>
+
+<div class="card card-highlight">
+<table>
+<tr><th>差异化点</th><th>为什么竞品做不到</th><th>如何验证</th></tr>
+<tr><td><span class="highlight">编辑态 = 导出态像素级同源</span></td><td><code>@md-bundle/renderer</code> 是 HTML/PNG/预览三者 SSOT；竞品编辑一套、导出一套</td><td>编辑态截图 vs 导出 PNG 做 pixel-diff，偏差 = 0</td></tr>
+<tr><td><span class="highlight">本地优先 + 文档零外发</span></td><td>豆包/WorkBuddy 云原生</td><td>断网全功能可用；AI 走本地模型</td></tr>
+<tr><td><span class="highlight">中文 IME 原生</span></td><td>所有竞品以英文为主</td><td>拼音/五笔零丢字；全角标点自动配对</td></tr>
+<tr><td><span class="highlight">.mdpkg 自包含</span></td><td>竞品无此格式</td><td>编辑→打包→分享→打开，图片不裂</td></tr>
+</table>
+</div>
+
+<!-- Section 2 -->
+<h2 id="section-2">2. 核心概念精确定义</h2>
+
+<h3>2.0 块模型（Block Model）<span class="tag tag-new">v2 新增</span></h3>
+
+<div class="card card-warning">
+Momus 审查指出"块"从未定义——这是地基，必须先打。
+</div>
+
+<p><strong>定义</strong>：块 = Lezer Markdown AST 中一个顶层节点对应的文档区间。</p>
+
+<pre>
+文档 = Block₁ \n\n Block₂ \n\n ... \n\n Blockₙ
+
+Block 类型:
+  ├─ Paragraph      段落（含内联内容）
+  ├─ Heading        ATX 标题（H1-H6）
+  ├─ Blockquote    引用块（可嵌套）
+  ├─ List          列表（整个 list 是一个块，含嵌套项）
+  ├─ FencedCode    围栏代码块（``` 到 ```）
+  ├─ Table         GFM 管道表格
+  ├─ ThematicBreak 分割线
+  ├─ Image         独立图片块
+  ├─ YAMLFrontMatter 前置元数据（整体为一个块）
+  └─ HTMLBlock     原始 HTML 块（整体为一个块）
+</pre>
+
+<h4>块边界规则</h4>
+<ul>
+<li>块之间由空行分隔</li>
+<li>List 整个连续区域为一个块（含嵌套项）</li>
+<li>FencedCode 从 ``` 到 ``` 为一个块</li>
+<li>Frontmatter 从第一个 --- 到配对的 --- 为一个块</li>
+<li>软换行（single newline inside paragraph）不分割块</li>
+</ul>
+
+<h3>2.1 语义编辑态 vs 竞品</h3>
+
+<div class="comparison">
+<div class="before">
+<strong>Obsidian Live Preview</strong><br>
+当前行显示完整源码 <code>## 标题</code><br>
+非活动行仍暴露源码符号<br>
+<span class="tag tag-risk">行粒度</span>
+</div>
+<div class="after">
+<strong>我们的语义编辑态</strong><br>
+当前块显示语义化标记 <code style="opacity:0.4">##</code> 标题<br>
+非活动块完全渲染，零源码符号<br>
+<span class="tag tag-new">块粒度</span>
+</div>
+</div>
+
+<h3>2.2 视觉规范（精确值）</h3>
+
+<table>
+<tr><th>元素</th><th>非活动态</th><th>活动态</th><th>过渡动画</th></tr>
+<tr><td>H1-H6 标记</td><td>完全隐藏</td><td>40% 透明度主题色前缀</td><td>120ms ease-out</td></tr>
+<tr><td>粗体 <code>**</code></td><td>完全隐藏</td><td>完全隐藏</td><td>无</td></tr>
+<tr><td>斜体 <code>*</code></td><td>完全隐藏</td><td>完全隐藏</td><td>无</td></tr>
+<tr><td>反引号</td><td>完全隐藏</td><td>25% 灰色背景</td><td>120ms</td></tr>
+<tr><td>链接 URL</td><td>完全隐藏</td><td>30% 灰色，12px 后缀</td><td>150ms</td></tr>
+<tr><td>列表符号</td><td>主题色圆点</td><td>圆点 + 淡色原始符号</td><td>100ms</td></tr>
+<tr><td>引用 <code>></code></td><td>3px 左侧竖线</td><td>竖线 + 淡色 ></td><td>100ms</td></tr>
+<tr><td>表格</td><td>网格线</td><td>蓝色虚线网格</td><td>150ms</td></tr>
+</table>
+
+<!-- Section 3 -->
+<h2 id="section-3">3. 核心功能设计</h2>
+
+<h3>3.1 渐进式语法揭示引擎</h3>
+
+<div class="card">
+<strong>核心不变量</strong>：行高只由 CSS class 决定，与标记是否可见无关（CLS < 0.01）
+</div>
+
+<pre>
+Lezer Markdown 解析树
+        │
+        ▼
+  Block Classifier（块分类 + 边界计算）
+        │
+        ▼
+  StateField&lt;Block[]&gt;（块数组，增量更新）
+        │
+        ├─ 活动块 → SemanticDecorator
+        └─ 非活动块 → RenderDecorator
+        │
+        ▼
+  DecorationSet（最终装饰集）
+</pre>
+
+<h4>性能目标</h4>
+<table>
+<tr><th>文档大小</th><th>首次渲染</th><th>编辑延迟</th><th>内存</th></tr>
+<tr><td>&lt; 1万字</td><td>&lt; 100ms</td><td>&lt; 16ms</td><td>&lt; 50MB</td></tr>
+<tr><td>1-10万字</td><td>&lt; 300ms</td><td>&lt; 33ms</td><td>&lt; 150MB</td></tr>
+<tr><td>10-50万字</td><td>&lt; 800ms</td><td>&lt; 50ms</td><td>&lt; 400MB</td></tr>
+<tr><td>&gt; 50万字</td><td colspan="3">提示切换源码模式</td></tr>
+</table>
+
+<h3>3.2 块级操作系统</h3>
+
+<h4>块操作菜单</h4>
+<pre>
+┌──────────────────────────────┐
+│ 🔄 转换为 ▾                   │
+│ 📋 复制块                     │
+│ 📑 向下复制                   │
+│ 🗑️ 删除块                    │
+│ ✨ AI ▾                       │
+│ ⬆️ 上移 / ⬇️ 下移             │
+└──────────────────────────────┘
+</pre>
+
+<h4>快捷键（已解决 v1 冲突）<span class="tag tag-fix">v2 修正</span></h4>
+<table>
+<tr><th>快捷键</th><th>操作</th><th>备注</th></tr>
+<tr><td><code>Cmd+Shift+↑/↓</code></td><td>块上/下移</td><td>—</td></tr>
+<tr><td><code>Cmd+Shift+D</code></td><td>复制块</td><td>—</td></tr>
+<tr><td><code>Cmd+Shift+M</code></td><td>块操作菜单</td><td>从 v1 的 Cmd+/ 改来</td></tr>
+<tr><td><code>Cmd+/</code></td><td>编辑↔源码切换</td><td class="highlight">唯一语义，已解决冲突</td></tr>
+<tr><td><code>Cmd+K</code></td><td>命令面板</td><td>链接插入改为 Cmd+Shift+L</td></tr>
+</table>
+
+<h3>3.3 上下文感知浮动工具栏</h3>
+
+<table>
+<tr><th>上下文</th><th>工具栏内容</th></tr>
+<tr><td>文本选中</td><td>B I S ` 🔗 🎨 ✨AI</td></tr>
+<tr><td>表格中</td><td>➕行 ➕列 ↔对齐</td></tr>
+<tr><td>图片上</td><td>🔄替换 ✏️Alt 📐缩放</td></tr>
+<tr><td>链接上</td><td>✏️编辑 🔗打开 ❌移除</td></tr>
+<tr><td>代码块中</td><td>📋复制 🎨语言 ✨解释</td></tr>
+<tr><td>空行</td><td class="highlight">不显示（避免噪音）<span class="tag tag-fix">v2 修正</span></td></tr>
+</table>
+
+<h3>3.4 智能输入系统</h3>
+<table>
+<tr><th>输入</th><th>效果</th></tr>
+<tr><td><code># </code> + Space</td><td>转为 H1</td></tr>
+<tr><td><code>- </code> + Space</td><td>转为无序列表</td></tr>
+<tr><td><code>1. </code> + Space</td><td>转为有序列表</td></tr>
+<tr><td><code>&gt; </code> + Space</td><td>转为引用块</td></tr>
+<tr><td><code>```</code> + Enter</td><td>插入代码块</td></tr>
+<tr><td><code>**</code></td><td>包裹选中文本或创建配对</td></tr>
+<tr><td><code>「</code></td><td>自动配对 <code>「」</span></td></tr>
+</table>
+
+<h3>3.5 WYSIWYG 表格编辑器</h3>
+
+<pre>
+源码表格 → Decoration.replace → Widget（contentEditable 单元格）
+用户编辑 → 序列化为 GFM → view.dispatch 更新源码 → 重新解析
+</pre>
+
+<h3>3.6 命令面板</h3>
+<p><code>Cmd+K</code> 打开，模糊匹配 + 拼音首字母 + 最近使用排序</p>
+
+<h3>3.7 块级 AI 操作</h3>
+
+<div class="card card-warning">
+<strong>隐私约束</strong>：BYO API Key（存 localStorage）；可选本地模型（Ollama/WebGPU）；量化承诺"文档零外发"
+</div>
+
+<table>
+<tr><th>操作</th><th>输入</th><th>输出</th></tr>
+<tr><td>续写</td><td>当前块</td><td>后续内容</td></tr>
+<tr><td>润色</td><td>选中文本</td><td>改写后文本</td></tr>
+<tr><td>翻译</td><td>选中文本 + 目标语言</td><td>翻译结果</td></tr>
+<tr><td>总结</td><td>多块选中</td><td>要点列表</td></tr>
+<tr><td>转看板</td><td>—</td><td class="tag tag-fix">❌ 不实现（违反零私有语法）</td></tr>
+</table>
+
+<!-- Section 4 -->
+<h2 id="section-4">4. 错误边界与降级策略</h2>
+
+<table>
+<tr><th>场景</th><th>降级行为</th></tr>
+<tr><td>KaTeX 解析失败</td><td>红色错误文本 + 原始 LaTeX</td></tr>
+<tr><td>Mermaid 语法错误</td><td>⚠️ 提示 + 原始代码</td></tr>
+<tr><td>图片加载失败</td><td>占位图 + alt 文本</td></tr>
+<tr><td>大文档性能不足</td><td>提示切换源码模式</td></tr>
+<tr><td>装饰引擎异常</td><td>回退源码模式，不白屏</td></tr>
+<tr><td>AI 服务不可用</td><td>提示检查网络/配置</td></tr>
+</table>
+
+<!-- Section 5 -->
+<h2 id="section-5">5. 技术架构</h2>
+
+<pre>
+┌─────────────────────────────────────────────────────────┐
+│  @md-bundle/editor v2                                   │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │  Core Extensions（已有）                           │  │
+│  │  ├─ markdown() — Lezer 解析                        │  │
+│  │  ├─ history() — 撤销/重做                          │  │
+│  │  ├─ theme — 主题 Compartment                       │  │
+│  │  └─ slashKeymap — / 命令菜单                       │  │
+│  ├───────────────────────────────────────────────────┤  │
+│  │  Semantic Edit Extensions（新增）                   │  │
+│  │  ├─ revealExtension — 渐进式语法揭示               │  │
+│  │  ├─ blockHandleExtension — 块手柄 + 拖拽          │  │
+│  │  ├─ smartInputKeymap — 智能 Enter/Backspace        │  │
+│  │  ├─ tableWidgetExtension — WYSIWYG 表格             │  │
+│  │  ├─ floatingToolbarPlugin — 上下文工具栏            │  │
+│  │  └─ commandPaletteExtension — 命令面板             │  │
+│  ├───────────────────────────────────────────────────┤  │
+│  │  AI Extensions（新增）                              │  │
+│  │  ├─ aiProvider — 服务抽象层                        │  │
+│  │  └─ aiStreamRenderer — 流式输出                    │  │
+│  └───────────────────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────┤
+│  @md-bundle/renderer（已有）                             │
+│  ├─ renderMarkdown → HTML                               │
+│  ├─ hydrateLazyFeatures (KaTeX/mermaid/highlight)        │
+│  └─ readerCssText                                       │
+└─────────────────────────────────────────────────────────┘
+</pre>
+
+<!-- Section 6 -->
+<h2 id="section-6">6. 实施路线图</h2>
+
+<div class="phase-timeline">
+
+<div class="phase-item phase-new">
+<strong>Phase 0: 基础设施</strong> <span class="tag tag-new">v2 新增</span> · 2 周<br>
+块模型定义 + 范围映射 + 命令注册表 + round-trip 不变量测试 + 行为矩阵<br>
+<strong>出口标准</strong>：块模型 100% 覆盖；round-trip 1000 文档逐字节一致；CLS < 0.01
+</div>
+
+<div class="phase-item phase-risk">
+<strong>Phase 0.5: 风险 Spike</strong> <span class="tag tag-new">v2 新增</span> · 各 ≤2 天<br>
+① 表格 Widget + IME + 光标映射 &nbsp; ② 块拖拽 + undo 一致性 &nbsp; ③ 中文 IME 零丢字<br>
+<strong>出口标准</strong>：Tab 跳转 100% 正确；跨 100+ 行拖拽 undo 正确；拼音/五笔无异常
+</div>
+
+<div class="phase-item">
+<strong>Phase 1: 语义编辑态</strong> · 4 周<br>
+重构装饰系统（正则→Lezer）+ ghost marker + 冻结机制 + 三种模式切换
+</div>
+
+<div class="phase-item">
+<strong>Phase 2: 块级操作</strong> · 3 周<br>
+块手柄 + 拖拽 + 菜单 + 快捷键
+</div>
+
+<div class="phase-item">
+<strong>Phase 3: 智能输入 + 工具栏</strong> · 3 周<br>
+快捷输入 + 智能 Enter + 自动配对 + 浮动工具栏 + 命令面板
+</div>
+
+<div class="phase-item">
+<strong>Phase 4: 表格 + 图片</strong> · 2 周<br>
+WYSIWYG 表格 + 图片增强
+</div>
+
+<div class="phase-item">
+<strong>Phase 5: AI</strong> · 3 周<br>
+Provider 接口 + 流式输出 + 块级 AI 操作
+</div>
+
+</div>
+
+<p style="text-align: center; font-size: 1.2em; margin-top: 32px;"><strong>总工期：17 周（约 4.5 个月）</strong></p>
+
+<!-- Section 7 -->
+<h2 id="section-7">7. 超越性总结</h2>
+
+<table>
+<tr><th>竞品现状</th><th>我们的方案</th><th>差异深度</th></tr>
+<tr><td>编辑一套、导出一套</td><td><code>@md-bundle/renderer</code> SSOT，pixel-diff = 0</td><td><span class="tag tag-new">独占</span></td></tr>
+<tr><td>豆包/WorkBuddy 云原生</td><td>断网全功能可用；AI 走本地模型</td><td><span class="tag tag-new">独占</span></td></tr>
+<tr><td>所有竞品以英文为主</td><td>IME 零丢字 + 全角标点 + 拼音命令</td><td><span class="tag tag-new">独占</span></td></tr>
+<tr><td>无 .mdpkg 格式</td><td>编辑→打包→分享→打开</td><td><span class="tag tag-new">独占</span></td></tr>
+<tr><td>Obsidian=当前行，Typora=全隐藏</td><td>块级语义化揭示 + 结构标记弱化保留</td><td><span class="tag tag-new">更精细</span></td></tr>
+</table>
+
+<div class="card card-highlight" style="text-align: center; font-size: 1.15em;">
+<strong>"Typora 的简洁 × Obsidian 的保真 × Notion 的块操作 × 原生中文支持 × 编辑即导出 — 在一个纯前端、零锁定的 Markdown 编辑器中。"</strong>
+</div>
+
+<!-- Footer -->
+<div style="margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 0.85em; text-align: center;">
+设计方案 v2 · 基于 Momus 审查迭代 · 2026-09-17 · 等待审查反馈
+</div>
+
+</div>
+<script>mermaid.initialize({startOnLoad:true, theme:'dark'});</script>
+<script>
+// TOC scroll spy
+const sections = document.querySelectorAll('[id^="section-"]');
+const tocLinks = document.querySelectorAll('#tocNav a');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      tocLinks.forEach(a => a.classList.remove('active'));
+      const link = document.querySelector(`#tocNav a[href="#${entry.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-80px 0px -60% 0px', threshold: 0 });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

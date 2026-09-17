@@ -50,3 +50,12 @@ export {
   type PrivacyLedger,
   type PrivacyLedgerEntry,
 } from './ai';
+export {
+  getHeadings,
+  buildTree,
+  computeSections,
+  moveSection,
+  extractSubtree,
+  flattenTree,
+  chapterReorgExtension,
+} from './chapter-reorg';

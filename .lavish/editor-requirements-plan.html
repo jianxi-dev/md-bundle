@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Markdown 文档平台 — 需求规划 v1.1</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Markdown 文档平台 — 需求规划 v1.1</h1>
+</header>
+<h1 id="markdown-文档平台-需求规划">Markdown 文档平台 — 需求规划</h1>
+<blockquote>
+<p><strong>基于</strong>：<code>editor-design-final-report.md</code>（Oracle
++ Momus + Librarian 综合评审） <strong>日期</strong>：2026-09-17
+<strong>状态</strong>：待确认</p>
+</blockquote>
+<hr />
+<h2 id="一产品定义">一、产品定义</h2>
+<h3 id="一句话定位">1.1 一句话定位</h3>
+<blockquote>
+<p><strong>创建、分享、阅读自包含文档的最佳方式。</strong></p>
+</blockquote>
+<h3 id="核心概念">1.2 核心概念</h3>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>产品</strong></td>
+<td><code>.mdpkg</code> — 可运行的文档工件（不是编辑器）</td>
+</tr>
+<tr>
+<td><strong>手段</strong></td>
+<td>编辑器 — 创建和编辑 <code>.mdpkg</code> 的工具</td>
+</tr>
+<tr>
+<td><strong>体验</strong></td>
+<td>“打开一个文件就得到完整体验” — 零安装、零上传、离线</td>
+</tr>
+<tr>
+<td><strong>护城河</strong></td>
+<td>同源渲染 + 零后端 + 中文原生 + 隐私优先</td>
+</tr>
+</tbody>
+</table>
+<h3 id="目标用户楔子人群">1.3 目标用户（楔子人群）</h3>
+<blockquote>
+<p><strong>需要把带图的文档发出去、又不想上传云端的人。</strong> -
+自媒体作者、内部报告撰写者、中文技术写作者</p>
+</blockquote>
+<hr />
+<h2 id="二需求边界做什么-不做什么">二、需求边界：做什么 / 不做什么</h2>
+<h3 id="要做v1">2.1 ✅ 要做（v1）</h3>
+<table>
+<colgroup>
+<col style="width: 13%" />
+<col style="width: 26%" />
+<col style="width: 34%" />
+<col style="width: 26%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>需求</th>
+<th>优先级</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1</td>
+<td>安全底座修复</td>
+<td><strong>P0</strong></td>
+<td>DOMPurify 修复 + CSP + API key 内存存储</td>
+</tr>
+<tr>
+<td>R2</td>
+<td><code>.mdpkg</code> 即应用</td>
+<td><strong>P0</strong></td>
+<td>包内自带渲染器 + CSS，双击打开即成品</td>
+</tr>
+<tr>
+<td>R3</td>
+<td>Diff-native AI</td>
+<td><strong>P1</strong></td>
+<td>选中 → 改写 → 行内 diff → Tab/Esc</td>
+</tr>
+<tr>
+<td>R4</td>
+<td>结构体检</td>
+<td><strong>P1</strong></td>
+<td>AST 规则诊断（论点无证据/章节无结论/层级跳跃）</td>
+</tr>
+<tr>
+<td>R5</td>
+<td>章节重组</td>
+<td><strong>P1</strong></td>
+<td>拖拽章节重排 + 导出子树</td>
+</tr>
+<tr>
+<td>R6</td>
+<td>语义编辑态</td>
+<td><strong>P2</strong></td>
+<td>渐进式语法揭示（块级语义化）</td>
+</tr>
+<tr>
+<td>R7</td>
+<td>上下文工具栏</td>
+<td><strong>P2</strong></td>
+<td>根据选中内容/光标位置动态变化</td>
+</tr>
+<tr>
+<td>R8</td>
+<td>智能输入</td>
+<td><strong>P2</strong></td>
+<td>Markdown 快捷输入 + 智能 Enter/Backspace + 自动配对</td>
+</tr>
+<tr>
+<td>R9</td>
+<td>视觉模板库</td>
+<td><strong>P2</strong></td>
+<td>Callout 12+ 类型 + Hero/Card/Timeline/CTA</td>
+</tr>
+<tr>
+<td>R10</td>
+<td>HTML 块嵌入</td>
+<td><strong>P3</strong></td>
+<td>安全 HTML 子集 + <code>@scope</code> 隔离</td>
+</tr>
+<tr>
+<td>R11</td>
+<td>CSS-only 组件</td>
+<td><strong>P3</strong></td>
+<td>折叠/标签/进度条（CSS-only，无 JS）</td>
+</tr>
+<tr>
+<td>R12</td>
+<td>流式编辑</td>
+<td><strong>P3</strong></td>
+<td>打字即渲染 + 选择即操作</td>
+</tr>
+</tbody>
+</table>
+<h3 id="不做v1-明确排除">2.2 ❌ 不做（v1 明确排除）</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>意图引擎（主动 LLM 建议）</td>
+<td>注意力税，负体验</td>
+</tr>
+<tr>
+<td>文档指纹</td>
+<td>昂贵/过期/隐私冲突</td>
+</tr>
+<tr>
+<td>动态内容块 + 数据源</td>
+<td>违反零后端</td>
+</tr>
+<tr>
+<td>AI 代理（静默自主）</td>
+<td>信任成本 &gt; 收益</td>
+</tr>
+<tr>
+<td>内联 SVG</td>
+<td>XSS 攻击面</td>
+</tr>
+<tr>
+<td>自定义元素（md-tabs 等）</td>
+<td>与”无私有语法”冲突</td>
+</tr>
+<tr>
+<td>导出时剥离增强层</td>
+<td>破坏 round-trip</td>
+</tr>
+<tr>
+<td>协作编辑（多人实时）</td>
+<td>与”零后端”冲突</td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>v1 聚焦核心体验</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="三功能需求详细规格">三、功能需求详细规格</h2>
+<h3 id="r1安全底座修复p0">R1：安全底座修复（P0）</h3>
+<h4 id="r1.1-dompurify-修复">R1.1 DOMPurify 修复</h4>
+<table>
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 27%" />
+<col style="width: 27%" />
+</colgroup>
+<thead>
+<tr>
+<th>当前问题</th>
+<th>修复</th>
+<th>验证</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>style</code> 属性已允许</td>
+<td>从 <code>ALLOWED_ATTR</code> 移除</td>
+<td>测试：<code>&lt;div style="x"&gt;</code> 被剥离</td>
+</tr>
+<tr>
+<td><code>id</code> 属性已允许</td>
+<td>从 <code>ALLOWED_ATTR</code> 移除</td>
+<td>测试：<code>&lt;div id="x"&gt;</code> 被剥离</td>
+</tr>
+<tr>
+<td><code>ALLOW_DATA_ATTR: false</code></td>
+<td>改为 <code>true</code></td>
+<td>测试：<code>data-callout</code> 保留</td>
+</tr>
+<tr>
+<td><code>SANITIZE_NAMED_PROPS</code> 未启用</td>
+<td>启用</td>
+<td>测试：<code>&lt;a name="cookie"&gt;</code> 被净化</td>
+</tr>
+</tbody>
+</table>
+<h4 id="r1.2-csp-配置">R1.2 CSP 配置</h4>
+<pre><code>Content-Security-Policy:
+  default-src &#39;self&#39;;
+  img-src &#39;self&#39; data: blob:;
+  style-src &#39;self&#39; &#39;unsafe-inline&#39;;
+  script-src &#39;self&#39;;
+  object-src &#39;none&#39;;
+  base-uri &#39;none&#39;</code></pre>
+<ul>
+<li>Vercel：<code>vercel.json</code> 加 <code>headers</code></li>
+<li>GitHub Pages：<code>&lt;meta http-equiv&gt;</code> fallback</li>
+</ul>
+<h4 id="r1.3-api-key-存储">R1.3 API Key 存储</h4>
+<ul>
+<li><strong>仅存内存</strong>（页面刷新即需重输）</li>
+<li>绝不入 <code>localStorage</code> / <code>sessionStorage</code> /
+IndexedDB</li>
+</ul>
+<h4 id="r1.4-css-隔离">R1.4 CSS 隔离</h4>
+<ul>
+<li>编辑器侧 HTML widget 用 <code>@scope</code> 或 Shadow DOM</li>
+<li>防止用户 <code>class</code> 命中 <code>.cm-*</code></li>
+</ul>
+<hr />
+<h3 id="r2.mdpkg-即应用p0-ns-1">R2：<code>.mdpkg</code> 即应用（P0）⭐
+NS-1</h3>
+<h4 id="r2.1-包格式升级">R2.1 包格式升级</h4>
+<pre><code>当前 .mdpkg = zip( manifest.json + document.md + assets/* )
+目标 .mdpkg = zip( manifest.json + document.md + assets/* + renderer/ + styles/ )</code></pre>
+<blockquote>
+<p><strong>职责划分</strong>：包格式升级由<strong>本项目</strong>主导实施。上游
+<code>mdpkg</code>
+规范（<code>jianxi-dev/mdpkg</code>）定义基础结构（manifest + entrypoint
++ assets），本项目在其基础上扩展 <code>renderer/</code> 和
+<code>styles/</code> 目录。具体做法： - 复用现有
+<code>buildHtmlDocument</code>（<code>exportHtml.ts</code>）生成自包含
+HTML - 复用现有 <code>packMdpkg</code>（vendored）打包 - 渲染器 = 内联的
+<code>renderer.js</code>（从 <code>@md-bundle/renderer</code> 构建的 UMD
+bundle） - 样式 = 内联的 <code>styles.css</code>（从
+<code>readerCssText</code> 提取）</p>
+</blockquote>
+<h4 id="r2.2-打开方式">R2.2 打开方式</h4>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>拖入编辑器</td>
+<td>编辑态（完整功能）</td>
+</tr>
+<tr>
+<td>双击 <code>.mdpkg</code></td>
+<td>调用 <code>viewer.html</code> 只读渲染</td>
+</tr>
+<tr>
+<td>导出 HTML</td>
+<td>单文件自包含 HTML</td>
+</tr>
+</tbody>
+</table>
+<h4 id="r2.3-验收标准">R2.3 验收标准</h4>
+<ul class="task-list">
+<li><label><input type="checkbox" />外部用户（无编辑器）双击
+<code>.mdpkg</code> → 完整渲染（含 Callout/Card/布局）</label></li>
+<li><label><input type="checkbox" />导出 HTML
+与编辑器内渲染像素级一致</label></li>
+<li><label><input type="checkbox" />离线可用（无网络请求）</label></li>
+</ul>
+<hr />
+<h3 id="r3diff-native-aip1-ns-2">R3：Diff-native AI（P1）⭐ NS-2</h3>
+<h4 id="r3.1-交互流程">R3.1 交互流程</h4>
+<pre><code>用户选中文本 → 点击&quot;AI&quot; → 选择操作（改写/缩短/翻译/结构化）
+→ AI 生成提案 → 行内 diff 渲染（绿增红删）
+→ Tab 接受 / Esc 拒绝 / ⌘↵ 全接受</code></pre>
+<blockquote>
+<p><strong>AI Agent 接入窗口</strong>：v1 不设计独立的 Agent
+对话窗口。AI 操作通过以下方式触发： - <strong>浮动工具栏 AI
+按钮</strong>：选中文本 → 工具栏出现 ✨AI 按钮 → 点击展开操作菜单 -
+<strong>斜杠命令 <code>/ai</code></strong>：输入 <code>/ai</code> → 展开
+AI 操作面板 - <strong>右键菜单</strong>：右键选中文本 → “AI” 子菜单</p>
+<p>v1 聚焦”选中→改写→diff”这一条路径，不做全文自主编辑的 Agent
+模式。Agent 模式（批量改写 + 强制 diff 审阅）推迟到 v2。</p>
+</blockquote>
+<h4 id="r3.2-数据结构">R3.2 数据结构</h4>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode typescript"><code class="sourceCode typescript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">interface</span> AIProposal {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  range<span class="op">:</span> { from<span class="op">:</span> <span class="dt">number</span><span class="op">;</span> to<span class="op">:</span> <span class="dt">number</span> }  <span class="co">// 选中文本范围</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  original<span class="op">:</span> <span class="dt">string</span>                     <span class="co">// 原文</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  proposed<span class="op">:</span> <span class="dt">string</span>                     <span class="co">// AI 建议</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  rationale<span class="op">:</span> <span class="dt">string</span>                    <span class="co">// 为什么这样改</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  status<span class="op">:</span> <span class="st">&#39;pending&#39;</span> <span class="op">|</span> <span class="st">&#39;accepted&#39;</span> <span class="op">|</span> <span class="st">&#39;rejected&#39;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="r3.3-provider-模型">R3.3 Provider 模型</h4>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>说明</th>
+<th>默认</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LocalProvider</code></td>
+<td>端侧 WebGPU/WASM</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>BYOKeyProvider</code></td>
+<td>用户自己的 API Key</td>
+<td>可选</td>
+</tr>
+<tr>
+<td><code>Disabled</code></td>
+<td>完全无 AI</td>
+<td>可选</td>
+</tr>
+</tbody>
+</table>
+<h4 id="r3.4-验收标准">R3.4 验收标准</h4>
+<ul class="task-list">
+<li><label><input type="checkbox" />无 AI 时产品 100% 可用</label></li>
+<li><label><input type="checkbox" />AI 修改必须逐 hunk
+审阅（不能静默落盘）</label></li>
+<li><label><input type="checkbox" />每次调用记录到 Privacy
+Ledger</label></li>
+<li><label><input type="checkbox" />绝不默认发送全文</label></li>
+</ul>
+<hr />
+<h3 id="r4结构体检p1-ns-3-的一部分">R4：结构体检（P1）⭐ NS-3
+的一部分</h3>
+<h4 id="r4.1-诊断规则v1-规则集零-llm">R4.1 诊断规则（v1 规则集，零
+LLM）</h4>
+<blockquote>
+<p><strong>零 LLM 实现方式</strong>：所有诊断规则基于 <strong>Lezer
+Markdown AST</strong> 的结构化分析，不需要任何 AI 调用。</p>
+<p><strong>实现步骤</strong>： 1. 解析文档为 Lezer
+AST（<code>ensureSyntaxTree</code>） 2. 遍历
+AST，构建文档结构模型（标题层级、段落列表、列表项、引用块） 3.
+对每条规则编写纯函数检测器（输入 AST 片段，输出诊断结果） 4.
+诊断结果缓存于 StateField，文档变更时增量更新 5. 诊断结果以行内
+decoration 渲染（类似 lint 波浪线）</p>
+</blockquote>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 41%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>规则</th>
+<th>检测逻辑</th>
+<th>严重度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>论点无证据</code></td>
+<td>段落含”因此/所以/综上”等结论词，但后续 2 段内无列表/引用/表格</td>
+<td>warning</td>
+</tr>
+<tr>
+<td><code>章节无结论</code></td>
+<td>H2/H3 章节超过 3 段，且最后一段不含总结性关键词</td>
+<td>info</td>
+</tr>
+<tr>
+<td><code>重复论点</code></td>
+<td>不同章节的标题 Jaccard 相似度 &gt; 0.6</td>
+<td>warning</td>
+</tr>
+<tr>
+<td><code>标题层级跳跃</code></td>
+<td>标题层级差 &gt; 1（如 H1→H3）</td>
+<td>error</td>
+</tr>
+<tr>
+<td><code>超长段落</code></td>
+<td>单段超过 300 字</td>
+<td>info</td>
+</tr>
+<tr>
+<td><code>列表项长度失衡</code></td>
+<td>列表中最长项 / 最短项 &gt; 5</td>
+<td>info</td>
+</tr>
+<tr>
+<td><code>空标题</code></td>
+<td>标题节点后紧跟另一个标题节点（中间无内容）</td>
+<td>warning</td>
+</tr>
+<tr>
+<td><code>孤立的图片</code></td>
+<td>图片前后各 2 行无正文段落</td>
+<td>info</td>
+</tr>
+</tbody>
+</table>
+<h4 id="r4.2-验收标准">R4.2 验收标准</h4>
+<ul class="task-list">
+<li><label><input type="checkbox" />完全离线、零成本</label></li>
+<li><label><input
+type="checkbox" />诊断结果可一键跳转到对应位置</label></li>
+<li><label><input
+type="checkbox" />每条诊断可”标记为已处理”</label></li>
+<li><label><input type="checkbox" />1 万字文档诊断延迟 &lt;
+100ms</label></li>
+</ul>
+<hr />
+<h3 id="r5章节重组p1-ns-3-的一部分">R5：章节重组（P1）⭐ NS-3
+的一部分</h3>
+<h4 id="r5.1-功能">R5.1 功能</h4>
+<ul>
+<li>文档结构可视化（树形大纲）</li>
+<li>拖拽章节（含子树）重排</li>
+<li>折叠/展开子结构</li>
+<li>导出子树为独立文档</li>
+</ul>
+<h4 id="r5.2-验收标准">R5.2 验收标准</h4>
+<ul class="task-list">
+<li><label><input type="checkbox" />拖拽后 Markdown
+源码同步更新</label></li>
+<li><label><input type="checkbox" />undo 历史正确</label></li>
+<li><label><input type="checkbox" />导出子树保持完整结构</label></li>
+</ul>
+<hr />
+<h3 id="r6语义编辑态p2">R6：语义编辑态（P2）</h3>
+<h4 id="r6.1-视觉规则">R6.1 视觉规则</h4>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 33%" />
+<col style="width: 26%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th>语法</th>
+<th>非活动块</th>
+<th>活动块</th>
+<th>过渡</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>标题 <code>#</code></td>
+<td>完全隐藏</td>
+<td>40% 透明度主题色前缀</td>
+<td>120ms</td>
+</tr>
+<tr>
+<td>粗体 <code>**</code></td>
+<td>完全隐藏</td>
+<td>完全隐藏</td>
+<td>无</td>
+</tr>
+<tr>
+<td>斜体 <code>*</code></td>
+<td>完全隐藏</td>
+<td>完全隐藏</td>
+<td>无</td>
+</tr>
+<tr>
+<td>删除线 <code>~~</code></td>
+<td>完全隐藏</td>
+<td>完全隐藏</td>
+<td>无</td>
+</tr>
+<tr>
+<td>链接 <code>[]()</code></td>
+<td>蓝色文字，URL 隐藏</td>
+<td>蓝色文字 + 30% 灰色 URL</td>
+<td>150ms</td>
+</tr>
+<tr>
+<td>列表 <code>-</code></td>
+<td>主题色圆点</td>
+<td>圆点 + 淡色原始符号</td>
+<td>100ms</td>
+</tr>
+<tr>
+<td>有序列表 <code>1.</code></td>
+<td>主题色数字</td>
+<td>数字 + 淡色原始符号</td>
+<td>100ms</td>
+</tr>
+<tr>
+<td>任务列表 <code>- [ ]</code></td>
+<td>主题色 checkbox</td>
+<td>checkbox + 淡色 <code>- [ ]</code></td>
+<td>100ms</td>
+</tr>
+<tr>
+<td>引用 <code>&gt;</code></td>
+<td>3px 左侧竖线</td>
+<td>竖线 + 淡色 &gt;</td>
+<td>100ms</td>
+</tr>
+<tr>
+<td>代码块 <code>```</code></td>
+<td>高亮 + 语言标签</td>
+<td>高亮 + 语言标签 + 淡色 ``<code>| 120ms | | 分割线</code>—`</td>
+<td>水平线</td>
+</tr>
+</tbody>
+</table>
+<h4 id="r6.2-交换方式触发退出语义态">R6.2
+交换方式（触发/退出语义态）</h4>
+<blockquote>
+<p><strong>核心原则</strong>：操作必须<strong>零学习成本</strong>、<strong>零鼠标移动</strong>。参考豆包的交互模式。</p>
+</blockquote>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>操作</th>
+<th>方式</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>进入语义编辑</strong></td>
+<td>光标进入块</td>
+<td>光标移动到任意块 → 该块自动切换为语义态（标记淡化显示）</td>
+</tr>
+<tr>
+<td><strong>退出语义编辑</strong></td>
+<td>光标离开块</td>
+<td>光标移出块 → 该块恢复完全渲染态</td>
+</tr>
+<tr>
+<td><strong>临时查看源码</strong></td>
+<td><code>Ctrl/Cmd + 点击</code></td>
+<td>点击块内任意位置 → 临时切换为完整源码态，松手恢复</td>
+</tr>
+<tr>
+<td><strong>锁定语义态</strong></td>
+<td><code>Ctrl/Cmd + Shift + E</code></td>
+<td>切换当前块在”语义态”和”源码态”之间锁定</td>
+</tr>
+<tr>
+<td><strong>全局切换模式</strong></td>
+<td>工具栏 ghost 图标</td>
+<td>在”编辑（语义）/ 源码 / 预览”三种全局模式间切换</td>
+</tr>
+<tr>
+<td><strong>块操作菜单</strong></td>
+<td>块手柄 <code>⠿</code> 或 <code>/</code></td>
+<td>悬停块左侧出现手柄 → 点击展开块操作菜单</td>
+</tr>
+</tbody>
+</table>
+<h4 id="r6.3-交互效果演示">R6.3 交互效果演示</h4>
+<pre><code>【非活动块 — 完全渲染】
+
+# 这是标题                    ← 看到的就是标题，没有 ## 前缀
+这是正文，**这是粗体**         ← 粗体直接加粗，没有 ** 包裹
+- 列表项 1                    ← 看到的是圆点列表
+- 列表项 2
+
+【活动块 — 语义化揭示】（光标在此块内）
+
+## 这是标题                    ← ## 以 40% 透明度主题色前缀显示
+这是正文，**这是粗体**         ← ** 仍然完全隐藏（内联标记不干扰）
+- 列表项 1                    ← 圆点 + 淡色 - 前缀
+- 列表项 2                    ← 圆点 + 淡色 - 前缀</code></pre>
+<h4 id="r6.4-验收标准">R6.4 验收标准</h4>
+<ul class="task-list">
+<li><label><input type="checkbox" />行高恒定（CLS &lt;
+0.01）</label></li>
+<li><label><input type="checkbox" />1 万字文档编辑延迟 &lt;
+33ms</label></li>
+<li><label><input type="checkbox" />源码 100% 保真</label></li>
+<li><label><input type="checkbox" />光标进出块时无闪烁（过渡动画 ≤
+150ms）</label></li>
+</ul>
+<hr />
+<h3 id="r7上下文感知工具栏p2">R7：上下文感知工具栏（P2）</h3>
+<table>
+<thead>
+<tr>
+<th>上下文</th>
+<th>工具栏内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文本选中</td>
+<td>B I S ` 🔗 🎨 ✨AI</td>
+</tr>
+<tr>
+<td>表格中</td>
+<td>➕行 ➕列 ↔︎对齐</td>
+</tr>
+<tr>
+<td>图片上</td>
+<td>🔄替换 ✏️Alt 📐缩放</td>
+</tr>
+<tr>
+<td>链接上</td>
+<td>✏️编辑 🔗打开 ❌移除</td>
+</tr>
+<tr>
+<td>代码块中</td>
+<td>📋复制 🎨语言 ✨解释</td>
+</tr>
+<tr>
+<td>空行</td>
+<td><strong>不显示</strong></td>
+</tr>
+<tr>
+<td>正常段落</td>
+<td><strong>不显示</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="r8智能输入p2">R8：智能输入（P2）</h3>
+<table>
+<thead>
+<tr>
+<th>输入</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#</code> + Space</td>
+<td>H1</td>
+</tr>
+<tr>
+<td><code>-</code> + Space</td>
+<td>无序列表</td>
+</tr>
+<tr>
+<td><code>1.</code> + Space</td>
+<td>有序列表</td>
+</tr>
+<tr>
+<td><code>&gt;</code> + Space</td>
+<td>引用块</td>
+</tr>
+<tr>
+<td><code>```</code> + Enter</td>
+<td>代码块</td>
+</tr>
+<tr>
+<td><code>**</code></td>
+<td>包裹选中文本或创建配对</td>
+</tr>
+<tr>
+<td><code>「</code></td>
+<td>自动配对 <code>「」</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="r9视觉模板库p2">R9：视觉模板库（P2）</h3>
+<h4 id="callout-类型12">Callout 类型（12+）</h4>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>颜色</th>
+<th>图标</th>
+<th>语法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>info</td>
+<td>蓝色</td>
+<td>ℹ️</td>
+<td><code>&gt; [!info]</code></td>
+</tr>
+<tr>
+<td>tip</td>
+<td>绿色</td>
+<td>💡</td>
+<td><code>&gt; [!tip]</code></td>
+</tr>
+<tr>
+<td>warning</td>
+<td>黄色</td>
+<td>⚠️</td>
+<td><code>&gt; [!warning]</code></td>
+</tr>
+<tr>
+<td>danger</td>
+<td>红色</td>
+<td>🛑</td>
+<td><code>&gt; [!danger]</code></td>
+</tr>
+<tr>
+<td>success</td>
+<td>绿色</td>
+<td>✅</td>
+<td><code>&gt; [!success]</code></td>
+</tr>
+<tr>
+<td>note</td>
+<td>灰色</td>
+<td>📝</td>
+<td><code>&gt; [!note]</code></td>
+</tr>
+<tr>
+<td>abstract</td>
+<td>紫色</td>
+<td>📋</td>
+<td><code>&gt; [!abstract]</code></td>
+</tr>
+<tr>
+<td>question</td>
+<td>蓝色</td>
+<td>❓</td>
+<td><code>&gt; [!question]</code></td>
+</tr>
+<tr>
+<td>bug</td>
+<td>红色</td>
+<td>🐞</td>
+<td><code>&gt; [!bug]</code></td>
+</tr>
+<tr>
+<td>example</td>
+<td>橙色</td>
+<td>💡</td>
+<td><code>&gt; [!example]</code></td>
+</tr>
+<tr>
+<td>quote</td>
+<td>灰色</td>
+<td>💬</td>
+<td><code>&gt; [!quote]</code></td>
+</tr>
+<tr>
+<td>todo</td>
+<td>蓝色</td>
+<td>☐</td>
+<td><code>&gt; [!todo]</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="布局模板">布局模板</h4>
+<table>
+<thead>
+<tr>
+<th>模板</th>
+<th>语法</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>两栏</td>
+<td><code>::: {.col-2}</code></td>
+<td>50/50 网格</td>
+</tr>
+<tr>
+<td>三栏</td>
+<td><code>::: {.col-3}</code></td>
+<td>33/33/33 网格</td>
+</tr>
+<tr>
+<td>Hero Banner</td>
+<td><code>::: {.hero}</code></td>
+<td>居中 + 渐变背景</td>
+</tr>
+<tr>
+<td>Card Grid</td>
+<td><code>::: {.card-grid cards:3}</code></td>
+<td>等宽卡片网格</td>
+</tr>
+<tr>
+<td>Timeline</td>
+<td><code>::: {.timeline}</code></td>
+<td>时间线 + 圆点 + 连线</td>
+</tr>
+</tbody>
+</table>
+<h4 id="任务语法task-list">任务语法（Task List）</h4>
+<blockquote>
+<p>任务列表是 Markdown 的 GFM 标准语法，本编辑器原生支持交互。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>语法</th>
+<th>渲染</th>
+<th>交互</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>- [ ] 待办</code></td>
+<td>☐ 待办</td>
+<td>点击 checkbox 切换完成状态</td>
+</tr>
+<tr>
+<td><code>- [x] 已完成</code></td>
+<td>☑ 已完成</td>
+<td>点击 checkbox 切换为待办</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交互方式</strong>： - 在编辑器中：checkbox
+可直接点击切换（不进入源码编辑） - 在预览态：checkbox 同样可交互 -
+在语义编辑态：<code>- [ ]</code> 以淡色前缀显示，checkbox 仍可点击</p>
+<hr />
+<h3 id="r10html-块嵌入p3">R10：HTML 块嵌入（P3）</h3>
+<h4 id="允许的-html-标签">允许的 HTML 标签</h4>
+<pre><code>结构：div, section, article, aside, p, span, br, hr
+文本：mark, ins, del, kbd, samp, var, em, strong
+交互：details, summary
+媒体：img, figure, figcaption
+列表：ul, ol, li
+表格：table, thead, tbody, tr, th, td</code></pre>
+<h4 id="禁止的-html-标签">禁止的 HTML 标签</h4>
+<pre><code>script, style, form, input, button, iframe, object, embed, link, svg(v1)</code></pre>
+<h4 id="css-隔离">CSS 隔离</h4>
+<ul>
+<li>编辑器侧：<code>@scope</code> 或 Shadow DOM</li>
+<li>预览侧：已有 <code>.preview-content</code> +
+<code>contain</code></li>
+</ul>
+<hr />
+<h3 id="r11css-only-组件p3">R11：CSS-only 组件（P3）</h3>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>实现方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>折叠块</td>
+<td><code>&lt;details&gt;/&lt;summary&gt;</code></td>
+</tr>
+<tr>
+<td>标签页</td>
+<td><code>:checked</code> + <code>&lt;label&gt;</code></td>
+</tr>
+<tr>
+<td>进度条</td>
+<td><code>&lt;progress&gt;</code> 或 CSS 宽度</td>
+</tr>
+<tr>
+<td>徽章</td>
+<td><code>&lt;span class="badge"&gt;</code></td>
+</tr>
+<tr>
+<td>提示卡</td>
+<td><code>&lt;div class="md-card"&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="r12流式编辑p3">R12：流式编辑（P3）</h3>
+<table>
+<thead>
+<tr>
+<th>交互</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>打字即渲染</td>
+<td><code>**文字**</code> 不等待闭合即渲染粗体</td>
+</tr>
+<tr>
+<td>选择即操作</td>
+<td>选中文本立即出现工具栏</td>
+</tr>
+<tr>
+<td>智能 Enter</td>
+<td>列表末尾 Enter 继续列表</td>
+</tr>
+<tr>
+<td>智能 Backspace</td>
+<td>列表开头 Backspace 取消列表</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="四非功能需求">四、非功能需求</h2>
+<h3 id="安全">4.1 安全</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>XSS 防护</td>
+<td>DOMPurify 100% 覆盖</td>
+</tr>
+<tr>
+<td>CSP</td>
+<td>生产环境存在</td>
+</tr>
+<tr>
+<td>API Key</td>
+<td>仅存内存</td>
+</tr>
+<tr>
+<td>CSS 隔离</td>
+<td><code>@scope</code> 或 iframe</td>
+</tr>
+</tbody>
+</table>
+<h3 id="性能">4.2 性能</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 万字编辑延迟</td>
+<td>&lt; 33ms</td>
+</tr>
+<tr>
+<td>10 万字首次渲染</td>
+<td>&lt; 800ms</td>
+</tr>
+<tr>
+<td>CLS</td>
+<td>&lt; 0.01</td>
+</tr>
+</tbody>
+</table>
+<h3 id="兼容性">4.3 兼容性</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>浏览器</td>
+<td>Chromium 118+, Safari 17.4+, Firefox 128+</td>
+</tr>
+<tr>
+<td>移动端</td>
+<td>编辑可用，预览优先</td>
+</tr>
+<tr>
+<td>离线</td>
+<td>100% 核心功能可用</td>
+</tr>
+</tbody>
+</table>
+<h3 id="中文">4.4 中文</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IME</td>
+<td>零丢字、零装饰闪烁</td>
+</tr>
+<tr>
+<td>标点</td>
+<td><code>「」（）</code> 自动配对</td>
+</tr>
+<tr>
+<td>命令面板</td>
+<td>拼音首字母搜索</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="五路线图">五、路线图</h2>
+<pre><code>Phase 0 [2 周]  : 安全底座 + 基础设施
+Phase 1 [3 周]  : .mdpkg 即应用 ⭐ NS-1
+Phase 2 [3 周]  : Diff-native AI ⭐ NS-2
+Phase 3 [4 周]  : 结构体检 + 章节重组 ⭐ NS-3
+Phase 4 [4 周]  : 语义编辑态
+Phase 5 [4 周]  : 富表现力增强
+Phase 6 [3 周]  : 流式编辑
+─────────────────────────────────
+总计    [23 周]  (约 5.5 个月)</code></pre>
+<hr />
+<h2 id="六验收-checklist">六、验收 Checklist</h2>
+<h3 id="phase-0-出口">Phase 0 出口</h3>
+<ul class="task-list">
+<li><label><input
+type="checkbox" />DOMPurify：<code>style</code>/<code>id</code>
+已移除，<code>data-*</code> 已启用</label></li>
+<li><label><input type="checkbox" />CSP headers 存在</label></li>
+<li><label><input type="checkbox" />API key 仅存内存</label></li>
+<li><label><input type="checkbox" />块模型定义完成（含边界规则 +
+编辑后重划分）</label></li>
+<li><label><input type="checkbox" />Lezer AST 迁移完成</label></li>
+<li><label><input type="checkbox" />PNG 栅格化 spike 通过</label></li>
+</ul>
+<h3 id="phase-1-出口">Phase 1 出口</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" /><code>.mdpkg</code>
+包内自带渲染器</label></li>
+<li><label><input
+type="checkbox" />外部用户双击打开完整渲染</label></li>
+<li><label><input type="checkbox" />Callout 12+ 类型可用</label></li>
+<li><label><input type="checkbox" />导出 HTML 像素级一致</label></li>
+</ul>
+<h3 id="phase-2-出口">Phase 2 出口</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />AI 修改 = 行内 diff</label></li>
+<li><label><input type="checkbox" />无 AI 时 100% 可用</label></li>
+<li><label><input type="checkbox" />Privacy Ledger 可用</label></li>
+</ul>
+<h3 id="phase-3-出口">Phase 3 出口</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />结构诊断规则 100%
+离线可用</label></li>
+<li><label><input type="checkbox" />拖拽章节重排 + undo
+正确</label></li>
+<li><label><input type="checkbox" />导出子树完整</label></li>
+</ul>
+<hr />
+<h2 id="七术语表">七、术语表</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>术语</th>
+<th>定义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.mdpkg</code></td>
+<td>自包含 Markdown 包格式（zip + manifest + assets + renderer）</td>
+</tr>
+<tr>
+<td>语义编辑态</td>
+<td>非活动块完全渲染、活动块语义化揭示的编辑模式</td>
+</tr>
+<tr>
+<td>意图引擎</td>
+<td><del>已砍</del> → 降级为命令面板智能排序</td>
+</tr>
+<tr>
+<td>Diff-native AI</td>
+<td>AI 产出以 inline diff 提案出现，逐 hunk 审阅</td>
+</tr>
+<tr>
+<td>结构体检</td>
+<td>基于 AST 规则的文档论证结构诊断</td>
+</tr>
+<tr>
+<td>三轴模型</td>
+<td>作者语法 × 呈现 × 能力（替代原”三层增强”）</td>
+</tr>
+<tr>
+<td>North Star</td>
+<td>三个核心功能（.mdpkg 即应用 / Diff-native AI / 结构体检）</td>
+</tr>
+<tr>
+<td>Privacy Ledger</td>
+<td>AI 调用审计面板</td>
+</tr>
+<tr>
+<td>CLS</td>
+<td>Cumulative Layout Shift（累积布局偏移）</td>
+</tr>
+<tr>
+<td>Round-trip</td>
+<td>导出 → 导入 → 再导出，逐字节一致</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
