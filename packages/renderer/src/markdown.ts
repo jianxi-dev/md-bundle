@@ -14,6 +14,7 @@
 import { marked, Renderer } from 'marked';
 import DOMPurify from 'dompurify';
 import { mathBlockExtension, mathInlineExtension } from './math';
+import { preprocessFencedDivs } from './fencedDivExtension';
 import type { RenderOptions } from './index';
 
 // ── Block HTML depth-closing (aligns with Obsidian HTML block behavior) ────
@@ -46,12 +47,13 @@ const SANITIZE_CONFIG = {
     'table', 'thead', 'tbody', 'tr', 'th', 'td',
     'img', 'a', 'em', 'strong', 'del', 'hr', 'br', 'input',
     // rich-text subset (embedded HTML)
-    'div', 'span', 'section', 'article',
+    'div', 'span', 'section', 'article', 'aside',
     'details', 'summary',
     'figure', 'figcaption',
     'dl', 'dt', 'dd',
     'kbd', 'sup', 'sub', 'mark', 'abbr', 'small', 'u', 's',
     'var', 'samp', 'cite', 'q', 'time',
+    'ins',
     'picture', 'source',
     // code block copy button
     'button',
@@ -61,7 +63,7 @@ const SANITIZE_CONFIG = {
     'type', 'checked', 'disabled',
     'colspan', 'rowspan', 'start', 'value',
     'width', 'height', 'open', 'lang', 'dir',
-    'data-math', 'data-math-tex', 'data-math-display', 'data-callout', 'data-zoomable',
+    'data-math', 'data-math-tex', 'data-math-display', 'data-callout', 'data-zoomable', 'data-columns',
   ],
   ALLOW_DATA_ATTR: true,
   SANITIZE_NAMED_PROPS: true,
@@ -394,7 +396,8 @@ export function renderMarkdownCore(
   registerCheckboxGuard();
 
   const body = content.replace(FRONTMATTER_RE, '');
-  const raw = marked.parse(body, { async: false }) as string;
+  const preprocessed = preprocessFencedDivs(body);
+  const raw = marked.parse(preprocessed, { async: false }) as string;
   const clean = DOMPurify.sanitize(raw, SANITIZE_CONFIG);
   return postProcess(clean, opts);
 }
