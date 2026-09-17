@@ -26,6 +26,17 @@ import {
   getBlocks,
   getBlockAt,
   CommandRegistry,
+  resolveProvider,
+  createLocalProvider,
+  createBYOKeyProvider,
+  createAIProposal,
+  applyProposal,
+  rejectProposal,
+  createAIDiffViewPlugin,
+  aiDiffAcceptHunk,
+  aiDiffRejectHunk,
+  aiDiffAcceptAll,
+  createPrivacyLedger,
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
   type MarkdownEditorComponentProps,
@@ -38,6 +49,16 @@ import {
   type Block,
   type BlockType,
   type Command,
+  type AIProvider,
+  type AIProviderConfig,
+  type AIResolution,
+  type AICapability,
+  type StreamParams,
+  type AIProposal,
+  type AIDiffViewPlugin,
+  type AIDiffState,
+  type PrivacyLedger,
+  type PrivacyLedgerEntry,
 } from '../src/index';
 
 function installPolyfills(): void {
@@ -71,6 +92,16 @@ const _typeProbe: MarkdownEditorOptions & {
   block: Block;
   blockType: BlockType;
   command: Command;
+  aiProvider: AIProvider;
+  aiConfig: AIProviderConfig;
+  aiResolution: AIResolution;
+  aiCapability: AICapability;
+  streamParams: StreamParams;
+  aiProposal: AIProposal;
+  aiDiffPlugin: AIDiffViewPlugin;
+  aiDiffState: AIDiffState;
+  privacyLedger: PrivacyLedger;
+  privacyEntry: PrivacyLedgerEntry;
 } = {
   value: 'x',
   theme: 'dark',
@@ -85,6 +116,16 @@ const _typeProbe: MarkdownEditorOptions & {
   block: undefined as unknown as Block,
   blockType: 'paragraph',
   command: undefined as unknown as Command,
+  aiProvider: undefined as unknown as AIProvider,
+  aiConfig: { mode: 'disabled' },
+  aiResolution: { provider: null },
+  aiCapability: 'rewrite',
+  streamParams: { prompt: '', context: '' },
+  aiProposal: undefined as unknown as AIProposal,
+  aiDiffPlugin: undefined as unknown as AIDiffViewPlugin,
+  aiDiffState: { proposal: null },
+  privacyLedger: undefined as unknown as PrivacyLedger,
+  privacyEntry: undefined as unknown as PrivacyLedgerEntry,
 };
 void _typeProbe;
 
@@ -222,5 +263,76 @@ describe('theme token full set through the public API', () => {
       expect(getThemeColor('dark', key)).toBe(themeTokens.dark[key]);
       expect(getThemeColor('light', key)).toBe(themeTokens.light[key]);
     }
+  });
+});
+
+describe('AI module through the public API', () => {
+  it('exports the AI provider factory functions', () => {
+    expect(typeof resolveProvider).toBe('function');
+    expect(typeof createLocalProvider).toBe('function');
+    expect(typeof createBYOKeyProvider).toBe('function');
+  });
+
+  it('exports the AI proposal functions', () => {
+    expect(typeof createAIProposal).toBe('function');
+    expect(typeof applyProposal).toBe('function');
+    expect(typeof rejectProposal).toBe('function');
+  });
+
+  it('exports the AI diff plugin functions', () => {
+    expect(typeof createAIDiffViewPlugin).toBe('function');
+    expect(typeof aiDiffAcceptHunk).toBe('function');
+    expect(typeof aiDiffRejectHunk).toBe('function');
+    expect(typeof aiDiffAcceptAll).toBe('function');
+  });
+
+  it('exports the privacy ledger factory', () => {
+    expect(typeof createPrivacyLedger).toBe('function');
+  });
+
+  it('resolveProvider returns null for disabled mode', () => {
+    expect(resolveProvider({ mode: 'disabled' })).toBeNull();
+  });
+
+  it('resolveProvider returns a provider for local mode', () => {
+    const provider = resolveProvider({ mode: 'local' });
+    expect(provider).not.toBeNull();
+    expect(provider?.name).toBe('Local (WebGPU)');
+  });
+
+  it('resolveProvider returns null for byo mode without key', () => {
+    expect(resolveProvider({ mode: 'byo' })).toBeNull();
+  });
+
+  it('resolveProvider returns a provider for byo mode with key', () => {
+    const provider = resolveProvider({ mode: 'byo', apiKey: 'sk-test' });
+    expect(provider).not.toBeNull();
+    expect(provider?.name).toBe('BYO Key');
+  });
+
+  it('createAIProposal creates a pending proposal', () => {
+    const proposal = createAIProposal(0, 5, 'hello', 'world');
+    expect(proposal.status).toBe('pending');
+    expect(proposal.range).toEqual({ from: 0, to: 5 });
+    expect(proposal.original).toBe('hello');
+    expect(proposal.proposed).toBe('world');
+  });
+
+  it('rejectProposal sets status to rejected', () => {
+    const proposal = createAIProposal(0, 5, 'hello', 'world');
+    rejectProposal(proposal);
+    expect(proposal.status).toBe('rejected');
+  });
+
+  it('createPrivacyLedger starts empty and records entries', () => {
+    const ledger = createPrivacyLedger();
+    expect(ledger.size()).toBe(0);
+    const provider = createLocalProvider();
+    ledger.record(provider, 0, 10, 'rewrite');
+    expect(ledger.size()).toBe(1);
+    expect(ledger.entries()[0].providerName).toBe('Local (WebGPU)');
+    expect(ledger.entries()[0].charCount).toBe(10);
+    ledger.clear();
+    expect(ledger.size()).toBe(0);
   });
 });
