@@ -59,5 +59,5 @@ export {
   flattenTree,
   chapterReorgExtension,
 } from './chapter-reorg';
-export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';
-export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';
+export { floatingToolbar, type FloatingToolbarOptions } from './floating-toolbar';
+export { floatingToolbar, type FloatingToolbarOptions } from './floating-toolbar';
