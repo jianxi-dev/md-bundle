@@ -23,6 +23,9 @@ import {
   slashMenuSelectPrev,
   defaultCommands,
   editorDecorations,
+  getBlocks,
+  getBlockAt,
+  CommandRegistry,
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
   type MarkdownEditorComponentProps,
@@ -32,6 +35,9 @@ import {
   type EditorDecorationsOptions,
   type ImageResolver,
   type ImageCallbacks,
+  type Block,
+  type BlockType,
+  type Command,
 } from '../src/index';
 
 function installPolyfills(): void {
@@ -62,6 +68,9 @@ const _typeProbe: MarkdownEditorOptions & {
   decoOpts: EditorDecorationsOptions;
   resolver: ImageResolver;
   callbacks: ImageCallbacks;
+  block: Block;
+  blockType: BlockType;
+  command: Command;
 } = {
   value: 'x',
   theme: 'dark',
@@ -73,6 +82,9 @@ const _typeProbe: MarkdownEditorOptions & {
   decoOpts: {},
   resolver: () => null,
   callbacks: {},
+  block: undefined as unknown as Block,
+  blockType: 'paragraph',
+  command: undefined as unknown as Command,
 };
 void _typeProbe;
 
@@ -99,6 +111,12 @@ describe('public export contract', () => {
     expect(typeof slashMenuSelectPrev).toBe('function');
     expect(Array.isArray(defaultCommands)).toBe(true);
     expect(defaultCommands.length).toBeGreaterThan(0);
+  });
+
+  it('exports the block model API surface', () => {
+    expect(typeof getBlocks).toBe('function');
+    expect(typeof getBlockAt).toBe('function');
+    expect(typeof CommandRegistry).toBe('function');
   });
 });
 
