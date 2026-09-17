@@ -62,7 +62,11 @@ function findIncompleteItalic(text: string): { openPos: number; contentFrom: num
   return null;
 }
 
-export function createBoldItalicDecorations(text: string): Range<Decoration>[] {
+export function createBoldItalicDecorations(
+  text: string,
+  _activeFrom: number = -1,
+  _activeTo: number = -1,
+): Range<Decoration>[] {
   const decorations: Range<Decoration>[] = [];
 
   // Bold: **text** → hide **, style text
