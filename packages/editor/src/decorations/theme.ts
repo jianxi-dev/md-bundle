@@ -157,8 +157,17 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     borderRadius: '6px',
     color: 'var(--mdb-text)',
   },
+  '.cm-content .cm-callout-header': {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '0.5em',
+  },
+  '.cm-content .cm-callout-icon': {
+    fontSize: '1em',
+    lineHeight: '1',
+    flexShrink: '0',
+  },
   '.cm-content .cm-callout-badge': {
-    display: 'block',
     fontSize: '0.8em',
     fontWeight: '650',
     color: 'var(--callout-color, var(--mdb-primary-fg))',
@@ -166,13 +175,13 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     textTransform: 'uppercase',
   },
   '.cm-content .cm-callout-title': {
-    display: 'block',
     fontWeight: '600',
   },
   '.cm-content .cm-callout-content': {
     color: 'var(--mdb-text-secondary)',
     fontSize: '0.92em',
     whiteSpace: 'pre-wrap',
+    marginTop: '0.35em',
   },
 
   // Callout tone colouring (defined after the base card so they win).

@@ -528,9 +528,10 @@ export const READER_CSS: string = `
   margin-block-end: 0.35em;
 }
 
-[data-theme='light'] .preview-content .callout-title::before {
+[data-theme='light'] .preview-content .callout-icon {
   font-size: 1em;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 [data-theme='light'] .preview-content .callout > :last-child {
@@ -1175,9 +1176,10 @@ export const READER_CSS: string = `
   margin-block-end: 0.35em;
 }
 
-[data-theme='dark'] .preview-content .callout-title::before {
+[data-theme='dark'] .preview-content .callout-icon {
   font-size: 1em;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 [data-theme='dark'] .preview-content .callout > :last-child {

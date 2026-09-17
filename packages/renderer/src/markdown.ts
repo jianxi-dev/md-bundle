@@ -185,7 +185,7 @@ const FRONTMATTER_RE = /^\uFEFF?---\s*\n[\s\S]*?\n---\s*(?:\n|$)/;
 // may surround whitespace, case-insensitive.
 const CALLOUT_HEAD = /^\[!\s*([^\]\r\n]+?)\s*\]([+-]?)/;
 
-/** 22-key callout label map — matches clairis CALLOUT_LABELS exactly. */
+/** Callout label map — matches clairis CALLOUT_LABELS exactly. */
 const CALLOUT_LABELS: Record<string, string> = {
   note: '注释',
   info: '信息',
@@ -247,7 +247,18 @@ function convertCallouts(doc: Document): void {
 
     const titleEl = doc.createElement(fold ? 'summary' : 'div');
     if (!fold) titleEl.className = 'callout-title';
-    titleEl.innerHTML = title;
+
+    const typeEntry = CALLOUT_TYPE_MAP[type];
+    if (typeEntry) {
+      const iconSpan = doc.createElement('span');
+      iconSpan.className = 'callout-icon';
+      iconSpan.textContent = typeEntry.icon;
+      titleEl.appendChild(iconSpan);
+    }
+
+    const titleText = doc.createElement('span');
+    titleText.textContent = title;
+    titleEl.appendChild(titleText);
     el.appendChild(titleEl);
 
     if (bodyHtml) {
@@ -342,32 +353,32 @@ function postProcess(html: string, opts?: RenderOptions): string {
 
 // ── Public API ───────────────────────────────────────────────────────────
 
-/** Callout type registry — 22-key snapshot pinned to clairis source. */
+/** Callout type registry — icon/label/tone per type, pinned to clairis source. */
 export const CALLOUT_TYPE_MAP: Readonly<
-  Record<string, { label: string; tone: string }>
+  Record<string, { label: string; tone: string; icon: string }>
 > = {
-  note: { label: '注释', tone: 'blue' },
-  info: { label: '信息', tone: 'blue' },
-  abstract: { label: '摘要', tone: 'purple' },
-  summary: { label: '总结', tone: 'purple' },
-  tip: { label: '提示', tone: 'green' },
-  hint: { label: '提示', tone: 'green' },
-  important: { label: '重要', tone: 'purple' },
-  success: { label: '成功', tone: 'green' },
-  check: { label: '完成', tone: 'green' },
-  warning: { label: '警告', tone: 'orange' },
-  caution: { label: '注意', tone: 'orange' },
-  attention: { label: '注意', tone: 'orange' },
-  danger: { label: '危险', tone: 'red' },
-  error: { label: '错误', tone: 'red' },
-  failure: { label: '失败', tone: 'red' },
-  bug: { label: '问题', tone: 'red' },
-  question: { label: '疑问', tone: 'teal' },
-  help: { label: '帮助', tone: 'teal' },
-  faq: { label: '问答', tone: 'teal' },
-  example: { label: '示例', tone: 'gray' },
-  quote: { label: '引用', tone: 'muted' },
-  cite: { label: '引述', tone: 'muted' },
+  note: { label: '注释', tone: 'blue', icon: '📝' },
+  info: { label: '信息', tone: 'blue', icon: 'ℹ️' },
+  abstract: { label: '摘要', tone: 'purple', icon: '📋' },
+  summary: { label: '总结', tone: 'purple', icon: '📋' },
+  tip: { label: '提示', tone: 'green', icon: '💡' },
+  hint: { label: '提示', tone: 'green', icon: '💡' },
+  important: { label: '重要', tone: 'purple', icon: '⭐' },
+  success: { label: '成功', tone: 'green', icon: '✅' },
+  check: { label: '完成', tone: 'green', icon: '✅' },
+  warning: { label: '警告', tone: 'orange', icon: '⚠️' },
+  caution: { label: '注意', tone: 'orange', icon: '⚠️' },
+  attention: { label: '注意', tone: 'orange', icon: '⚠️' },
+  danger: { label: '危险', tone: 'red', icon: '🚨' },
+  error: { label: '错误', tone: 'red', icon: '❌' },
+  failure: { label: '失败', tone: 'red', icon: '✖️' },
+  bug: { label: '问题', tone: 'red', icon: '🐛' },
+  question: { label: '疑问', tone: 'teal', icon: '❓' },
+  help: { label: '帮助', tone: 'teal', icon: '💬' },
+  faq: { label: '问答', tone: 'teal', icon: '💬' },
+  example: { label: '示例', tone: 'gray', icon: '📝' },
+  quote: { label: '引用', tone: 'muted', icon: '💬' },
+  cite: { label: '引述', tone: 'muted', icon: '📖' },
 };
 
 /**
