@@ -28,6 +28,13 @@ import {
   CommandRegistry,
   lintStructure,
   structureLinterExtension,
+  getHeadings,
+  buildTree,
+  computeSections,
+  moveSection,
+  extractSubtree,
+  flattenTree,
+  chapterReorgExtension,
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
   type MarkdownEditorComponentProps,
@@ -42,6 +49,12 @@ import {
   type Command,
   type Diagnostic,
   type LintResult,
+  type HeadingEntry,
+  type TreeNode,
+  type Section,
+  type MoveResult,
+  type FlatNode,
+  type DragState,
 } from '../src/index';
 
 function installPolyfills(): void {
@@ -77,6 +90,12 @@ const _typeProbe: MarkdownEditorOptions & {
   command: Command;
   diagnostic: Diagnostic;
   lintResult: LintResult;
+  heading: HeadingEntry;
+  treeNode: TreeNode;
+  section: Section;
+  moveResult: MoveResult;
+  flatNode: FlatNode;
+  dragState: DragState;
 } = {
   value: 'x',
   theme: 'dark',
@@ -93,6 +112,12 @@ const _typeProbe: MarkdownEditorOptions & {
   command: undefined as unknown as Command,
   diagnostic: undefined as unknown as Diagnostic,
   lintResult: undefined as unknown as LintResult,
+  heading: undefined as unknown as HeadingEntry,
+  treeNode: undefined as unknown as TreeNode,
+  section: undefined as unknown as Section,
+  moveResult: undefined as unknown as MoveResult,
+  flatNode: undefined as unknown as FlatNode,
+  dragState: undefined as unknown as DragState,
 };
 void _typeProbe;
 
@@ -130,6 +155,19 @@ describe('public export contract', () => {
   it('exports the structure linter API surface', () => {
     expect(typeof lintStructure).toBe('function');
     expect(typeof structureLinterExtension).toBe('function');
+  });
+
+  it('exports the chapter tree API surface', () => {
+    expect(typeof getHeadings).toBe('function');
+    expect(typeof buildTree).toBe('function');
+    expect(typeof computeSections).toBe('function');
+    expect(typeof moveSection).toBe('function');
+    expect(typeof extractSubtree).toBe('function');
+    expect(typeof flattenTree).toBe('function');
+  });
+
+  it('exports the chapter reorganization extension', () => {
+    expect(typeof chapterReorgExtension).toBe('function');
   });
 });
 

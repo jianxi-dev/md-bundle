@@ -29,3 +29,17 @@ export { getBlocks, getBlockAt, type Block, type BlockType } from './block-model
 export { CommandRegistry, type Command } from './commands';
 export { lintStructure, type Diagnostic, type LintResult } from './structure-linter';
 export { structureLinterExtension } from './structure-linter-extension';
+export {
+  getHeadings,
+  buildTree,
+  computeSections,
+  moveSection,
+  extractSubtree,
+  flattenTree,
+  type HeadingEntry,
+  type TreeNode,
+  type Section,
+  type MoveResult,
+  type FlatNode,
+} from './chapter-tree';
+export { chapterReorgExtension, type DragState } from './chapter-reorg-extension';
