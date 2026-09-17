@@ -59,3 +59,4 @@ export {
   flattenTree,
   chapterReorgExtension,
 } from './chapter-reorg';
+export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';
