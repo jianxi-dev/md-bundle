@@ -34,8 +34,9 @@ const CLOSE_TAG_RE = (tag: string) =>
 // ── DOMPurify configuration ───────────────────────────────────────────────
 // Allowed tags: markdown basics + rich-text safe subset (supports embedded
 // HTML/CSS in markdown). script / iframe / form / style tags and event
-// attributes are blocked (DOMPurify default). style attribute is allowed so
-// embedded CSS works; position:fixed escape is contained by
+// Security-hardened: style and id removed from ALLOWED_ATTR (prevent CSS
+// injection and DOM clobbering); SANITIZE_NAMED_PROPS strips <a name=...>
+// anchors that could shadow DOM APIs. position:fixed escape is contained by
 // .preview-content { contain: layout paint style } in reader.css.
 const SANITIZE_CONFIG = {
   ALLOWED_TAGS: [
@@ -57,12 +58,13 @@ const SANITIZE_CONFIG = {
   ],
   ALLOWED_ATTR: [
     'href', 'src', 'alt', 'title', 'class', 'target',
-    'type', 'checked', 'disabled', 'style', 'id',
+    'type', 'checked', 'disabled',
     'colspan', 'rowspan', 'start', 'value',
     'width', 'height', 'open', 'lang', 'dir',
     'data-math', 'data-math-tex', 'data-math-display', 'data-callout', 'data-zoomable',
   ],
-  ALLOW_DATA_ATTR: false,
+  ALLOW_DATA_ATTR: true,
+  SANITIZE_NAMED_PROPS: true,
   ADD_ATTR: ['target'],
 };
 
