@@ -15,6 +15,7 @@
 import { EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/view';
 import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { getThemeColor } from './theme';
+import { commandRegistry, type Command } from './commands';
 
 export interface SlashCommand {
   id: string;
@@ -101,6 +102,34 @@ export const defaultCommands: SlashCommand[] = [
     },
   },
 ];
+
+// --- Register slash commands with the global command registry ---------------
+
+/**
+ * Adapt a SlashCommand's `insert()` into a Command's `execute()` and
+ * register it with the global commandRegistry. Called once at module load.
+ */
+function registerSlashCommand(cmd: SlashCommand): void {
+  const command: Command = {
+    id: cmd.id,
+    label: cmd.label,
+    icon: cmd.icon,
+    execute(view) {
+      const change = cmd.insert(view.state);
+      view.dispatch({
+        changes: { from: change.from, to: change.to, insert: change.text },
+        selection: { anchor: change.from + change.text.length },
+        scrollIntoView: true,
+      });
+    },
+  };
+  commandRegistry.register(command);
+}
+
+// Register all default commands at module load time.
+for (const cmd of defaultCommands) {
+  registerSlashCommand(cmd);
+}
 
 interface SlashMenuState {
   open: boolean;
