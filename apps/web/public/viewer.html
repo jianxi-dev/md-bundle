@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>.mdpkg 阅读器</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f7f7f6;
+    color: #24262b;
+    min-height: 100vh;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1a1b1e; color: #e4e4e7; }
+  }
+  #dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    box-sizing: border-box;
+    text-align: center;
+  }
+  #dropzone.dragover { background: rgba(99, 102, 241, 0.08); }
+  #dropzone h1 { font-size: 1.5rem; margin: 0 0 0.5rem; font-weight: 650; }
+  #dropzone p { color: #8b8f96; margin: 0 0 1.5rem; }
+  #file-input { display: none; }
+  .btn {
+    display: inline-block;
+    padding: 0.6rem 1.4rem;
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s ease;
+  }
+  .btn:hover { background: #4f46e5; }
+  #reader { display: none; min-height: 100vh; }
+  #reader.active { display: block; }
+  #dropzone.hidden { display: none; }
+  #error { display: none; padding: 2rem; text-align: center; color: #a8402f; }
+  #error.active { display: block; }
+  #loading { display: none; padding: 2rem; text-align: center; color: #8b8f96; }
+  #loading.active { display: block; }
+</style>
+</head>
+<body>
+<div id="dropzone">
+  <h1>.mdpkg 阅读器</h1>
+  <p>拖放 .mdpkg 文件到此处，或点击下方按钮选择文件</p>
+  <label class="btn">
+    选择 .mdpkg 文件
+    <input type="file" id="file-input" accept=".mdpkg">
+  </label>
+</div>
+<div id="loading">正在解析文件…</div>
+<div id="error"></div>
+<div id="reader">
+  <div class="preview-content" id="content"></div>
+</div>
+
+<script type="module">
+import { openMdpkg, readEntrySource } from '/vendor/mdpkg-web.js';
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const readerEl = document.getElementById('reader');
+const contentEl = document.getElementById('content');
+const loadingEl = document.getElementById('loading');
+const errorEl = document.getElementById('error');
+
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) handleFile(file);
+});
+
+['dragenter', 'dragover'].forEach((evt) => {
+  document.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropzone.classList.add('dragover');
+  });
+});
+['dragleave', 'drop'].forEach((evt) => {
+  document.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropzone.classList.remove('dragover');
+  });
+});
+document.addEventListener('drop', (e) => {
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+
+function handleFile(file) {
+  showLoading();
+  const fr = new FileReader();
+  fr.onload = async () => {
+    try {
+      await parsePackage(new Uint8Array(fr.result));
+    } catch (err) {
+      showError('解析失败：' + (err.message || String(err)));
+    }
+  };
+  fr.onerror = () => showError('文件读取失败');
+  fr.readAsArrayBuffer(file);
+}
+
+async function parsePackage(bytes) {
+  const result = await openMdpkg(bytes);
+  if (!('files' in result)) {
+    showError(result.error || '无法打开文件');
+    return;
+  }
+  if (!result.files.has('document.md')) {
+    showError('包内缺少 document.md');
+    return;
+  }
+
+  const markdown = readEntrySource(result.files);
+  const rendererJs = result.files.get('renderer/renderer.js');
+  const stylesCss = result.files.get('styles/styles.css');
+
+  if (stylesCss) {
+    const styleEl = document.createElement('style');
+    styleEl.textContent = decodeUtf8(stylesCss);
+    document.head.appendChild(styleEl);
+  }
+
+  const assets = [];
+  result.files.forEach((data, name) => {
+    if (name !== 'document.md' && name !== 'manifest.json' &&
+        name !== 'renderer/renderer.js' && name !== 'styles/styles.css') {
+      assets.push({ name, data });
+    }
+  });
+
+  let html;
+  if (rendererJs && typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+    const rendererText = decodeUtf8(rendererJs);
+    const sandbox = new Function(
+      'marked', 'DOMPurify', 'DOMParser', 'window',
+      rendererText + '\nreturn window.MdpkgRenderer;'
+    );
+    const r = sandbox(marked, DOMPurify, DOMParser, window);
+    html = r.render(markdown);
+  } else {
+    html = '<pre style="white-space:pre-wrap;word-break:break-all;padding:2rem;">' +
+           escapeHtml(markdown) + '</pre>';
+  }
+
+  html = inlineImages(html, assets);
+  contentEl.innerHTML = html;
+  showReader();
+}
+
+function inlineImages(html, assets) {
+  return html.replace(/<img\b[^>]*>/gi, (tag) => {
+    const m = tag.match(/\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i);
+    if (!m) return '';
+    const src = m[1] ?? m[2] ?? m[3] ?? '';
+    if (src.startsWith('data:')) return tag;
+    if (/^(?:https?:|file:)/i.test(src)) return '';
+    const normalized = src.startsWith('./') ? src.slice(2) : src;
+    const dataUrl = findAssetDataUrl(assets, normalized);
+    if (dataUrl) {
+      return tag.replace(/\bsrc\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+)/i, `src="${dataUrl}"`);
+    }
+    return '';
+  });
+}
+
+function findAssetDataUrl(assets, path) {
+  const exact = assets.find((a) => a.name === path);
+  if (exact) return bytesToDataUrl(exact.data, guessMime(exact.name));
+  const base = path.split(/[/\\]/).pop() ?? path;
+  const byBase = assets.find((a) => a.name === base);
+  if (byBase) return bytesToDataUrl(byBase.data, guessMime(byBase.name));
+  return null;
+}
+
+function bytesToDataUrl(bytes, mime) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return `data:${mime};base64,${btoa(binary)}`;
+}
+
+function guessMime(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const map = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
+  return map[ext] || 'application/octet-stream';
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function decodeUtf8(bytes) {
+  let str = '';
+  let i = 0;
+  while (i < bytes.length) {
+    const b = bytes[i++];
+    if (b < 0x80) {
+      str += String.fromCharCode(b);
+    } else if (b < 0xe0) {
+      str += String.fromCharCode(((b & 0x1f) << 6) | (bytes[i++] & 0x3f));
+    } else if (b < 0xf0) {
+      str += String.fromCharCode(((b & 0x0f) << 12) | ((bytes[i++] & 0x3f) << 6) | (bytes[i++] & 0x3f));
+    } else {
+      const cp = ((b & 0x07) << 18) | ((bytes[i++] & 0x3f) << 12) | ((bytes[i++] & 0x3f) << 6) | (bytes[i++] & 0x3f);
+      str += String.fromCodePoint(cp);
+    }
+  }
+  return str;
+}
+
+function showLoading() {
+  dropzone.classList.add('hidden');
+  readerEl.classList.remove('active');
+  errorEl.classList.remove('active');
+  loadingEl.classList.add('active');
+}
+function showError(msg) {
+  loadingEl.classList.remove('active');
+  dropzone.classList.add('hidden');
+  readerEl.classList.remove('active');
+  errorEl.textContent = msg;
+  errorEl.classList.add('active');
+}
+function showReader() {
+  loadingEl.classList.remove('active');
+  dropzone.classList.add('hidden');
+  errorEl.classList.remove('active');
+  readerEl.classList.add('active');
+}
+</script>
+</body>
+</html>
