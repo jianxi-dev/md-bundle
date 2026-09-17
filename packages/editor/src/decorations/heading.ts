@@ -18,7 +18,7 @@ class HeadingWidget extends WidgetType {
   toDOM(): HTMLElement {
     const span = document.createElement('span');
     span.className = 'cm-heading-marker';
-    span.textContent = `[H${this.level.length}]`;
+    span.textContent = this.level + ' ';
     // Active blocks get the semantic-reveal class for low-opacity prefix.
     if (this.active) {
       span.classList.add('cm-heading-marker-active');
