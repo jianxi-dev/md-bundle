@@ -100,3 +100,258 @@ export class CommandRegistry {
  * register here at module load.
  */
 export const commandRegistry = new CommandRegistry();
+
+/**
+ * Wrap the current selection (or word at cursor) with the given prefix/suffix.
+ */
+function wrapSelection(view: EditorView, prefix: string, suffix: string): void {
+  const { state } = view;
+  const { main } = state.selection;
+
+  if (!main.empty) {
+    const selectedText = state.doc.sliceString(main.from, main.to);
+    view.dispatch({
+      changes: [
+        { from: main.from, insert: prefix },
+        { from: main.to, insert: suffix },
+      ],
+      selection: { anchor: main.from + prefix.length + selectedText.length + suffix.length },
+      scrollIntoView: true,
+    });
+  } else {
+    const insert = prefix + suffix;
+    view.dispatch({
+      changes: { from: main.head, insert },
+      selection: { anchor: main.head + prefix.length },
+      scrollIntoView: true,
+    });
+  }
+}
+
+function toggleWrap(view: EditorView, marker: string): void {
+  const { state } = view;
+  const { main } = state.selection;
+
+  if (!main.empty) {
+    const selectedText = state.doc.sliceString(main.from, main.to);
+    if (selectedText.startsWith(marker) && selectedText.endsWith(marker)) {
+      const unwrapped = selectedText.slice(marker.length, -marker.length);
+      view.dispatch({
+        changes: { from: main.from, to: main.to, insert: unwrapped },
+        selection: { anchor: main.from, head: main.from + unwrapped.length },
+        scrollIntoView: true,
+      });
+    } else {
+      view.dispatch({
+        changes: [
+          { from: main.from, insert: marker },
+          { from: main.to, insert: marker },
+        ],
+        selection: { anchor: main.from, head: main.to + marker.length * 2 },
+        scrollIntoView: true,
+      });
+    }
+  } else {
+    const insert = marker + marker;
+    view.dispatch({
+      changes: { from: main.head, insert },
+      selection: { anchor: main.head + marker.length },
+      scrollIntoView: true,
+    });
+  }
+}
+
+commandRegistry.register({
+  id: 'toggle-bold',
+  label: 'Bold',
+  icon: 'B',
+  keyBinding: 'Mod-b',
+  execute(view) {
+    toggleWrap(view, '**');
+  },
+});
+
+commandRegistry.register({
+  id: 'toggle-italic',
+  label: 'Italic',
+  icon: 'I',
+  keyBinding: 'Mod-i',
+  execute(view) {
+    toggleWrap(view, '*');
+  },
+});
+
+commandRegistry.register({
+  id: 'toggle-strikethrough',
+  label: 'Strikethrough',
+  icon: 'S',
+  execute(view) {
+    toggleWrap(view, '~~');
+  },
+});
+
+commandRegistry.register({
+  id: 'toggle-code',
+  label: 'Code',
+  icon: '`',
+  keyBinding: 'Mod-e',
+  execute(view) {
+    toggleWrap(view, '`');
+  },
+});
+
+commandRegistry.register({
+  id: 'toggle-link',
+  label: 'Link',
+  icon: '🔗',
+  keyBinding: 'Mod-k',
+  execute(view) {
+    wrapSelection(view, '[', '](url)');
+  },
+});
+
+commandRegistry.register({
+  id: 'highlight-text',
+  label: 'Highlight',
+  icon: '🎨',
+  execute(_view) {
+    // Placeholder — color picker would be implemented at the app level
+  },
+});
+
+commandRegistry.register({
+  id: 'ai-enhance',
+  label: 'AI Enhance',
+  icon: '✨',
+  execute(_view) {
+    // Placeholder — AI integration would be implemented at the app level
+  },
+});
+
+commandRegistry.register({
+  id: 'table-add-row',
+  label: 'Add Row',
+  icon: '➕行',
+  execute(_view) {
+    // Placeholder — table manipulation would require AST-aware editing
+  },
+});
+
+commandRegistry.register({
+  id: 'table-add-col',
+  label: 'Add Column',
+  icon: '➕列',
+  execute(_view) {
+    // Placeholder
+  },
+});
+
+commandRegistry.register({
+  id: 'table-align',
+  label: 'Align',
+  icon: '↔',
+  execute(_view) {
+    // Placeholder
+  },
+});
+
+commandRegistry.register({
+  id: 'image-replace',
+  label: 'Replace Image',
+  icon: '🔄',
+  execute(_view) {
+    // Placeholder — image replacement requires file picker integration
+  },
+});
+
+commandRegistry.register({
+  id: 'image-edit-alt',
+  label: 'Edit Alt Text',
+  icon: '✏️',
+  execute(_view) {
+    // Placeholder
+  },
+});
+
+commandRegistry.register({
+  id: 'image-resize',
+  label: 'Resize Image',
+  icon: '📐',
+  execute(_view) {
+    // Placeholder
+  },
+});
+
+commandRegistry.register({
+  id: 'link-edit',
+  label: 'Edit Link',
+  icon: '✏️',
+  execute(_view) {
+    // Placeholder
+  },
+});
+
+commandRegistry.register({
+  id: 'link-open',
+  label: 'Open Link',
+  icon: '🔗',
+  execute(_view) {
+    // Placeholder — would open link in new tab
+  },
+});
+
+commandRegistry.register({
+  id: 'link-remove',
+  label: 'Remove Link',
+  icon: '❌',
+  execute(view) {
+    const { state } = view;
+    const { main } = state.selection;
+    const doc = state.doc.toString();
+
+    const beforeCursor = doc.slice(0, main.head);
+
+    const openBracket = beforeCursor.lastIndexOf('[');
+    if (openBracket === -1) return;
+
+    const parenOpen = doc.indexOf('](', openBracket);
+    if (parenOpen === -1) return;
+
+    const parenClose = doc.indexOf(')', parenOpen + 2);
+    if (parenClose === -1) return;
+
+    const linkText = doc.slice(openBracket + 1, parenOpen);
+    view.dispatch({
+      changes: { from: openBracket, to: parenClose + 1, insert: linkText },
+      selection: { anchor: openBracket + linkText.length },
+      scrollIntoView: true,
+    });
+  },
+});
+
+commandRegistry.register({
+  id: 'code-copy',
+  label: 'Copy Code',
+  icon: '📋',
+  execute(_view) {
+    // Placeholder — would copy code block content to clipboard
+  },
+});
+
+commandRegistry.register({
+  id: 'code-set-language',
+  label: 'Set Language',
+  icon: '🎨',
+  execute(_view) {
+    // Placeholder
+  },
+});
+
+commandRegistry.register({
+  id: 'code-explain',
+  label: 'Explain Code',
+  icon: '✨',
+  execute(_view) {
+    // Placeholder — AI integration
+  },
+});
