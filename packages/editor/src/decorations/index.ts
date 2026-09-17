@@ -16,8 +16,12 @@
  *
  * Selection reveal: decorations are suppressed when the cursor
  * overlaps them, so raw markdown markers reappear during editing.
+ *
+ * Block model: buildDecorationSet now receives the full EditorState so
+ * future decorators can use getBlocks() from block-model.ts for
+ * targeted AST-based decoration instead of full-doc regex scanning.
  */
-import type { Extension, Range } from '@codemirror/state';
+import type { Extension, EditorState, Range } from '@codemirror/state';
 import { StateEffect, StateField } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet } from '@codemirror/view';
 import { createHeadingDecorations } from './heading';
@@ -66,14 +70,20 @@ const rebuildAfterComposition = StateEffect.define<void>();
 // --- Decoration helpers ------------------------------------------------------
 
 /**
- * Build a DecorationSet from the current doc text, filtering out
+ * Build a DecorationSet from the current editor state, filtering out
  * decorations whose range overlaps the cursor position.
+ *
+ * The state parameter enables future decorators to use getBlocks() for
+ * targeted AST-based decoration. Current decorators still receive docText
+ * for regex-based matching (backward compatible).
  */
 function buildDecorationSet(
-  docText: string,
-  cursorPos: number,
+  state: EditorState,
   options?: EditorDecorationsOptions,
 ): DecorationSet {
+  const docText = state.doc.toString();
+  const cursorPos = state.selection.main.head;
+
   const all: Range<Decoration>[] = [
     ...createHeadingDecorations(docText),
     ...createBoldItalicDecorations(docText),
@@ -119,11 +129,7 @@ function buildDecorationSet(
 function createDecorationField(options?: EditorDecorationsOptions) {
   return StateField.define<DecorationSet>({
     create(state) {
-      return buildDecorationSet(
-        state.doc.toString(),
-        state.selection.main.head,
-        options,
-      );
+      return buildDecorationSet(state, options);
     },
     update(decos, tr) {
       // Skip recalculation during active IME composition when the document
@@ -135,11 +141,7 @@ function createDecorationField(options?: EditorDecorationsOptions) {
       // (the rebuildAfterComposition effect catches up decorations to
       // the final composed text).
       if (tr.docChanged || tr.selection || tr.effects.some(e => e.is(rebuildAfterComposition))) {
-        return buildDecorationSet(
-          tr.state.doc.toString(),
-          tr.state.selection.main.head,
-          options,
-        );
+        return buildDecorationSet(tr.state, options);
       }
       return decos;
     },

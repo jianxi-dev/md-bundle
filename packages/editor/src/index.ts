@@ -25,3 +25,5 @@ export {
 } from './slash';
 export { editorDecorations, type EditorDecorationsOptions } from './decorations';
 export type { ImageResolver, ImageCallbacks } from './decorations/image';
+export { getBlocks, getBlockAt, type Block, type BlockType } from './block-model';
+export { CommandRegistry, type Command } from './commands';
