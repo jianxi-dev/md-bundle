@@ -26,6 +26,17 @@ import {
   getBlocks,
   getBlockAt,
   CommandRegistry,
+  contextToolbar,
+  updateToolbar,
+  hideContextToolbar,
+  detectContext,
+  getButtonsForContext,
+  smartInput,
+  handleMarkdownShortcut,
+  smartEnter,
+  smartBackspace,
+  handleAutoPair,
+  handleChinesePair,
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
   type MarkdownEditorComponentProps,
@@ -38,6 +49,8 @@ import {
   type Block,
   type BlockType,
   type Command,
+  type ToolbarContext,
+  type ToolbarButton,
 } from '../src/index';
 
 function installPolyfills(): void {
@@ -71,6 +84,8 @@ const _typeProbe: MarkdownEditorOptions & {
   block: Block;
   blockType: BlockType;
   command: Command;
+  toolbarCtx: ToolbarContext;
+  toolbarBtn: ToolbarButton;
 } = {
   value: 'x',
   theme: 'dark',
@@ -85,6 +100,8 @@ const _typeProbe: MarkdownEditorOptions & {
   block: undefined as unknown as Block,
   blockType: 'paragraph',
   command: undefined as unknown as Command,
+  toolbarCtx: { kind: 'normal' },
+  toolbarBtn: { id: 'x', icon: 'x', label: 'x', commandId: 'x' },
 };
 void _typeProbe;
 
@@ -117,6 +134,23 @@ describe('public export contract', () => {
     expect(typeof getBlocks).toBe('function');
     expect(typeof getBlockAt).toBe('function');
     expect(typeof CommandRegistry).toBe('function');
+  });
+
+  it('exports the toolbar API surface', () => {
+    expect(typeof contextToolbar).toBe('function');
+    expect(typeof updateToolbar).toBe('function');
+    expect(typeof hideContextToolbar).toBe('function');
+    expect(typeof detectContext).toBe('function');
+    expect(typeof getButtonsForContext).toBe('function');
+  });
+
+  it('exports the smart input API surface', () => {
+    expect(typeof smartInput).toBe('function');
+    expect(typeof handleMarkdownShortcut).toBe('function');
+    expect(typeof smartEnter).toBe('function');
+    expect(typeof smartBackspace).toBe('function');
+    expect(typeof handleAutoPair).toBe('function');
+    expect(typeof handleChinesePair).toBe('function');
   });
 });
 
