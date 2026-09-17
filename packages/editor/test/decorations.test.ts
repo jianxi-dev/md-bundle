@@ -74,7 +74,7 @@ describe('editorDecorations', () => {
       expect(view.state.doc.toString()).toBe('# Title');
     });
 
-    it('shows the raw "# " when cursor enters the heading line', () => {
+    it('shows the heading marker at low opacity when cursor enters the heading line (semantic reveal)', () => {
       view = createMarkdownEditor(parent, {
         value: '# Title',
         extensions: [editorDecorations()],
@@ -84,9 +84,12 @@ describe('editorDecorations', () => {
       view.dispatch({ selection: { anchor: 1 } });
       view.requestMeasure();
 
-      // Widget should be suppressed — raw "# " is visible in DOM
+      // Semantic reveal: marker is shown at low opacity, not removed.
       const widget = view.dom.querySelector('.cm-heading-marker');
-      expect(widget).toBeNull();
+      expect(widget).not.toBeNull();
+      // The active class is applied for low-opacity styling.
+      const activeMarker = view.dom.querySelector('.cm-heading-marker-active');
+      expect(activeMarker).not.toBeNull();
     });
   });
 
@@ -125,7 +128,7 @@ describe('editorDecorations', () => {
       expect(view.state.doc.toString()).toBe('A **bold** and *italic* B');
     });
 
-    it('shows raw ** when cursor enters bold range', () => {
+    it('keeps strong class when cursor enters bold range (inline markers always hidden)', () => {
       view = createMarkdownEditor(parent, {
         value: 'A **bold** B',
         extensions: [editorDecorations()],
@@ -135,9 +138,11 @@ describe('editorDecorations', () => {
       view.dispatch({ selection: { anchor: 4 } });
       view.requestMeasure();
 
-      // Strong class should be suppressed
+      // Inline markers (**) are always hidden in both active and inactive blocks.
+      // The strong class stays applied — bold text looks bold while editing.
       const strong = view.dom.querySelector('.cm-strong');
-      expect(strong).toBeNull();
+      expect(strong).not.toBeNull();
+      expect(strong?.textContent).toBe('bold');
     });
   });
 
@@ -271,7 +276,7 @@ describe('editorDecorations', () => {
       expect(view.state.doc.toString()).toBe('Use `code` here');
     });
 
-    it('shows raw backticks when cursor enters code range', () => {
+    it('shows inline code with active class when cursor enters code range (semantic reveal)', () => {
       view = createMarkdownEditor(parent, {
         value: 'Use `code` here',
         extensions: [editorDecorations()],
@@ -281,8 +286,13 @@ describe('editorDecorations', () => {
       view.dispatch({ selection: { anchor: 5 } });
       view.requestMeasure();
 
+      // Active block: inline code styled with background + faint backticks.
       const codeEl = view.dom.querySelector('.cm-inline-code');
-      expect(codeEl).toBeNull();
+      expect(codeEl).not.toBeNull();
+      expect(codeEl?.textContent).toBe('code');
+      // The block-active class is applied for the semantic reveal state.
+      const activeCode = view.dom.querySelector('.cm-inline-code.cm-block-active');
+      expect(activeCode).not.toBeNull();
     });
   });
 

@@ -7,7 +7,22 @@ const italicRegex = /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|_(.+?)_/g;
 const BOLD_CLASS = 'cm-strong';
 const ITALIC_CLASS = 'cm-em';
 
-export function createBoldItalicDecorations(text: string): Range<Decoration>[] {
+/**
+ * Create bold/italic decorations for the document.
+ *
+ * Inline markers (**, *, _) are always hidden in both active and inactive
+ * blocks — they don't help editing. The text styling (bold/italic) is always
+ * applied so the rendered appearance is consistent.
+ *
+ * @param text - Full document text.
+ * @param _activeFrom - Start offset of the active block (unused, inline markers always hidden).
+ * @param _activeTo - End offset of the active block (unused, inline markers always hidden).
+ */
+export function createBoldItalicDecorations(
+  text: string,
+  _activeFrom: number = -1,
+  _activeTo: number = -1,
+): Range<Decoration>[] {
   const decorations: Range<Decoration>[] = [];
 
   // Bold: **text** → hide **, style text
