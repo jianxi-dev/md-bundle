@@ -9,8 +9,10 @@ import {
   exportPngFromMarkdown,
   withCenteredByline,
 } from '../src/lib/exportPng';
+import { buildHtmlDocument } from '../src/lib/exportHtml';
 import { bylineCenteredBadgeHtml } from '../src/lib/byline';
 import { parsePngSize } from '../src/lib/pngMeta';
+import type { Asset } from '../src/lib/assets';
 
 // 1x1 红色 PNG（与 exportHtml.test 同源 fixture，真实 PNG 字节）。
 const PNG_1_B64 =
@@ -94,7 +96,7 @@ describe('svgFromHtml', () => {
     expect(svg).toContain('<img src="data:image/png;base64,AAA"/>');
     expect(svg).toContain('<hr/>');
     expect(svg).toContain('<p>hi</p>');
-    expect(svg).toContain('<style>p{color:red}</style>');
+    expect(svg).toContain('<style><![CDATA[p{color:red}]]></style>');
     expect(svg).not.toContain('&lt;');
   });
 
@@ -293,5 +295,33 @@ describe('exportPngFromMarkdown', () => {
     expect(capturedSvg).toContain('<body style="position:relative">');
     expect(capturedSvg).toContain('?ref=md-png');
     expect(capturedSvg).toContain('Made with 本兜 bundle.jianxi.me');
+  });
+});
+
+describe('SVG well-formedness as XML (regression #178)', () => {
+  const assets: Asset[] = [
+    { name: 'a.png', dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' } as Asset,
+  ];
+
+  function xmlErrorCount(svg: string): number {
+    const doc = new DOMParser().parseFromString(svg, 'application/xml');
+    return doc.querySelectorAll('parsererror').length;
+  }
+
+  it.each([
+    ['plain', '# t\n\nx\n', [] as Asset[]],
+    ['image', '# t\n\n![a](a.png)\n', assets],
+    ['callout+table', '> [!tip] p\n> c\n\n| a | b |\n|---|---|\n| 1 | 2 |\n', [] as Asset[]],
+    ['css-components', '::: {.card-grid cards:3}\n\na\n:::\n', [] as Asset[]],
+  ])('%s → SVG parses as XML (0 parser errors)', async (_name, md, as) => {
+    const html = await buildHtmlDocument({ markdown: md as string, assets: as as Asset[] });
+    const svg = svgFromHtml(html, { width: 800, height: 600 });
+    const errors = xmlErrorCount(svg);
+    if (errors > 0) {
+      const doc = new DOMParser().parseFromString(svg, 'application/xml');
+      const err = doc.querySelector('parsererror')?.textContent ?? '(no detail)';
+      console.error(`[${_name}] XML errors: ${errors}\n${err}`);
+    }
+    expect(errors).toBe(0);
   });
 });
