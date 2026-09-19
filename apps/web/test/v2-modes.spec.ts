@@ -308,17 +308,23 @@ test('edit 模式含装饰：heading widget 可见', async ({ page }) => {
 
   const editorPane = page.getByTestId('mode-pane-editor');
   const cmContent = editorPane.locator('.cm-content');
-  // 光标移出标题块 → 该块进入非活动态（标记以 opacity:0 隐藏）
-  await cmContent.click();
-  await page.keyboard.press('Control+End');
 
-  // 语义编辑态契约：非活动块的标题标记保留在 DOM（原始 "# "，不再是 [H1] 徽章），
-  // 但以 opacity:0 视觉隐藏。断言计算样式而非文案，才锁得住这个行为。
   const marker = cmContent.locator('.cm-heading-marker').first();
-  await expect(marker).toHaveCount(1);
-  await expect(marker).toHaveText('# ');
-  const opacity = await marker.evaluate((el) => getComputedStyle(el).opacity);
-  expect(Number(opacity)).toBe(0);
+
+  // 语义编辑态契约：标题标记始终保留在 DOM（原始 "# "，不再是 [H1] 徽章），
+  // 仅在活动块以半透明显示。断言计算样式而非文案，才锁得住这个行为。
+  await expect(marker).toContainText('# ');
+
+  // 活动态：光标在标题块内（打开文档后光标默认落在文档起始处）。
+  const activeOpacity = Number(await marker.evaluate((el) => getComputedStyle(el).opacity));
+  expect(activeOpacity).toBeGreaterThan(0);
+  expect(activeOpacity).toBeLessThanOrEqual(0.5);
+
+  // 非活动态：点进正文段落，光标离开标题块 → 标记变为不可见。
+  await cmContent.getByText('Body text').click();
+  await expect
+    .poll(async () => Number(await marker.evaluate((el) => getComputedStyle(el).opacity)))
+    .toBe(0);
 
   evidence.decorEditOn = true;
 });
@@ -332,15 +338,16 @@ test('source 模式装饰关闭：raw # 文本可见，heading widget 消失', a
 
   const editorPane = page.getByTestId('mode-pane-editor');
   const cmContent = editorPane.locator('.cm-content');
-  // Move cursor past heading range so selection-reveal doesn't suppress heading widget
-  await cmContent.click();
-  await page.keyboard.press('Control+End');
-  await expect(cmContent).toContainText('[H1]');
 
+  // 编辑态：装饰开启 → 标题标记被 widget 接管（原始 "# " 由 span 承载）。
+  const marker = cmContent.locator('.cm-heading-marker').first();
+  await expect(marker).toContainText('# ');
+
+  // 源码态：装饰关闭 → widget 消失，原始 Markdown 文本直出。
   await page.getByTestId('mode-source-btn').click();
   await expect(editorPane).toBeVisible();
   await expect(cmContent).toContainText('# Hello');
-  await expect(cmContent).not.toContainText('[H1]');
+  await expect(cmContent.locator('.cm-heading-marker')).toHaveCount(0);
 
   evidence.decorSourceOff = true;
 });
