@@ -70,8 +70,25 @@ function fixBareAttrs(attrs: string): string {
 }
 
 export function toWellFormedXhtml(html: string): string {
-  return html
-    .replace(/<!doctype html>/i, '')
+  const styles: string[] = [];
+  const MARK_OPEN = '__MDBS__';
+  const MARK_CLOSE = '__MDBC__';
+  const sentinelRx = /__MDBS__(\d+)__MDBC__/g;
+
+  // 1. Protect <style> blocks: stash them (CSS may contain '<' or '&').
+  let out = html.replace(/<!doctype html>/i, '');
+  out = out.replace(
+    /(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi,
+    (_m, open: string, css: string, close: string) => {
+      const i = styles.length;
+      // CDATA cannot contain ']]>' — split it across two CDATA sections.
+      styles.push(`${open}<![CDATA[${css.split(']]>').join(']]]]><![CDATA[>')}]]>${close}`);
+      return `${MARK_OPEN}${i}${MARK_CLOSE}`;
+    },
+  );
+
+  // 2. Existing transforms, now safe (no CSS text in scope).
+  out = out
     .replace(VOID_TAG, (m, tag: string, attrs: string) =>
       attrs.trimEnd().endsWith('/') ? m : `<${tag}${attrs}/>`,
     )
@@ -80,6 +97,9 @@ export function toWellFormedXhtml(html: string): string {
       (_m, tag: string, attrs: string, slash: string) =>
         `<${tag}${fixBareAttrs(attrs)}${slash}>`,
     );
+
+  // 3. Restore the protected style blocks.
+  return out.replace(sentinelRx, (_m, i: string) => styles[Number(i)]);
 }
 
 /**
