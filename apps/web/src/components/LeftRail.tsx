@@ -1,12 +1,14 @@
 // 左栏（任务 2.4 + 2.7 + Wave 5.2）—— 桌面 260px 可收起侧栏；移动端底部抽屉（鸡蛋形 toggle）。
 // 默认收起（toggle 按钮 ghost 风格）；收起/展开状态记忆 localStorage。
 // 文件页签承载 FileTree（Wave 5.2）；最近页签承载 RecentFilesSection；资源页签承载 AssetPanel。
+// 结构页签承载 StructurePanel（编辑器诊断）。
 // 资源有孤儿时 toggle 显示徽标点。
 // 任务 2.7：移动端 <768px → 底部抽屉（横向椭圆鸡蛋形 toggle + fixed 抽屉面板）。
 import { useEffect, useMemo, useState } from 'react'
 import { AssetPanel, type AssetPanelProps } from './AssetPanel'
 import { FileTree } from './FileTree'
 import { computeOrphans } from '../lib/assets'
+import { lintStructure, type Diagnostic } from '@md-bundle/editor'
 import type { RecentDocItem } from './Landing'
 
 export interface LeftRailProps {
@@ -30,9 +32,84 @@ export interface LeftRailProps {
   open: boolean
   /** 切换左栏展开态。 */
   onToggle: () => void
+  /** 编辑器视图（结构体检面板读取诊断用）。 */
+  editorView?: import('@md-bundle/editor').MarkdownEditorHandle['view'] | null
+  /** 滚动编辑器到指定位置（结构体检行点击）。 */
+  onScrollToPosition?: (pos: number) => void
 }
 
-type RailTab = 'files' | 'recent' | 'assets'
+type RailTab = 'files' | 'recent' | 'assets' | 'structure'
+
+function severityIcon(severity: Diagnostic['severity']): string {
+  switch (severity) {
+    case 'error':
+      return '🛑'
+    case 'warning':
+      return '⚠️'
+    case 'info':
+      return 'ℹ️'
+  }
+}
+
+function StructurePanel({
+  editorView,
+  docKey,
+  onScrollToPosition,
+}: {
+  editorView: import('@md-bundle/editor').MarkdownEditorHandle['view'] | null | undefined
+  /** 文档源文本——editorView 对象身份稳定，必须靠它驱动重算，否则面板永远显示首次诊断。 */
+  docKey: string
+  onScrollToPosition?: (pos: number) => void
+}): JSX.Element {
+  const diagnostics = useMemo(() => {
+    if (!editorView || !docKey) return []
+    try {
+      return lintStructure(editorView.state).diagnostics
+    } catch {
+      return []
+    }
+  }, [editorView, docKey])
+
+  if (diagnostics.length === 0) {
+    return (
+      <div
+        data-testid="structure-panel-empty"
+        className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-[var(--meta)]"
+      >
+        <span className="text-2xl">✓</span>
+        <span>未发现问题</span>
+      </div>
+    )
+  }
+
+  return (
+    <div data-testid="structure-panel" className="space-y-2">
+      <h3
+        data-testid="structure-panel-header"
+        className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]"
+      >
+        结构体检 · {diagnostics.length} 项发现
+      </h3>
+      {diagnostics.map((d, i) => (
+        <button
+          key={`${d.rule}-${d.from}-${i}`}
+          type="button"
+          data-testid={`structure-diagnostic-${i}`}
+          onClick={() => onScrollToPosition?.(d.from)}
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5 text-left transition-colors hover:border-[var(--accent)] hover:bg-[var(--surface-2)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          <div className="flex items-start gap-2">
+            <span className="shrink-0 text-sm leading-5">{severityIcon(d.severity)}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm leading-snug text-[var(--fg-2)]">{d.message}</p>
+              <p className="mt-0.5 text-xs text-[var(--meta)]">{d.rule}</p>
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 /** 相对关闭时间（与 Landing 最近文档同口径）。 */
 function formatRelativeTime(ts: number): string {
@@ -132,6 +209,8 @@ function RailContent({
   activeTabName,
   recentDocs,
   onOpenRecentDoc,
+  editorView,
+  onScrollToPosition,
 }: {
   tab: RailTab
   setTab: (t: RailTab) => void
@@ -144,6 +223,8 @@ function RailContent({
   activeTabName: string | null
   recentDocs: RecentDocItem[]
   onOpenRecentDoc: (doc: RecentDocItem) => void
+  editorView: import('@md-bundle/editor').MarkdownEditorHandle['view'] | null | undefined
+  onScrollToPosition?: (pos: number) => void
 }): JSX.Element {
   return (
     <>
@@ -194,6 +275,20 @@ function RailContent({
             <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-[var(--warn)] align-middle" />
           )}
         </button>
+        <button
+          type="button"
+          role="tab"
+          data-testid="left-rail-tab-structure"
+          aria-selected={tab === 'structure'}
+          onClick={() => setTab('structure')}
+          className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+            tab === 'structure'
+              ? 'border-b-2 border-[var(--accent)] text-[var(--fg)]'
+              : 'text-[var(--muted)] hover:text-[var(--fg)]'
+          }`}
+        >
+          🩺
+        </button>
       </div>
 
       {/* 页签内容 */}
@@ -202,6 +297,12 @@ function RailContent({
           <FileTree onOpenFile={onOpenFile} activeTabName={activeTabName} />
         ) : tab === 'recent' ? (
           <RecentFilesSection docs={recentDocs} onOpenDoc={onOpenRecentDoc} />
+        ) : tab === 'structure' ? (
+          <StructurePanel
+            editorView={editorView}
+            docKey={documentText}
+            onScrollToPosition={onScrollToPosition}
+          />
         ) : (
           <AssetPanel
             assets={assets}
@@ -226,6 +327,8 @@ export function LeftRail({
   onOpenRecentDoc,
   open,
   onToggle,
+  editorView,
+  onScrollToPosition,
 }: LeftRailProps): JSX.Element {
   const [tab, setTab] = useState<RailTab>('files')
   const isNarrow = useIsNarrow()
@@ -247,6 +350,8 @@ export function LeftRail({
       activeTabName={activeTabName}
       recentDocs={recentDocs}
       onOpenRecentDoc={onOpenRecentDoc}
+      editorView={editorView}
+      onScrollToPosition={onScrollToPosition}
     />
   )
 

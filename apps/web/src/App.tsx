@@ -6,6 +6,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MarkdownEditor,
   slashKeymap,
+  smartInput,
+  contextToolbar,
+  floatingToolbar,
+  commandPaletteKeymap,
+  structureLinterExtension,
+  chapterReorgExtension,
   editorDecorations,
   type MarkdownEditorHandle,
 } from '@md-bundle/editor'
@@ -109,8 +115,16 @@ function nextUntitledName(existing: string[]): string {
   return `未命名 ${i}.md`
 }
 
-// 斜杠命令扩展：模块级单例（编辑器只在挂载时读取 extensions —— 稳定引用避免任何重挂载顾虑）。
-const SLASH_EXT = [slashKeymap()]
+// 编辑器扩展：模块级单例（编辑器只在挂载时读取 extensions —— 稳定引用避免任何重挂载顾虑）。
+const EDITOR_EXT = [
+  slashKeymap(),
+  smartInput(),
+  contextToolbar(),
+  floatingToolbar(),
+  commandPaletteKeymap(),
+  structureLinterExtension(),
+  chapterReorgExtension(),
+]
 
 /** 窄屏检测 hook（<768px）：matchMedia 监听，响应式断点切换。 */
 function useIsNarrow(): boolean {
@@ -1066,18 +1080,27 @@ export default function App() {
 
             {/* 工作区：三模式 + 左栏 + 大纲 */}
             <div className="flex min-h-0 flex-1 gap-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-              <LeftRail
-                assets={activeTab.assets}
-                documentText={activeTab.source}
-                onDelete={handleDelete}
-                onReplace={handleReplace}
-                onOpenFile={(file, handle) => void openFileObject(file, handle)}
-                activeTabName={activeTab.name}
-                recentDocs={recentDocsRef.current}
-                onOpenRecentDoc={openRecentDoc}
-                open={railOpen}
-                onToggle={toggleRail}
-              />
+                <LeftRail
+                  assets={activeTab.assets}
+                  documentText={activeTab.source}
+                  onDelete={handleDelete}
+                  onReplace={handleReplace}
+                  onOpenFile={(file, handle) => void openFileObject(file, handle)}
+                  activeTabName={activeTab.name}
+                  recentDocs={recentDocsRef.current}
+                  onOpenRecentDoc={openRecentDoc}
+                  open={railOpen}
+                  onToggle={toggleRail}
+                  editorView={editorViewState}
+                  onScrollToPosition={(pos) => {
+                    const view = editorViewRef.current
+                    if (!view) return
+                    view.dispatch({
+                      selection: { anchor: pos },
+                      scrollIntoView: true,
+                    })
+                  }}
+                />
 
               <div
                 data-testid="workspace-modes"
@@ -1104,7 +1127,7 @@ export default function App() {
                       value={activeTab.source}
                       onChange={handleEditorChange}
                       theme={resolveEffectiveTheme(themePref)}
-                      extensions={SLASH_EXT}
+                      extensions={EDITOR_EXT}
                       decorations={DECORATIONS_EXT}
                       decorationsEnabled={mode === 'edit'}
                       onMount={onEditorMount}
