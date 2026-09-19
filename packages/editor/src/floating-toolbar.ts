@@ -23,7 +23,7 @@ export interface FloatingToolbarOptions {
 const DEFAULT_TOOLBAR_COMMANDS: Command[] = [
   {
     id: 'bold',
-    label: 'Bold',
+    label: '加粗',
     icon: 'B',
     execute(view) {
       const { from, to } = view.state.selection.main;
@@ -36,7 +36,7 @@ const DEFAULT_TOOLBAR_COMMANDS: Command[] = [
   },
   {
     id: 'italic',
-    label: 'Italic',
+    label: '斜体',
     icon: 'I',
     execute(view) {
       const { from, to } = view.state.selection.main;
@@ -49,7 +49,7 @@ const DEFAULT_TOOLBAR_COMMANDS: Command[] = [
   },
   {
     id: 'code',
-    label: 'Code',
+    label: '行内代码',
     icon: '</>',
     execute(view) {
       const { from, to } = view.state.selection.main;
@@ -62,7 +62,7 @@ const DEFAULT_TOOLBAR_COMMANDS: Command[] = [
   },
   {
     id: 'link',
-    label: 'Link',
+    label: '插入链接',
     icon: '🔗',
     execute(view) {
       const { from, to } = view.state.selection.main;

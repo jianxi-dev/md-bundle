@@ -10,12 +10,15 @@
  *   `defaultKeymap` in the editor's extension list.
  * - Every binding returns false when the menu is closed, so default CM6
  *   behavior (newline, cursor motion, inserting the slash) is untouched.
+ * - The menu renders from `defaultCommands` directly (`applyCommand` calls
+ *   `cmd.insert`); it does NOT register into the shared commandRegistry.
+ *   Registering would duplicate palette rows and shadow the canonical
+ *   cursor-insert `insert-html` / `insert-css` commands from commands.ts.
  */
 
 import { EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/view';
 import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { getThemeColor } from './theme';
-import { commandRegistry, type Command } from './commands';
 
 export interface SlashCommand {
   id: string;
@@ -34,7 +37,7 @@ export interface SlashCommand {
 export const defaultCommands: SlashCommand[] = [
   {
     id: 'heading',
-    label: 'Heading',
+    label: '标题',
     hint: '## ',
     icon: '#',
     insert(state) {
@@ -44,18 +47,17 @@ export const defaultCommands: SlashCommand[] = [
   },
   {
     id: 'callout',
-    label: 'Callout',
+    label: '标注',
     hint: '> [!NOTE]',
     icon: '\u275D',
     insert(state) {
       const head = state.selection.main.head;
-      // Standard blockquote callout — no private syntax.
       return { from: head - 1, to: head, text: '> [!NOTE]\n> ' };
     },
   },
   {
     id: 'image-ref',
-    label: 'Image ref',
+    label: '图片引用',
     hint: '![](...)',
     icon: '\u25A3',
     insert(state) {
@@ -69,7 +71,7 @@ export const defaultCommands: SlashCommand[] = [
   },
   {
     id: 'code-block',
-    label: 'Code block',
+    label: '代码块',
     hint: '```',
     icon: '{ }',
     insert(state) {
@@ -79,7 +81,7 @@ export const defaultCommands: SlashCommand[] = [
   },
   {
     id: 'table',
-    label: 'Table',
+    label: '表格',
     hint: '| a | b |',
     icon: '\u25A6',
     insert(state) {
@@ -93,7 +95,7 @@ export const defaultCommands: SlashCommand[] = [
   },
   {
     id: 'quote',
-    label: 'Quote',
+    label: '引用',
     hint: '> ',
     icon: '\u00BB',
     insert(state) {
@@ -101,35 +103,27 @@ export const defaultCommands: SlashCommand[] = [
       return { from: head - 1, to: head, text: '> ' };
     },
   },
-];
-
-// --- Register slash commands with the global command registry ---------------
-
-/**
- * Adapt a SlashCommand's `insert()` into a Command's `execute()` and
- * register it with the global commandRegistry. Called once at module load.
- */
-function registerSlashCommand(cmd: SlashCommand): void {
-  const command: Command = {
-    id: cmd.id,
-    label: cmd.label,
-    icon: cmd.icon,
-    execute(view) {
-      const change = cmd.insert(view.state);
-      view.dispatch({
-        changes: { from: change.from, to: change.to, insert: change.text },
-        selection: { anchor: change.from + change.text.length },
-        scrollIntoView: true,
-      });
+  {
+    id: 'insert-html',
+    label: '插入 HTML',
+    hint: '<div>',
+    icon: '</>',
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: '<div align="center">\n\n</div>' };
     },
-  };
-  commandRegistry.register(command);
-}
-
-// Register all default commands at module load time.
-for (const cmd of defaultCommands) {
-  registerSlashCommand(cmd);
-}
+  },
+  {
+    id: 'insert-css',
+    label: '插入 CSS',
+    hint: '<style>',
+    icon: '#',
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: '<style>\n\n</style>' };
+    },
+  },
+];
 
 interface SlashMenuState {
   open: boolean;
@@ -271,7 +265,8 @@ let slashComposing = false;
  *
  * Only triggers when:
  * - The `/` is ASCII (U+002F), not full-width `／` (U+FF0F).
- * - The cursor is at the start of an empty line (nothing but whitespace before).
+ * - The cursor is at word start (nothing before it on the line, or the
+ *   character immediately before it is whitespace).
  * - IME is not actively composing.
  */
 export function insertSlashChar(
@@ -290,8 +285,10 @@ export function insertSlashChar(
   const line = view.state.doc.lineAt(head);
   const textBeforeCursor = line.text.slice(0, head - line.from);
 
-  // Only trigger at the start of an empty line (only whitespace before).
-  if (textBeforeCursor.trimStart().length > 0) return false;
+  // Trigger at word start: the text from line start to caret must be empty
+  // or end with whitespace. Typing "/" immediately after a non-whitespace
+  // character (mid-word) must NOT open the menu.
+  if (textBeforeCursor.length > 0 && !/\s$/.test(textBeforeCursor)) return false;
 
   view.dispatch({
     changes: { from: head, insert: '/' },

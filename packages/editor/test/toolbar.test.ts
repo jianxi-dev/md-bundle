@@ -8,7 +8,28 @@ import {
   contextToolbar,
   type ToolbarContext,
 } from '../src/toolbar';
+import { floatingToolbar } from '../src/floating-toolbar';
 import { commandRegistry } from '../src/commands';
+
+// jsdom ships no Clipboard API; the copy-command tests record calls here.
+let clipboardWrites: string[] = [];
+
+function installClipboard(): void {
+  clipboardWrites = [];
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: (text: string): Promise<void> => {
+        clipboardWrites.push(text);
+        return Promise.resolve();
+      },
+    },
+  });
+}
+
+function removeClipboard(): void {
+  Reflect.deleteProperty(navigator, 'clipboard');
+}
 
 function installPolyfills(): void {
   if (typeof globalThis.requestAnimationFrame !== 'function') {
@@ -121,50 +142,31 @@ describe('toolbar button definitions', () => {
   it('returns text formatting buttons for text-selected context', () => {
     const ctx: ToolbarContext = { kind: 'text-selected', from: 0, to: 5 };
     const buttons = getButtonsForContext(ctx);
-    expect(buttons.length).toBe(7);
+    expect(buttons.length).toBe(5);
     expect(buttons[0].commandId).toBe('toggle-bold');
     expect(buttons[1].commandId).toBe('toggle-italic');
     expect(buttons[2].commandId).toBe('toggle-strikethrough');
     expect(buttons[3].commandId).toBe('toggle-code');
     expect(buttons[4].commandId).toBe('toggle-link');
-    expect(buttons[5].commandId).toBe('highlight-text');
-    expect(buttons[6].commandId).toBe('ai-enhance');
   });
 
-  it('returns table buttons for table context', () => {
-    const ctx: ToolbarContext = { kind: 'table' };
-    const buttons = getButtonsForContext(ctx);
-    expect(buttons.length).toBe(3);
-    expect(buttons[0].commandId).toBe('table-add-row');
-    expect(buttons[1].commandId).toBe('table-add-col');
-    expect(buttons[2].commandId).toBe('table-align');
-  });
-
-  it('returns image buttons for image context', () => {
-    const ctx: ToolbarContext = { kind: 'image' };
-    const buttons = getButtonsForContext(ctx);
-    expect(buttons.length).toBe(3);
-    expect(buttons[0].commandId).toBe('image-replace');
-    expect(buttons[1].commandId).toBe('image-edit-alt');
-    expect(buttons[2].commandId).toBe('image-resize');
-  });
-
-  it('returns link buttons for link context', () => {
-    const ctx: ToolbarContext = { kind: 'link' };
-    const buttons = getButtonsForContext(ctx);
-    expect(buttons.length).toBe(3);
-    expect(buttons[0].commandId).toBe('link-edit');
-    expect(buttons[1].commandId).toBe('link-open');
-    expect(buttons[2].commandId).toBe('link-remove');
-  });
-
-  it('returns code buttons for code-block context', () => {
-    const ctx: ToolbarContext = { kind: 'code-block' };
-    const buttons = getButtonsForContext(ctx);
-    expect(buttons.length).toBe(3);
-    expect(buttons[0].commandId).toBe('code-copy');
-    expect(buttons[1].commandId).toBe('code-set-language');
-    expect(buttons[2].commandId).toBe('code-explain');
+  it('every toolbar button commandId is registered', () => {
+    const contexts: ToolbarContext[] = [
+      { kind: 'text-selected', from: 0, to: 5 },
+      { kind: 'table' },
+      { kind: 'image' },
+      { kind: 'link' },
+      { kind: 'code-block' },
+      { kind: 'empty' },
+      { kind: 'normal' },
+    ];
+    for (const ctx of contexts) {
+      const buttons = getButtonsForContext(ctx);
+      for (const btn of buttons) {
+        const cmd = commandRegistry.all().find((c) => c.id === btn.commandId);
+        expect(cmd, `command ${btn.commandId} should be registered`).toBeDefined();
+      }
+    }
   });
 
   it('returns empty array for empty context', () => {
@@ -177,6 +179,13 @@ describe('toolbar button definitions', () => {
     const ctx: ToolbarContext = { kind: 'normal' };
     const buttons = getButtonsForContext(ctx);
     expect(buttons.length).toBe(0);
+  });
+
+  it('returns exactly the copy button for code-block context', () => {
+    const buttons = getButtonsForContext({ kind: 'code-block' });
+    expect(buttons).toEqual([
+      { id: 'toolbar-copy-code', icon: '📋', label: '复制代码', commandId: 'code-copy' },
+    ]);
   });
 });
 
@@ -196,6 +205,7 @@ describe('toolbar DOM integration', () => {
   afterEach(() => {
     view.destroy();
     parent.remove();
+    removeClipboard();
   });
 
   it('shows toolbar when text is selected', () => {
@@ -206,7 +216,7 @@ describe('toolbar DOM integration', () => {
     updateToolbar(view);
     const toolbar = view.dom.querySelector('.mdb-toolbar');
     expect(toolbar).not.toBeNull();
-    expect(toolbar?.querySelectorAll('.mdb-toolbar-btn').length).toBe(7);
+    expect(toolbar?.querySelectorAll('.mdb-toolbar-btn').length).toBe(5);
   });
 
   it('hides toolbar for normal paragraph', () => {
@@ -230,27 +240,83 @@ describe('toolbar DOM integration', () => {
     const toolbar = view.dom.querySelector<HTMLDivElement>('.mdb-toolbar');
     expect(toolbar?.style.display).toBe('none');
   });
+
+  it('shows a single copy button in a fenced code block and copies the block on mousedown', () => {
+    installClipboard();
+    const doc = '```\ncode here\n```';
+    view.dispatch({
+      changes: { from: 0, insert: doc },
+      selection: { anchor: 7 },
+    });
+    updateToolbar(view);
+
+    const buttons = Array.from(
+      view.dom.querySelectorAll<HTMLButtonElement>('.mdb-toolbar .mdb-toolbar-btn'),
+    );
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].title).toBe('复制代码');
+
+    buttons[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    expect(clipboardWrites).toEqual([doc]);
+  });
 });
 
 describe('toolbar commands registered', () => {
-  it('has toggle-bold registered', () => {
+  it('has toggle-bold registered with Chinese label', () => {
     const cmd = commandRegistry.all().find((c) => c.id === 'toggle-bold');
     expect(cmd).toBeDefined();
-    expect(cmd?.label).toBe('Bold');
+    expect(cmd?.label).toBe('加粗');
   });
 
-  it('has toggle-link registered', () => {
+  it('has toggle-link registered with Chinese label', () => {
     const cmd = commandRegistry.all().find((c) => c.id === 'toggle-link');
     expect(cmd).toBeDefined();
+    expect(cmd?.label).toBe('插入链接');
   });
 
-  it('has link-remove registered', () => {
-    const cmd = commandRegistry.all().find((c) => c.id === 'link-remove');
+  it('has toggle-strikethrough registered with Chinese label', () => {
+    const cmd = commandRegistry.all().find((c) => c.id === 'toggle-strikethrough');
     expect(cmd).toBeDefined();
+    expect(cmd?.label).toBe('删除线');
   });
 
-  it('has table-add-row registered', () => {
-    const cmd = commandRegistry.all().find((c) => c.id === 'table-add-row');
+  it('has toggle-code registered with Chinese label', () => {
+    const cmd = commandRegistry.all().find((c) => c.id === 'toggle-code');
     expect(cmd).toBeDefined();
+    expect(cmd?.label).toBe('行内代码');
+  });
+});
+
+describe('floating toolbar Chinese labels (ticket #192)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent, { extensions: [floatingToolbar()] }).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+  });
+
+  it('renders the four default actions with Chinese tooltips only', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+
+    const buttons = Array.from(
+      view.dom.querySelectorAll<HTMLButtonElement>('.mdb-floating-toolbar .mdb-toolbar-btn'),
+    );
+    expect(buttons.map((btn) => btn.title)).toEqual(['加粗', '斜体', '行内代码', '插入链接']);
+    for (const btn of buttons) {
+      expect(btn.title, `${btn.title} must not be English`).not.toMatch(
+        /\b(Bold|Italic|Code|Link)\b/,
+      );
+    }
   });
 });

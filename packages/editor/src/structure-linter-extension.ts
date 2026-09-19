@@ -5,14 +5,13 @@
  * renders them as underlines in the editor. On every document change, the
  * linter re-runs and decorations update automatically.
  *
- * The extension also registers a "Structure Check" command that toggles
- * the linter on/off via the command registry.
+ * This file owns only the lint field and its theme. The "结构体检" command row
+ * is registered separately in commands.ts.
  */
 import type { Extension } from '@codemirror/state';
 import { StateField } from '@codemirror/state';
 import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
 import { lintStructure, type Diagnostic } from './structure-linter';
-import { commandRegistry } from './commands';
 
 // --- Severity → decoration style ---------------------------------------------
 
@@ -75,11 +74,11 @@ function buildDecorations(state: import('@codemirror/state').EditorState): Decor
  */
 const lintTheme = EditorView.baseTheme({
   '.cm-lint-mark.cm-lint-error': {
-    textDecoration: 'underline wavy #f85149',
+    textDecoration: 'underline dotted #f85149',
     textUnderlineOffset: '2px',
   },
   '.cm-lint-mark.cm-lint-warning': {
-    textDecoration: 'underline wavy #d29922',
+    textDecoration: 'underline dotted #d29922',
     textUnderlineOffset: '2px',
   },
   '.cm-lint-mark.cm-lint-info': {
@@ -100,20 +99,5 @@ export function structureLinterExtension(): Extension {
   return [createLintField(), lintTheme];
 }
 
-// --- Command registration ------------------------------------------------------
-
-/**
- * Toggle command that enables/disables the structure linter.
- * The linter is always active when the extension is mounted; this command
- * is a placeholder for future toggle behavior.
- */
-commandRegistry.register({
-  id: 'structure-check',
-  label: 'Structure Check',
-  icon: '✓',
-  execute(view) {
-    // The linter runs automatically via the extension.
-    // This command is a no-op placeholder for the command palette.
-    void view;
-  },
-});
+// The structure-check command is registered in commands.ts with
+// Chinese label "结构体检" and group "体检". No re-registration here.
