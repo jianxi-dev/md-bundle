@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { markdown } from '@codemirror/lang-markdown';
 import { createMarkdownEditor } from '../src/editor';
 import {
   handleMarkdownShortcut,
@@ -485,6 +488,115 @@ describe('chinese punctuation pairing', () => {
     });
     const result = handleChinesePair(view, '(');
     expect(result).toBe(false);
+  });
+});
+
+describe('auto-pairing via real inputHandler', () => {
+  function mount(doc = '') {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    return new EditorView({
+      parent: host,
+      state: EditorState.create({ doc, extensions: [markdown(), smartInput()] }),
+    });
+  }
+
+  function input(view: EditorView, text: string) {
+    const { from, to } = view.state.selection.main;
+    const handlers = view.state.facet(EditorView.inputHandler);
+    const insert = () => view.state.update({
+      changes: { from, to, insert: text },
+      selection: { anchor: from + text.length },
+    });
+    const handled = handlers.some(h => h(view, from, to, text, insert));
+    if (!handled) {
+      view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length } });
+    }
+  }
+
+  it('* twice pairs to ** with caret between', () => {
+    const v = mount('');
+    input(v, '*'); input(v, '*');
+    expect(v.state.doc.toString()).toBe('**');
+    expect(v.state.selection.main.head).toBe(1);
+    v.destroy();
+  });
+
+  it('lone ! does not insert ![](', () => {
+    const v = mount('');
+    input(v, '!');
+    expect(v.state.doc.toString()).toBe('!');
+    v.destroy();
+  });
+
+  it('! then [ inserts ![|](url)', () => {
+    const v = mount('');
+    input(v, '!'); input(v, '[');
+    expect(v.state.doc.toString()).toContain('![');
+    expect(v.state.doc.toString()).toContain('](url)');
+    v.destroy();
+  });
+
+  it('` pairs with caret between', () => {
+    const v = mount('');
+    input(v, '`');
+    expect(v.state.doc.toString()).toBe('``');
+    expect(v.state.selection.main.head).toBe(1);
+    v.destroy();
+  });
+
+  it('$ pairs with caret between', () => {
+    const v = mount('');
+    input(v, '$');
+    expect(v.state.doc.toString()).toBe('$$');
+    expect(v.state.selection.main.head).toBe(1);
+    v.destroy();
+  });
+
+  it('[ pairs to [] with caret between', () => {
+    const v = mount('');
+    input(v, '[');
+    expect(v.state.doc.toString()).toBe('[]');
+    expect(v.state.selection.main.head).toBe(1);
+    v.destroy();
+  });
+
+  it('「 pairs to 「」', () => {
+    const v = mount('');
+    input(v, '「');
+    expect(v.state.doc.toString()).toBe('「」');
+    v.destroy();
+  });
+
+  it('（ pairs to （）', () => {
+    const v = mount('');
+    input(v, '（');
+    expect(v.state.doc.toString()).toBe('（）');
+    v.destroy();
+  });
+
+  it('` wraps selected text', () => {
+    const v = mount('abc');
+    v.dispatch({ selection: { anchor: 0, head: 3 } });
+    input(v, '`');
+    expect(v.state.doc.toString()).toBe('`abc`');
+    v.destroy();
+  });
+
+  it('[ wraps selected text', () => {
+    const v = mount('link');
+    v.dispatch({ selection: { anchor: 0, head: 4 } });
+    input(v, '[');
+    expect(v.state.doc.toString()).toBe('[link]');
+    v.destroy();
+  });
+
+  it('「 wraps selected text', () => {
+    const v = mount('text');
+    v.dispatch({ selection: { anchor: 0, head: 4 } });
+    input(v, '「');
+    expect(v.state.doc.toString()).toBe('「text」');
+    v.destroy();
   });
 });
 
