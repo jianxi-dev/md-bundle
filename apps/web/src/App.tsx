@@ -13,6 +13,7 @@ import {
   editorKeybindings,
   structureLinterExtension,
   chapterReorgExtension,
+  blockHandle,
   editorDecorations,
   type MarkdownEditorHandle,
 } from '@md-bundle/editor'
@@ -126,6 +127,8 @@ const EDITOR_EXT = [
   editorKeybindings(),
   structureLinterExtension(),
   chapterReorgExtension(),
+  // 块手柄：悬停左侧沟槽出现 ⠿，点击开「转换为/复制/删除」菜单，按住拖拽整块排序（#189）
+  blockHandle(),
 ]
 
 /** 窄屏检测 hook（<768px）：matchMedia 监听，响应式断点切换。 */

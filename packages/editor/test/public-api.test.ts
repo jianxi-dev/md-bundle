@@ -44,6 +44,7 @@ import {
   extractSubtree,
   flattenTree,
   chapterReorgExtension,
+  blockHandle,
   type HeadingEntry,
   type TreeNode,
   type Section,
@@ -174,6 +175,10 @@ describe('public export contract', () => {
     // Type-only exports must be referenced so a removal breaks compilation.
     const _t: [HeadingEntry, TreeNode, Section, MoveResult, FlatNode, DragState] | null = null;
     expect(_t).toBeNull();
+  });
+
+  it('exports the block handle API surface', () => {
+    expect(typeof blockHandle).toBe('function');
   });
 
   it('exports the toolbar API surface', () => {

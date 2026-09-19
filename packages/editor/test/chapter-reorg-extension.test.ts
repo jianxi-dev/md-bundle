@@ -1,16 +1,17 @@
 /**
- * chapterReorgExtension tests — mousedown guard (issue #188).
+ * chapterReorgExtension tests — issue #188 guard, retained for issue #189.
  *
- * Regression: `dragHandlers.mousedown` used to react to ANY left mousedown
- * inside a heading section — which is the whole document once it has at least
- * one heading — dispatching a drag effect and calling `preventDefault()`.
- * That stopped CM6 from ever focusing the editor, leaving it uneditable and
- * killing every editor-scoped keymap (`/`, Cmd+K).
+ * History: `dragHandlers.mousedown` used to react to ANY left mousedown inside
+ * a heading section — which is the whole document once it has at least one
+ * heading — dispatching a drag effect and calling `preventDefault()`. That
+ * stopped CM6 from ever focusing the editor, leaving it uneditable and killing
+ * every editor-scoped keymap (`/`, Cmd+K).
  *
- * The invariant locked here: only a mousedown whose target sits inside a
- * `.mdb-block-handle` (the block-handle DOM is added by issue #189; until then
- * the drag stays intentionally dormant) may start a drag. A plain content
- * mousedown must fall through without dispatching and without preventDefault.
+ * Issue #189 moved the drag to the block handle, so this module no longer
+ * installs mouse handlers at all. The invariant still locked here: an ordinary
+ * mousedown inside document content is neither prevented nor turned into a
+ * reorder dispatch. The module now owns only the shared drag state field that
+ * the block handle drives.
  *
  * jsdom has no layout, so `EditorView.posAtCoords` is stubbed to return a real
  * document position. To make `defaultPrevented` observable on a content
@@ -22,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { markdown } from '@codemirror/lang-markdown';
-import { chapterReorgExtension } from '../src/chapter-reorg-extension';
+import { chapterReorgExtension, currentDrag, setDragEffect } from '../src/chapter-reorg-extension';
 
 // jsdom lacks requestAnimationFrame/ResizeObserver; CodeMirror 6 uses both.
 function installPolyfills(): void {
@@ -59,7 +60,7 @@ function dispatchMouse(target: EventTarget, type: 'mousedown' | 'mousemove' | 'm
   return event;
 }
 
-/** Pick out dispatches carrying our drag StateEffect (spec.effects present). */
+/** Pick out dispatches carrying a transaction (any spec with changes/effects). */
 function dragDispatchCount(spy: { mock: { calls: unknown[][] } }): number {
   const calls = spy.mock.calls as { effects?: unknown }[][];
   return calls.flat().filter((spec) => spec.effects !== undefined).length;
@@ -89,7 +90,7 @@ describe('chapterReorgExtension mousedown guard (issue #188)', () => {
 
   it('plain content mousedown does not preventDefault and starts no drag', () => {
     // Non-empty selection + detail 1 + layout stubs: steers CM6's built-in
-    // pointer handler into its no-op branch so this test observes OUR handler.
+    // pointer handler into its no-op branch so this test observes the document.
     view.dispatch({ selection: EditorSelection.range(0, 5) });
     vi.spyOn(view, 'posAtCoords').mockReturnValue(SECTION_POS);
     const posAssoc: { pos: number; assoc: -1 | 1 } = { pos: 2, assoc: 1 };
@@ -114,32 +115,52 @@ describe('chapterReorgExtension mousedown guard (issue #188)', () => {
     expect(event.defaultPrevented).toBe(false);
   });
 
-  it('mousedown inside a .mdb-block-handle starts the drag', () => {
-    vi.spyOn(view, 'posAtCoords').mockReturnValue(SECTION_POS);
-    const dispatchSpy = vi.spyOn(view, 'dispatch');
+  it('a .mdb-block-handle mousedown is no longer handled here (block handle owns it)', () => {
+    // The handle DOM is owned by block-handle.ts (issue #189), lives in
+    // view.dom outside contentDOM, and this module must stay out of its way.
     const handle = document.createElement('div');
     handle.className = 'mdb-block-handle';
-    view.contentDOM.appendChild(handle);
+    view.dom.appendChild(handle);
 
     const event = dispatchMouse(handle, 'mousedown');
     handle.remove();
 
-    expect(event.defaultPrevented).toBe(true);
-    expect(dragDispatchCount(dispatchSpy)).toBe(1);
+    expect(event.defaultPrevented).toBe(false);
     expect(view.state.doc.toString()).toBe(DOC);
   });
+});
 
-  it('mouseup clears the drag started from the handle', () => {
-    vi.spyOn(view, 'posAtCoords').mockReturnValue(SECTION_POS);
-    const handle = document.createElement('div');
-    handle.className = 'mdb-block-handle';
-    view.contentDOM.appendChild(handle);
-    dispatchMouse(handle, 'mousedown');
-    handle.remove();
+describe('chapterReorgExtension drag state (retained for the block handle)', () => {
+  let parent: HTMLElement;
+  let view: EditorView;
 
-    // While the drag is active the mouseup is consumed (and clears it)...
-    expect(dispatchMouse(view.contentDOM, 'mouseup').defaultPrevented).toBe(true);
-    // ...after which the next mouseup is a plain content event again.
-    expect(dispatchMouse(view.contentDOM, 'mouseup').defaultPrevented).toBe(false);
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = new EditorView({
+      state: EditorState.create({
+        doc: DOC,
+        extensions: [markdown(), chapterReorgExtension()],
+      }),
+      parent,
+    });
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+  });
+
+  it('exposes no drag until a drag effect is dispatched', () => {
+    expect(currentDrag(view.state)).toBeNull();
+  });
+
+  it('stores the active drag and clears it on the next document change', () => {
+    view.dispatch({ effects: setDragEffect.of({ from: 0, to: 4, targetLine: 3 }) });
+    expect(currentDrag(view.state)).toEqual({ from: 0, to: 4, targetLine: 3 });
+
+    view.dispatch({ changes: { from: 0, insert: 'x' } });
+    expect(currentDrag(view.state)).toBeNull();
   });
 });

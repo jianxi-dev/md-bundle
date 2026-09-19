@@ -59,6 +59,7 @@ export {
   type FlatNode,
   type DragState,
 } from './chapter-reorg';
+export { blockHandle } from './block-handle';
 export { lintStructure, type Diagnostic, type LintResult } from './structure-linter';
 export { structureLinterExtension } from './structure-linter-extension';
 export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';
