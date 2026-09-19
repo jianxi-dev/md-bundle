@@ -2,7 +2,7 @@
  * Chapter reorganization CM6 extension — drag-to-reorder document sections.
  *
  * Provides mouse-based drag-and-drop for document headings:
- * - Press on a heading line to start dragging its entire section
+ * - Press on a block handle (.mdb-block-handle) to start dragging its section
  * - Release on a target heading to move the dragged section there
  * - The move is dispatched as a single undoable transaction
  *
@@ -95,6 +95,17 @@ const dragHandlers = EditorView.domEventHandlers({
   mousedown(event, view) {
     // Only handle left-click.
     if (event.button !== 0) return false;
+
+    // issue #188: only a mousedown on the block handle may start a drag.
+    // This handler used to react to any mousedown inside a heading section —
+    // i.e. the whole document once it has one heading — dispatching a drag
+    // effect and calling preventDefault(), so CM6 never focused the editor
+    // and it became completely uneditable (taking every editor-scoped keymap
+    // with it). The handle DOM arrives with issue #189; gating on it keeps
+    // the drag dormant until then and gives #189 a single entry point.
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    if (target.closest('.mdb-block-handle') === null) return false;
 
     const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
     if (pos === null) return false;
