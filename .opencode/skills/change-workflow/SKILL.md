@@ -17,7 +17,7 @@ allowed-tools: Bash(gh:*|git:*|openspec:*|pnpm:*)
 
 ## 规范前置（每次进入强制执行）
 
-1. 读取规范索引：`docs/agents/task-tracking.md`、`issue-tracker.md`、`project-board.md`、`triage-labels.md`、`defect-workflow.md`
+1. 读取规范索引：`docs/agents/task-tracking.md`、`quality-gates.md`、`issue-tracker.md`、`project-board.md`、`triage-labels.md`、`defect-workflow.md`
 2. **核对各文档头部「最后更新/生效日期」**——以最新版为准；发现旧认知与规范相悖 → 以新规范为准并记入 learnings（规范在演进，禁止按旧认知操作）
 3. 术语速查（阶段 ≠ 工具 ≠ skill ≠ 脚本）：
 
@@ -100,7 +100,8 @@ flowchart TB
 | `openspec-apply-change` | G1 | 可选（按需） | 按 openspec 官方 tasks 指令流实施（`/opsx-apply`） |
 | `code-review` | G1 出口·步骤 1 | 必调（每任务后） | 双轴自审（Standards 代码规范 + Spec 需求符合，并行防互相掩盖）；通过才允许 commit |
 | `review` | G1 出口·步骤 2 | 条件调（risk-medium/high） | pre-landing 结构审查（SQL 安全/LLM trust boundary/条件副作用/scope drift）；risk-low 跳过 |
-| `qa` | 发版前（ship 前置）/日常按需 | **发版前必做**（ship-readiness 门禁）；日常 risk-high/核心模块收口前按需 | 浏览器真机验证（Quick/Standard/Exhaustive；分支上自动 diff-aware），产出 health score + ship-readiness；QA 截图贴入缺陷票作复现基线 |
+| `qa` | 发版前（ship 前置）/日常按需/**QG-7 兜底** | **发版前必做**（ship-readiness 门禁）；日常 risk-high/核心模块收口前按需；**change ≥6 票时按 QG-6 在集成 checkpoint 做轻量浏览器确认** | 浏览器真机验证（Quick/Standard/Exhaustive；分支上自动 diff-aware），产出 health score + ship-readiness；QA 截图贴入缺陷票作复现基线 |
+| `quality-gates`（规范，非 skill） | **G0 切片 + G1 出口 + G2 前置** | 必读（`docs/agents/quality-gates.md`） | QG-1..QG-7 七条硬门禁定义：QG-7 挂 G0 切片、QG-1/QG-3 挂 G0 拆票、QG-2/QG-4/QG-5 挂 G1 出口、QG-6 挂 G1 循环 |
 | `triage` | 缺陷状态机 | 条件调（缺陷流程内） | needs-triage → 验证/grill → ready-for-agent（附 agent brief）→ 修复 → 验证 → close |
 | `learn` | G3 | 必调 | 沉淀经验（模式/陷阱/偏好）到 learnings |
 | `sync-gbrain` | G3（learn 后立即） | 必调 | 刷新代码索引；push + PR 后立即，不等合并 |
@@ -122,6 +123,8 @@ flowchart TB
 
 - 以四要素为输入调用 propose，生成 proposal/design/tasks.md，并确认 `openspec status --change <名> --json` 中 tasks 就绪
 - **切片约束注入**（切片只切一次）：propose 生成 tasks.md 时要求每条 task 满足 to-tickets 垂直切片原则（贯穿 schema→API→UI→test 全层 / 独立可演示可验证 / 适配单个 context window / prefactor 单独成条；过大或横向的 task 在 propose 阶段即切细）
+- **QG-7 判据（强制前置）**：每条 task 必须能回答「**这张票做完，用户能否在页面上看到点东西？**」不能 → 该 task 切错了，就地重切后再进入阶段三
+- **QG-3 前置**：tasks.md 中每条导出新 API 的 task，必须写明**接线归属**（由哪条 task 负责接进 `apps/web`，及具体接线位置）；无归属的接线工作不得留白
 
 **阶段三 G0-POST（issue 发布面）｜执行：必调 to-tickets skill**
 
@@ -142,14 +145,25 @@ flowchart TB
 ### G1 实施 gate｜执行：implement skill（总编排，task-tracking §7.1 ✅ 必用）
 
 - **第 0 步·建票级分支**：`git checkout -b feat/<slug> origin/main`（基于当时 origin/main，含已合并前票代码；被 Blocked by 卡住的票不得提前开工）
+- **第 0.5 步·QG 前置校验**（开工前，不合格即停）：
+  - **QG-1**：AC 是否含浏览器可观测陈述（`打开页面 … 之后 …`）？否则拒开工，先补 AC
+  - **QG-3**：本票导出的新 API 是否已指定接线票与接线位置？否则拒开工
 - implement 按 spec/tickets 实施，**内嵌 tdd**（红→绿 + 垂直切片）+ 定期 typecheck/test
+- **QG-4 测试约束**：测试必须驱动**真实链路**（keydown/keymap/事件/`EditorView` 公共 API），禁止直接调内部函数；测可见性须断言**计算样式**，禁止断言「元素存在」
 - 四件套硬门禁：`pnpm -r typecheck` / `pnpm -r lint` / `pnpm -r test`（涉 e2e 另跑）
+- **QG-2 e2e 硬门禁**：用户可见变更**必须**新增/扩展 `apps/web/test/*.spec.ts`；票上标 `no-ui-impact` 者豁免
+- **QG-6 集成 checkpoint**：change ≥6 票时，每完成 ≤4 票执行一次——合并到集成分支 → `pnpm -r build` → **浏览器打开一次** → 记录「用户现在能看到什么」
 - commit 引用 `fixes #N` / `refs #N`
 - **任何「flaky」结论必须附复核证据**（重跑输出）；复核确认真实回归 → 进入缺陷处理机制（§7）
 - **G1 出口（顺序固定，全部通过才允许 commit）**：
-  1. `code-review` 双轴（Standards + Spec）——每任务后必做
+  1. `code-review` 双轴（Standards + Spec）——每任务后必做，**须逐条对照 QG-4 检查测试是否驱动真实路径**
   2. `review`（pre-landing 结构审查）——仅 risk-medium/high 追加
-  3. 通过后 → G2
+  3. **QG-5 独立验证**：验证者（orchestrator，非实施者）跑**自己的探针**，把**原始输出**（标准输出 / DOM 快照 / 计算样式值 / 解析错误数）**粘贴到票上**；未附原始证据的「已完成」不予采信
+  4. 通过后 → G2
+
+> **QG-5 为何强制**（2026-09-20）：修复期抓出 **4 个「自测全绿但实际无效」**的交付，**4/4 全部由独立探针抓出，零例外**。自证无效。本地 e2e 单文件实测约 **16 秒**，成本极低。
+>
+> **QG-2 为何强制**（2026-09-20）：`editor-v2` change 的 9 个 PR 中 **8 个对 `apps/web/src` 与 e2e 双双零改动**，12 张票全部打勾、CI 全绿，而用户打开页面**看不到任何变化**。完整根因见 `docs/agents/retro-editor-v2-quality.md`。
 
 ### G2 提交/PR gate｜执行：pr-automation.sh（脚本机械动作）
 

@@ -147,8 +147,18 @@ Issue 和 spec 统一以 GitHub issue 形式存在于 `jianxi-dev/md-bundle`。�
 
 > 收尾铁律：合并后本地工作区停留在 main（详见 docs/agents/incident-merge-local-workspace.md）
 
+### Quality gates（质量门禁，2026-09-20 起强制）
+
+任何 change / 缺陷修复的**票内容与完成判据**必须满足 `docs/agents/quality-gates.md` 的 QG-1..QG-7。核心三条：
+
+- **QG-1 用户层 AC**：面向用户的票，AC 必须含「打开页面 … 之后 …」格式的浏览器可观测陈述；AC 能在不改 `apps/web` 的前提下被满足 → 票切错了
+- **QG-2 e2e 绑定**：用户可见变更必须新增/扩展 `apps/web/test/*.spec.ts`，否则票上须标 `no-ui-impact`
+- **QG-5 独立验证**：完成声明必须附**验证者自己探针的原始输出**；「测试通过」是结论不是证据，不予采信
+
+> 由来：editor-v2 change 的 9 个 PR 中 8 个对 `apps/web` 与 e2e 双双零改动，12 张票全打勾、CI 全绿，而用户打开页面看不到任何变化。根因分析与全部七条 QG 见 `docs/agents/quality-gates.md` 与 `docs/agents/retro-editor-v2-quality.md`。
+
 ### Defect workflow（缺陷流程）
 
 本仓库所有缺陷统一走 GitHub Issues（唯一事实来源，**2026-09-12 起废弃本地 bug-registry 缓存**）。缺陷票标题 `[bug]` 前缀 + `bug,p<级别>,<模块>,needs-triage` 标签，triage 状态机流转。详见 `docs/agents/defect-workflow.md`。
 
-流程规范索引：`docs/agents/` 下 9 份规范文档（task-tracking / issue-tracker / project-board / triage-labels / defect-workflow / domain / incident-uncommitted-work-loss 等）头部均含「最后更新」日期，以最新版为准。
+流程规范索引：`docs/agents/` 下 11 份规范文档（**quality-gates**（QG-1..QG-7 开发测试质量门禁）/ task-tracking / issue-tracker / project-board / triage-labels / defect-workflow / domain / incident-uncommitted-work-loss / retro-editor-v2-quality 等）头部均含「最后更新」日期，以最新版为准。
