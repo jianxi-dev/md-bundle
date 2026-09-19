@@ -218,12 +218,26 @@ flowchart TB
 
 ## 缺陷处理机制（§10.11 要点，异常发现时先二分）
 
+> **DQ-1..DQ-8 挂载点**：本节的每个环节均受 `docs/agents/quality-gates.md` §三（缺陷处理质量门禁）约束。下列每条均标注对应 DQ。
+
 - **判定**：流程偏差 → 自愈回路；产品缺陷（真实回归/行为不符 spec/崩溃）→ 本机制
 - **填报三通道**：① 聊天直报 → agent 自动补全（推断模块/级别/复现，回编号）② 手动走 bug.yml（自动带 needs-triage）③ 批量录入 → 自动拆分 N 票
 - **建票**：bug.yml 模板（截图/附件作复现基线）；标题 `[bug]`（涉及 change 的再带 `[change=<名>]`）；标签 `bug, p<级别>, <模块>, needs-triage`；gh issue list 唯一事实来源（禁止本地 bug-registry 缓存）
-- **状态机**：needs-triage → 验证/grill（triage skill，产 agent brief）→ ready-for-agent → 修复 → 验证 → close
-- **分流**：P0/P1 阻塞且小修复（<30 行、在当前 PR 文件内）→ 当前 PR 内修复（refs#N + fixes#N）；其余 → fix 线（**两种承载**：有并行 feat 线 → worktree 隔离；无（`git branch --list 'feat/*'` 非空且 OPEN PR 判定）→ 主工作区直建）——P0/P1 插队、冲突先合 fix
-- **修复闭环**：复现（红）→ 建 fix/<slug> → 修复（绿）→ 四件套 → code-review → G2 `--role fix --resume-branch` 收口（fixes #N 关票）→ 回归验证重跑发现场景
+- **状态机（DQ-1，不可跳过）**：needs-triage → 验证/grill（triage skill，产 agent brief）→ ready-for-agent → 修复 → 验证 → close
+  - **开工门禁**：票上必须已移除 `needs-triage`、已加 `ready-for-agent`、**且存在 triage brief 评论**。三者缺一 → **禁止开工**（自愈：补跑 triage）
+  - 反例：`#187` 全程 `needs-triage` 且评论数 0 却被直接修复
+- **根因确认（DQ-2）**：票面的「修复方向 / 建议方案」是**假设不是结论**。开工前须独立复现 + 定位根因；与票面不符 → **在票上更正实际根因**（含与票面假设的对照）
+  - 反例：`#187` 票面指向「拆分下载预算」，实测真根因是陈旧断言
+- **分流（DQ-6 例外）**：P0/P1 阻塞且小修复（<30 行、在当前 PR 文件内）→ 当前 PR 内修复（refs#N + fixes#N）；其余 → fix 线（**两种承载**：有并行 feat 线 → worktree 隔离；无（`git branch --list 'feat/*'` 非空且 OPEN PR 判定）→ 主工作区直建）——P0/P1 插队、冲突先合 fix
+  - **DQ-6 例外**：N 票**同根因/同文件/同修复** → 允许 1 PR 关 N 票，但 PR body 须**逐票 `fixes #N`** + 说明共同根因
+- **修复闭环（DQ-3 / DQ-5）**：复现（**先红**，附失败原始输出）→ 建 fix/<slug> → 修复（绿，附通过原始输出）→ 四件套 → code-review → G2 `--role fix --resume-branch` 收口（fixes #N 关票）→ **回归验证重跑发现场景**
+  - **DQ-3**：未附「红」证据的修复不予合并
+  - **DQ-5**：关闭前由**验证者（非修复者）**跑自己的探针，把**原始输出**粘贴到票上；「测试通过/已修复/冒烟正常」是结论不是证据
+- **flaky 处置（DQ-4）**：判为 flaky **必须给出「为何间歇」的机制解释**，不得以重跑通过结案。**若测试吞掉断言失败（继续执行模式），flaky 可能掩盖确定性损坏** → 必须逐步核对子步骤结论
+  - 反例：`#187` 被判 flaky，真相是步骤 4/7 **确定性失败**吃掉 25s 预算，使总时长恰好跨过 120s 线而表现为「间歇」
+- **收尾（DQ-8）**：关闭票时**移除 `needs-triage` / `ready-for-agent`**（关闭票残留会污染 G3 的 frontier 查询）；P0/P1 部分交付 → 票**保持 OPEN** + 评论列出已交付增量与剩余项
+- **升级（DQ-7）**：**≥3 张缺陷票指向同一流程环节** → 不得只逐票修复，必须反查该环节并**产出规范修订**（QG/DQ 条目或流程文档）留痕
+  - 反例：`editor-v2` 的 10 张票全部指向同一环节，却逐票修复至用户要求复盘才反查
 
 ## 速查命令
 
