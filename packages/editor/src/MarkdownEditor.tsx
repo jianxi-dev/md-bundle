@@ -43,6 +43,10 @@ export function MarkdownEditor({
   const hostRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<MarkdownEditorHandle | null>(null);
   const onChangeRef = useRef(onChange);
+  // Records the last value the editor emitted via onChange — used to tell a
+  // genuine external change (tab switch) from a stale echo that would revert
+  // the user's just-made edit (ghost content, #172).
+  const lastEmittedRef = useRef<string | null>(null);
 
   // Latest-callback ref: prop identity changes never remount the editor.
   onChangeRef.current = onChange;
@@ -58,7 +62,10 @@ export function MarkdownEditor({
       extensions,
       decorations,
       decorationsEnabled,
-      onChange: (next) => onChangeRef.current?.(next),
+      onChange: (next) => {
+        lastEmittedRef.current = next;
+        onChangeRef.current?.(next);
+      },
     });
     handleRef.current = handle;
     onMount?.(handle);
@@ -70,11 +77,17 @@ export function MarkdownEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once
   }, []);
 
-  // Sync external `value` changes into the editor (setValue already no-ops on
-  // identical docs, preserving the cursor across controlled re-renders).
+  // Sync external `value` changes into the editor. Ignores a stale echo of a
+  // value the editor already produced — without this guard, a late-arriving
+  // echo would revert the user's just-made edit (ghost content, #172).
   useEffect(() => {
     const handle = handleRef.current;
-    if (handle && typeof value === 'string' && handle.getValue() !== value) {
+    if (!handle || typeof value !== 'string') return;
+    // Ignore an echo of a value the editor already produced.
+    if (lastEmittedRef.current !== null && lastEmittedRef.current === value) return;
+    // A genuinely external change (tab switch, external write) — apply it.
+    if (handle.getValue() !== value) {
+      lastEmittedRef.current = value;
       handle.setValue(value);
     }
   }, [value]);

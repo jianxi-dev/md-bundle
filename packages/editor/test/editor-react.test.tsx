@@ -159,4 +159,98 @@ describe('MarkdownEditor (React wrapper)', () => {
     const { unmount } = render(<MarkdownEditor value="x" />);
     expect(() => unmount()).not.toThrow();
   });
+
+  it('does not revert the editor doc when a stale value echo arrives (#172)', () => {
+    const onChange = vi.fn();
+    let handle: MarkdownEditorHandle | undefined;
+
+    const { rerender } = render(
+      <MarkdownEditor
+        value="abc"
+        onChange={onChange}
+        onMount={(h) => {
+          handle = h;
+        }}
+      />,
+    );
+
+    // Given: user types "d" → editor emits "abcd" via onChange.
+    act(() => {
+      handle!.view.dispatch({
+        changes: { from: 3, to: 3, insert: 'd' },
+      });
+    });
+    expect(handle!.getValue()).toBe('abcd');
+    expect(onChange).toHaveBeenCalledWith('abcd');
+
+    // When: parent re-renders with the STALE prop "abc" (late batched state).
+    rerender(
+      <MarkdownEditor
+        value="abc"
+        onChange={onChange}
+        onMount={(h) => {
+          handle = h;
+        }}
+      />,
+    );
+
+    // Then: editor doc is still "abcd" — the stale echo was ignored.
+    expect(handle!.getValue()).toBe('abcd');
+  });
+
+  it('still applies a genuinely external value replacement (tab switch / file open)', () => {
+    let handle: MarkdownEditorHandle | undefined;
+
+    const { rerender } = render(
+      <MarkdownEditor
+        value="abc"
+        onMount={(h) => {
+          handle = h;
+        }}
+      />,
+    );
+
+    // External change: "xyz" was never emitted by the editor.
+    rerender(
+      <MarkdownEditor
+        value="xyz"
+        onMount={(h) => {
+          handle = h;
+        }}
+      />,
+    );
+
+    expect(handle!.getValue()).toBe('xyz');
+  });
+
+  it('treats same-value re-render as a no-op (cursor preserved, no onChange)', () => {
+    const onChange = vi.fn();
+    let handle: MarkdownEditorHandle | undefined;
+
+    const { rerender } = render(
+      <MarkdownEditor
+        value="abc"
+        onChange={onChange}
+        onMount={(h) => {
+          handle = h;
+        }}
+      />,
+    );
+
+    expect(handle!.getValue()).toBe('abc');
+
+    // Re-render with identical value — must not dispatch or fire onChange.
+    rerender(
+      <MarkdownEditor
+        value="abc"
+        onChange={onChange}
+        onMount={(h) => {
+          handle = h;
+        }}
+      />,
+    );
+
+    expect(handle!.getValue()).toBe('abc');
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
