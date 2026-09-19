@@ -7,11 +7,15 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
-import { parsePngSize } from '../src/lib/pngMeta';
 import { dropImages } from './dropImage';
 
 test.describe.configure({ mode: 'serial' });
-// P3 #56: 10 步串行旅程 + 多次 download，CI 负载下 60s 偏紧 → 120s
+// 钉住配色方案：主题三态默认「跟随系统」，headless 的 prefers-color-scheme 为 light，
+// 会让错误态的根背景断言随运行环境漂移（实测 light --bg=rgb(246,246,248) vs dark rgb(13,17,23)）。
+test.use({ colorScheme: 'dark' });
+// 预算说明（P2 #187）：本 spec 只走旅程步骤（开→编→贴→重开→画廊），
+// 4 个重下载（.mdpkg 保存 / HTML / PNG / .md 导出）已拆至 export-pipeline.spec.ts，
+// 因而 120s 对本 spec 的最坏情况（≈7 个 15-20s 等待）有充足余量。
 test.setTimeout(120_000);
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -20,8 +24,6 @@ const IMGS = join(FIX, 'imgs');
 const RES = join(here, '..', 'test-results');
 
 const steps: Record<string, { pass: boolean; note: string }> = {};
-
-const docText = (page: Page) => page.locator('.cm-content').innerText();
 
 test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
   const pageErrors: string[] = [];
@@ -47,13 +49,44 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
       await fn();
       steps[name] = { pass: true, note: 'ok' };
     } catch (e) {
-      steps[name] = { pass: false, note: e instanceof Error ? e.message.split('\n')[0] : String(e) };
+      // 取前 3 行非空信息：首行常只有 "expect(...) failed"，真正定位需要后续行。
+      const msg =
+        e instanceof Error
+          ? e.message
+              .split('\n')
+              .map((l) => l.trim())
+              .filter(Boolean)
+              .slice(0, 3)
+              .join(' ⏐ ')
+          : String(e);
+      steps[name] = { pass: false, note: msg.slice(0, 300) };
     }
   };
 
   /** 带重试的可见性等待（CI 负载下元素渲染可能慢）。 */
   const waitForVisible = (locator: Parameters<typeof expect>[0], timeout = 15_000) =>
     expect(locator).toBeVisible({ timeout });
+
+  /** 展开左栏 + 切到资源页签：LeftRail 收起时整体不渲染，asset-list 仅在展开且资源 tab 激活时存在。 */
+  const openAssetsPanel = async () => {
+    const rail = page.getByTestId('left-rail');
+    if ((await rail.count()) === 0 || (await rail.isHidden())) {
+      await page.getByTestId('left-rail-toggle').click();
+    }
+    await expect(rail).toBeVisible();
+    await page.getByTestId('left-rail-tab-assets').click();
+  };
+
+  /** 读取原始 Markdown：编辑态装饰把 `![red](red.png)`/`> [!NOTE]` 等替换为 widget（见语义编辑态契约），
+   *  须切到源码态读原文，读完切回编辑态。 */
+  const rawDocText = async (): Promise<string> => {
+    await page.getByTestId('mode-source-btn').click();
+    await expect(page.locator('.cm-content').first()).toBeVisible();
+    const text = await page.locator('.cm-content').first().innerText();
+    await page.getByTestId('mode-edit-btn').click();
+    await expect(page.locator('.cm-editor').first()).toBeVisible();
+    return text;
+  };
 
   // ── Step 1: Landing ──────────────────────────────────────────────
   await record('1-landing', async () => {
@@ -103,22 +136,24 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
     await expect(page.locator('.mdb-slash-menu')).toBeVisible();
     await page.keyboard.press('ArrowDown'); // Heading → Callout
     await page.keyboard.press('Enter');
-    await expect(page.locator('.cm-content').first()).toContainText('> [!NOTE]');
+    // 编辑态渲染为 callout 卡片；断言插入结果须读源码态原文。
+    expect(await rawDocText()).toContain('> [!NOTE]');
   });
 
   // ── Step 4: Image import + text-paste noop ───────────────────────
   await record('4-import-assets', async () => {
+    await openAssetsPanel();
     await dropImages(page, [
       { name: 'red.png', mimeType: 'image/png', data: readFileSync(join(IMGS, 'red.png')) },
     ]);
     const list = page.getByTestId('asset-list');
     await expect(list).toContainText('资源清单 (1)');
     await expect(list).toContainText('red.png');
-    // hello.md 已有 `![red](red.png)` → 自动接线，不重复插入
-    const textAfterImport = await docText(page);
+    // hello.md 已有 `![red](red.png)` → 自动接线，不重复插入（编辑态该引用被 widget 接管，读源码态原文）
+    const textAfterImport = await rawDocText();
     expect((textAfterImport.match(/!\[red\]\(red\.png\)/g) ?? []).length).toBe(1);
     // 粘贴文本 → 不触发导入（编辑器内容原样不动）
-    const beforePaste = await docText(page);
+    const beforePaste = await rawDocText();
     await page.evaluate(() => {
       const dt = new DataTransfer();
       dt.items.add(new File(['plain text'], 'note.txt', { type: 'text/plain' }));
@@ -128,81 +163,9 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
         new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
       );
     });
-    expect(await docText(page)).toBe(beforePaste);
+    expect(await rawDocText()).toBe(beforePaste);
     await expect(list).toContainText('资源清单 (1)');
     await page.screenshot({ path: join(RES, 'final-04-assets.png') });
-  });
-
-  // ── Step 5: Save (content-driven → .mdpkg) ───────────────────────
-  await record('5-save-mdpkg', async () => {
-    const [saveDl] = await Promise.all([
-      page.waitForEvent('download', { timeout: 30_000 }),
-      page.getByTestId('save-btn').click(),
-    ]);
-    expect(saveDl.suggestedFilename()).toMatch(/\.mdpkg$/);
-    const savePath = await saveDl.path();
-    expect(savePath).not.toBeNull();
-    const saveBytes = readFileSync(savePath!);
-    expect(Array.from(saveBytes.subarray(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
-    // first-pack 徽章 toast
-    const toast = page.getByTestId('badge-toast');
-    await expect(toast).toBeVisible();
-    await expect(toast).toContainText('首次打包');
-    await toast.click();
-    await expect(toast).toHaveCount(0);
-    await page.screenshot({ path: join(RES, 'final-05-save.png') });
-  });
-
-  // ── Step 6: Export dropdown (HTML / PNG / .md+confirm) ───────────
-  await record('6-exports', async () => {
-    // HTML：Made with MD-Bundle + data:image 内联
-    await page.getByTestId('export-btn').click();
-    const [htmlDl] = await Promise.all([
-      page.waitForEvent('download', { timeout: 30_000 }),
-      page.getByTestId('export-html').click(),
-    ]);
-    expect(htmlDl.suggestedFilename()).toMatch(/\.html$/);
-    const htmlPath = await htmlDl.path();
-    expect(htmlPath).not.toBeNull();
-    const html = readFileSync(htmlPath!, 'utf-8');
-    expect(html).toContain('Made with 本兜 bundle.jianxi.me');
-    expect(html).toContain('data:image');
-    // PNG 长图：魔数 + 尺寸
-    await page.getByTestId('export-btn').click();
-    const [pngDl] = await Promise.all([
-      page.waitForEvent('download', { timeout: 30_000 }),
-      page.getByTestId('export-png').click(),
-    ]);
-    expect(pngDl.suggestedFilename()).toMatch(/\.png$/);
-    const pngPath = await pngDl.path();
-    expect(pngPath).not.toBeNull();
-    const pngBytes = readFileSync(pngPath!);
-    expect(Array.from(pngBytes.subarray(0, 8))).toEqual([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-    ]);
-    const pngSize = parsePngSize(new Uint8Array(pngBytes));
-    expect(pngSize).not.toBeNull();
-    expect(pngSize!.width).toBeGreaterThanOrEqual(400);
-    // 徽章 toast：PNG 导出触发 png-exported（首次长图）+ export-succeeded（exportCount 3 → 导出大师）。
-    // latest-wins —— 最终可见的是后一个解锁（导出大师 rare）；两者任一都是徽章解锁证据。
-    const toast = page.getByTestId('badge-toast');
-    await expect(toast).toBeVisible();
-    await expect(toast).toContainText('解锁徽章');
-    const toastText = await toast.innerText();
-    expect(toastText).toMatch(/首次长图|导出大师/);
-    await toast.click();
-    await expect(toast).toHaveCount(0);
-    // .md 含图 → confirm（已自动接受）→ 下载
-    await page.getByTestId('export-btn').click();
-    const [mdDl] = await Promise.all([
-      page.waitForEvent('download', { timeout: 30_000 }),
-      page.getByTestId('export-md').click(),
-    ]);
-    expect(mdDl.suggestedFilename()).toMatch(/\.md$/);
-    const mdPath = await mdDl.path();
-    expect(mdPath).not.toBeNull();
-    expect(readFileSync(mdPath!, 'utf-8')).toContain('# Hello');
-    await page.screenshot({ path: join(RES, 'final-06-exports.png') });
   });
 
   // ── Step 7: Open .mdpkg (valid + corrupted) ──────────────────────
@@ -210,23 +173,39 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'valid.mdpkg'));
     await page.getByTestId('mode-edit-btn').click();
     await waitForVisible(page.locator('.cm-editor').first());
-    await waitForVisible(page.getByText('5 个资源'));
+    await openAssetsPanel();
+    // 实测：valid.mdpkg 含 2 个图片资源（blue.png / red.png）→ 「资源清单 (2)」。
+    await waitForVisible(page.getByTestId('asset-list'));
+    await expect(page.getByTestId('asset-list')).toContainText('资源清单 (2)');
 
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'corrupted.zip'));
-    await expect(page.getByRole('alert')).toBeVisible();
-    await expect(page.getByRole('alert')).toContainText('该文件包内没有可显示的文档内容');
+    // 断言稳定契约（错误视图 + 中文标题 + 不白屏），不锁内层文案：
+    // corrupted.zip 是真实损坏 ZIP（PK 头有效、中央目录损坏），内层信息来自 ZIP 库，措辞会随库变动。
+    const alert = page.getByRole('alert');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('打开失败');
+    await expect(alert).toContainText('重新选择');
     // 无白屏：应用根容器仍是暗色背景 + 页面标题仍在
     await expect(page.getByRole('heading', { name: 'MD-Bundle' })).toBeVisible();
-    const rootBg = await page.evaluate(
-      () => getComputedStyle(document.querySelector('#root > div')!).backgroundColor,
-    );
-    expect(rootBg).toBe('rgb(13, 17, 23)');
+    // 与实时 --bg token 比对，而非硬编码色值：主题重设计会改 token（暗色曾 0d1117 → 08090b），
+    // 硬编码会让断言随设计漂移而误报。token 经 span 归一化为 rgb() 形式以便比对。
+    const { rootBg, bgToken } = await page.evaluate(() => {
+      const root = document.querySelector('#root > div')!;
+      const probe = document.createElement('span');
+      probe.style.color = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      document.body.appendChild(probe);
+      const token = getComputedStyle(probe).color;
+      probe.remove();
+      return { rootBg: getComputedStyle(root).backgroundColor, bgToken: token };
+    });
+    expect(rootBg).toBe(bgToken);
     await page.screenshot({ path: join(RES, 'final-07-error.png') });
   });
 
   // ── Step 8: Badge persistence ────────────────────────────────────
   await record('8-badge-persist', async () => {
-    // 重新打开有效文档 → reload → 徽章状态持久化（localStorage md-bundle.badges.unlocked）
+    // 重新打开有效文档 → reload → 徽章状态持久化（localStorage md-bundle.badges.unlocked）。
+    // 只断言本旅程内解锁的 first-open：first-pack / first-png 已随导出步骤迁至 export-pipeline.spec.ts（P2 #187）。
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
     await page.getByTestId('mode-edit-btn').click();
     await expect(page.locator('.cm-editor').first()).toBeVisible();
@@ -236,8 +215,6 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
     );
     expect(stored).not.toBeNull();
     expect(stored.unlocked).toContain('first-open');
-    expect(stored.unlocked).toContain('first-pack');
-    expect(stored.unlocked).toContain('first-png');
   });
 
   // ── Step 9: Gallery → mdpkg example ──────────────────────────────
@@ -263,6 +240,17 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
           ? `console errors: ${realConsoleErrors.join(' | ')}`
           : 'ok',
   };
+
+  // record() 吞掉步骤失败以保证后续步骤仍执行（界定报告范围），但这会让测试在
+  // 步骤全挂时仍然「绿」——CI 只看退出码，等于该 spec 失去守门能力。此处把步骤
+  // 失败升级为测试失败，使退出码与步骤结论一致。
+  const failedSteps = Object.entries(steps)
+    .filter(([, s]) => !s.pass)
+    .map(([name]) => name);
+  expect(
+    failedSteps,
+    `旅程步骤失败：${failedSteps.join(', ') || '(none)'}。详见 test-results/final-walkthrough.json`,
+  ).toEqual([]);
 });
 
 test.afterAll(() => {

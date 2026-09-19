@@ -1,0 +1,18 @@
+{
+  "tasks": "P2 #187",
+  "verdict": "APPROVE",
+  "steps": {
+    "export-html": {
+      "pass": true,
+      "note": "ok"
+    },
+    "export-png": {
+      "pass": true,
+      "note": "ok"
+    },
+    "export-md": {
+      "pass": true,
+      "note": "ok"
+    }
+  }
+}

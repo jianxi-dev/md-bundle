@@ -7,9 +7,14 @@ export default defineConfig({
   // 产物（trace/video/error-context）落在子目录，避免清空 test-results/ 根下提交的 QA 证据。
   outputDir: './test-results/playwright',
   fullyParallel: true,
+  // CI：显式钉住并发上限。默认 workers = CPU/2 随 runner 规格浮动，CPU 饱和会直接
+  // 拖慢 PNG 光栅化 / mdpkg 打包 / KaTeX 字体内联（P2 #187 的放大因素之一）。
+  workers: process.env.CI ? 2 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['list'], ['json', { outputFile: 'test-results/playwright/e2e.json' }]] : 'list',
+  // 显式 expect 预算：默认 5s 在 CI 负载下对瞬时元素（badge toast）偏紧，10s 留 2× 余量。
+  expect: { timeout: 10_000 },
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',
