@@ -200,6 +200,47 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     transition: 'opacity 100ms ease-out',
   },
 
+  // ── Fenced code block ─────────────────────────────────────────────────
+  '.cm-content .cm-fenced-code': {
+    fontFamily:
+      'var(--mdb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
+    fontSize: '0.9em',
+    backgroundColor: 'var(--mdb-code-bg)',
+    color: 'var(--mdb-code-fg, var(--mdb-text))',
+  },
+  '.cm-content .cm-fenced-code.cm-block-inactive': {
+    // Non-active: no fence markers visible (CM6 nested-language handles highlighting).
+    backgroundColor: 'var(--mdb-code-bg)',
+  },
+  '.cm-content .cm-fenced-code.cm-block-active': {
+    // Active: faint background so the user sees the code structure.
+    backgroundColor: 'color-mix(in srgb, var(--mdb-code-bg) 60%, transparent)',
+  },
+
+  // Language label widget on the fence opening line.
+  '.cm-content .cm-fenced-code-language': {
+    display: 'inline-block',
+    fontSize: '0.75em',
+    fontWeight: '500',
+    letterSpacing: '0.03em',
+    textTransform: 'uppercase',
+    color: 'var(--mdb-muted)',
+    backgroundColor: 'var(--mdb-surface)',
+    border: '1px solid var(--mdb-border)',
+    borderRadius: '4px',
+    padding: '0.1em 0.45em',
+    marginLeft: '0.5em',
+    verticalAlign: 'middle',
+    userSelect: 'none',
+    float: 'right',
+    lineHeight: '1.4',
+    transition: 'opacity 100ms ease-out, color 100ms ease-out',
+  },
+  '.cm-content .cm-fenced-code-language-active': {
+    opacity: '0.5',
+    color: 'var(--mdb-text-secondary)',
+  },
+
   // ── Inline image widget ───────────────────────────────────────────────
   '.cm-content .cm-image-widget': {
     marginInline: '0.15em',

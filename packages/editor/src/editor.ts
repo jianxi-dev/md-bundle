@@ -6,8 +6,44 @@ import {
   indentWithTab,
 } from '@codemirror/commands';
 import { Compartment, EditorState, type Extension } from '@codemirror/state';
+import { LanguageDescription, LanguageSupport } from '@codemirror/language';
 import { markdown } from '@codemirror/lang-markdown';
+import { javascriptLanguage } from '@codemirror/lang-javascript';
+import { pythonLanguage } from '@codemirror/lang-python';
+import { cssLanguage } from '@codemirror/lang-css';
+import { htmlLanguage } from '@codemirror/lang-html';
+import { jsonLanguage } from '@codemirror/lang-json';
+import { yamlLanguage } from '@codemirror/lang-yaml';
 import { getThemeColor, type ThemeName } from './theme';
+
+/**
+ * Lazy language descriptions for fenced code blocks.
+ * Languages not in this list get no highlighting (no error).
+ */
+const CODE_LANGUAGES = [
+  LanguageDescription.of({
+    name: 'javascript',
+    alias: ['js', 'jsx', 'ts', 'tsx', 'typescript'],
+    load: async () => new LanguageSupport(javascriptLanguage),
+  }),
+  LanguageDescription.of({
+    name: 'python',
+    alias: ['py'],
+    load: async () => new LanguageSupport(pythonLanguage),
+  }),
+  LanguageDescription.of({ name: 'css', load: async () => new LanguageSupport(cssLanguage) }),
+  LanguageDescription.of({
+    name: 'html',
+    alias: ['htm'],
+    load: async () => new LanguageSupport(htmlLanguage),
+  }),
+  LanguageDescription.of({ name: 'json', load: async () => new LanguageSupport(jsonLanguage) }),
+  LanguageDescription.of({
+    name: 'yaml',
+    alias: ['yml'],
+    load: async () => new LanguageSupport(yamlLanguage),
+  }),
+];
 
 export interface MarkdownEditorOptions {
   /** Initial document content. `undefined` renders an empty editor. */
@@ -79,7 +115,7 @@ export function createMarkdownEditor(
       extensions: [
         EditorView.lineWrapping,
         history(),
-        markdown(),
+        markdown({ codeLanguages: CODE_LANGUAGES }),
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         themeCompartment.of(createTheme(theme)),
         decorationsCompartment.of(decorationsEnabled && decorations ? decorations : []),

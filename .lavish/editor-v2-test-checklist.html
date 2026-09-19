@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>editor-v2 功能测试用例</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">editor-v2 功能测试用例</h1>
+</header>
+<h1 id="editor-v2-功能测试用例">editor-v2 功能测试用例</h1>
+<blockquote>
+<p><strong>测试日期</strong>：_______________
+<strong>测试人</strong>：_______________ <strong>环境</strong>：本地 dev
+server (<code>pnpm --filter @md-bundle/web dev</code>)
+<strong>浏览器</strong>：Chrome / Safari / Firefox</p>
+</blockquote>
+<hr />
+<h2 id="测试前准备">测试前准备</h2>
+<ol type="1">
+<li>启动 dev server：<code>pnpm --filter @md-bundle/web dev</code></li>
+<li>打开浏览器访问 <code>http://localhost:5173</code></li>
+<li>准备测试用 Markdown 文档（可使用下方示例）</li>
+</ol>
+<h3 id="示例测试文档">示例测试文档</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu"># 一级标题</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">## 二级标题</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">### 三级标题</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>这是普通段落，包含**粗体**、*斜体*、~~删除线~~和<span class="in">`行内代码`</span>。</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">## 列表测试</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>无序列表项 1</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>无序列表项 2</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="ss">  - </span>嵌套列表项</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>有序列表项 1</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>有序列表项 2</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="va">[ ]</span> 待办事项</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="va">[x]</span> 已完成事项</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## 引用和 Callout</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; 普通引用块</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="co">[</span><span class="ot">!info</span><span class="co">]</span><span class="at"> 信息提示</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; 这是一个 info 类型的 callout</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="co">[</span><span class="ot">!warning</span><span class="co">]</span><span class="at"> 警告</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; 这是一个 warning 类型的 callout</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="co">[</span><span class="ot">!tip</span><span class="co">]</span><span class="at"> 提示</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; 这是一个 tip 类型的 callout</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="co">[</span><span class="ot">!danger</span><span class="co">]</span><span class="at"> 危险</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; 这是一个 danger 类型的 callout</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="fu">## 代码块</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="in">```typescript</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">hello</span>() {</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Hello, World!&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="表格">表格</h2>
+<table>
+<thead>
+<tr>
+<th>列A</th>
+<th>列B</th>
+<th>列C</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>2</td>
+<td>3</td>
+</tr>
+<tr>
+<td>4</td>
+<td>5</td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+<h2 id="链接和图片">链接和图片</h2>
+<p><a href="https://example.com">这是一个链接</a></p>
+<figure>
+<img src="https://via.placeholder.com/150" alt="测试图片" />
+<figcaption aria-hidden="true">测试图片</figcaption>
+</figure>
+<h2 id="html-嵌入">HTML 嵌入</h2>
+<details>
+<summary>
+点击展开
+</summary>
+这是折叠的内容
+</details>
+<p><mark>高亮文本</mark></p>
+<p>按 <kbd>Ctrl</kbd> + <kbd>S</kbd> 保存</p>
+<h2 id="分割线">分割线</h2>
+<hr />
+<h2 id="结论">结论</h2>
+<p>因此，这是一个结论段落。 ```</p>
+<hr />
+<h2 id="r1安全底座修复p0">R1：安全底座修复（P0）</h2>
+<h3 id="r1.1-dompurify-修复">R1.1 DOMPurify 修复</h3>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.1.1</td>
+<td>style 属性剥离</td>
+<td>在源码模式输入
+<code>&lt;div style="color:red"&gt;test&lt;/div&gt;</code>，切到预览</td>
+<td>style 被剥离，文字无红色</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>1.1.2</td>
+<td>id 属性剥离</td>
+<td>在源码模式输入
+<code>&lt;div id="myid"&gt;test&lt;/div&gt;</code>，切到预览</td>
+<td>id 被剥离</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>1.1.3</td>
+<td>data-* 保留</td>
+<td>在源码模式输入
+<code>&lt;div data-callout="info"&gt;test&lt;/div&gt;</code>，切到预览</td>
+<td>data-callout 保留</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>1.1.4</td>
+<td>script 剥离</td>
+<td>在源码模式输入
+<code>&lt;script&gt;alert(1)&lt;/script&gt;</code>，切到预览</td>
+<td>script 被剥离，不执行</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>1.1.5</td>
+<td>javascript: 链接</td>
+<td>在源码模式输入
+<code>[click](javascript:alert(1))</code>，切到预览</td>
+<td>javascript: 被净化</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<h3 id="r1.2-csp-配置">R1.2 CSP 配置</h3>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.2.1</td>
+<td>Vercel CSP</td>
+<td>部署到 Vercel 后检查响应头</td>
+<td>包含 Content-Security-Policy</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<h3 id="r1.3-css-隔离">R1.3 CSS 隔离</h3>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.3.1</td>
+<td>编辑器 CSS 隔离</td>
+<td>输入
+<code>&lt;div class="cm-content"&gt;test&lt;/div&gt;</code></td>
+<td>不命中编辑器宿主样式</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r2.mdpkg-即应用p0-ns-1">R2：.mdpkg 即应用（P0）⭐ NS-1</h2>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2.1</td>
+<td>创建 .mdpkg</td>
+<td>编辑文档 → 导出 .mdpkg</td>
+<td>文件下载成功</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>2.2</td>
+<td>重新打开 .mdpkg</td>
+<td>拖入 .mdpkg 到编辑器</td>
+<td>正确渲染，图片不裂</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>2.3</td>
+<td>导出 HTML</td>
+<td>编辑文档 → 导出 HTML</td>
+<td>离线可打开，样式完整</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>2.4</td>
+<td>HTML 离线可用</td>
+<td>断网后打开导出的 HTML</td>
+<td>完整渲染，无外部请求</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>2.5</td>
+<td>像素级一致性</td>
+<td>编辑器截图 vs 导出 PNG</td>
+<td>视觉一致</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r3diff-native-aip1-ns-2">R3：Diff-native AI（P1）⭐ NS-2</h2>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3.1</td>
+<td>无 AI 可用</td>
+<td>不配置 AI，使用所有编辑功能</td>
+<td>100% 可用，无报错</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>3.2</td>
+<td>AI Provider 设置</td>
+<td>打开设置 → 选择 Provider</td>
+<td>可选 Local/BYOKey/Disabled</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>3.3</td>
+<td>BYO Key 内存存储</td>
+<td>配置 API key → 刷新页面</td>
+<td>key 丢失（需重输）</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>3.4</td>
+<td>Privacy Ledger</td>
+<td>触发 AI 操作 → 查看 Ledger</td>
+<td>记录发送了什么、去哪了</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r4结构体检p1-ns-3">R4：结构体检（P1）⭐ NS-3</h2>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4.1</td>
+<td>论点无证据检测</td>
+<td>输入”因此，这是结论”但无后续证据</td>
+<td>显示 warning</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>4.2</td>
+<td>标题层级跳跃</td>
+<td>输入 H1 后直接 H3（跳过 H2）</td>
+<td>显示 error</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>4.3</td>
+<td>超长段落</td>
+<td>输入超过 300 字的单段</td>
+<td>显示 info</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>4.4</td>
+<td>空标题</td>
+<td>输入两个连续的标题行</td>
+<td>显示 warning</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>4.5</td>
+<td>列表项失衡</td>
+<td>列表中最长项 &gt; 最短项 5 倍</td>
+<td>显示 info</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>4.6</td>
+<td>诊断跳转</td>
+<td>点击诊断条目</td>
+<td>编辑器滚动到对应位置</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>4.7</td>
+<td>标记已处理</td>
+<td>右键诊断 → 标记为已处理</td>
+<td>该诊断不再显示</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>4.8</td>
+<td>离线可用</td>
+<td>断网后运行结构诊断</td>
+<td>正常工作，零延迟</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r5章节重组p1-ns-3">R5：章节重组（P1）⭐ NS-3</h2>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5.1</td>
+<td>文档结构树</td>
+<td>打开文档结构面板</td>
+<td>显示标题层级树</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>5.2</td>
+<td>拖拽章节</td>
+<td>拖拽一个标题到另一个位置</td>
+<td>整个章节（含子内容）移动</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>5.3</td>
+<td>undo 拖拽</td>
+<td>Cmd+Z</td>
+<td>恢复到拖拽前状态</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>5.4</td>
+<td>折叠/展开</td>
+<td>点击树节点箭头</td>
+<td>子结构折叠/展开</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>5.5</td>
+<td>导出子树</td>
+<td>选中章节 → 导出</td>
+<td>只导出该章节内容</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r6语义编辑态p2-核心体验">R6：语义编辑态（P2）⭐ 核心体验</h2>
+<h3 id="r6.1-视觉规则">R6.1 视觉规则</h3>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>6.1.1</td>
+<td>标题非活动态</td>
+<td>光标不在标题行</td>
+<td><code>##</code> 完全隐藏，看到的是大字号标题</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.2</td>
+<td>标题活动态</td>
+<td>光标移入标题行</td>
+<td><code>##</code> 以 40% 透明度主题色前缀显示</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.3</td>
+<td>粗体非活动态</td>
+<td>光标不在粗体文本</td>
+<td><code>**</code> 完全隐藏，文字直接加粗</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.4</td>
+<td>粗体活动态</td>
+<td>光标在粗体文本内</td>
+<td><code>**</code> 仍然完全隐藏</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.5</td>
+<td>链接非活动态</td>
+<td>光标不在链接上</td>
+<td>蓝色文字，URL 隐藏</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.6</td>
+<td>链接活动态</td>
+<td>光标在链接上</td>
+<td>蓝色文字 + 30% 灰色 URL 后缀</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.7</td>
+<td>列表非活动态</td>
+<td>光标不在列表项</td>
+<td>主题色圆点，无 <code>-</code> 前缀</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.8</td>
+<td>列表活动态</td>
+<td>光标在列表项内</td>
+<td>圆点 + 淡色 <code>-</code> 前缀</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.9</td>
+<td>引用非活动态</td>
+<td>光标不在引用块</td>
+<td>3px 左侧竖线，无 <code>&gt;</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.10</td>
+<td>引用活动态</td>
+<td>光标在引用块内</td>
+<td>竖线 + 淡色 <code>&gt;</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.11</td>
+<td>代码块非活动态</td>
+<td>光标不在代码块</td>
+<td>语法高亮 + 语言标签</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.12</td>
+<td>代码块活动态</td>
+<td>光标在代码块内</td>
+<td>高亮 + 语言标签 + 淡色 <code>```</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.13</td>
+<td>任务列表非活动态</td>
+<td>光标不在任务项</td>
+<td>主题色 checkbox</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.1.14</td>
+<td>任务列表活动态</td>
+<td>光标在任务项内</td>
+<td>checkbox + 淡色 <code>- [ ]</code></td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<h3 id="r6.2-交换方式">R6.2 交换方式</h3>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>6.2.1</td>
+<td>光标进入块</td>
+<td>光标移入标题块</td>
+<td>该块自动切换为语义态</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.2.2</td>
+<td>光标离开块</td>
+<td>光标移出标题块</td>
+<td>该块恢复完全渲染态</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.2.3</td>
+<td>临时查看源码</td>
+<td>Ctrl+点击块内</td>
+<td>临时显示完整源码，松手恢复</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.2.4</td>
+<td>全局模式切换</td>
+<td>点击工具栏 ghost 图标</td>
+<td>编辑/源码/预览三种模式切换</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.2.5</td>
+<td>快捷键切换</td>
+<td>Cmd+/</td>
+<td>编辑↔︎源码切换</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<h3 id="r6.3-布局稳定性">R6.3 布局稳定性</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>6.3.1</td>
+<td>CLS &lt; 0.01</td>
+<td>光标快速在块间移动</td>
+<td>无布局抖动，行高恒定</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6.3.2</td>
+<td>源码 100% 保真</td>
+<td>编辑 → 导出 .md → 重新导入</td>
+<td>逐字节一致</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r7上下文感知工具栏p2">R7：上下文感知工具栏（P2）</h2>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7.1</td>
+<td>文本选中工具栏</td>
+<td>选中文本</td>
+<td>显示 B I S
+<code>🔗 🎨 ✨AI | ☐ | | 7.2 | 粗体按钮 | 选中文本 → 点击 B | 文本变为粗体 | ☐ | | 7.3 | 斜体按钮 | 选中文本 → 点击 I | 文本变为斜体 | ☐ | | 7.4 | 代码按钮 | 选中文本 → 点击</code></td>
+<td>文本变为行内代码</td>
+</tr>
+<tr>
+<td>7.5</td>
+<td>链接按钮</td>
+<td>选中文本 → 点击 🔗</td>
+<td>文本变为链接</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>7.6</td>
+<td>空行无工具栏</td>
+<td>光标在空行</td>
+<td>不显示工具栏</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>7.7</td>
+<td>正常段落无工具栏</td>
+<td>光标在段落内（无选中）</td>
+<td>不显示工具栏</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>7.8</td>
+<td>工具栏位置</td>
+<td>选中文本</td>
+<td>工具栏出现在选中文本上方</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>7.9</td>
+<td>边缘翻转</td>
+<td>选中文本靠近视口顶部</td>
+<td>工具栏自动翻转到下方</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r8智能输入p2">R8：智能输入（P2）</h2>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>8.1</td>
+<td>H1 快捷输入</td>
+<td>输入 <code>#</code> + Space</td>
+<td>转为 H1</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.2</td>
+<td>H2 快捷输入</td>
+<td>输入 <code>##</code> + Space</td>
+<td>转为 H2</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.3</td>
+<td>无序列表</td>
+<td>输入 <code>-</code> + Space</td>
+<td>转为无序列表</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.4</td>
+<td>有序列表</td>
+<td>输入 <code>1.</code> + Space</td>
+<td>转为有序列表</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.5</td>
+<td>引用块</td>
+<td>输入 <code>&gt;</code> + Space</td>
+<td>转为引用块</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.6</td>
+<td>代码块</td>
+<td>输入 <code>```</code> + Enter</td>
+<td>插入代码块</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.7</td>
+<td>智能 Enter（列表）</td>
+<td>列表末尾 Enter</td>
+<td>继续列表</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.8</td>
+<td>智能 Enter（空项退出）</td>
+<td>空列表项 Enter</td>
+<td>退出列表</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.9</td>
+<td>智能 Backspace</td>
+<td>列表开头 Backspace</td>
+<td>取消列表（文本提升为段落）</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.10</td>
+<td>自动配对 <code>**</code></td>
+<td>输入 <code>**</code></td>
+<td>创建 <code>**│**</code>（光标在中间）</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.11</td>
+<td>自动配对 <code>「</code></td>
+<td>输入 <code>「</code></td>
+<td>自动配对 <code>「」</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8.12</td>
+<td>选中文本 + <code>**</code></td>
+<td>选中文本 → 输入 <code>**</code></td>
+<td>包裹选中文本为 <code>**文本**</code></td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r9视觉模板库p2">R9：视觉模板库（P2）</h2>
+<h3 id="r9.1-callout-类型">R9.1 Callout 类型</h3>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>9.1.1</td>
+<td>info callout</td>
+<td>输入 <code>&gt; [!info] 标题</code></td>
+<td>蓝色左边框 + ℹ️ 图标</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.1.2</td>
+<td>tip callout</td>
+<td>输入 <code>&gt; [!tip] 标题</code></td>
+<td>绿色左边框 + 💡 图标</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.1.3</td>
+<td>warning callout</td>
+<td>输入 <code>&gt; [!warning] 标题</code></td>
+<td>黄色左边框 + ⚠️ 图标</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.1.4</td>
+<td>danger callout</td>
+<td>输入 <code>&gt; [!danger] 标题</code></td>
+<td>红色左边框 + 🛑 图标</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.1.5</td>
+<td>success callout</td>
+<td>输入 <code>&gt; [!success] 标题</code></td>
+<td>绿色左边框 + ✅ 图标</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.1.6</td>
+<td>note callout</td>
+<td>输入 <code>&gt; [!note] 标题</code></td>
+<td>灰色左边框 + 📝 图标</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.1.7</td>
+<td>折叠 callout</td>
+<td>输入 <code>&gt; [!tip]- 标题</code></td>
+<td>可点击展开/收起</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.1.8</td>
+<td>callout 在语义编辑态</td>
+<td>光标在 callout 内</td>
+<td>显示淡色 <code>&gt; [!info]</code> 前缀</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<h3 id="r9.2-布局模板">R9.2 布局模板</h3>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>9.2.1</td>
+<td>两栏布局</td>
+<td>输入 <code>::: {.col-2}</code> + 内容 + <code>:::</code></td>
+<td>50/50 网格</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.2.2</td>
+<td>三栏布局</td>
+<td>输入 <code>::: {.col-3}</code> + 内容 + <code>:::</code></td>
+<td>33/33/33 网格</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.2.3</td>
+<td>Hero Banner</td>
+<td>输入 <code>::: {.hero}</code> + 内容 + <code>:::</code></td>
+<td>居中 + 渐变背景</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.2.4</td>
+<td>Card Grid</td>
+<td>输入 <code>::: {.card-grid cards:3}</code> + 内容</td>
+<td>等宽卡片网格</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<h3 id="r9.3-任务列表">R9.3 任务列表</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>9.3.1</td>
+<td>渲染 checkbox</td>
+<td>输入 <code>- [ ] 待办</code></td>
+<td>显示 ☐</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.3.2</td>
+<td>点击切换</td>
+<td>点击 checkbox</td>
+<td>☐ ↔︎ ☑ 切换</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9.3.3</td>
+<td>已完成状态</td>
+<td>输入 <code>- [x] 已完成</code></td>
+<td>显示 ☑</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r10html-块嵌入p3">R10：HTML 块嵌入（P3）</h2>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10.1</td>
+<td>mark 标签</td>
+<td>输入 <code>&lt;mark&gt;高亮&lt;/mark&gt;</code></td>
+<td>黄色背景高亮</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>10.2</td>
+<td>kbd 标签</td>
+<td>输入 <code>&lt;kbd&gt;Ctrl&lt;/kbd&gt;</code></td>
+<td>键盘按键样式</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>10.3</td>
+<td>details/summary</td>
+<td>输入
+<code>&lt;details&gt;&lt;summary&gt;标题&lt;/summary&gt;内容&lt;/details&gt;</code></td>
+<td>可折叠</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>10.4</td>
+<td>script 被剥离</td>
+<td>输入 <code>&lt;script&gt;alert(1)&lt;/script&gt;</code></td>
+<td>script 被剥离</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>10.5</td>
+<td>style 被剥离</td>
+<td>输入 <code>&lt;style&gt;body{color:red}&lt;/style&gt;</code></td>
+<td>style 被剥离</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r11css-only-组件p3">R11：CSS-only 组件（P3）</h2>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>11.1</td>
+<td>折叠块</td>
+<td>输入
+<code>&lt;details&gt;&lt;summary&gt;标题&lt;/summary&gt;内容&lt;/details&gt;</code></td>
+<td>点击展开/收起</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>11.2</td>
+<td>徽章</td>
+<td>输入 <code>&lt;span class="badge"&gt;状态&lt;/span&gt;</code></td>
+<td>圆角徽章样式</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>11.3</td>
+<td>提示卡</td>
+<td>输入
+<code>&lt;div class="md-card"&gt;&lt;div class="md-card-icon"&gt;📦&lt;/div&gt;&lt;div class="md-card-body"&gt;&lt;div class="md-card-title"&gt;标题&lt;/div&gt;&lt;div class="md-card-desc"&gt;描述&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;</code></td>
+<td>卡片样式</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="r12流式编辑p3">R12：流式编辑（P3）</h2>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>12.1</td>
+<td>打字即渲染</td>
+<td>输入 <code>**bold</code>（不闭合）</td>
+<td>“bold” 立即显示为粗体</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>12.2</td>
+<td>闭合后完整</td>
+<td>继续输入 <code>**</code></td>
+<td>完整粗体，标记隐藏</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>12.3</td>
+<td>选择即操作</td>
+<td>选中文本</td>
+<td>工具栏立即出现</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>12.4</td>
+<td>命令面板</td>
+<td>按 Cmd+K</td>
+<td>命令面板打开</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>12.5</td>
+<td>模糊搜索</td>
+<td>在命令面板输入 “bold”</td>
+<td>匹配到 “Bold” 命令</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>12.6</td>
+<td>拼音搜索</td>
+<td>在命令面板输入 “wz”</td>
+<td>匹配到 “文字加粗” 相关命令</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="性能测试">性能测试</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P.1</td>
+<td>1 万字文档编辑</td>
+<td>打开 1 万字文档，编辑</td>
+<td>输入延迟 &lt; 33ms</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>P.2</td>
+<td>10 万字首次渲染</td>
+<td>打开 10 万字文档</td>
+<td>首次渲染 &lt; 800ms</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>P.3</td>
+<td>CLS</td>
+<td>光标快速在块间移动</td>
+<td>CLS &lt; 0.01（无视觉抖动）</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>P.4</td>
+<td>结构诊断性能</td>
+<td>对 1 万字文档运行诊断</td>
+<td>&lt; 100ms</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="兼容性测试">兼容性测试</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C.1</td>
+<td>Chrome</td>
+<td>在 Chrome 中测试所有功能</td>
+<td>正常工作</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>C.2</td>
+<td>Safari</td>
+<td>在 Safari 中测试所有功能</td>
+<td>正常工作</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>C.3</td>
+<td>Firefox</td>
+<td>在 Firefox 中测试所有功能</td>
+<td>正常工作</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>C.4</td>
+<td>移动端</td>
+<td>在移动设备上测试</td>
+<td>编辑可用，预览优先</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>C.5</td>
+<td>离线</td>
+<td>断网后刷新页面</td>
+<td>核心功能 100% 可用</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="回归测试">回归测试</h2>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 24%" />
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>测试项</th>
+<th>操作</th>
+<th>期望结果</th>
+<th>通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REG.1</td>
+<td>现有功能不受影响</td>
+<td>打开现有 .md 文件</td>
+<td>正常编辑/预览/导出</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>REG.2</td>
+<td>图片导入</td>
+<td>拖入图片</td>
+<td>正确导入和显示</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>REG.3</td>
+<td>PNG 导出</td>
+<td>导出为 PNG</td>
+<td>正确渲染</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>REG.4</td>
+<td>DOCX 导出</td>
+<td>导出为 DOCX</td>
+<td>正确渲染</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>REG.5</td>
+<td>多页签</td>
+<td>打开多个文档</td>
+<td>正常切换</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>REG.6</td>
+<td>主题切换</td>
+<td>切换 dark/light</td>
+<td>正确应用</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>REG.7</td>
+<td>undo/redo</td>
+<td>Cmd+Z / Cmd+Shift+Z</td>
+<td>正常工作</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="测试结果汇总">测试结果汇总</h2>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>总数</th>
+<th>通过</th>
+<th>失败</th>
+<th>通过率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1 安全底座</td>
+<td>5</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R2 .mdpkg 即应用</td>
+<td>5</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R3 Diff-native AI</td>
+<td>4</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R4 结构体检</td>
+<td>8</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R5 章节重组</td>
+<td>5</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R6 语义编辑态</td>
+<td>17</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R7 上下文工具栏</td>
+<td>9</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R8 智能输入</td>
+<td>12</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R9 视觉模板库</td>
+<td>14</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R10 HTML 嵌入</td>
+<td>5</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R11 CSS-only 组件</td>
+<td>3</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>R12 流式编辑</td>
+<td>6</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>性能测试</td>
+<td>4</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>兼容性测试</td>
+<td>5</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>回归测试</td>
+<td>7</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>总计</strong></td>
+<td><strong>109</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="缺陷记录">缺陷记录</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>严重度</th>
+<th>描述</th>
+<th>复现步骤</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>2</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>3</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="测试结论">测试结论</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />全部通过，可以发布</label></li>
+<li><label><input
+type="checkbox" />有缺陷，需要修复后重新测试</label></li>
+<li><label><input
+type="checkbox" />有严重阻塞问题，不能发布</label></li>
+</ul>
+<p><strong>测试签名</strong>：_______________
+<strong>日期</strong>：_______________</p>
+</body>
+</html>

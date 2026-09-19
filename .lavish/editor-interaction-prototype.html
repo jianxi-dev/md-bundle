@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>编辑器交互原型 v2 — 可真实操作</title>
+<style>
+:root{
+  --bg:#08090b; --bg2:#0e0f12; --surface:#1a1b20; --text:#f5f6f8; --text2:#858b96;
+  --primary:#7b86ea; --primary-fg:#9aa4f8; --border:rgba(255,255,255,0.08);
+  --success:#3fb950; --warning:#e3b341; --danger:#f0616d; --code-bg:#0e0f12;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,'SF Pro Text','PingFang SC','Microsoft YaHei',sans-serif;
+  line-height:1.7;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;padding:32px 24px 100px;}
+.page-h1{font-size:1.8em;font-weight:700;margin:0 0 6px;}
+.page-sub{color:var(--text2);font-size:.98em;margin:0 0 24px;}
+.section{margin-top:52px;}
+.section > h2{font-size:1.3em;font-weight:650;margin:0 0 6px;display:flex;align-items:center;gap:10px;}
+.section > h2 .num{display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:7px;background:rgba(123,134,234,.16);
+  color:var(--primary);font-size:.72em;font-weight:700;flex-shrink:0;}
+.section > .desc{color:var(--text2);font-size:.9em;margin:0 0 16px;}
+.note{background:rgba(123,134,234,.07);border:1px solid rgba(123,134,234,.18);
+  border-left:3px solid var(--primary);border-radius:0 10px 10px 0;
+  padding:14px 18px;margin:16px 0;font-size:.88em;}
+.note.warn{background:rgba(227,179,65,.07);border-color:rgba(227,179,65,.2);border-left-color:var(--warning);}
+.note.danger{background:rgba(240,97,109,.07);border-color:rgba(240,97,109,.2);border-left-color:var(--danger);}
+.note b{color:var(--primary);} .note.warn b{color:var(--warning);} .note.danger b{color:var(--danger);}
+.note ul{margin:6px 0 0;padding-left:20px;} .note li{margin:3px 0;}
+.app{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg2);
+  margin:18px 0;box-shadow:0 12px 40px rgba(0,0,0,.4);}
+.app-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;
+  border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);}
+.app-bar .dot{width:10px;height:10px;border-radius:50%;background:#3a3d45;}
+.app-bar .title{margin-left:10px;font-size:.8em;color:var(--text2);}
+.app-modes{margin-left:auto;display:flex;gap:4px;background:rgba(0,0,0,.3);padding:3px;border-radius:8px;}
+.app-modes button{background:transparent;border:0;color:var(--text2);font-size:.76em;
+  padding:4px 12px;border-radius:6px;cursor:pointer;font-family:inherit;transition:.15s;}
+.app-modes button:hover{color:var(--text);}
+.app-modes button.on{background:var(--primary);color:#fff;font-weight:600;}
+.editor-wrap{display:flex;min-height:300px;}
+.rail{width:52px;border-right:1px solid var(--border);display:flex;flex-direction:column;
+  align-items:center;padding:14px 0;gap:12px;background:rgba(0,0,0,.15);flex-shrink:0;}
+.rail .ico{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-size:.9em;color:var(--text2);cursor:pointer;}
+.rail .ico:hover{background:rgba(255,255,255,.05);color:var(--text);}
+.rail .ico.on{background:rgba(123,134,234,.18);color:var(--primary);}
+.editor{flex:1;padding:26px 40px;font-size:15px;position:relative;min-width:0;}
+.blk{position:relative;border-radius:8px;padding:3px 6px;margin:0 -6px;transition:background .15s;}
+.blk:hover{background:rgba(255,255,255,.022);}
+.blk.active{background:rgba(123,134,234,.055);}
+.blk.dragging{opacity:.4;}
+.blk .handle{position:absolute;left:-28px;top:4px;width:22px;height:22px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:12px;
+  cursor:grab;opacity:0;transition:opacity .15s;user-select:none;}
+.blk:hover .handle{opacity:.75;}
+.blk .handle:hover{background:rgba(255,255,255,.09);opacity:1;color:var(--text);}
+.blk .handle:active{cursor:grabbing;}
+.hm{color:var(--primary);opacity:0;font-weight:700;transition:opacity .12s;margin-right:2px;user-select:none;}
+.blk.active .hm{opacity:.42;}
+.li-dot{color:var(--primary);font-weight:700;}
+.li-faint{color:var(--primary);opacity:0;font-size:.85em;margin-right:4px;transition:opacity .1s;
+  user-select:none;font-family:'SF Mono',monospace;}
+.blk.active .li-faint{opacity:.38;}
+.quote{border-left:3px solid var(--primary);padding-left:14px;color:var(--text2);}
+.ql{color:var(--primary);opacity:0;transition:opacity .1s;user-select:none;}
+.blk.active .ql{opacity:.38;}
+.link{color:var(--primary-fg);text-decoration:none;}
+.link-url{color:var(--text2);opacity:0;font-size:.82em;margin-left:4px;transition:opacity .15s;user-select:none;}
+.blk.active .link-url{opacity:.5;}
+.icode{background:var(--code-bg);border:1px solid var(--border);border-radius:5px;
+  padding:1px 6px;font-family:'SF Mono',monospace;font-size:.88em;color:#e8c45a;}
+.icode-faint{color:var(--text2);opacity:0;font-size:.85em;transition:opacity .1s;
+  user-select:none;font-family:'SF Mono',monospace;}
+.blk.active .icode-faint{opacity:.35;}
+.codeblk{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;margin:10px 0;overflow:hidden;}
+.codeblk-head{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border);
+  font-size:.78em;color:var(--text2);font-family:'SF Mono',monospace;}
+.codeblk-head .lang{color:var(--primary);font-weight:600;}
+.codeblk-head .fence{opacity:0;transition:opacity .12s;}
+.blk.active .codeblk-head .fence{opacity:.5;}
+.codeblk pre{margin:0;padding:14px;font-family:'SF Mono',monospace;font-size:13px;
+  line-height:1.6;color:#c9d1d9;overflow-x:auto;}
+.kw{color:#ff7b72;} .fn{color:#d2a8ff;} .str{color:#a5d6ff;}
+.task{display:flex;align-items:center;gap:8px;}
+.cb{width:15px;height:15px;border:1.5px solid var(--primary);border-radius:4px;
+  display:inline-flex;align-items:center;justify-content:center;font-size:10px;
+  color:var(--primary);flex-shrink:0;cursor:pointer;background:transparent;user-select:none;}
+.cb.done{background:var(--primary);color:#fff;}
+.task-faint{opacity:0;transition:opacity .1s;color:var(--text2);font-family:'SF Mono',monospace;font-size:.85em;}
+.blk.active .task-faint{opacity:.35;}
+.task-done{text-decoration:line-through;color:var(--text2);}
+.callout{border-radius:10px;padding:14px 18px;margin:10px 0;border-left:4px solid var(--primary);
+  background:rgba(123,134,234,.07);}
+.callout.warn{border-left-color:var(--warning);background:rgba(227,179,65,.07);}
+.callout.danger{border-left-color:var(--danger);background:rgba(240,97,109,.07);}
+.callout.success{border-left-color:var(--success);background:rgba(63,185,80,.07);}
+.callout-title{font-weight:650;display:flex;align-items:center;gap:7px;margin-bottom:3px;}
+.callout-faint{opacity:0;transition:opacity .1s;color:var(--text2);font-family:'SF Mono',monospace;
+  font-size:.82em;display:block;margin-bottom:4px;}
+.blk.active .callout-faint{opacity:.4;}
+hr.div{border:0;border-top:1px solid var(--border);margin:16px 0;}
+.srcmode .hm,.srcmode .li-faint,.srcmode .ql,.srcmode .link-url,.srcmode .icode-faint,
+.srcmode .task-faint,.srcmode .callout-faint,.srcmode .codeblk-head .fence{opacity:.55 !important;}
+.ftoolbar{position:fixed;display:none;gap:2px;padding:5px;background:var(--surface);
+  border:1px solid var(--border);border-radius:9px;box-shadow:0 8px 26px rgba(0,0,0,.55);z-index:900;}
+.ftoolbar.show{display:flex;}
+.ftoolbar button{background:transparent;border:0;color:var(--text);width:31px;height:31px;
+  border-radius:6px;cursor:pointer;font-size:.88em;display:flex;align-items:center;
+  justify-content:center;font-family:inherit;transition:background .12s;}
+.ftoolbar button:hover{background:rgba(123,134,234,.2);}
+.ftoolbar .sep{width:1px;background:var(--border);margin:5px 3px;}
+.pop{position:fixed;display:none;min-width:210px;background:var(--surface);
+  border:1px solid var(--border);border-radius:10px;padding:5px;
+  box-shadow:0 10px 32px rgba(0,0,0,.65);z-index:950;font-size:.86em;}
+.pop.show{display:block;}
+.pop .item{padding:7px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:9px;color:var(--text);}
+.pop .item:hover,.pop .item.sel{background:rgba(123,134,234,.16);}
+.pop .item .ico{width:18px;text-align:center;opacity:.85;flex-shrink:0;}
+.pop .hint{margin-left:auto;color:var(--text2);font-size:.8em;font-family:'SF Mono',monospace;}
+.pop .divider{height:1px;background:var(--border);margin:5px 3px;}
+.pop .sec{font-size:.7em;color:var(--text2);padding:6px 10px 3px;letter-spacing:.06em;}
+.palette-mask{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:1000;
+  align-items:flex-start;justify-content:center;padding-top:14vh;}
+.palette-mask.show{display:flex;}
+.palette{width:min(560px,92vw);background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.7);overflow:hidden;}
+.palette input{width:100%;background:transparent;border:0;border-bottom:1px solid var(--border);
+  color:var(--text);font-size:1.05em;padding:16px 20px;outline:none;font-family:inherit;}
+.palette .list{max-height:340px;overflow:auto;padding:6px;}
+.palette .item{padding:9px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;
+  gap:11px;font-size:.9em;}
+.palette .item:hover,.palette .item.sel{background:rgba(123,134,234,.18);}
+.palette .item .k{margin-left:auto;color:var(--text2);font-size:.8em;font-family:'SF Mono',monospace;}
+.palette .grp{font-size:.7em;color:var(--text2);padding:8px 12px 4px;letter-spacing:.06em;}
+.palette .empty{padding:26px;text-align:center;color:var(--text2);font-size:.88em;}
+.typearea{min-height:150px;outline:none;border:1px solid var(--border);border-radius:10px;
+  padding:16px;background:rgba(0,0,0,.15);font-size:15px;}
+.typearea > div{min-height:1.65em;border-radius:6px;padding:1px 4px;margin:1px -4px;}
+.typearea > div:empty::after{content:'\200B';}
+.typearea .h1{font-size:1.7em;font-weight:700;}
+.typearea .h2{font-size:1.4em;font-weight:650;}
+.typearea .h3{font-size:1.18em;font-weight:600;}
+.typearea .faint{opacity:.42;color:var(--primary);user-select:none;}
+.typearea .quote{border-left:3px solid var(--primary);padding-left:12px;color:var(--text2);}
+.typearea .code{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;font-family:'SF Mono',monospace;font-size:13px;color:#c9d1d9;}
+.typearea .li-num{color:var(--primary);font-weight:700;margin-right:5px;}
+.typearea .li-bul{color:var(--primary);font-weight:700;margin-right:5px;}
+.typearea .callout{margin:6px 0;}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.82em;color:var(--text2);margin:12px 0;}
+.legend span{display:flex;align-items:center;gap:6px;}
+.legend .sw{width:11px;height:11px;border-radius:3px;display:inline-block;}
+kbd{background:rgba(255,255,255,.07);border:1px solid var(--border);border-bottom-width:2px;
+  border-radius:5px;padding:1px 6px;font-size:.82em;font-family:'SF Mono',monospace;color:var(--text);}
+.hintline{font-size:.84em;color:var(--text2);margin-top:10px;min-height:1.4em;}
+.hintline.on{color:var(--primary);}
+.cmp-toggle{display:flex;gap:4px;background:rgba(0,0,0,.3);padding:3px;border-radius:8px;
+  margin-bottom:14px;width:fit-content;}
+.cmp-toggle button{background:transparent;border:0;color:var(--text2);font-size:.8em;
+  padding:5px 14px;border-radius:6px;cursor:pointer;font-family:inherit;}
+.cmp-toggle button.on{background:var(--primary);color:#fff;font-weight:600;}
+.steps{margin:14px 0;padding-left:0;list-style:none;counter-reset:st;}
+.steps li{position:relative;padding-left:34px;margin-bottom:10px;}
+.steps li::before{counter-increment:st;content:counter(st);position:absolute;left:0;top:1px;
+  width:22px;height:22px;border-radius:6px;background:rgba(123,134,234,.16);color:var(--primary);
+  font-size:.75em;font-weight:700;display:flex;align-items:center;justify-content:center;}
+table.modes{width:100%;border-collapse:collapse;font-size:.88em;margin-top:14px;}
+table.modes th,table.modes td{padding:10px;border:1px solid var(--border);text-align:left;}
+table.modes th{background:rgba(255,255,255,.03);}
+.dropline{height:2px;background:var(--primary);border-radius:2px;margin:3px 0;display:none;}
+.dropline.on{display:block;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);
+  border:1px solid var(--border);border-radius:9px;padding:9px 16px;font-size:.85em;
+  box-shadow:0 8px 26px rgba(0,0,0,.6);opacity:0;transition:opacity .2s;z-index:2000;pointer-events:none;}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1 class="page-h1">✍️ 编辑器交互原型 v2</h1>
+<p class="page-sub">语义编辑态 · 智能输入 · 工具栏 · 块操作 · 命令面板 — <b>全部可真实操作</b></p>
+
+<div class="note">
+<b>v2 修复了你反馈的 4 个原型问题</b>（原型本身交互没做完整，不是产品问题）：<br>
+① 智能输入框现在<b>真的会转换</b> · ② 选中文字<b>真的会弹工具栏</b> ·
+③ 块手柄<b>真的能开菜单 + 拖拽</b> · ④ <b>Cmd/Ctrl+K 真的能开命令面板</b>
+</div>
+
+<!-- ═══════════ 1 ═══════════ -->
+<div class="section">
+<h2><span class="num">1</span> 核心：语义编辑态</h2>
+<p class="desc">默认所有块完全渲染（零源码符号）。光标进入某个块 → <b>只有那个块</b>显示淡化的结构标记。</p>
+
+<div class="cmp-toggle" id="cmpToggle">
+  <button class="on" data-cmp="default">完全渲染（默认）</button>
+  <button data-cmp="semantic">点击块 → 语义揭示</button>
+  <button data-cmp="source">源码态</button>
+</div>
+
+<div class="app">
+  <div class="app-bar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="title">产品需求文档.md</span>
+    <div class="app-modes">
+      <button class="on">编辑</button><button>源码</button><button>预览</button>
+    </div>
+  </div>
+  <div class="editor-wrap">
+    <div class="rail">
+      <div class="ico">📄</div><div class="ico on">☰</div><div class="ico">🩺</div>
+    </div>
+    <div class="editor" id="demoEditor"></div>
+  </div>
+</div>
+
+<div class="legend">
+  <span><span class="sw" style="background:var(--primary);opacity:.42"></span> 活动块：结构标记淡化显示</span>
+  <span><span class="sw" style="background:var(--text)"></span> 非活动块：完全渲染，零符号</span>
+  <span><span class="sw" style="background:rgba(123,134,234,.16)"></span> 活动块背景微高亮</span>
+</div>
+
+<ol class="steps">
+<li><b>点击任意一个块</b>（标题、段落、列表…）→ 该块进入语义态，显示淡化标记</li>
+<li><b>点击编辑器空白区域</b> → 恢复完全渲染</li>
+<li>注意：<b>只有被点击的块变化</b>，其他块保持不变 ← 你在测试中发现的核心问题</li>
+<li>粗体/斜体的 <code>**</code> <b>永远隐藏</b> —— 内联标记对编辑无帮助</li>
+</ol>
+
+<div class="note warn">
+<b>你在实机测试中报告的问题</b>（原型已按"应该是什么样"呈现）：<br>
+❌ "移入后，整篇文章都自动切换" → 应该是 <b>只有当前块</b><br>
+❌ "移出后不会自动恢复" → 应该 <b>自动恢复完全渲染</b><br>
+❌ "始终是源码 / URL 显示" → 默认应该是 <b>完全渲染，URL 隐藏</b>
+</div>
+</div>
+
+<!-- ═══════════ 2 ═══════════ -->
+<div class="section">
+<h2><span class="num">2</span> 智能输入：块级快捷方式</h2>
+<p class="desc">在下方输入框输入快捷语法 + 空格 → <b>真的会转换</b>。关键：转换后<b>光标仍在块内可继续输入</b>。</p>
+
+<div class="app">
+  <div class="app-bar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="title">输入演示（真的可以输入）</span>
+  </div>
+  <div class="editor-wrap">
+    <div class="rail"></div>
+    <div class="editor">
+      <div style="color:var(--text2);font-size:.85em;margin-bottom:12px;">
+        试试输入：<code>#</code>+空格 · <code>##</code>+空格 · <code>###</code>+空格 · <code>-</code>+空格 ·
+        <code>1.</code>+空格 · <code>&gt;</code>+空格 · <code>- [ ]</code>+空格 · <code>```</code>+回车
+      </div>
+      <div contenteditable="true" id="typeDemo" class="typearea" spellcheck="false"></div>
+      <div class="hintline" id="typeHint">↑ 点击输入框，输入 ## 然后按空格</div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+<b>关键交互原则</b>
+<ul>
+<li><b>转换 ≠ 锁定</b>：转成 H2 后光标在标题文字处，<b>可以继续输入标题内容</b></li>
+<li><b>层级可调</b>：标题行按 <kbd>Tab</kbd> 降级、<kbd>Shift+Tab</kbd> 升级</li>
+<li><b>Callout 可继续</b>：输入 <code>&gt; [!tip]</code> + 空格 → 变 callout，光标在内容区</li>
+<li><b>折叠标记可输入</b>：<code>&gt; [!tip]-</code> 默认折叠，<code>+</code> 展开</li>
+<li><b>任务列表优先</b>：<code>- [ ]</code> + 空格 先于 <code>-</code> + 空格 识别</li>
+</ul>
+</div>
+
+<div class="note warn">
+<b>你在实机测试中报告的问题</b>：<br>
+❌ "输入一个 # 后就自动变为标题1，无法输入二三级" → 应该<b>光标可继续输入</b>，Tab 可调层级<br>
+❌ "输入 &gt; [!tip] 后就自动识别成 callout，无法再输入 -" → 应该<b>允许输入折叠标记</b><br>
+❌ "输入 - 空格，就变为无序列表，无法再识别任务格式" → 应该<b>支持 <code>- [ ]</code></b><br>
+❌ "不会自动配对"（<code>**</code> / <code>「</code>）→ 应该<b>自动配对</b><br>
+❌ "输入 / 有时会自动变成、/" → 应该<b>只在空行行首且非 IME 组合期触发</b>
+</div>
+</div>
+
+<!-- ═══════════ 3 ═══════════ -->
+<div class="section">
+<h2><span class="num">3</span> 上下文工具栏</h2>
+<p class="desc">选中文字 → 工具栏出现在选区上方，<b>点击按钮真的会改格式</b>。</p>
+
+<div class="app">
+  <div class="app-bar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="title">选中下面文字试试</span>
+  </div>
+  <div class="editor-wrap">
+    <div class="rail"></div>
+    <div class="editor" id="selEditor" style="min-height:170px;">
+      <div class="blk"><p style="margin:0;">选中这段文字，工具栏会出现在上方。可以点击 B 加粗、I 斜体、反引号变代码。</p></div>
+      <div class="blk" style="margin-top:12px;"><p style="margin:0;color:var(--text2);font-size:.88em;">
+        💡 工具栏<b>立即</b>出现（无延迟）；取消选中立即消失。空行和普通段落（无选中）不显示工具栏。</p></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+<b>上下文规则</b>（同一工具栏，内容随上下文变化）：
+<table class="modes">
+<tr><th>上下文</th><th>工具栏内容</th></tr>
+<tr><td>文本选中</td><td>B I S ` 🔗 🎨 ✨AI</td></tr>
+<tr><td>表格中</td><td>➕行 ➕列 ↔对齐</td></tr>
+<tr><td>图片上</td><td>🔄替换 ✏️Alt 📐缩放</td></tr>
+<tr><td>链接上</td><td>✏️编辑 🔗打开 ❌移除</td></tr>
+<tr><td>代码块中</td><td>📋复制 🎨语言 ✨解释</td></tr>
+<tr><td>空行 / 普通段落</td><td><b>不显示</b></td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═══════════ 4 ═══════════ -->
+<div class="section">
+<h2><span class="num">4</span> 块操作手柄</h2>
+<p class="desc">悬停块左侧 → 出现 <b>⠿</b> 手柄。<b>点击开菜单，按住拖拽可重排</b>（显示蓝色插入线）。</p>
+
+<div class="app">
+  <div class="app-bar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="title">悬停块左侧 → 点击 ⠿ 开菜单 / 按住拖拽</span>
+  </div>
+  <div class="editor-wrap">
+    <div class="rail"></div>
+    <div class="editor" id="handleEditor" style="min-height:230px;"></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════ 5 ═══════════ -->
+<div class="section">
+<h2><span class="num">5</span> 命令面板（Cmd/Ctrl + K）</h2>
+<p class="desc">按 <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> 打开。<b>现在就可以按</b>，输入试试模糊搜索 / 拼音。</p>
+<div class="note">
+<b>可试的搜索词</b>：<code>bold</code> · <code>jc</code>（加粗拼音） · <code>bg</code>（表格） ·
+<code>callout</code> · <code>dc</code>（导出） · <code>zt</code>（主题）
+<div style="margin-top:12px;">
+  <button id="openPaletteBtn" style="background:var(--primary);border:0;color:#fff;
+    padding:9px 18px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:.9em;">
+    点击打开命令面板（或按 ⌘K）
+  </button>
+</div>
+</div>
+</div>
+
+<!-- ═══════════ 6 ═══════════ -->
+<div class="section">
+<h2><span class="num">6</span> 结构体检（离线、零成本）</h2>
+<p class="desc">左侧栏 🩺 → 打开结构体检面板，列出文档结构问题，点击跳转。</p>
+
+<div class="app">
+  <div class="app-bar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="title">结构体检面板</span>
+  </div>
+  <div class="editor-wrap">
+    <div class="editor" style="flex:1;">
+      <div class="blk"><h3 style="margin:0;font-size:1.1em;">二、核心指标</h3></div>
+      <div class="blk" style="margin-top:8px;background:rgba(227,179,65,.06);">
+        <p style="margin:0;">因此，本季度增长显著。</p>
+      </div>
+      <div class="blk" style="margin-top:8px;"><h3 style="margin:0;font-size:1.05em;">四、结论</h3></div>
+    </div>
+    <div style="width:300px;border-left:1px solid var(--border);padding:16px;background:rgba(0,0,0,.15);flex-shrink:0;">
+      <div style="font-size:.8em;color:var(--text2);margin-bottom:12px;">🩺 结构体检 · 4 项发现</div>
+      <div style="background:rgba(227,179,65,.09);border-left:3px solid var(--warning);
+        border-radius:0 7px 7px 0;padding:9px 12px;margin-bottom:8px;font-size:.82em;cursor:pointer;">
+        <div style="color:var(--warning);font-weight:600;">⚠️ 论点无证据</div>
+        <div style="color:var(--text2);margin-top:2px;">"因此，本季度增长显著" 后 2 段无支撑</div>
+      </div>
+      <div style="background:rgba(240,97,109,.09);border-left:3px solid var(--danger);
+        border-radius:0 7px 7px 0;padding:9px 12px;margin-bottom:8px;font-size:.82em;cursor:pointer;">
+        <div style="color:var(--danger);font-weight:600;">🛑 标题层级跳跃</div>
+        <div style="color:var(--text2);margin-top:2px;">H1 → H3（跳过 H2）</div>
+      </div>
+      <div style="background:rgba(123,134,234,.09);border-left:3px solid var(--primary);
+        border-radius:0 7px 7px 0;padding:9px 12px;font-size:.82em;cursor:pointer;">
+        <div style="color:var(--primary);font-weight:600;">ℹ️ 超长段落</div>
+        <div style="color:var(--text2);margin-top:2px;">单段 340 字（阈值 300）</div>
+      </div>
+      <div style="font-size:.76em;color:var(--text2);margin-top:14px;">点击任一发现 → 编辑器滚动到对应位置</div>
+    </div>
+  </div>
+</div>
+
+<div class="note warn">
+<b>你在实机测试中报告的问题</b>：❌ "不知诊断条目是啥 / 不知如何操作" → 应该有独立的 <b>🩺 结构体检面板入口</b>
+</div>
+</div>
+
+<!-- ═══════════ 7 ═══════════ -->
+<div class="section">
+<h2><span class="num">7</span> 三种模式的完整定义</h2>
+<table class="modes">
+<tr><th>模式</th><th>看到什么</th><th>适合场景</th></tr>
+<tr><td><b style="color:var(--primary);">编辑</b>（默认）</td><td>完全渲染 + 活动块语义揭示</td><td>日常写作 —— 所见即所得</td></tr>
+<tr><td><b style="color:var(--primary);">源码</b></td><td>完整 Markdown 源码 + 语法高亮</td><td>精确控制、批量编辑</td></tr>
+<tr><td><b style="color:var(--primary);">预览</b></td><td>只读渲染（同导出效果）</td><td>最终审阅、分享前确认</td></tr>
+</table>
+<div class="note">
+原型加载后的默认状态应该是 <b>"编辑模式 + 完全渲染"</b>。<br>
+你在测试中看到"始终是源码"，说明默认状态或渲染逻辑有问题。
+</div>
+</div>
+
+<!-- ═══════════ 8 ═══════════ -->
+<div class="section">
+<h2><span class="num">8</span> 你新报的 3 个实机问题</h2>
+<div class="note danger">
+<b>1. Cmd+K 无面板</b> → 实机未接入 UI（库代码存在）。原型第 5 节已实现。<br><br>
+<b>2. 输入 <code>/</code> 有时变成 <code>、/</code></b> → 怀疑根因：中文输入法把 <code>/</code> 全角化，
+或被 IME 组合期误触发。原型只在<b>空行行首且非组合期</b>触发斜杠菜单。<br><br>
+<b>3. 删内容后格式删不掉，再删又出现已删内容</b> → 高度可疑：装饰（Decoration）范围未随
+文本删除正确映射，导致"幽灵内容"。<b>这是实机最需要优先定位的缺陷。</b>
+</div>
+</div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+var toastEl = $('#toast');
+var toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 1600);
+}
+
+/* ── 1. 语义编辑态 ─────────────────────────────────────── */
+var SB = [
+  '<div class="blk" data-blk><span class="handle">⠿</span>',
+  '<h2 style="margin:0;font-size:1.3em"><span class="hm">## </span>产品需求文档</h2></div>',
+
+  '<div class="blk" data-blk><span class="handle">⠿</span>',
+  '<p style="margin:6px 0 0">这是一个普通段落，包含 <strong>粗体文字</strong>、<em>斜体文字</em>和 ',
+  '<span class="icode-faint">`</span><span class="icode">行内代码</span><span class="icode-faint">`</span>。',
+  '链接示例：<a href="#" class="link">官网地址</a><span class="link-url">(https://example.com)</span></p></div>',
+
+  '<div class="blk" data-blk><span class="handle">⠿</span>',
+  '<h3 style="margin:10px 0 0;font-size:1.08em"><span class="hm">### </span>功能列表</h3></div>',
+
+  '<div class="blk" data-blk><span class="handle">⠿</span><div style="padding-left:4px">',
+  '<div><span class="li-faint">- </span><span class="li-dot">•</span> 语义编辑态</div>',
+  '<div><span class="li-faint">- </span><span class="li-dot">•</span> 智能输入</div>',
+  '<div><span class="li-faint">- </span><span class="li-dot">•</span> 结构体检</div></div></div>',
+
+  '<div class="blk" data-blk><span class="handle">⠿</span><div style="padding-left:4px">',
+  '<div><span class="li-faint">1. </span><span class="li-dot">1.</span> 打开文档</div>',
+  '<div><span class="li-faint">2. </span><span class="li-dot">2.</span> 编辑内容</div>',
+  '<div><span class="li-faint">3. </span><span class="li-dot">3.</span> 导出分享</div></div></div>',
+
+  '<div class="blk" data-blk><span class="handle">⠿</span><div style="margin-top:6px">',
+  '<div class="task"><span class="cb done">✓</span><span class="task-done">已完成的任务</span><span class="task-faint">- [x]</span></div>',
+  '<div class="task" style="margin-top:4px"><span class="cb"></span><span>待办的任务</span><span class="task-faint">- [ ]</span></div></div></div>',
+
+  '<div class="blk" data-blk><span class="handle">⠿</span>',
+  '<div class="quote" style="margin-top:10px"><span class="ql">&gt; </span>这是一段引用文字，用于强调重要观点。</div></div>',
+
+  '<div class="blk" data-blk><span class="handle">⠿</span>',
+  '<div class="callout" style="margin-top:10px"><span class="callout-faint">&gt; [!tip]</span>',
+  '<div class="callout-title">💡 使用提示</div><div>点击任意块，只有该块显示淡化标记。</div></div></div>',
+
+  '<div class="blk" data-blk><span class="handle">⠿</span>',
+  '<div class="codeblk"><div class="codeblk-head"><span class="lang">typescript</span><span class="fence">```</span></div>',
+  '<pre><span class="kw">function</span> <span class="fn">hello</span>() {  console.<span class="fn">log</span>(<span class="str">"Hello"</span>); }</pre></div></div>',
+
+  '<div class="blk" data-blk><span class="handle">⠿</span><hr class="div"></div>'
+].join('');
+
+var demoEditor = $('#demoEditor');
+demoEditor.innerHTML = SB;
+
+function clearActive() {
+  $$('[data-blk]', demoEditor).forEach(function (b) { b.classList.remove('active'); });
+}
+
+demoEditor.addEventListener('click', function (e) {
+  if (e.target.closest('.handle') || e.target.closest('.cb')) return;
+  var blk = e.target.closest('[data-blk]');
+  clearActive();
+  if (blk) { blk.classList.add('active'); toast('该块进入语义态（只有它变了）'); }
+  else { toast('已恢复完全渲染'); }
+});
+
+$('#cmpToggle').addEventListener('click', function (e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  $$('button', $('#cmpToggle')).forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  var mode = btn.dataset.cmp;
+  clearActive();
+  if (mode === 'source') {
+    demoEditor.classList.add('srcmode');
+    var b2 = $$('[data-blk]', demoEditor)[1];
+    if (b2) b2.classList.add('active');
+    toast('源码态：所有标记显示（原始 Markdown）');
+  } else {
+    demoEditor.classList.remove('srcmode');
+    if (mode === 'semantic') {
+      var b1 = $$('[data-blk]', demoEditor)[1];
+      if (b1) b1.classList.add('active');
+      toast('第 2 块进入语义态，其余块保持完全渲染');
+    } else {
+      toast('全部块完全渲染（零源码符号）');
+    }
+  }
+});
+
+demoEditor.addEventListener('click', function (e) {
+  var cb = e.target.closest('.cb');
+  if (!cb) return;
+  e.stopPropagation();
+  cb.classList.toggle('done');
+  cb.textContent = cb.classList.contains('done') ? '✓' : '';
+  var row = cb.closest('.task');
+  if (row && row.children[1]) row.children[1].classList.toggle('task-done');
+});
+
+/* ── 2. 智能输入 ──────────────────────────────────────── */
+var typeDemo = $('#typeDemo');
+var typeHint = $('#typeHint');
+var composing = false;
+
+function freshLine() { var d = document.createElement('div'); return d; }
+typeDemo.appendChild(freshLine());
+
+function currentLine() {
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return null;
+  var n = sel.getRangeAt(0).startContainer;
+  var el = n.nodeType === 3 ? n.parentElement : n;
+  while (el && el.parentElement && el.parentElement !== typeDemo) el = el.parentElement;
+  return (el && el.parentElement === typeDemo) ? el : null;
+}
+function caretEnd(el) {
+  var r = document.createRange();
+  r.selectNodeContents(el); r.collapse(false);
+  var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+function showHint(msg) {
+  typeHint.textContent = msg || '↑ 点击输入框，输入 ## 然后按空格';
+  typeHint.classList.toggle('on', !!msg);
+}
+
+var ICONS = { info: 'ℹ️', tip: '💡', warning: '⚠️', danger: '🛑', success: '✅', note: '📝' };
+var KNOWN = ['info', 'tip', 'warning', 'danger', 'success', 'note'];
+
+function applyHeading(line, marker) {
+  var lv = Math.min(marker.length, 3);
+  line.className = 'h' + lv;
+  line.innerHTML = '<span class="faint">' + marker + ' </span>';
+  caretEnd(line);
+  showHint('✅ ' + marker + ' + 空格 → H' + lv + '　（光标可继续输入；Tab / Shift+Tab 调层级）');
+}
+function applyBullet(line) {
+  line.className = 'ul';
+  line.innerHTML = '<span class="li-bul">•</span> ';
+  caretEnd(line);
+  showHint('✅ - + 空格 → 无序列表');
+}
+function applyOrdered(line, marker) {
+  line.className = 'ol';
+  line.innerHTML = '<span class="li-num">' + marker + '</span> ';
+  caretEnd(line);
+  showHint('✅ ' + marker + ' + 空格 → 有序列表（回车自动递增）');
+}
+function applyQuote(line) {
+  line.className = 'quote';
+  line.innerHTML = '<span class="faint">&gt; </span>';
+  caretEnd(line);
+  showHint('✅ &gt; + 空格 → 引用（继续输入 [!tip] + 空格 可转 Callout）');
+}
+function applyTask(line, done) {
+  line.className = 'task';
+  line.innerHTML = '<span class="cb' + (done ? ' done' : '') + '">' + (done ? '✓' : '') +
+    '</span><span class="task-faint">- [ ]</span> ';
+  caretEnd(line);
+  showHint('✅ - [ ] + 空格 → 任务列表（点 checkbox 切换）');
+}
+function applyCallout(line, type) {
+  var t = KNOWN.indexOf(type) >= 0 ? type : 'info';
+  var cls = t === 'info' ? '' : ' ' + t;
+  line.className = '';
+  line.innerHTML = '<div class="callout' + cls + '">' +
+    '<span class="faint">&gt; [!'.concat(t, ']</span>') +
+    '<div class="callout-title">' + ICONS[t] + ' ' + t + '</div><div class="co-body"></div></div>';
+  var body = line.querySelector('.co-body');
+  if (body) caretEnd(body);
+  showHint('✅ &gt; [!' + t + '] + 空格 → Callout（光标在内容区，可继续输入）');
+}
+
+typeDemo.addEventListener('compositionstart', function () { composing = true; });
+typeDemo.addEventListener('compositionend', function () { composing = false; });
+
+typeDemo.addEventListener('keydown', function (e) {
+  var line = currentLine();
+  if (!line) return;
+
+  if (e.key === 'Tab' && /^h[1-3]$/.test(line.className)) {
+    e.preventDefault();
+    var cur = Number(line.className.charAt(1));
+    var next = Math.max(1, Math.min(3, cur + (e.shiftKey ? -1 : 1)));
+    line.className = 'h' + next;
+    var sp = line.querySelector('.faint');
+    if (sp) sp.textContent = new Array(next + 1).join('#') + ' ';
+    showHint('✅ 标题层级 → H' + next);
+    return;
+  }
+
+  if (e.key === ' ') {
+    var txt = line.textContent;
+    if (/^[-*]\s\[[ x]\]$/.test(txt)) {
+      e.preventDefault(); applyTask(line, /\[x\]/.test(txt)); return;
+    }
+    var cm = txt.match(/^>\s*\[!([A-Za-z]+)\]\s*[-+]?$/);
+    if (cm) { e.preventDefault(); applyCallout(line, cm[1].toLowerCase()); return; }
+    if (/^#{1,6}$/.test(txt)) { e.preventDefault(); applyHeading(line, txt); return; }
+    if (/^[-*]$/.test(txt)) { e.preventDefault(); applyBullet(line); return; }
+    if (/^\d+\.$/.test(txt)) { e.preventDefault(); applyOrdered(line, txt); return; }
+    if (txt === '>') { e.preventDefault(); applyQuote(line); return; }
+    return;
+  }
+
+  if (e.key === 'Enter') {
+    var t = line.textContent.trim();
+    if (t === '```') {
+      e.preventDefault();
+      line.className = 'code';
+      line.innerHTML = '<span class="faint">```</span>';
+      caretEnd(line);
+      showHint('✅ ``` + 回车 → 代码块');
+      return;
+    }
+    if (line.classList.contains('ul')) {
+      e.preventDefault();
+      var n1 = freshLine(); n1.className = 'ul';
+      n1.innerHTML = '<span class="li-bul">•</span> ';
+      line.after(n1); caretEnd(n1);
+      return;
+    }
+    if (line.classList.contains('ol')) {
+      e.preventDefault();
+      var idx = $$('.ol', typeDemo).indexOf(line) + 2;
+      var n2 = freshLine(); n2.className = 'ol';
+      n2.innerHTML = '<span class="li-num">' + idx + '.</span> ';
+      line.after(n2); caretEnd(n2);
+      showHint('✅ 有序列表自动递增到 ' + idx);
+      return;
+    }
+    if (line.classList.contains('quote')) {
+      e.preventDefault();
+      var n3 = freshLine(); n3.className = 'quote';
+      n3.innerHTML = '<span class="faint">&gt; </span>';
+      line.after(n3); caretEnd(n3);
+      return;
+    }
+    if (line.classList.contains('task')) {
+      e.preventDefault();
+      var n4 = freshLine(); n4.className = 'task';
+      n4.innerHTML = '<span class="cb"></span><span class="task-faint">- [ ]</span> ';
+      line.after(n4); caretEnd(n4);
+      return;
+    }
+    if (line.classList.contains('code')) {
+      e.preventDefault();
+      var n5 = freshLine();
+      line.after(n5); caretEnd(n5);
+      line.className = 'code';
+      return;
+    }
+    e.preventDefault();
+    var n6 = freshLine();
+    line.after(n6); caretEnd(n6);
+    return;
+  }
+});
+
+typeDemo.addEventListener('click', function (e) {
+  var cb = e.target.closest('.cb');
+  if (!cb) return;
+  cb.classList.toggle('done');
+  cb.textContent = cb.classList.contains('done') ? '✓' : '';
+});
+
+/* ── 3. 选中工具栏 ────────────────────────────────────── */
+var selEditor = $('#selEditor');
+var ftb = document.createElement('div');
+ftb.className = 'ftoolbar';
+ftb.innerHTML =
+  '<button data-cmd="bold" title="粗体"><b>B</b></button>' +
+  '<button data-cmd="italic" title="斜体"><em>I</em></button>' +
+  '<button data-cmd="strike" title="删除线"><s>S</s></button>' +
+  '<button data-cmd="code" title="行内代码">`</button>' +
+  '<div class="sep"></div>' +
+  '<button data-cmd="link" title="链接">🔗</button>' +
+  '<button data-cmd="color" title="颜色">🎨</button>' +
+  '<div class="sep"></div>' +
+  '<button data-cmd="ai" title="AI">✨</button>';
+document.body.appendChild(ftb);
+
+function hideFtb() { ftb.classList.remove('show'); }
+
+document.addEventListener('selectionchange', function () {
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount || sel.isCollapsed) { hideFtb(); return; }
+  var range = sel.getRangeAt(0);
+  if (!selEditor.contains(range.commonAncestorContainer)) { hideFtb(); return; }
+  var rects = range.getClientRects();
+  if (!rects.length) { hideFtb(); return; }
+  var r = rects[0];
+  var top = r.top - 46;
+  if (top < 8) top = r.bottom + 12;
+  var left = Math.max(90, Math.min(window.innerWidth - 200, r.left + r.width / 2));
+  ftb.style.left = left + 'px';
+  ftb.style.top = top + 'px';
+  ftb.classList.add('show');
+});
+
+ftb.addEventListener('mousedown', function (e) {
+  e.preventDefault();
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount || sel.isCollapsed) return;
+  var range = sel.getRangeAt(0);
+  if (!selEditor.contains(range.commonAncestorContainer)) return;
+  var cmd = btn.dataset.cmd;
+  try {
+    if (cmd === 'bold') { document.execCommand('bold'); toast('已加粗'); }
+    else if (cmd === 'italic') { document.execCommand('italic'); toast('已斜体'); }
+    else if (cmd === 'strike') { document.execCommand('strikeThrough'); toast('已删除线'); }
+    else if (cmd === 'code') {
+      var txt = range.toString();
+      range.deleteContents();
+      var code = document.createElement('code');
+      code.textContent = txt;
+      code.className = 'icode';
+      range.insertNode(code);
+      toast('已行内代码');
+    } else if (cmd === 'link') {
+      var a = document.createElement('a');
+      a.href = 'https://example.com';
+      a.className = 'link';
+      try { range.surroundContents(a); } catch (err) { a.appendChild(range.extractContents()); range.insertNode(a); }
+      toast('已加链接');
+    } else if (cmd === 'color') {
+      document.execCommand('foreColor', false, '#e3b341');
+      toast('已改颜色');
+    } else if (cmd === 'ai') {
+      toast('✨ AI 改写提案（此处演示入口；实机应弹 diff 审阅）');
+    }
+  } catch (err) { toast('操作失败：' + err.message); }
+});
+
+/* ── 4. 块手柄：菜单 + 拖拽 ───────────────────────────── */
+var handleEditor = $('#handleEditor');
+handleEditor.innerHTML =
+  '<div class="blk" data-hblk><h3 style="margin:0;font-size:1.15em">悬停这里</h3></div>' +
+  '<div class="blk" data-hblk style="margin-top:10px"><p style="margin:0">块左侧会出现手柄 ⠿。点击它 → 转换为 / 复制 / 删除 / AI 操作。</p></div>' +
+  '<div class="blk" data-hblk style="margin-top:10px"><p style="margin:0">按住手柄拖拽 → 整个块移动，显示蓝色插入线。</p></div>' +
+  '<div class="blk" data-hblk style="margin-top:10px"><p style="margin:0;color:var(--text2)">这是第四块，用来验证拖拽排序。</p></div>';
+
+$$('[data-hblk]', handleEditor).forEach(function (b) {
+  var h = document.createElement('span');
+  h.className = 'handle';
+  h.textContent = '⠿';
+  b.insertBefore(h, b.firstChild);
+});
+
+var blkMenu = document.createElement('div');
+blkMenu.className = 'pop';
+blkMenu.innerHTML =
+  '<div class="sec">转换为</div>' +
+  '<div class="item"><span class="ico">¶</span>段落</div>' +
+  '<div class="item"><span class="ico">#</span>标题 1–6</div>' +
+  '<div class="item"><span class="ico">•</span>无序列表</div>' +
+  '<div class="item"><span class="ico">☑</span>任务列表</div>' +
+  '<div class="item"><span class="ico">💬</span>引用</div>' +
+  '<div class="item"><span class="ico">{ }</span>代码块</div>' +
+  '<div class="divider"></div>' +
+  '<div class="item"><span class="ico">📋</span>复制块</div>' +
+  '<div class="item"><span class="ico">⬆️</span>上移</div>' +
+  '<div class="item"><span class="ico">⬇️</span>下移</div>' +
+  '<div class="item"><span class="ico">🗑️</span>删除块</div>' +
+  '<div class="divider"></div>' +
+  '<div class="item"><span class="ico">✨</span>AI 改写 / 润色 / 翻译</div>';
+document.body.appendChild(blkMenu);
+
+blkMenu.addEventListener('click', function (e) {
+  var item = e.target.closest('.item');
+  if (!item) return;
+  blkMenu.classList.remove('show');
+  toast('已执行：' + item.textContent.trim());
+});
+
+var dragSrc = null;
+var dropLine = document.createElement('div');
+dropLine.className = 'dropline';
+handleEditor.appendChild(dropLine);
+
+handleEditor.addEventListener('mousedown', function (e) {
+  var h = e.target.closest('.handle');
+  if (!h) return;
+  e.preventDefault();
+  dragSrc = h.closest('[data-hblk]');
+  dragSrc.classList.add('dragging');
+  blkMenu.classList.remove('show');
+});
+
+document.addEventListener('mousemove', function (e) {
+  if (!dragSrc) return;
+  var blocks = $$('[data-hblk]', handleEditor);
+  var target = null;
+  for (var i = 0; i < blocks.length; i++) {
+    var r = blocks[i].getBoundingClientRect();
+    if (e.clientY < r.top + r.height / 2) { target = blocks[i]; break; }
+  }
+  var host = handleEditor.getBoundingClientRect();
+  dropLine.classList.add('on');
+  if (target) {
+    handleEditor.insertBefore(dropLine, target);
+  } else if (blocks.length) {
+    handleEditor.appendChild(dropLine);
+  }
+  dropLine.style.width = (e.clientX - host.left) + 'px';
+});
+
+document.addEventListener('mouseup', function () {
+  if (!dragSrc) return;
+  if (dropLine.classList.contains('on')) {
+    handleEditor.insertBefore(dragSrc, dropLine);
+    dropLine.classList.remove('on');
+    toast('已移动块');
+  }
+  dragSrc.classList.remove('dragging');
+  dragSrc = null;
+});
+
+document.addEventListener('click', function (e) {
+  var h = e.target.closest('#handleEditor .handle');
+  if (h) {
+    e.stopPropagation();
+    var r = h.getBoundingClientRect();
+    var top = r.top;
+    if (top + 330 > window.innerHeight) top = window.innerHeight - 340;
+    blkMenu.style.left = (r.right + 8) + 'px';
+    blkMenu.style.top = Math.max(8, top) + 'px';
+    blkMenu.classList.add('show');
+    return;
+  }
+  if (!e.target.closest('.pop')) {
+    blkMenu.classList.remove('show');
+  }
+});
+
+/* ── 5. 命令面板 ──────────────────────────────────────── */
+var CMDS = [
+  { g: '格式', ico: 'B', label: '加粗', py: 'jiacu jc', k: '⌘B' },
+  { g: '格式', ico: 'I', label: '斜体', py: 'xieti xt', k: '⌘I' },
+  { g: '格式', ico: 'S', label: '删除线', py: 'shanchuxian scx', k: '⌘⇧X' },
+  { g: '格式', ico: '`', label: '行内代码', py: 'hangneidaima hndm', k: '⌘E' },
+  { g: '格式', ico: '🔗', label: '插入链接', py: 'charulianjie crlj', k: '⌘K' },
+  { g: '块', ico: '#', label: '一级标题', py: 'yijibiaoti yjbt', k: '⌘1' },
+  { g: '块', ico: '##', label: '二级标题', py: 'erjibiaoti ejbt', k: '⌘2' },
+  { g: '块', ico: '###', label: '三级标题', py: 'sanjibiaoti sjbt', k: '⌘3' },
+  { g: '块', ico: '•', label: '无序列表', py: 'wuxuliebiao wxlb', k: '- + 空格' },
+  { g: '块', ico: '1.', label: '有序列表', py: 'youxuliebiao yxlb', k: '1. + 空格' },
+  { g: '块', ico: '☑', label: '任务列表', py: 'renwuliebiao rwlb', k: '- [ ]' },
+  { g: '块', ico: '💬', label: '引用块', py: 'yinyongkuai yyk', k: '> + 空格' },
+  { g: '块', ico: '{ }', label: '代码块', py: 'daimakuai dmk', k: '```' },
+  { g: '块', ico: '▦', label: '插入表格', py: 'charubiaoge crbg', k: '⌘⇧T' },
+  { g: '块', ico: 'ℹ️', label: '插入 Callout', py: 'charu callout', k: '' },
+  { g: '视图', ico: '👁', label: '切换预览模式', py: 'qiehuan yulan qhyl', k: '⌘⇧P' },
+  { g: '视图', ico: '⌨', label: '切换源码模式', py: 'qiehuan yuanma qhym', k: '⌘/' },
+  { g: '视图', ico: '🎨', label: '切换主题', py: 'qiehuan zhuti qhzt', k: '' },
+  { g: '体检', ico: '🩺', label: '运行结构体检', py: 'yunhang jiegou tijian yh jgtj', k: '' },
+  { g: '体检', ico: '↕', label: '章节重组', py: 'zhangjie chongzu zjcz', k: '' },
+  { g: '导出', ico: '⬇', label: '导出 Markdown', py: 'daochu dc', k: '' },
+  { g: '导出', ico: '📦', label: '导出 .mdpkg', py: 'daochu dc mdpkg', k: '' },
+  { g: '导出', ico: '🖼', label: '导出长图 PNG', py: 'daochu changtu dcct', k: '' },
+  { g: 'AI', ico: '✨', label: 'AI 改写选中内容', py: 'ai gaixie aigx', k: '' },
+  { g: 'AI', ico: '🌐', label: 'AI 翻译', py: 'ai fanyi aify', k: '' }
+];
+
+var pmask = document.createElement('div');
+pmask.className = 'palette-mask';
+pmask.innerHTML =
+  '<div class="palette">' +
+  '<input id="pq" placeholder="输入命令名 / 拼音首字母，例如 jc（加粗）、bg（表格）…" autocomplete="off">' +
+  '<div class="list" id="plist"></div>' +
+  '</div>';
+document.body.appendChild(pmask);
+
+var pq = $('#pq');
+var plist = $('#plist');
+var psel = 0;
+var pfiltered = CMDS.slice();
+
+function fuzzy(cmd, q) {
+  q = q.toLowerCase().trim();
+  if (!q) return true;
+  if (cmd.label.toLowerCase().indexOf(q) >= 0) return true;
+  if (cmd.py.toLowerCase().indexOf(q) >= 0) return true;
+  var initials = cmd.py.split(/\s+/).filter(function (s) { return s.length && s.length <= 6; });
+  for (var i = 0; i < initials.length; i++) {
+    if (initials[i].indexOf(q) === 0) return true;
+  }
+  return false;
+}
+
+function renderPalette() {
+  var q = pq.value;
+  pfiltered = CMDS.filter(function (c) { return fuzzy(c, q); });
+  if (psel >= pfiltered.length) psel = 0;
+  if (!pfiltered.length) {
+    plist.innerHTML = '<div class="empty">没有匹配的命令</div>';
+    return;
+  }
+  var html = '';
+  var lastG = null;
+  pfiltered.forEach(function (c, i) {
+    if (c.g !== lastG) { html += '<div class="grp">' + c.g + '</div>'; lastG = c.g; }
+    html += '<div class="item' + (i === psel ? ' sel' : '') + '" data-i="' + i + '">' +
+      '<span>' + c.ico + '</span><span>' + c.label + '</span>' +
+      (c.k ? '<span class="k">' + c.k + '</span>' : '') + '</div>';
+  });
+  plist.innerHTML = html;
+}
+
+function openPalette() {
+  pmask.classList.add('show');
+  pq.value = '';
+  psel = 0;
+  renderPalette();
+  setTimeout(function () { pq.focus(); }, 10);
+}
+function closePalette() { pmask.classList.remove('show'); }
+
+document.addEventListener('keydown', function (e) {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault();
+    if (pmask.classList.contains('show')) closePalette(); else openPalette();
+    return;
+  }
+  if (!pmask.classList.contains('show')) return;
+  if (e.key === 'Escape') { e.preventDefault(); closePalette(); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); psel = Math.min(psel + 1, pfiltered.length - 1); renderPalette(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); psel = Math.max(psel - 1, 0); renderPalette(); }
+  else if (e.key === 'Enter') {
+    e.preventDefault();
+    var c = pfiltered[psel];
+    if (c) { closePalette(); toast('已执行命令：' + c.label); }
+  }
+});
+
+pq.addEventListener('input', function () { psel = 0; renderPalette(); });
+plist.addEventListener('click', function (e) {
+  var item = e.target.closest('.item');
+  if (!item) return;
+  var c = pfiltered[Number(item.dataset.i)];
+  if (c) { closePalette(); toast('已执行命令：' + c.label); }
+});
+pmask.addEventListener('mousedown', function (e) {
+  if (e.target === pmask) closePalette();
+});
+$('#openPaletteBtn').addEventListener('click', openPalette);
+
+/* ── 初始提示 ─────────────────────────────────────────── */
+showHint('');
+</script>
+</body>
+</html>
