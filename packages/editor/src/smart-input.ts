@@ -12,8 +12,18 @@
  * `true` when they handle the event, `false` to fall through to default.
  */
 
-import { EditorView, keymap } from '@codemirror/view';
+import { EditorView, keymap, ViewPlugin } from '@codemirror/view';
 import { type EditorState, type Extension } from '@codemirror/state';
+
+// --- IME composition guard ---------------------------------------------------
+
+/**
+ * Module-level composing flag. Shared by auto-pair and Chinese-pair keymaps
+ * so that pairing logic never fires on intermediate IME composition text.
+ *
+ * Safe for multi-editor instances: IME composition is browser-singleton.
+ */
+let composing = false;
 
 // --- Markdown shortcuts -----------------------------------------------------
 
@@ -25,9 +35,34 @@ export function handleMarkdownShortcut(view: EditorView): boolean {
   const line = view.state.doc.lineAt(view.state.selection.main.head);
   const textBeforeCursor = line.text.slice(0, view.state.selection.main.head - line.from);
 
-  // Heading shortcuts: `# ` through `###### ` — already valid markdown,
-  // just acknowledge the shortcut was handled.
-  if (/^#{1,6} $/.test(textBeforeCursor)) {
+  // Task list shortcuts — MUST be checked before plain bullet `- `.
+  const taskMatch = textBeforeCursor.match(/^(- \[[ xX]\] )/);
+  if (taskMatch) {
+    const from = line.from;
+    const to = view.state.selection.main.head;
+    view.dispatch({
+      changes: { from, to, insert: '' },
+      selection: { anchor: from },
+      scrollIntoView: true,
+    });
+    return true;
+  }
+
+  // Heading shortcuts: `# ` through `###### ` — strip the marker, leave caret
+  // at end of line so the user can keep typing the heading text.
+  const headingMatch = textBeforeCursor.match(/^(#{1,6} )/);
+  if (headingMatch) {
+    const marker = headingMatch[1];
+    const from = line.from;
+    const to = view.state.selection.main.head;
+    view.dispatch({
+      changes: { from, to, insert: '' },
+      selection: { anchor: from },
+      scrollIntoView: true,
+    });
+    // Store heading level as a marker for Tab/Shift+Tab handling.
+    const level = marker.trim().length;
+    setHeadingLevel(view, level);
     return true;
   }
 
@@ -38,6 +73,23 @@ export function handleMarkdownShortcut(view: EditorView): boolean {
 
   // Blockquote: `>` followed by space — already valid markdown.
   if (textBeforeCursor === '> ') {
+    return true;
+  }
+
+  // Callout folding: `> [!tip]-` or `> [!tip]+` or `> [!NOTE]-` etc.
+  const calloutFoldMatch = textBeforeCursor.match(/^> \[!([a-zA-Z]+)\]([+-]) $/);
+  if (calloutFoldMatch) {
+    const type = calloutFoldMatch[1];
+    const foldState = calloutFoldMatch[2]; // '-' = collapsed, '+' = expanded
+    const from = line.from;
+    const to = view.state.selection.main.head;
+    // Replace with a collapsible callout block.
+    const replacement = `> [!${type}]${foldState}\n> `;
+    view.dispatch({
+      changes: { from, to, insert: replacement },
+      selection: { anchor: from + replacement.length },
+      scrollIntoView: true,
+    });
     return true;
   }
 
@@ -54,6 +106,74 @@ export function handleMarkdownShortcut(view: EditorView): boolean {
   }
 
   return false;
+}
+
+// --- Heading level tracking --------------------------------------------------
+
+/**
+ * WeakMap to track the heading level at each cursor position.
+ * Used by Tab/Shift+Tab to promote/demote headings.
+ */
+const headingLevels = new WeakMap<EditorView, number>();
+
+function setHeadingLevel(view: EditorView, level: number): void {
+  headingLevels.set(view, level);
+}
+
+function getHeadingLevel(view: EditorView): number | undefined {
+  return headingLevels.get(view);
+}
+
+// --- Heading promote/demote (Tab / Shift+Tab) -------------------------------
+
+/**
+ * Handle Tab on a heading line: demote (H1→H2, etc.), clamped to H6.
+ * Returns true if the heading was demoted.
+ */
+export function demoteHeading(view: EditorView): boolean {
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  const currentLevel = getHeadingLevel(view);
+
+  if (currentLevel === undefined) return false;
+  if (currentLevel >= 6) return false;
+
+  const newLevel = currentLevel + 1;
+  const newMarker = '#'.repeat(newLevel) + ' ';
+  const from = line.from;
+  const to = from + currentLevel + 1; // old marker length (# + space)
+
+  view.dispatch({
+    changes: { from, to, insert: newMarker },
+    selection: { anchor: view.state.selection.main.head },
+    scrollIntoView: true,
+  });
+  headingLevels.set(view, newLevel);
+  return true;
+}
+
+/**
+ * Handle Shift+Tab on a heading line: promote (H2→H1, etc.), clamped to H1.
+ * Returns true if the heading was promoted.
+ */
+export function promoteHeading(view: EditorView): boolean {
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  const currentLevel = getHeadingLevel(view);
+
+  if (currentLevel === undefined) return false;
+  if (currentLevel <= 1) return false;
+
+  const newLevel = currentLevel - 1;
+  const newMarker = '#'.repeat(newLevel) + ' ';
+  const from = line.from;
+  const to = from + currentLevel + 1; // old marker length (# + space)
+
+  view.dispatch({
+    changes: { from, to, insert: newMarker },
+    selection: { anchor: view.state.selection.main.head },
+    scrollIntoView: true,
+  });
+  headingLevels.set(view, newLevel);
+  return true;
 }
 
 // --- Smart Enter ------------------------------------------------------------
@@ -349,29 +469,59 @@ const smartBackspaceKeymap = keymap.of([
 ]);
 
 /**
- * Keymap for auto-pairing.
+ * Keymap for auto-pairing. Skips when IME is composing.
  */
 const autoPairKeymap = keymap.of([
-  { key: '**', run: (view) => handleAutoPair(view, '**') },
-  { key: '`', run: (view) => handleAutoPair(view, '`') },
-  { key: '$', run: (view) => handleAutoPair(view, '$') },
-  { key: '[', run: (view) => handleAutoPair(view, '[') },
-  { key: '!', run: (view) => handleAutoPair(view, '![') },
+  { key: '**', run: (view) => (composing ? false : handleAutoPair(view, '**')) },
+  { key: '`', run: (view) => (composing ? false : handleAutoPair(view, '`')) },
+  { key: '$', run: (view) => (composing ? false : handleAutoPair(view, '$')) },
+  { key: '[', run: (view) => (composing ? false : handleAutoPair(view, '[')) },
+  { key: '!', run: (view) => (composing ? false : handleAutoPair(view, '![')) },
 ]);
 
 /**
- * Keymap for Chinese punctuation auto-pairing.
+ * Keymap for Chinese punctuation auto-pairing. Skips when IME is composing.
  */
 const chinesePairKeymap = keymap.of([
-  { key: '「', run: (view) => handleChinesePair(view, '「') },
-  { key: '『', run: (view) => handleChinesePair(view, '『') },
-  { key: '（', run: (view) => handleChinesePair(view, '（') },
-  { key: '【', run: (view) => handleChinesePair(view, '【') },
-  { key: '《', run: (view) => handleChinesePair(view, '《') },
-  { key: '〈', run: (view) => handleChinesePair(view, '〈') },
-  { key: '"', run: (view) => handleChinesePair(view, '"') },
-  { key: "'", run: (view) => handleChinesePair(view, "'") },
+  { key: '「', run: (view) => (composing ? false : handleChinesePair(view, '「')) },
+  { key: '『', run: (view) => (composing ? false : handleChinesePair(view, '『')) },
+  { key: '（', run: (view) => (composing ? false : handleChinesePair(view, '（')) },
+  { key: '【', run: (view) => (composing ? false : handleChinesePair(view, '【')) },
+  { key: '《', run: (view) => (composing ? false : handleChinesePair(view, '《')) },
+  { key: '〈', run: (view) => (composing ? false : handleChinesePair(view, '〈')) },
+  { key: '"', run: (view) => (composing ? false : handleChinesePair(view, '"')) },
+  { key: "'", run: (view) => (composing ? false : handleChinesePair(view, "'")) },
 ]);
+
+/**
+ * Keymap for heading promote/demote on Tab/Shift+Tab.
+ */
+const headingTabKeymap = keymap.of([
+  {
+    key: 'Tab',
+    run: (view) => demoteHeading(view),
+  },
+  {
+    key: 'Shift-Tab',
+    run: (view) => promoteHeading(view),
+  },
+]);
+
+/**
+ * ViewPlugin that tracks IME composition state via DOM events.
+ * Sets the module-level `composing` flag so auto-pair keymaps can skip
+ * during active composition.
+ */
+const compositionGuardPlugin = ViewPlugin.define(() => ({}), {
+  eventHandlers: {
+    compositionstart() {
+      composing = true;
+    },
+    compositionend() {
+      composing = false;
+    },
+  },
+});
 
 /**
  * Combined smart input extension.
@@ -384,5 +534,7 @@ export function smartInput(): Extension {
     smartBackspaceKeymap,
     autoPairKeymap,
     chinesePairKeymap,
+    headingTabKeymap,
+    compositionGuardPlugin,
   ];
 }
