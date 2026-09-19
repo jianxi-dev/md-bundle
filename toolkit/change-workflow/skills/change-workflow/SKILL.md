@@ -1,3 +1,7 @@
+<!-- change-workflow 工具包模板 —— 由 setup.sh 安装到目标项目 docs/agents/。
+     示例值（模块列表 / 看板 ID / 质量门禁命令）请按目标项目调整；
+     占位符 {{REPO}} / {{PROJECT_ID}} / {{STATUS_FIELD_ID}} / {{OPT_*}} 由 setup.sh 自动替换。 -->
+
 ---
 name: change-workflow
 description: 变更生命周期总编排——保证 change 全流程（spec 归一化 → openspec 规划 → 拆票 → 实施 → 提交/PR → 收尾 → 归档）按仓库规范执行。启动新 change / 接手进行中 change / 拆子票 / 任务级收尾 / change 级收尾检测时使用。
@@ -17,7 +21,7 @@ allowed-tools: Bash(gh:*|git:*|openspec:*|pnpm:*)
 
 ## 规范前置（每次进入强制执行）
 
-1. 读取规范索引：`docs/agents/task-tracking.md`、`issue-tracker.md`、`project-board.md`、`triage-labels.md`、`defect-workflow.md`
+1. 读取规范索引：`docs/agents/task-tracking.md`、`quality-gates.md`、`issue-tracker.md`、`project-board.md`、`triage-labels.md`、`defect-workflow.md`
 2. **核对各文档头部「最后更新/生效日期」**——以最新版为准；发现旧认知与规范相悖 → 以新规范为准并记入 learnings（规范在演进，禁止按旧认知操作）
 3. 术语速查（阶段 ≠ 工具 ≠ skill ≠ 脚本）：
 
@@ -100,7 +104,8 @@ flowchart TB
 | `openspec-apply-change` | G1 | 可选（按需） | 按 openspec 官方 tasks 指令流实施（`/opsx-apply`） |
 | `code-review` | G1 出口·步骤 1 | 必调（每任务后） | 双轴自审（Standards 代码规范 + Spec 需求符合，并行防互相掩盖）；通过才允许 commit |
 | `review` | G1 出口·步骤 2 | 条件调（risk-medium/high） | pre-landing 结构审查（SQL 安全/LLM trust boundary/条件副作用/scope drift）；risk-low 跳过 |
-| `qa` | 发版前（ship 前置）/日常按需 | **发版前必做**（ship-readiness 门禁）；日常 risk-high/核心模块收口前按需 | 浏览器真机验证（Quick/Standard/Exhaustive；分支上自动 diff-aware），产出 health score + ship-readiness；QA 截图贴入缺陷票作复现基线 |
+| `qa` | 发版前（ship 前置）/日常按需/**QG-7 兜底** | **发版前必做**（ship-readiness 门禁）；日常 risk-high/核心模块收口前按需；**change ≥6 票时按 QG-6 在集成 checkpoint 做轻量浏览器确认** | 浏览器真机验证（Quick/Standard/Exhaustive；分支上自动 diff-aware），产出 health score + ship-readiness；QA 截图贴入缺陷票作复现基线 |
+| `quality-gates`（规范，非 skill） | **G0 切片 + G1 出口 + G2 前置** | 必读（`docs/agents/quality-gates.md`） | QG-1..QG-7 七条硬门禁定义：QG-7 挂 G0 切片、QG-1/QG-3 挂 G0 拆票、QG-2/QG-4/QG-5 挂 G1 出口、QG-6 挂 G1 循环 |
 | `triage` | 缺陷状态机 | 条件调（缺陷流程内） | needs-triage → 验证/grill → ready-for-agent（附 agent brief）→ 修复 → 验证 → close |
 | `learn` | G3 | 必调 | 沉淀经验（模式/陷阱/偏好）到 learnings |
 | `sync-gbrain` | G3（learn 后立即） | 必调 | 刷新代码索引；push + PR 后立即，不等合并 |
@@ -122,6 +127,8 @@ flowchart TB
 
 - 以四要素为输入调用 propose，生成 proposal/design/tasks.md，并确认 `openspec status --change <名> --json` 中 tasks 就绪
 - **切片约束注入**（切片只切一次）：propose 生成 tasks.md 时要求每条 task 满足 to-tickets 垂直切片原则（贯穿 schema→API→UI→test 全层 / 独立可演示可验证 / 适配单个 context window / prefactor 单独成条；过大或横向的 task 在 propose 阶段即切细）
+- **QG-7 判据（强制前置）**：每条 task 必须能回答「**这张票做完，用户能否在页面上看到点东西？**」不能 → 该 task 切错了，就地重切后再进入阶段三
+- **QG-3 前置**：tasks.md 中每条导出新 API 的 task，必须写明**接线归属**（由哪条 task 负责接进 `apps/web`，及具体接线位置）；无归属的接线工作不得留白
 
 **阶段三 G0-POST（issue 发布面）｜执行：必调 to-tickets skill**
 
@@ -136,20 +143,31 @@ flowchart TB
   ITEM=$(gh project item-add <N> --owner <owner> --url <issue-url> --format json --jq .id)
   gh project item-edit --project-id <PROJECT_ID> --id "$ITEM" --field-id <STATUS_FIELD_ID> --single-select-option-id <READY_OPTION_ID>
   ```
-  **看板常量从项目根 `.change-workflow.conf` 读取**（由 setup.sh 生成）：`PROJECT_ID` / `STATUS_FIELD_ID` / `OPT_READY` / `OPT_DONE` / `OPT_BACKLOG` / `OPT_IN_PROGRESS`
+  本仓常量：project=`{{PROJECT_ID}}`；Status 字段=`{{STATUS_FIELD_ID}}`；选项 Ready=`a50766ca` / Done=`4cbd348f`（Backlog=`8c7f2979` / In Progress=`a7011ca0`）
 - **对账自证**：`gh issue list --label ready-for-agent --state open --json number,title --jq '.[] | select(.title | startswith("[change=<change 名>/"))'` 数量 == tasks.md task 数（spec issue 标题不含该前缀天然排除）；逐条核对 task 编号 ↔ issue 标题；**禁止占位符原样传入命令**
 
 ### G1 实施 gate｜执行：implement skill（总编排，task-tracking §7.1 ✅ 必用）
 
 - **第 0 步·建票级分支**：`git checkout -b feat/<slug> origin/main`（基于当时 origin/main，含已合并前票代码；被 Blocked by 卡住的票不得提前开工）
+- **第 0.5 步·QG 前置校验**（开工前，不合格即停）：
+  - **QG-1**：AC 是否含浏览器可观测陈述（`打开页面 … 之后 …`）？否则拒开工，先补 AC
+  - **QG-3**：本票导出的新 API 是否已指定接线票与接线位置？否则拒开工
 - implement 按 spec/tickets 实施，**内嵌 tdd**（红→绿 + 垂直切片）+ 定期 typecheck/test
-- 质量门禁硬门禁：按 `.change-workflow.conf` 的 `CMD_TYPECHECK` / `CMD_LINT` / `CMD_TEST` 执行（未配置则跳过；涉 e2e 另跑 `CMD_E2E`）
+- **QG-4 测试约束**：测试必须驱动**真实链路**（keydown/keymap/事件/`EditorView` 公共 API），禁止直接调内部函数；测可见性须断言**计算样式**，禁止断言「元素存在」
+- 四件套硬门禁：`pnpm -r typecheck` / `pnpm -r lint` / `pnpm -r test`（涉 e2e 另跑）
+- **QG-2 e2e 硬门禁**：用户可见变更**必须**新增/扩展 `apps/web/test/*.spec.ts`；票上标 `no-ui-impact` 者豁免
+- **QG-6 集成 checkpoint**：change ≥6 票时，每完成 ≤4 票执行一次——合并到集成分支 → `pnpm -r build` → **浏览器打开一次** → 记录「用户现在能看到什么」
 - commit 引用 `fixes #N` / `refs #N`
 - **任何「flaky」结论必须附复核证据**（重跑输出）；复核确认真实回归 → 进入缺陷处理机制（§7）
 - **G1 出口（顺序固定，全部通过才允许 commit）**：
-  1. `code-review` 双轴（Standards + Spec）——每任务后必做
+  1. `code-review` 双轴（Standards + Spec）——每任务后必做，**须逐条对照 QG-4 检查测试是否驱动真实路径**
   2. `review`（pre-landing 结构审查）——仅 risk-medium/high 追加
-  3. 通过后 → G2
+  3. **QG-5 独立验证**：验证者（orchestrator，非实施者）跑**自己的探针**，把**原始输出**（标准输出 / DOM 快照 / 计算样式值 / 解析错误数）**粘贴到票上**；未附原始证据的「已完成」不予采信
+  4. 通过后 → G2
+
+> **QG-5 为何强制**（2026-09-20）：修复期抓出 **4 个「自测全绿但实际无效」**的交付，**4/4 全部由独立探针抓出，零例外**。自证无效。本地 e2e 单文件实测约 **16 秒**，成本极低。
+>
+> **QG-2 为何强制**（2026-09-20）：`editor-v2` change 的 9 个 PR 中 **8 个对 `apps/web/src` 与 e2e 双双零改动**，12 张票全部打勾、CI 全绿，而用户打开页面**看不到任何变化**。完整根因见 `docs/agents/retro-editor-v2-quality.md`。
 
 ### G2 提交/PR gate｜执行：pr-automation.sh（脚本机械动作）
 
@@ -204,12 +222,26 @@ flowchart TB
 
 ## 缺陷处理机制（§10.11 要点，异常发现时先二分）
 
+> **DQ-1..DQ-8 挂载点**：本节的每个环节均受 `docs/agents/quality-gates.md` §三（缺陷处理质量门禁）约束。下列每条均标注对应 DQ。
+
 - **判定**：流程偏差 → 自愈回路；产品缺陷（真实回归/行为不符 spec/崩溃）→ 本机制
 - **填报三通道**：① 聊天直报 → agent 自动补全（推断模块/级别/复现，回编号）② 手动走 bug.yml（自动带 needs-triage）③ 批量录入 → 自动拆分 N 票
 - **建票**：bug.yml 模板（截图/附件作复现基线）；标题 `[bug]`（涉及 change 的再带 `[change=<名>]`）；标签 `bug, p<级别>, <模块>, needs-triage`；gh issue list 唯一事实来源（禁止本地 bug-registry 缓存）
-- **状态机**：needs-triage → 验证/grill（triage skill，产 agent brief）→ ready-for-agent → 修复 → 验证 → close
-- **分流**：P0/P1 阻塞且小修复（<30 行、在当前 PR 文件内）→ 当前 PR 内修复（refs#N + fixes#N）；其余 → fix 线（**两种承载**：有并行 feat 线 → worktree 隔离；无（`git branch --list 'feat/*'` 非空且 OPEN PR 判定）→ 主工作区直建）——P0/P1 插队、冲突先合 fix
-- **修复闭环**：复现（红）→ 建 fix/<slug> → 修复（绿）→ 四件套 → code-review → G2 `--role fix --resume-branch` 收口（fixes #N 关票）→ 回归验证重跑发现场景
+- **状态机（DQ-1，不可跳过）**：needs-triage → 验证/grill（triage skill，产 agent brief）→ ready-for-agent → 修复 → 验证 → close
+  - **开工门禁**：票上必须已移除 `needs-triage`、已加 `ready-for-agent`、**且存在 triage brief 评论**。三者缺一 → **禁止开工**（自愈：补跑 triage）
+  - 反例：`#187` 全程 `needs-triage` 且评论数 0 却被直接修复
+- **根因确认（DQ-2）**：票面的「修复方向 / 建议方案」是**假设不是结论**。开工前须独立复现 + 定位根因；与票面不符 → **在票上更正实际根因**（含与票面假设的对照）
+  - 反例：`#187` 票面指向「拆分下载预算」，实测真根因是陈旧断言
+- **分流（DQ-6 例外）**：P0/P1 阻塞且小修复（<30 行、在当前 PR 文件内）→ 当前 PR 内修复（refs#N + fixes#N）；其余 → fix 线（**两种承载**：有并行 feat 线 → worktree 隔离；无（`git branch --list 'feat/*'` 非空且 OPEN PR 判定）→ 主工作区直建）——P0/P1 插队、冲突先合 fix
+  - **DQ-6 例外**：N 票**同根因/同文件/同修复** → 允许 1 PR 关 N 票，但 PR body 须**逐票 `fixes #N`** + 说明共同根因
+- **修复闭环（DQ-3 / DQ-5）**：复现（**先红**，附失败原始输出）→ 建 fix/<slug> → 修复（绿，附通过原始输出）→ 四件套 → code-review → G2 `--role fix --resume-branch` 收口（fixes #N 关票）→ **回归验证重跑发现场景**
+  - **DQ-3**：未附「红」证据的修复不予合并
+  - **DQ-5**：关闭前由**验证者（非修复者）**跑自己的探针，把**原始输出**粘贴到票上；「测试通过/已修复/冒烟正常」是结论不是证据
+- **flaky 处置（DQ-4）**：判为 flaky **必须给出「为何间歇」的机制解释**，不得以重跑通过结案。**若测试吞掉断言失败（继续执行模式），flaky 可能掩盖确定性损坏** → 必须逐步核对子步骤结论
+  - 反例：`#187` 被判 flaky，真相是步骤 4/7 **确定性失败**吃掉 25s 预算，使总时长恰好跨过 120s 线而表现为「间歇」
+- **收尾（DQ-8）**：关闭票时**移除 `needs-triage` / `ready-for-agent`**（关闭票残留会污染 G3 的 frontier 查询）；P0/P1 部分交付 → 票**保持 OPEN** + 评论列出已交付增量与剩余项
+- **升级（DQ-7）**：**≥3 张缺陷票指向同一流程环节** → 不得只逐票修复，必须反查该环节并**产出规范修订**（QG/DQ 条目或流程文档）留痕
+  - 反例：`editor-v2` 的 10 张票全部指向同一环节，却逐票修复至用户要求复盘才反查
 
 ## 速查命令
 

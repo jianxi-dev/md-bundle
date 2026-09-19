@@ -15,6 +15,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/render.sh
+source "$SCRIPT_DIR/lib/render.sh"
+
 TARGET="$(pwd)"
 ASSUME_YES=0
 DRY_RUN=0
@@ -102,7 +105,12 @@ elif [[ "$DRY_RUN" == "1" ]]; then
 else
   cat > .change-workflow.conf <<EOF
 # change-workflow 配置（由 setup.sh 生成于 $(date +%F)）
+# 升级工具包：在目标仓库运行 <工具包路径>/update.sh（本文件由 setup/update 共同维护）
+TOOLKIT_VERSION="$(tr -d '[:space:]' < "$SCRIPT_DIR/VERSION")"
+EFFECTIVE_DATE="$(date +%F)"
 REPO="$REPO"
+OWNER="$OWNER"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 DEFAULT_BRANCH="$DEFAULT_BRANCH"
 PROJECT_ID="$PROJECT_ID"
 STATUS_FIELD_ID="$STATUS_FIELD_ID"
@@ -132,43 +140,39 @@ EOF
 fi
 
 log "安装文件"
-install_file() {
-  local src="$1" dst="$2"
+install_rendered() {
+  local tpl_rel="$1" dst_rel="$2"
+  local dst="${dst_rel/__SKILLS_DIR__/$SKILLS_DIR}"
+  dst="${dst/__DOCS_DIR__/$DOCS_DIR}"
   if [[ -e "$dst" ]]; then
-    log "⚠️  已存在，跳过: ${dst}（如需覆盖请先备份删除）"
+    log "⚠️  已存在，跳过: ${dst}（升级已有安装请用 update.sh）"
     return 0
   fi
   act mkdir -p "$(dirname "$dst")"
-  act cp "$src" "$dst"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo "    [dry-run] 渲染安装 $dst"
+  else
+    cw_render "$SCRIPT_DIR/$tpl_rel" "$dst"
+  fi
 }
 
-install_file "$SCRIPT_DIR/skills/change-workflow/SKILL.md" "$SKILLS_DIR/change-workflow/SKILL.md"
-install_file "$SCRIPT_DIR/scripts/pr-automation.sh"        "scripts/pr-automation.sh"
-install_file "$SCRIPT_DIR/workflows/change-closure-signal.yml" ".github/workflows/change-closure-signal.yml"
+while IFS='|' read -r tpl_rel dst_rel; do
+  [[ -n "$tpl_rel" ]] || continue
+  install_rendered "$tpl_rel" "$dst_rel"
+done < <(cw_list_files)
+
 act chmod +x scripts/pr-automation.sh 2>/dev/null || true
 
-for f in "$SCRIPT_DIR"/docs/agents/*.md; do
-  base="$(basename "$f")"
-  dst="$DOCS_DIR/$base"
-  if [[ -e "$dst" ]]; then
-    log "⚠️  已存在，跳过: $dst"
-    continue
-  fi
-  act mkdir -p "$DOCS_DIR"
-  if [[ "$DRY_RUN" == "1" ]]; then
-    echo "    [dry-run] 模板替换+拷贝 $dst"
-  else
-    sed -e "s|{{REPO}}|$REPO|g" \
-        -e "s|{{OWNER}}|$OWNER|g" \
-        -e "s|{{PROJECT_ID}}|$PROJECT_ID|g" \
-        -e "s|{{STATUS_FIELD_ID}}|$STATUS_FIELD_ID|g" \
-        -e "s|{{OPT_BACKLOG}}|$OPT_BACKLOG|g" \
-        -e "s|{{OPT_READY}}|$OPT_READY|g" \
-        -e "s|{{OPT_IN_PROGRESS}}|$OPT_IN_PROGRESS|g" \
-        -e "s|{{OPT_DONE}}|$OPT_DONE|g" \
-        "$f" > "$dst"
-  fi
-done
+# 基线 manifest：记录安装后各受管文件的 sha256，供 update.sh 判定「是否被本地修改」。
+if [[ "$DRY_RUN" != "1" ]]; then
+  : > .change-workflow.manifest
+  while IFS='|' read -r tpl_rel dst_rel; do
+    [[ -n "$tpl_rel" ]] || continue
+    dst="${dst_rel/__SKILLS_DIR__/$SKILLS_DIR}"
+    dst="${dst/__DOCS_DIR__/$DOCS_DIR}"
+    [[ -f "$dst" ]] && printf '%s  %s\n' "$(cw_sha "$dst")" "$dst" >> .change-workflow.manifest
+  done < <(cw_list_files)
+fi
 
 if [[ -f AGENTS.md ]] && ! grep -q "change-workflow" AGENTS.md; then
   log "更新 AGENTS.md 索引"
@@ -181,7 +185,25 @@ if [[ -f AGENTS.md ]] && ! grep -q "change-workflow" AGENTS.md; then
 
 启动新 change、接手进行中 change、拆票、提交/PR、收尾与归档，一律经 `.opencode/skills/change-workflow/`（G0-G4 五 gate + fix-first 自愈回路）。拆票/commit/闭环规范见 `docs/agents/task-tracking.md`（1 task = 1 ticket，1 issue = 1 PR）；看板入列 API 见 `docs/agents/project-board.md`。缺陷流程见 `docs/agents/defect-workflow.md`。
 
-> 配置：`.change-workflow.conf`（看板 ID / 标签 / 门禁命令 / 目录约定）
+> 配置：`.change-workflow.conf`（看板 ID / 标签 / 门禁命令 / 目录约定）；升级工具包：`<工具包路径>/update.sh`。
+
+### Quality gates（质量门禁）
+
+任何 change / 缺陷修复的**票内容与完成判据**必须满足 `docs/agents/quality-gates.md`：**QG-1..QG-7**（变更开发侧）+ **DQ-1..DQ-8**（缺陷处理侧）。
+
+**变更侧核心三条**：
+
+- **QG-1 用户层 AC**：面向用户的票，AC 必须含浏览器可观测陈述；AC 能在不改应用层的前提下被满足 → 票切错了
+- **QG-2 e2e 绑定**：用户可见变更必须新增/扩展 e2e 规格，否则票上须标 `no-ui-impact`
+- **QG-5 独立验证**：完成声明必须附**验证者自己探针的原始输出**；「测试通过」是结论不是证据，不予采信
+
+**缺陷侧核心三条**：
+
+- **DQ-1 triage 不可跳过**：开工前三条件齐备（移除 `needs-triage` + 加 `ready-for-agent` + 票上有 triage brief 评论），缺一禁止开工
+- **DQ-2 根因独立确认**：票面的「修复方向」是**假设不是结论**；与实测不符须在票上更正
+- **DQ-3 先红后绿**：修复前必须有可复现的失败证据并粘贴到票上；未附「红」不予合并
+
+> 由来：一次真实交付失败的复盘 —— 9 个 PR 中 8 个对应用层与 e2e 双双零改动，12 张票全打勾、CI 全绿，而用户打开页面看不到任何变化；缺陷侧随后暴露 4 个「自测全绿但实际无效」的假修复（4/4 由独立探针推翻）。完整条目见 `docs/agents/quality-gates.md`。
 EOF
   fi
 elif [[ ! -f AGENTS.md ]]; then

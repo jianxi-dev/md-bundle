@@ -1,3 +1,7 @@
+<!-- change-workflow 工具包模板 —— 由 setup.sh 安装到目标项目 docs/agents/。
+     示例值（模块列表 / 看板 ID / 质量门禁命令）请按目标项目调整；
+     占位符 {{REPO}} / {{PROJECT_ID}} / {{STATUS_FIELD_ID}} / {{OPT_*}} 由 setup.sh 自动替换。 -->
+
 # 事故复盘：合并收尾切回旧分支导致本地工作流失效
 
 > 适用：本仓库所有涉及分支合并/跨仓库同步的收尾操作
