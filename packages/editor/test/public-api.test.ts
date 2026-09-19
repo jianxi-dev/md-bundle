@@ -37,6 +37,19 @@ import {
   smartBackspace,
   handleAutoPair,
   handleChinesePair,
+  getHeadings,
+  buildTree,
+  computeSections,
+  moveSection,
+  extractSubtree,
+  flattenTree,
+  chapterReorgExtension,
+  type HeadingEntry,
+  type TreeNode,
+  type Section,
+  type MoveResult,
+  type FlatNode,
+  type DragState,
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
   type MarkdownEditorComponentProps,
@@ -46,11 +59,24 @@ import {
   type EditorDecorationsOptions,
   type ImageResolver,
   type ImageCallbacks,
+  lintStructure,
+  structureLinterExtension,
+  commandPaletteKeymap,
+  openCommandPalette,
+  closeCommandPalette,
+  paletteSelectNext,
+  paletteSelectPrev,
+  paletteApply,
+  paletteClose,
+  floatingToolbar,
   type Block,
   type BlockType,
   type Command,
   type ToolbarContext,
   type ToolbarButton,
+  type Diagnostic,
+  type LintResult,
+  type FloatingToolbarOptions,
 } from '../src/index';
 
 function installPolyfills(): void {
@@ -136,6 +162,19 @@ describe('public export contract', () => {
     expect(typeof CommandRegistry).toBe('function');
   });
 
+  it('exports the chapter reorganization API surface', () => {
+    expect(typeof getHeadings).toBe('function');
+    expect(typeof buildTree).toBe('function');
+    expect(typeof computeSections).toBe('function');
+    expect(typeof moveSection).toBe('function');
+    expect(typeof extractSubtree).toBe('function');
+    expect(typeof flattenTree).toBe('function');
+    expect(typeof chapterReorgExtension).toBe('function');
+    // Type-only exports must be referenced so a removal breaks compilation.
+    const _t: [HeadingEntry, TreeNode, Section, MoveResult, FlatNode, DragState] | null = null;
+    expect(_t).toBeNull();
+  });
+
   it('exports the toolbar API surface', () => {
     expect(typeof contextToolbar).toBe('function');
     expect(typeof updateToolbar).toBe('function');
@@ -151,6 +190,29 @@ describe('public export contract', () => {
     expect(typeof smartBackspace).toBe('function');
     expect(typeof handleAutoPair).toBe('function');
     expect(typeof handleChinesePair).toBe('function');
+  });
+
+  it('exports the structure linter API surface', () => {
+    expect(typeof lintStructure).toBe('function');
+    expect(typeof structureLinterExtension).toBe('function');
+    const _t: [Diagnostic, LintResult] | null = null;
+    expect(_t).toBeNull();
+  });
+
+  it('exports the command palette API surface', () => {
+    expect(typeof commandPaletteKeymap).toBe('function');
+    expect(typeof openCommandPalette).toBe('function');
+    expect(typeof closeCommandPalette).toBe('function');
+    expect(typeof paletteSelectNext).toBe('function');
+    expect(typeof paletteSelectPrev).toBe('function');
+    expect(typeof paletteApply).toBe('function');
+    expect(typeof paletteClose).toBe('function');
+  });
+
+  it('exports the floating toolbar API surface', () => {
+    expect(typeof floatingToolbar).toBe('function');
+    const _opts: FloatingToolbarOptions = {};
+    expect(_opts).toBeDefined();
   });
 });
 

@@ -44,6 +44,21 @@ export {
   handleAutoPair,
   handleChinesePair,
 } from './smart-input';
+export {
+  getHeadings,
+  buildTree,
+  computeSections,
+  moveSection,
+  extractSubtree,
+  flattenTree,
+  chapterReorgExtension,
+  type HeadingEntry,
+  type TreeNode,
+  type Section,
+  type MoveResult,
+  type FlatNode,
+  type DragState,
+} from './chapter-reorg';
 export { lintStructure, type Diagnostic, type LintResult } from './structure-linter';
 export { structureLinterExtension } from './structure-linter-extension';
 export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';

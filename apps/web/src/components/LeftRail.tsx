@@ -53,19 +53,22 @@ function severityIcon(severity: Diagnostic['severity']): string {
 
 function StructurePanel({
   editorView,
+  docKey,
   onScrollToPosition,
 }: {
   editorView: import('@md-bundle/editor').MarkdownEditorHandle['view'] | null | undefined
+  /** 文档源文本——editorView 对象身份稳定，必须靠它驱动重算，否则面板永远显示首次诊断。 */
+  docKey: string
   onScrollToPosition?: (pos: number) => void
 }): JSX.Element {
   const diagnostics = useMemo(() => {
-    if (!editorView) return []
+    if (!editorView || !docKey) return []
     try {
       return lintStructure(editorView.state).diagnostics
     } catch {
       return []
     }
-  }, [editorView])
+  }, [editorView, docKey])
 
   if (diagnostics.length === 0) {
     return (
@@ -297,6 +300,7 @@ function RailContent({
         ) : tab === 'structure' ? (
           <StructurePanel
             editorView={editorView}
+            docKey={documentText}
             onScrollToPosition={onScrollToPosition}
           />
         ) : (

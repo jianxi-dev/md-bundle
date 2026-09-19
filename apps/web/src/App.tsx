@@ -11,6 +11,7 @@ import {
   floatingToolbar,
   commandPaletteKeymap,
   structureLinterExtension,
+  chapterReorgExtension,
   editorDecorations,
   type MarkdownEditorHandle,
 } from '@md-bundle/editor'
@@ -122,6 +123,7 @@ const EDITOR_EXT = [
   floatingToolbar(),
   commandPaletteKeymap(),
   structureLinterExtension(),
+  chapterReorgExtension(),
 ]
 
 /** 窄屏检测 hook（<768px）：matchMedia 监听，响应式断点切换。 */
@@ -1078,27 +1080,27 @@ export default function App() {
 
             {/* 工作区：三模式 + 左栏 + 大纲 */}
             <div className="flex min-h-0 flex-1 gap-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-               <LeftRail
-                 assets={activeTab.assets}
-                 documentText={activeTab.source}
-                 onDelete={handleDelete}
-                 onReplace={handleReplace}
-                 onOpenFile={(file, handle) => void openFileObject(file, handle)}
-                 activeTabName={activeTab.name}
-                 recentDocs={recentDocsRef.current}
-                 onOpenRecentDoc={openRecentDoc}
-                 open={railOpen}
-                 onToggle={toggleRail}
-                 editorView={editorViewState}
-                 onScrollToPosition={(pos) => {
-                   const view = editorViewRef.current
-                   if (!view) return
-                   view.dispatch({
-                     selection: { anchor: pos },
-                     scrollIntoView: true,
-                   })
-                 }}
-               />
+                <LeftRail
+                  assets={activeTab.assets}
+                  documentText={activeTab.source}
+                  onDelete={handleDelete}
+                  onReplace={handleReplace}
+                  onOpenFile={(file, handle) => void openFileObject(file, handle)}
+                  activeTabName={activeTab.name}
+                  recentDocs={recentDocsRef.current}
+                  onOpenRecentDoc={openRecentDoc}
+                  open={railOpen}
+                  onToggle={toggleRail}
+                  editorView={editorViewState}
+                  onScrollToPosition={(pos) => {
+                    const view = editorViewRef.current
+                    if (!view) return
+                    view.dispatch({
+                      selection: { anchor: pos },
+                      scrollIntoView: true,
+                    })
+                  }}
+                />
 
               <div
                 data-testid="workspace-modes"
