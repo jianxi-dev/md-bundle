@@ -149,13 +149,21 @@ Issue 和 spec 统一以 GitHub issue 形式存在于 `jianxi-dev/md-bundle`。�
 
 ### Quality gates（质量门禁，2026-09-20 起强制）
 
-任何 change / 缺陷修复的**票内容与完成判据**必须满足 `docs/agents/quality-gates.md` 的 QG-1..QG-7。核心三条：
+任何 change / 缺陷修复的**票内容与完成判据**必须满足 `docs/agents/quality-gates.md`：**QG-1..QG-7**（变更开发侧）+ **DQ-1..DQ-8**（缺陷处理侧）。
+
+**变更侧核心三条**：
 
 - **QG-1 用户层 AC**：面向用户的票，AC 必须含「打开页面 … 之后 …」格式的浏览器可观测陈述；AC 能在不改 `apps/web` 的前提下被满足 → 票切错了
 - **QG-2 e2e 绑定**：用户可见变更必须新增/扩展 `apps/web/test/*.spec.ts`，否则票上须标 `no-ui-impact`
 - **QG-5 独立验证**：完成声明必须附**验证者自己探针的原始输出**；「测试通过」是结论不是证据，不予采信
 
-> 由来：editor-v2 change 的 9 个 PR 中 8 个对 `apps/web` 与 e2e 双双零改动，12 张票全打勾、CI 全绿，而用户打开页面看不到任何变化。根因分析与全部七条 QG 见 `docs/agents/quality-gates.md` 与 `docs/agents/retro-editor-v2-quality.md`。
+**缺陷侧核心三条**：
+
+- **DQ-1 triage 不可跳过**：开工前三条件齐备（移除 `needs-triage` + 加 `ready-for-agent` + 票上有 triage brief 评论），缺一禁止开工
+- **DQ-2 根因独立确认**：票面的「修复方向」是**假设不是结论**；与实测不符须在票上更正
+- **DQ-3 先红后绿**：修复前必须有可复现的失败证据并粘贴到票上；未附「红」不予合并
+
+> 由来：editor-v2 change 的 9 个 PR 中 8 个对 `apps/web` 与 e2e 双双零改动，12 张票全打勾、CI 全绿，而用户打开页面看不到任何变化。缺陷侧随后暴露：4 个「自测全绿但实际无效」的假修复（4/4 由独立探针推翻）、一张票**未经 triage** 即被修复（#187）、一张票的**「修复方向」与真根因不符**（#187 票面指向预算拆分，实测为陈旧断言）。根因分析与全部条目见 `docs/agents/quality-gates.md` 与 `docs/agents/retro-editor-v2-quality.md`。
 
 ### Defect workflow（缺陷流程）
 
