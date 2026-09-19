@@ -6,6 +6,8 @@ const orderedListRegex = /^\d+\.\s/m;
 const taskListRegex = /^- \[[ xX]\]\s/m;
 
 const LIST_CLASS = 'cm-list';
+const LIST_ORDERED_CLASS = 'cm-list-ordered';
+const LIST_MARKER_CLASS = 'cm-list-marker';
 const TASK_DONE_CLASS = 'cm-task-done';
 const TASK_PENDING_CLASS = 'cm-task-pending';
 
@@ -70,16 +72,17 @@ export function createListDecorations(
     } else if (orderedListRegex.test(line)) {
       const match = line.match(orderedListRegex);
       const markerLen = match ? match[0].length : 0;
+      // Ordered list markers (1., 2., …) are semantic content — never replaced,
+      // always visible. Inactive: plain marker; active: faint low-opacity marker.
       if (markerLen > 0) {
-        if (isActive) {
-          decorations.push(
-            Decoration.mark({ class: 'cm-list-marker-active' }).range(pos, pos + markerLen),
-          );
-        } else {
-          decorations.push(Decoration.replace({}).range(pos, pos + markerLen));
-        }
+        const markerClass = isActive
+          ? `${LIST_MARKER_CLASS} cm-list-marker-active`
+          : LIST_MARKER_CLASS;
+        decorations.push(
+          Decoration.mark({ class: markerClass }).range(pos, pos + markerLen),
+        );
       }
-      decorations.push(Decoration.line({ class: `${LIST_CLASS} ${isActive ? 'cm-block-active' : 'cm-block-inactive'}` }).range(pos));
+      decorations.push(Decoration.line({ class: `${LIST_CLASS} ${LIST_ORDERED_CLASS} ${isActive ? 'cm-block-active' : 'cm-block-inactive'}` }).range(pos));
     }
 
     pos += lineLen;
