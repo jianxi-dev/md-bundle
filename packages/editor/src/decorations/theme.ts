@@ -78,7 +78,9 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     transition: 'opacity 100ms ease-out',
   },
 
-  // ── Heading marker badge (e.g. [H1]) ─────────────────────────────────
+  // ── Heading marker (raw "# " prefix) ─────────────────────────────────
+  // Non-active: marker hidden (opacity 0) so only rendered heading text shows.
+  // display:inline-block + fixed line-height preserves layout (no CLS).
   '.cm-content .cm-heading-marker': {
     display: 'inline-block',
     fontSize: '0.72em',
@@ -86,22 +88,17 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     letterSpacing: '0.02em',
     lineHeight: '1',
     color: 'var(--mdb-primary-fg)',
-    backgroundColor: 'var(--mdb-selection)',
-    borderRadius: '4px',
-    padding: '0.15em 0.4em',
     marginRight: '0.35em',
     verticalAlign: 'middle',
     userSelect: 'none',
-    // Non-active: fully visible badge replaces the ## prefix.
-    opacity: '1',
+    opacity: '0',
     transition: 'opacity 120ms ease-out',
   },
 
   // Active block: heading marker shown at low opacity (semantic reveal).
   '.cm-content .cm-heading-marker-active': {
     opacity: '0.4',
-    backgroundColor: 'transparent',
-    padding: '0',
+    fontFamily: 'var(--mdb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
     marginRight: '0.25em',
   },
 
@@ -128,7 +125,7 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     paddingInlineStart: '0.35em',
     lineHeight: '1.7em',
   },
-  '.cm-content .cm-line.cm-list::before': {
+  '.cm-content .cm-line.cm-list:not(.cm-list-ordered):not(.cm-task-done):not(.cm-task-pending)::before': {
     content: "'•  '",
     color: 'var(--mdb-muted)',
     // Fade in/out when toggling between active/inactive.
@@ -141,6 +138,15 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-line.cm-task-pending::before': {
     content: "'○  '",
     color: 'var(--mdb-muted)',
+  },
+
+  // Ordered-list digit marker: always visible (a digit IS the marker).
+  '.cm-content .cm-list-marker': {
+    color: 'var(--mdb-primary-fg)',
+    fontFamily: 'var(--mdb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
+    fontSize: '0.9em',
+    marginInlineEnd: '0.25em',
+    transition: 'opacity 100ms ease-out',
   },
 
   // Active list block: show the raw marker at low opacity.

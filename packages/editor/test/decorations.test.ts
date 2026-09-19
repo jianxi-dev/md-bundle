@@ -215,6 +215,64 @@ describe('editorDecorations', () => {
     });
   });
 
+  // --- Regression: #171 heading marker hidden in non-active blocks ---
+
+  describe('heading marker visibility (regression #171)', () => {
+    it('emits non-active marker class when cursor is outside the heading block', () => {
+      view = createMarkdownEditor(parent, {
+        value: '# Title\n\nParagraph',
+        extensions: [editorDecorations()],
+      }).view;
+
+      // Cursor on the paragraph line (outside heading block)
+      view.dispatch({ selection: { anchor: 10 } });
+      view.requestMeasure();
+
+      // Marker span exists but carries no active class → non-active state.
+      const marker = view.dom.querySelector('.cm-heading-marker');
+      expect(marker).not.toBeNull();
+      expect(marker?.classList.contains('cm-heading-marker-active')).toBe(false);
+    });
+
+    it('emits active marker class when cursor is inside the heading block', () => {
+      view = createMarkdownEditor(parent, {
+        value: '# Title',
+        extensions: [editorDecorations()],
+      }).view;
+
+      // Cursor inside the heading line (position 1 = within "# ")
+      view.dispatch({ selection: { anchor: 1 } });
+      view.requestMeasure();
+
+      const marker = view.dom.querySelector('.cm-heading-marker-active');
+      expect(marker).not.toBeNull();
+    });
+  });
+
+  // --- Regression: #176 ordered list must not render bullet ---
+
+  describe('ordered list marker (regression #176)', () => {
+    it('applies cm-list-ordered class to ordered list lines', () => {
+      view = createMarkdownEditor(parent, {
+        value: '1. first\n2. second',
+        extensions: [editorDecorations()],
+      }).view;
+
+      const orderedLines = view.dom.querySelectorAll('.cm-list-ordered');
+      expect(orderedLines.length).toBe(2);
+    });
+
+    it('unordered lists do not get cm-list-ordered class', () => {
+      view = createMarkdownEditor(parent, {
+        value: '- item one\n- item two',
+        extensions: [editorDecorations()],
+      }).view;
+
+      const orderedLines = view.dom.querySelectorAll('.cm-list-ordered');
+      expect(orderedLines.length).toBe(0);
+    });
+  });
+
   // --- Quote decorations ---
 
   describe('quote decoration', () => {
@@ -407,7 +465,7 @@ describe('editorDecorations', () => {
 
       // Write evidence — tests count must match actual it() calls in this file
       const evidence = {
-        tests: 22,
+        tests: 26,
         ...facts,
       };
       const dir = path.resolve(
