@@ -18,6 +18,7 @@
 import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { getBlockAt, getBlocks } from './block-model';
+import { toggleStructureLinter } from './structure-linter-extension';
 
 // --- Wrapping helpers -------------------------------------------------------
 
@@ -494,9 +495,9 @@ export function registerEditorCommands(): void {
     icon: '✓',
     group: '体检',
     execute: (view) => {
-      // The linter runs automatically via the extension; this entry exists so
-      // the command palette can surface "结构体检" as a command row.
-      void view;
+      // Issue #206: inline diagnostics are opt-in, so this command is the
+      // real switch — the always-on surface is the left-rail panel.
+      toggleStructureLinter(view);
     },
   });
 }

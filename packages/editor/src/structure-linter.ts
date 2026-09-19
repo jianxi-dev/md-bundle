@@ -464,12 +464,12 @@ export function lintStructure(state: EditorState): LintResult {
 // --- Editor integration: decoration extension ---------------------------------
 
 /**
- * CM6 extension that runs the structure linter and displays diagnostics
- * as inline decorations (underline + gutter markers).
+ * CM6 extension that runs the structure linter and can display diagnostics
+ * as inline decorations.
  *
- * The extension creates a StateField that holds the current diagnostics
- * and a DecorationSet. On every document change, the linter re-runs and
- * the decorations update.
+ * Inline rendering is OFF by default (issue #206) and opt-in via the
+ * "结构体检" command; `lintStructure` above remains the always-available
+ * source for the left-rail panel.
  *
  * Usage:
  * ```ts
