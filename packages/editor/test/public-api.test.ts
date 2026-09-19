@@ -69,6 +69,7 @@ import {
   paletteApply,
   paletteClose,
   floatingToolbar,
+  editorKeybindings,
   type Block,
   type BlockType,
   type Command,
@@ -213,6 +214,10 @@ describe('public export contract', () => {
     expect(typeof floatingToolbar).toBe('function');
     const _opts: FloatingToolbarOptions = {};
     expect(_opts).toBeDefined();
+  });
+
+  it('exports the editor keybindings API surface', () => {
+    expect(typeof editorKeybindings).toBe('function');
   });
 });
 

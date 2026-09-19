@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMarkdownEditor } from '../src/editor';
 import {
+  defaultCommands,
   insertSlashChar,
   slashKeymap,
   slashMenuApply,
@@ -8,6 +9,7 @@ import {
   slashMenuSelectNext,
   slashMenuSelectPrev,
 } from '../src/slash';
+import { commandRegistry } from '../src/commands';
 
 // jsdom lacks requestAnimationFrame/ResizeObserver; CodeMirror 6 uses both.
 function installPolyfills(): void {
@@ -51,7 +53,7 @@ describe('slash commands', () => {
     expect(inserted).toBe(true);
     expect(view.state.doc.toString()).toBe('/');
     expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
-    expect(view.dom.querySelectorAll('.mdb-slash-item').length).toBe(6);
+    expect(view.dom.querySelectorAll('.mdb-slash-item').length).toBe(8);
   });
 
   it('applying the heading command replaces the slash with "## " and puts the cursor at the end', () => {
@@ -70,6 +72,12 @@ describe('slash commands', () => {
     const doc = view.state.doc.toString();
     expect(doc).toContain('> [!NOTE]');
     expect(doc).toMatch(/^> \[!NOTE\]\n> $/);
+  });
+
+  it('labels the callout slash command in Chinese', () => {
+    const callout = defaultCommands.find((c) => c.id === 'callout');
+    expect(callout?.label).toBe('标注');
+    expect(callout?.hint).toBe('> [!NOTE]');
   });
 
   it('Escape closes the menu without inserting anything', () => {
@@ -144,5 +152,52 @@ describe('slash commands', () => {
     const result = insertSlashChar(view);
     expect(result).toBe(true);
     expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
+  });
+
+  it('slash triggers at word start (after space mid-line)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'hello ' },
+      selection: { anchor: 6 },
+    });
+    const result = insertSlashChar(view);
+    expect(result).toBe(true);
+    expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
+  });
+
+  it('slash does NOT trigger mid-word (immediately after non-whitespace)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'hello' },
+      selection: { anchor: 5 },
+    });
+    const result = insertSlashChar(view);
+    expect(result).toBe(false);
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+  });
+
+  it('slash does NOT trigger after a word followed by more text', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'foo bar' },
+      selection: { anchor: 5 },
+    });
+    const result = insertSlashChar(view);
+    expect(result).toBe(false);
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+  });
+});
+
+describe('slash registry isolation', () => {
+  it('does not register its own command ids into the global registry', () => {
+    // The slash menu renders from defaultCommands directly; polluting the
+    // shared registry would duplicate palette rows and (for insert-html /
+    // insert-css) shadow the canonical cursor-insert commands.
+    const slashOnlyIds = ['heading', 'callout', 'image-ref', 'code-block', 'table', 'quote'];
+    for (const id of slashOnlyIds) {
+      expect(commandRegistry.has(id), `slash-only id ${id} must not be registered`).toBe(false);
+    }
+  });
+
+  it('leaves insert-html / insert-css to the canonical commands.ts registrations', () => {
+    expect(commandRegistry.has('insert-html')).toBe(true);
+    expect(commandRegistry.has('insert-css')).toBe(true);
   });
 });

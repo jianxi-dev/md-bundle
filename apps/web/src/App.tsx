@@ -10,6 +10,7 @@ import {
   contextToolbar,
   floatingToolbar,
   commandPaletteKeymap,
+  editorKeybindings,
   structureLinterExtension,
   chapterReorgExtension,
   editorDecorations,
@@ -122,6 +123,7 @@ const EDITOR_EXT = [
   contextToolbar(),
   floatingToolbar(),
   commandPaletteKeymap(),
+  editorKeybindings(),
   structureLinterExtension(),
   chapterReorgExtension(),
 ]

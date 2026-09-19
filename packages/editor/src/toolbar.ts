@@ -125,45 +125,24 @@ function isLinkAtCursor(state: EditorState, block: { from: number; to: number },
 
 /**
  * Returns the toolbar buttons for a given context.
+ * Every commandId here must be registered in the command registry.
  */
 export function getButtonsForContext(context: ToolbarContext): ToolbarButton[] {
   switch (context.kind) {
     case 'text-selected':
       return [
-        { id: 'toolbar-bold', icon: 'B', label: 'Bold', commandId: 'toggle-bold' },
-        { id: 'toolbar-italic', icon: 'I', label: 'Italic', commandId: 'toggle-italic' },
-        { id: 'toolbar-strikethrough', icon: 'S', label: 'Strikethrough', commandId: 'toggle-strikethrough' },
-        { id: 'toolbar-code', icon: '`', label: 'Code', commandId: 'toggle-code' },
-        { id: 'toolbar-link', icon: '🔗', label: 'Link', commandId: 'toggle-link' },
-        { id: 'toolbar-color', icon: '🎨', label: 'Color', commandId: 'highlight-text' },
-        { id: 'toolbar-ai', icon: '✨', label: 'AI', commandId: 'ai-enhance' },
-      ];
-    case 'table':
-      return [
-        { id: 'toolbar-add-row', icon: '➕行', label: 'Add Row', commandId: 'table-add-row' },
-        { id: 'toolbar-add-col', icon: '➕列', label: 'Add Column', commandId: 'table-add-col' },
-        { id: 'toolbar-align', icon: '↔', label: 'Align', commandId: 'table-align' },
-      ];
-    case 'image':
-      return [
-        { id: 'toolbar-replace-img', icon: '🔄', label: 'Replace', commandId: 'image-replace' },
-        { id: 'toolbar-edit-alt', icon: '✏️', label: 'Alt', commandId: 'image-edit-alt' },
-        { id: 'toolbar-resize', icon: '📐', label: 'Resize', commandId: 'image-resize' },
-      ];
-    case 'link':
-      return [
-        { id: 'toolbar-edit-link', icon: '✏️', label: 'Edit', commandId: 'link-edit' },
-        { id: 'toolbar-open-link', icon: '🔗', label: 'Open', commandId: 'link-open' },
-        { id: 'toolbar-remove-link', icon: '❌', label: 'Remove', commandId: 'link-remove' },
+        { id: 'toolbar-bold', icon: 'B', label: '加粗', commandId: 'toggle-bold' },
+        { id: 'toolbar-italic', icon: 'I', label: '斜体', commandId: 'toggle-italic' },
+        { id: 'toolbar-strikethrough', icon: 'S', label: '删除线', commandId: 'toggle-strikethrough' },
+        { id: 'toolbar-code', icon: '`', label: '行内代码', commandId: 'toggle-code' },
+        { id: 'toolbar-link', icon: '🔗', label: '插入链接', commandId: 'toggle-link' },
       ];
     case 'code-block':
-      return [
-        { id: 'toolbar-copy-code', icon: '📋', label: 'Copy', commandId: 'code-copy' },
-        { id: 'toolbar-lang', icon: '🎨', label: 'Language', commandId: 'code-set-language' },
-        { id: 'toolbar-explain', icon: '✨', label: 'Explain', commandId: 'code-explain' },
-      ];
+      return [{ id: 'toolbar-copy-code', icon: '📋', label: '复制代码', commandId: 'code-copy' }];
     case 'empty':
     case 'normal':
+      return [];
+    default:
       return [];
   }
 }
@@ -363,143 +342,7 @@ export function hideContextToolbar(view: EditorView): void {
   hideToolbar(view);
 }
 
-/**
- * Register all toolbar commands with the global commandRegistry.
- * Call once at module load.
- */
-export function registerToolbarCommands(): void {
-  commandRegistry.register({
-    id: 'toggle-bold',
-    label: 'Bold',
-    icon: 'B',
-    keyBinding: 'Mod-b',
-    execute(view) {
-      const { state } = view;
-      const { main } = state.selection;
-      if (!main.empty) {
-        const text = state.doc.sliceString(main.from, main.to);
-        view.dispatch({
-          changes: [
-            { from: main.from, insert: '**' },
-            { from: main.to, insert: '**' },
-          ],
-          selection: { anchor: main.from + 2 + text.length + 2 },
-        });
-      }
-    },
-  });
-  commandRegistry.register({
-    id: 'toggle-link',
-    label: 'Link',
-    icon: '🔗',
-    keyBinding: 'Mod-k',
-    execute(view) {
-      const { state } = view;
-      const { main } = state.selection;
-      if (!main.empty) {
-        const text = state.doc.sliceString(main.from, main.to);
-        view.dispatch({
-          changes: [
-            { from: main.from, insert: '[' },
-            { from: main.to, insert: '](url)' },
-          ],
-          selection: { anchor: main.from + text.length + 5 },
-        });
-      }
-    },
-  });
-  commandRegistry.register({
-    id: 'link-remove',
-    label: 'Remove Link',
-    icon: '❌',
-    execute(_view) {
-      // TODO: implement link removal
-    },
-  });
-  commandRegistry.register({
-    id: 'table-add-row',
-    label: 'Add Row',
-    icon: '➕',
-    execute(_view) {
-      // TODO: implement table row addition
-    },
-  });
-  commandRegistry.register({
-    id: 'table-add-col',
-    label: 'Add Column',
-    icon: '➕',
-    execute(_view) {
-      // TODO: implement table column addition
-    },
-  });
-  commandRegistry.register({
-    id: 'image-replace',
-    label: 'Replace Image',
-    icon: '🔄',
-    execute(_view) {
-      // TODO: implement image replacement
-    },
-  });
-  commandRegistry.register({
-    id: 'image-alt',
-    label: 'Edit Alt',
-    icon: '✏️',
-    execute(_view) {
-      // TODO: implement alt text editing
-    },
-  });
-  commandRegistry.register({
-    id: 'image-resize',
-    label: 'Resize',
-    icon: '📐',
-    execute(_view) {
-      // TODO: implement image resizing
-    },
-  });
-  commandRegistry.register({
-    id: 'code-copy',
-    label: 'Copy Code',
-    icon: '📋',
-    execute(view) {
-      const { state } = view;
-      const { main } = state.selection;
-      const text = state.doc.sliceString(main.from, main.to);
-      navigator.clipboard.writeText(text).catch(() => {});
-    },
-  });
-  commandRegistry.register({
-    id: 'code-lang',
-    label: 'Change Language',
-    icon: '🎨',
-    execute(_view) {
-      // TODO: implement language change
-    },
-  });
-  commandRegistry.register({
-    id: 'code-explain',
-    label: 'Explain Code',
-    icon: '✨',
-    execute(_view) {
-      // TODO: implement code explanation
-    },
-  });
-  commandRegistry.register({
-    id: 'link-edit',
-    label: 'Edit Link',
-    icon: '✏️',
-    execute(_view) {
-      // TODO: implement link editing
-    },
-  });
-  commandRegistry.register({
-    id: 'link-open',
-    label: 'Open Link',
-    icon: '🔗',
-    execute(_view) {
-      // TODO: implement link opening
-    },
-  });
-}
-
-// Auto-register on module load
-registerToolbarCommands();
+// Toolbar commands (toggle-bold, toggle-italic, toggle-strikethrough,
+// toggle-code, toggle-link) are registered in commands.ts with Chinese
+// labels and groups. The toolbar references them by id; no re-registration
+// here avoids last-write-wins clobbering.
