@@ -258,21 +258,41 @@ function applyCommand(view: EditorView, cmd: SlashCommand): void {
 }
 
 /**
+ * Module-level IME composition guard. Set by the ViewPlugin's eventHandlers
+ * in slashKeymap, read by insertSlashChar to skip during active composition.
+ */
+let slashComposing = false;
+
+/**
  * Handles typing `/`. Opens the command menu at the cursor. If a menu is
  * already open (a second consecutive `/`), closes it and returns false so the
  * keymap falls through to default behavior — no duplicate menu, no
  * double-insert.
+ *
+ * Only triggers when:
+ * - The `/` is ASCII (U+002F), not full-width `／` (U+FF0F).
+ * - The cursor is at the start of an empty line (nothing but whitespace before).
+ * - IME is not actively composing.
  */
 export function insertSlashChar(
   view: EditorView,
   commands: SlashCommand[] = defaultCommands,
 ): boolean {
+  if (slashComposing) return false;
+
   const current = menus.get(view);
   if (current?.open) {
     closeMenu(view);
     return false;
   }
+
   const head = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(head);
+  const textBeforeCursor = line.text.slice(0, head - line.from);
+
+  // Only trigger at the start of an empty line (only whitespace before).
+  if (textBeforeCursor.trimStart().length > 0) return false;
+
   view.dispatch({
     changes: { from: head, insert: '/' },
     selection: { anchor: head + 1 },
@@ -332,6 +352,22 @@ const menuCloserPlugin = ViewPlugin.define((view) => ({
 }));
 
 /**
+ * Tracks IME composition state for the slash menu. Sets slashComposing so
+ * insertSlashChar can skip during active composition (avoids full-width /
+ * triggering the menu).
+ */
+const slashCompositionGuard = ViewPlugin.define(() => ({}), {
+  eventHandlers: {
+    compositionstart() {
+      slashComposing = true;
+    },
+    compositionend() {
+      slashComposing = false;
+    },
+  },
+});
+
+/**
  * Keymap extension wiring the slash menu. Returns `Prec.high(...)` so its
  * bindings beat `defaultKeymap`; every binding returns false when the menu is
  * closed, preserving default CodeMirror behavior.
@@ -355,5 +391,6 @@ export function slashKeymap(options: { commands?: SlashCommand[] } = {}): Extens
       ]),
     ),
     menuCloserPlugin,
+    slashCompositionGuard,
   ];
 }

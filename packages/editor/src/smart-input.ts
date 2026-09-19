@@ -8,12 +8,23 @@
  * 4. Auto-pairing: `**`, `` ` ``, `$`, `[`, `![` wrap selection or create pair.
  * 5. Chinese punctuation: `「` → `「」`, `（` → `（）`.
  *
- * All behaviors are implemented as CM6 keymap extensions that return
- * `true` when they handle the event, `false` to fall through to default.
+ * Markdown shortcuts, smart Enter/Backspace, and heading Tab use CM6 keymap.
+ * Auto-pairing uses EditorView.inputHandler (keymap cannot express multi-char
+ * triggers like `**` or context-dependent triggers like `[` after `!`).
  */
 
-import { EditorView, keymap } from '@codemirror/view';
+import { EditorView, keymap, ViewPlugin } from '@codemirror/view';
 import { type EditorState, type Extension } from '@codemirror/state';
+
+// --- IME composition guard ---------------------------------------------------
+
+/**
+ * Module-level composing flag. Set by the compositionGuardPlugin's
+ * eventHandlers, read by the auto-pair inputHandler.
+ *
+ * Safe for multi-editor instances: IME composition is browser-singleton.
+ */
+let composing = false;
 
 // --- Markdown shortcuts -----------------------------------------------------
 
@@ -25,9 +36,33 @@ export function handleMarkdownShortcut(view: EditorView): boolean {
   const line = view.state.doc.lineAt(view.state.selection.main.head);
   const textBeforeCursor = line.text.slice(0, view.state.selection.main.head - line.from);
 
-  // Heading shortcuts: `# ` through `###### ` — already valid markdown,
-  // just acknowledge the shortcut was handled.
-  if (/^#{1,6} $/.test(textBeforeCursor)) {
+  // Task list shortcuts — MUST be checked before plain bullet `- `.
+  const taskMatch = textBeforeCursor.match(/^(- \[[ xX]\] )/);
+  if (taskMatch) {
+    const from = line.from;
+    const to = view.state.selection.main.head;
+    view.dispatch({
+      changes: { from, to, insert: '' },
+      selection: { anchor: from },
+      scrollIntoView: true,
+    });
+    return true;
+  }
+
+  // Heading shortcuts: `# ` through `###### ` — strip the marker, leave caret
+  // at line start so the user can keep typing the heading text.
+  const headingMatch = textBeforeCursor.match(/^(#{1,6} )/);
+  if (headingMatch) {
+    const marker = headingMatch[1];
+    const from = line.from;
+    const to = view.state.selection.main.head;
+    view.dispatch({
+      changes: { from, to, insert: '' },
+      selection: { anchor: from },
+      scrollIntoView: true,
+    });
+    const level = marker.trim().length;
+    setHeadingLevel(view, level);
     return true;
   }
 
@@ -38,6 +73,22 @@ export function handleMarkdownShortcut(view: EditorView): boolean {
 
   // Blockquote: `>` followed by space — already valid markdown.
   if (textBeforeCursor === '> ') {
+    return true;
+  }
+
+  // Callout folding: `> [!tip]-` or `> [!tip]+` or `> [!NOTE]-` etc.
+  const calloutFoldMatch = textBeforeCursor.match(/^> \[!([a-zA-Z]+)\]([+-]) $/);
+  if (calloutFoldMatch) {
+    const type = calloutFoldMatch[1];
+    const foldState = calloutFoldMatch[2];
+    const from = line.from;
+    const to = view.state.selection.main.head;
+    const replacement = `> [!${type}]${foldState}\n> `;
+    view.dispatch({
+      changes: { from, to, insert: replacement },
+      selection: { anchor: from + replacement.length },
+      scrollIntoView: true,
+    });
     return true;
   }
 
@@ -56,6 +107,68 @@ export function handleMarkdownShortcut(view: EditorView): boolean {
   return false;
 }
 
+// --- Heading level tracking --------------------------------------------------
+
+const headingLevels = new WeakMap<EditorView, number>();
+
+function setHeadingLevel(view: EditorView, level: number): void {
+  headingLevels.set(view, level);
+}
+
+function getHeadingLevel(view: EditorView): number | undefined {
+  return headingLevels.get(view);
+}
+
+// --- Heading promote/demote (Tab / Shift+Tab) -------------------------------
+
+/**
+ * Handle Tab on a heading line: demote (H1→H2, etc.), clamped to H6.
+ */
+export function demoteHeading(view: EditorView): boolean {
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  const currentLevel = getHeadingLevel(view);
+
+  if (currentLevel === undefined) return false;
+  if (currentLevel >= 6) return false;
+
+  const newLevel = currentLevel + 1;
+  const newMarker = '#'.repeat(newLevel) + ' ';
+  const from = line.from;
+  const to = from + currentLevel + 1;
+
+  view.dispatch({
+    changes: { from, to, insert: newMarker },
+    selection: { anchor: view.state.selection.main.head },
+    scrollIntoView: true,
+  });
+  headingLevels.set(view, newLevel);
+  return true;
+}
+
+/**
+ * Handle Shift+Tab on a heading line: promote (H2→H1, etc.), clamped to H1.
+ */
+export function promoteHeading(view: EditorView): boolean {
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  const currentLevel = getHeadingLevel(view);
+
+  if (currentLevel === undefined) return false;
+  if (currentLevel <= 1) return false;
+
+  const newLevel = currentLevel - 1;
+  const newMarker = '#'.repeat(newLevel) + ' ';
+  const from = line.from;
+  const to = from + currentLevel + 1;
+
+  view.dispatch({
+    changes: { from, to, insert: newMarker },
+    selection: { anchor: view.state.selection.main.head },
+    scrollIntoView: true,
+  });
+  headingLevels.set(view, newLevel);
+  return true;
+}
+
 // --- Smart Enter ------------------------------------------------------------
 
 /**
@@ -72,18 +185,15 @@ export function smartEnter(view: EditorView): boolean {
   const lineText = line.text;
   const cursorInLine = main.head - line.from;
 
-  // Only handle at end of line or within the line content
   if (main.head !== line.to && cursorInLine < lineText.length) {
     return false;
   }
 
-  // Check for list continuation
   const listMatch = lineText.match(/^(\s*)([-*+]|\d+\.)\s*(.*)/);
   if (listMatch) {
     const [, indent, marker, content] = listMatch;
 
     if (content.trim() === '') {
-      // Empty list item — exit the list
       view.dispatch({
         changes: [
           { from: line.from, to: line.to, insert: '' },
@@ -94,7 +204,6 @@ export function smartEnter(view: EditorView): boolean {
       return true;
     }
 
-    // Continue the list
     const newMarker = /^\d+\./.test(marker) ? `${parseInt(marker) + 1}. ` : `${marker} `;
     const insert = `\n${indent}${newMarker}`;
     view.dispatch({
@@ -105,13 +214,11 @@ export function smartEnter(view: EditorView): boolean {
     return true;
   }
 
-  // Check for blockquote continuation
   const quoteMatch = lineText.match(/^(\s*)(>+)\s?(.*)/);
   if (quoteMatch) {
     const [, indent, markers, content] = quoteMatch;
 
     if (content.trim() === '') {
-      // Empty quote line — exit the quote
       view.dispatch({
         changes: [{ from: line.from, to: line.to, insert: '' }],
         selection: { anchor: line.from + indent.length },
@@ -120,7 +227,6 @@ export function smartEnter(view: EditorView): boolean {
       return true;
     }
 
-    // Continue the quote
     const insert = `\n${indent}${markers} `;
     view.dispatch({
       changes: { from: main.head, insert },
@@ -130,7 +236,6 @@ export function smartEnter(view: EditorView): boolean {
     return true;
   }
 
-  // Check for code block indentation preservation
   const codeMatch = lineText.match(/^(\s+)(.*)/);
   if (codeMatch && isInsideCodeBlock(view.state, main.head)) {
     const [, indent] = codeMatch;
@@ -146,14 +251,9 @@ export function smartEnter(view: EditorView): boolean {
   return false;
 }
 
-/**
- * Check if the given position is inside a fenced code block.
- */
 function isInsideCodeBlock(state: EditorState, pos: number): boolean {
   const line = state.doc.lineAt(pos);
   const lineNum = line.number;
-
-  // Count fence markers (```) above the current line
   let fenceCount = 0;
   for (let i = 1; i < lineNum; i++) {
     const prevLine = state.doc.line(i);
@@ -161,8 +261,6 @@ function isInsideCodeBlock(state: EditorState, pos: number): boolean {
       fenceCount++;
     }
   }
-
-  // Odd number of fences above means we're inside a code block
   return fenceCount % 2 === 1;
 }
 
@@ -184,7 +282,6 @@ export function smartBackspace(view: EditorView): boolean {
   const lineText = line.text;
   const cursorInLine = main.head - line.from;
 
-  // Check for list marker removal
   const listMatch = lineText.match(/^(\s*)([-*+]|\d+\.)\s$/);
   if (listMatch && cursorInLine === lineText.length) {
     const [, indent] = listMatch;
@@ -196,7 +293,6 @@ export function smartBackspace(view: EditorView): boolean {
     return true;
   }
 
-  // Check for blockquote marker removal
   const quoteMatch = lineText.match(/^(\s*)>\s?$/);
   if (quoteMatch && cursorInLine === lineText.length) {
     const [, indent] = quoteMatch;
@@ -211,10 +307,16 @@ export function smartBackspace(view: EditorView): boolean {
   return false;
 }
 
-// --- Auto-pairing -----------------------------------------------------------
+// --- Auto-pairing via inputHandler ------------------------------------------
+//
+// Auto-pairing is an input concern (depends on the typed character AND the
+// character before the caret), so it uses EditorView.inputHandler rather than
+// keymap. Keymap bindings like `key: '**'` are silently discarded by CM6 —
+// only single characters or known key names are valid.
 
 /**
- * Characters that trigger auto-pairing.
+ * Characters that trigger auto-pairing (legacy API, kept for public export).
+ * The actual pairing logic lives in autoPairInputHandler below.
  */
 const PAIR_MAP: Record<string, string> = {
   '**': '**',
@@ -226,9 +328,8 @@ const PAIR_MAP: Record<string, string> = {
 
 /**
  * Handle auto-pairing for the typed character.
- * If text is selected, wraps the selection with the pair.
- * If no selection, inserts the pair and places cursor between.
- * Returns true if auto-pairing was applied.
+ * Legacy export — the live pairing logic is in autoPairInputHandler.
+ * Kept for API compatibility (public-api.test.ts pins this export).
  */
 export function handleAutoPair(view: EditorView, char: string): boolean {
   const pair = PAIR_MAP[char];
@@ -238,7 +339,6 @@ export function handleAutoPair(view: EditorView, char: string): boolean {
   const { main } = selection;
 
   if (!main.empty) {
-    // Wrap selection
     const selectedText = view.state.doc.sliceString(main.from, main.to);
     const isImage = char === '![';
     const open = isImage ? '![' : char;
@@ -255,7 +355,6 @@ export function handleAutoPair(view: EditorView, char: string): boolean {
     return true;
   }
 
-  // Insert pair and place cursor between
   const insert = char + pair;
   view.dispatch({
     changes: { from: main.head, insert },
@@ -265,10 +364,9 @@ export function handleAutoPair(view: EditorView, char: string): boolean {
   return true;
 }
 
-// --- Chinese punctuation ----------------------------------------------------
-
 /**
- * Chinese punctuation auto-pairing.
+ * Chinese punctuation auto-pairing (legacy API, kept for public export).
+ * The actual pairing logic lives in autoPairInputHandler below.
  */
 const CHINESE_PAIRS: Record<string, string> = {
   '「': '」',
@@ -283,7 +381,8 @@ const CHINESE_PAIRS: Record<string, string> = {
 
 /**
  * Handle Chinese punctuation auto-pairing.
- * Returns true if a Chinese pair was applied.
+ * Legacy export — the live pairing logic is in autoPairInputHandler.
+ * Kept for API compatibility (public-api.test.ts pins this export).
  */
 export function handleChinesePair(view: EditorView, char: string): boolean {
   const close = CHINESE_PAIRS[char];
@@ -293,7 +392,6 @@ export function handleChinesePair(view: EditorView, char: string): boolean {
   const { main } = selection;
 
   if (!main.empty) {
-    // Wrap selection
     view.dispatch({
       changes: [
         { from: main.from, insert: char },
@@ -305,7 +403,6 @@ export function handleChinesePair(view: EditorView, char: string): boolean {
     return true;
   }
 
-  // Insert pair and place cursor between
   const insert = char + close;
   view.dispatch({
     changes: { from: main.head, insert },
@@ -315,12 +412,115 @@ export function handleChinesePair(view: EditorView, char: string): boolean {
   return true;
 }
 
-// --- Keymap extensions ------------------------------------------------------
+const PAIR_CHARS: Record<string, string> = {
+  '`': '`',
+  '$': '$',
+  '「': '」',
+  '『': '』',
+  '（': '）',
+  '【': '】',
+  '《': '》',
+  '〈': '〉',
+  '“': '”',
+  '‘': '’',
+};
 
 /**
- * Keymap for markdown shortcuts.
- * Triggers on space character after a markdown prefix.
+ * inputHandler for auto-pairing. Intercepts typed text before CM6 inserts it.
+ *
+ * Returns true to consume the input (pairing applied), false to fall through
+ * to default CM6 behavior.
+ *
+ * Special cases:
+ * - `*` pairs only when the previous char is also `*` (produces `**│**`).
+ * - `[` pairs to `]`, or to `](url)` when preceded by `!` (image link).
+ * - All other PAIR_CHARS insert an empty pair with the caret between.
+ * - With a non-empty selection, wraps the selection with the pair.
+ * - While IME composing, passes through unchanged.
  */
+const autoPairInputHandler = EditorView.inputHandler.of(
+  (view, from, to, text) => {
+    if (composing) return false;
+    if (text.length !== 1) return false;
+
+    // ** : pair only when the PREVIOUS char is also '*'
+    if (text === '*') {
+      const before = view.state.sliceDoc(Math.max(0, from - 1), from);
+      if (before === '*') {
+        const selected = view.state.sliceDoc(from, to);
+        if (selected) {
+          view.dispatch({
+            changes: [
+              { from, insert: '**' },
+              { from: to, insert: '**' },
+            ],
+            selection: { anchor: from + 2 + selected.length },
+            scrollIntoView: true,
+          });
+        } else {
+          view.dispatch({
+            changes: { from, to, insert: '*' },
+            selection: { anchor: from },
+            scrollIntoView: true,
+          });
+        }
+        return true;
+      }
+      return false;
+    }
+
+    // [ : pair to ']', or '](url)' when preceded by '!'
+    if (text === '[') {
+      const before = view.state.sliceDoc(Math.max(0, from - 1), from);
+      const isImage = before === '!';
+      const close = isImage ? '](url)' : ']';
+      const selected = view.state.sliceDoc(from, to);
+      if (selected) {
+        const open = isImage ? '![' : '[';
+        view.dispatch({
+          changes: [
+            { from, insert: open },
+            { from: to, insert: close },
+          ],
+          selection: { anchor: from + open.length + selected.length },
+          scrollIntoView: true,
+        });
+      } else {
+        view.dispatch({
+          changes: { from, to, insert: text + close },
+          selection: { anchor: from + 1 },
+          scrollIntoView: true,
+        });
+      }
+      return true;
+    }
+
+    const close = PAIR_CHARS[text];
+    if (!close) return false;
+
+    const selected = view.state.sliceDoc(from, to);
+    if (selected) {
+      view.dispatch({
+        changes: [
+          { from, insert: text },
+          { from: to, insert: close },
+        ],
+        selection: { anchor: from + 1 + selected.length },
+        scrollIntoView: true,
+      });
+    } else {
+      view.dispatch({
+        changes: { from, to, insert: text + close },
+        selection: { anchor: from + 1 },
+        scrollIntoView: true,
+      });
+    }
+    return true;
+  },
+);
+
+// --- Keymap extensions ------------------------------------------------------
+
 const markdownShortcutKeymap = keymap.of([
   {
     key: ' ',
@@ -328,9 +528,6 @@ const markdownShortcutKeymap = keymap.of([
   },
 ]);
 
-/**
- * Keymap for smart Enter behavior.
- */
 const smartEnterKeymap = keymap.of([
   {
     key: 'Enter',
@@ -338,9 +535,6 @@ const smartEnterKeymap = keymap.of([
   },
 ]);
 
-/**
- * Keymap for smart Backspace behavior.
- */
 const smartBackspaceKeymap = keymap.of([
   {
     key: 'Backspace',
@@ -348,30 +542,32 @@ const smartBackspaceKeymap = keymap.of([
   },
 ]);
 
-/**
- * Keymap for auto-pairing.
- */
-const autoPairKeymap = keymap.of([
-  { key: '**', run: (view) => handleAutoPair(view, '**') },
-  { key: '`', run: (view) => handleAutoPair(view, '`') },
-  { key: '$', run: (view) => handleAutoPair(view, '$') },
-  { key: '[', run: (view) => handleAutoPair(view, '[') },
-  { key: '!', run: (view) => handleAutoPair(view, '![') },
+const headingTabKeymap = keymap.of([
+  {
+    key: 'Tab',
+    run: (view) => demoteHeading(view),
+  },
+  {
+    key: 'Shift-Tab',
+    run: (view) => promoteHeading(view),
+  },
 ]);
 
 /**
- * Keymap for Chinese punctuation auto-pairing.
+ * ViewPlugin that tracks IME composition state via DOM events.
+ * Sets the module-level `composing` flag so the auto-pair inputHandler
+ * can skip during active composition.
  */
-const chinesePairKeymap = keymap.of([
-  { key: '「', run: (view) => handleChinesePair(view, '「') },
-  { key: '『', run: (view) => handleChinesePair(view, '『') },
-  { key: '（', run: (view) => handleChinesePair(view, '（') },
-  { key: '【', run: (view) => handleChinesePair(view, '【') },
-  { key: '《', run: (view) => handleChinesePair(view, '《') },
-  { key: '〈', run: (view) => handleChinesePair(view, '〈') },
-  { key: '"', run: (view) => handleChinesePair(view, '"') },
-  { key: "'", run: (view) => handleChinesePair(view, "'") },
-]);
+const compositionGuardPlugin = ViewPlugin.define(() => ({}), {
+  eventHandlers: {
+    compositionstart() {
+      composing = true;
+    },
+    compositionend() {
+      composing = false;
+    },
+  },
+});
 
 /**
  * Combined smart input extension.
@@ -382,7 +578,8 @@ export function smartInput(): Extension {
     markdownShortcutKeymap,
     smartEnterKeymap,
     smartBackspaceKeymap,
-    autoPairKeymap,
-    chinesePairKeymap,
+    autoPairInputHandler,
+    headingTabKeymap,
+    compositionGuardPlugin,
   ];
 }

@@ -115,4 +115,34 @@ describe('slash commands', () => {
     expect(slashMenuSelectPrev(view)).toBe(false);
     expect(slashMenuClose(view)).toBe(false);
   });
+
+  it('slash does NOT trigger on a non-empty line', () => {
+    // Type some text first.
+    view.dispatch({
+      changes: { from: 0, insert: 'hello' },
+      selection: { anchor: 5 },
+    });
+    const result = insertSlashChar(view);
+    expect(result).toBe(false);
+    expect(view.state.doc.toString()).toBe('hello');
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+  });
+
+  it('slash triggers at the start of an empty line', () => {
+    // Empty document — cursor at position 0 (start of empty line).
+    const result = insertSlashChar(view);
+    expect(result).toBe(true);
+    expect(view.state.doc.toString()).toBe('/');
+    expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
+  });
+
+  it('slash triggers on a line with only whitespace before cursor', () => {
+    view.dispatch({
+      changes: { from: 0, insert: '   ' },
+      selection: { anchor: 3 },
+    });
+    const result = insertSlashChar(view);
+    expect(result).toBe(true);
+    expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
+  });
 });
