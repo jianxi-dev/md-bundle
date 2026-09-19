@@ -308,12 +308,17 @@ test('edit 模式含装饰：heading widget 可见', async ({ page }) => {
 
   const editorPane = page.getByTestId('mode-pane-editor');
   const cmContent = editorPane.locator('.cm-content');
-  // Move cursor past heading range (0-2) so selection-reveal filter doesn't suppress it
+  // 光标移出标题块 → 该块进入非活动态（标记以 opacity:0 隐藏）
   await cmContent.click();
   await page.keyboard.press('Control+End');
-  await expect(cmContent).toContainText('[H1]');
-  const text = await cmContent.innerText();
-  expect(text).not.toMatch(/^#\s+Hello/);
+
+  // 语义编辑态契约：非活动块的标题标记保留在 DOM（原始 "# "，不再是 [H1] 徽章），
+  // 但以 opacity:0 视觉隐藏。断言计算样式而非文案，才锁得住这个行为。
+  const marker = cmContent.locator('.cm-heading-marker').first();
+  await expect(marker).toHaveCount(1);
+  await expect(marker).toHaveText('# ');
+  const opacity = await marker.evaluate((el) => getComputedStyle(el).opacity);
+  expect(Number(opacity)).toBe(0);
 
   evidence.decorEditOn = true;
 });
