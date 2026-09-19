@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMarkdownEditor } from '../src/editor';
 import {
   defaultCommands,
@@ -54,6 +54,29 @@ describe('slash commands', () => {
     expect(view.state.doc.toString()).toBe('/');
     expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
     expect(view.dom.querySelectorAll('.mdb-slash-item').length).toBe(8);
+  });
+
+  it('positions the menu relative to the editor origin, not the viewport (issue #203)', () => {
+    // Regression lock for #203: coordsAtPos returns VIEWPORT coordinates, but
+    // the menu is an absolutely positioned child of view.dom. Writing viewport
+    // coords straight into left/top offsets the menu by the editor's page
+    // origin. The bug is invisible unless the two origins differ, so both are
+    // stubbed here with deliberately different origins.
+    vi.spyOn(view, 'coordsAtPos').mockReturnValue({
+      left: 456,
+      right: 470,
+      top: 370,
+      bottom: 399,
+    });
+    vi.spyOn(view.dom, 'getBoundingClientRect').mockReturnValue(new DOMRect(220, 122, 800, 600));
+
+    insertSlashChar(view);
+
+    const menu = view.dom.querySelector<HTMLElement>('.mdb-slash-menu');
+    expect(menu).not.toBeNull();
+    // Expected: 456 - 220 = 236; 399 + 4 - 122 = 281.
+    expect(menu?.style.left).toBe('236px');
+    expect(menu?.style.top).toBe('281px');
   });
 
   it('applying the heading command replaces the slash with "## " and puts the cursor at the end', () => {

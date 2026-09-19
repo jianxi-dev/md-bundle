@@ -222,11 +222,15 @@ function openMenu(
   renderMenu(view, state);
 
   // Position near the cursor; jsdom has no layout, so a failure leaves 0,0.
+  // coordsAtPos returns VIEWPORT coordinates, but the menu is an absolutely
+  // positioned child of view.dom — the editor's page origin must be subtracted
+  // or the menu lands offset by that origin (issue #203).
   try {
     const coords = view.coordsAtPos(slashPos + 1);
     if (coords) {
-      menu.style.left = `${coords.left}px`;
-      menu.style.top = `${coords.bottom + 4}px`;
+      const rect = view.dom.getBoundingClientRect();
+      menu.style.left = `${coords.left - rect.left}px`;
+      menu.style.top = `${coords.bottom + 4 - rect.top}px`;
     }
   } catch {
     // ignore — jsdom / unmeasured content
