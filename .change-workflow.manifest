@@ -1,0 +1,12 @@
+3169ed3db8416004ec224c821da16e32a6dc31718b1545f6e0514e07c640d095  .opencode/skills/change-workflow/SKILL.md
+51249441cac07cd3bbcd5152434afd6a4c6b16a17516c23a98c0c496365419c8  scripts/pr-automation.sh
+LOCAL  .github/workflows/change-closure-signal.yml
+74e01163e92b9e3f9acd5979615335470a0f095bfc659d0140ba91fd7afe6d10  docs/agents/defect-workflow.md
+4c9af9cd16f61af1833440cb4bc49e9562a7f6707006970f6420a3bee88f8370  docs/agents/domain.md
+LOCAL  docs/agents/incident-merge-local-workspace.md
+43affc3f10f119c68a88bb778889af7889737d080f4b7ff10215c569fed1fb96  docs/agents/incident-uncommitted-work-loss.md
+3d89461cdad957d95704af9dc1618ce68d917e35f02cebd6bcecdf0fbd314592  docs/agents/issue-tracker.md
+1d2b26931008e89945a84aafbc671eafb1f2db6c8f57a324a80b6f6f258d8b10  docs/agents/project-board.md
+LOCAL  docs/agents/quality-gates.md
+5ef19ac4a2aee7f5703dfbbebfaded2f146f08d86c0401103509eab5d5153ec8  docs/agents/task-tracking.md
+c54bb6ee1e2d4f3f4039217b4c0add7c07553df49d7981ac75547e859e0fe741  docs/agents/triage-labels.md
