@@ -148,8 +148,13 @@ function createDecorationField(options?: EditorDecorationsOptions) {
       // flicker as they are rapidly added and removed.
       if (composing && tr.docChanged) return decos;
 
-      // Skip recalculation while frozen (pointerdown freeze mechanism).
-      if (frozen && (tr.docChanged || tr.selection)) return decos;
+      // Freeze (pointerdown) skips selection-only transactions only: the
+      // deferred rebuild is what prevents layout shift when a click moves the
+      // cursor and the active-block reveal re-renders. A document change must
+      // NEVER return the stale DecorationSet — its ranges were computed
+      // against the old document, so applying them to the new text makes the
+      // visible layer lag the source ("format won't delete", #226).
+      if (frozen && tr.selection && !tr.docChanged) return decos;
 
       // Rebuild on doc/selection changes, or when composition ends
       // (the rebuildAfterComposition effect catches up decorations to
