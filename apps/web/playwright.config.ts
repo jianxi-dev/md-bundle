@@ -18,6 +18,8 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',
+    // 失败自动截图：为独立验证提供原始像素证据
+    screenshot: 'only-on-failure',
   },
   projects: [
     {
