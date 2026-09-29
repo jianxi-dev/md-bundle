@@ -632,8 +632,7 @@ export default function App() {
 
   // 装饰图片解析：与 inlineImages 同口径（剥离 ./、精确匹配 + basename 回退），
   // 保证编辑器 widget 与预览/导出对同一引用得到一致结果。
-  const resolveImage = (path: string): string | null =>
-    resolveAssetDataUrl(assetsRef.current, path)
+  const resolveImage = (path: string): string | null => resolveAssetDataUrl(assetsRef.current, path)
 
   resolveImageRef.current = resolveImage
   onImageReplaceRef.current = (name: string) => {
@@ -696,7 +695,8 @@ export default function App() {
             if (item.webkitGetAsEntry?.()?.isDirectory) continue
             const f = item.getAsFile()
             if (!f) continue
-            if (f.size === 0 && !f.type && typeof item.getAsFileSystemHandle === 'function') continue
+            if (f.size === 0 && !f.type && typeof item.getAsFileSystemHandle === 'function')
+              continue
             files.push(f)
           }
         } else {
@@ -1029,9 +1029,18 @@ export default function App() {
               error={exportError}
               onSave={() => void handleSave()}
               onExport={(f) => void handleExport(f)}
-              onOpenFile={() => document.querySelector<HTMLInputElement>('[data-testid="file-input"]')?.click()}
+              onOpenFile={() =>
+                document.querySelector<HTMLInputElement>('[data-testid="file-input"]')?.click()
+              }
               currentMode={mode}
-              onModeChange={setMode}
+              onModeChange={(nextMode: EditorMode) => {
+                // 用户主动切换模式：同步本地态 + 写回 activeTab，实现「SHALL persist per tab」（spec:293）
+                // 注：不标记 dirty（模式切换不视为内容变更）；窄屏默认 preview 规则仅在打开文档时由 activeTab effect 处理
+                setMode(nextMode)
+                if (activeTab) {
+                  setTabsState((s) => updateTab(s, activeTab.id, { mode: nextMode }))
+                }
+              }}
               onThemeClick={handleThemeClick}
               themeProp={themePref}
               onCopyInviteLink={() => void handleCopyInviteLink()}
@@ -1060,7 +1069,11 @@ export default function App() {
       {/* 工作区：填满屏幕剩余高度，内容列 1000px 居中 */}
       {!isEmpty && activeTab && (
         <main className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col px-6 py-6">
-          <section id="workspace" ref={workspaceRef} className="flex min-h-0 flex-1 flex-col scroll-mt-6">
+          <section
+            id="workspace"
+            ref={workspaceRef}
+            className="flex min-h-0 flex-1 flex-col scroll-mt-6"
+          >
             {importHint && (
               <p
                 data-testid="import-hint"
@@ -1085,27 +1098,27 @@ export default function App() {
 
             {/* 工作区：三模式 + 左栏 + 大纲 */}
             <div className="flex min-h-0 flex-1 gap-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-                <LeftRail
-                  assets={activeTab.assets}
-                  documentText={activeTab.source}
-                  onDelete={handleDelete}
-                  onReplace={handleReplace}
-                  onOpenFile={(file, handle) => void openFileObject(file, handle)}
-                  activeTabName={activeTab.name}
-                  recentDocs={recentDocsRef.current}
-                  onOpenRecentDoc={openRecentDoc}
-                  open={railOpen}
-                  onToggle={toggleRail}
-                  editorView={editorViewState}
-                  onScrollToPosition={(pos) => {
-                    const view = editorViewRef.current
-                    if (!view) return
-                    view.dispatch({
-                      selection: { anchor: pos },
-                      scrollIntoView: true,
-                    })
-                  }}
-                />
+              <LeftRail
+                assets={activeTab.assets}
+                documentText={activeTab.source}
+                onDelete={handleDelete}
+                onReplace={handleReplace}
+                onOpenFile={(file, handle) => void openFileObject(file, handle)}
+                activeTabName={activeTab.name}
+                recentDocs={recentDocsRef.current}
+                onOpenRecentDoc={openRecentDoc}
+                open={railOpen}
+                onToggle={toggleRail}
+                editorView={editorViewState}
+                onScrollToPosition={(pos) => {
+                  const view = editorViewRef.current
+                  if (!view) return
+                  view.dispatch({
+                    selection: { anchor: pos },
+                    scrollIntoView: true,
+                  })
+                }}
+              />
 
               <div
                 data-testid="workspace-modes"
