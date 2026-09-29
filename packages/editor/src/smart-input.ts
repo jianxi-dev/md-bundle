@@ -14,7 +14,7 @@
  */
 
 import { EditorView, keymap, ViewPlugin } from '@codemirror/view';
-import { type EditorState, type Extension } from '@codemirror/state';
+import { type EditorState, type Extension, Prec } from '@codemirror/state';
 
 // --- IME composition guard ---------------------------------------------------
 
@@ -77,7 +77,8 @@ export function handleMarkdownShortcut(view: EditorView): boolean {
   }
 
   // Callout folding: `> [!tip]-` or `> [!tip]+` or `> [!NOTE]-` etc.
-  const calloutFoldMatch = textBeforeCursor.match(/^> \[!([a-zA-Z]+)\]([+-]) $/);
+  // Match with or without trailing space (at keydown time, space not yet inserted).
+  const calloutFoldMatch = textBeforeCursor.match(/^> \[!([a-zA-Z]+)\]([+-]) ?$/);
   if (calloutFoldMatch) {
     const type = calloutFoldMatch[1];
     const foldState = calloutFoldMatch[2];
@@ -115,30 +116,58 @@ function setHeadingLevel(view: EditorView, level: number): void {
   headingLevels.set(view, level);
 }
 
-function getHeadingLevel(view: EditorView): number | undefined {
-  return headingLevels.get(view);
+function getHeadingLevel(view: EditorView): number | null {
+  return headingLevels.get(view) ?? null;
+}
+
+/**
+ * Detect heading level from line text.
+ * Returns the heading level (1-6) if the line is a heading, null otherwise.
+ * A heading line starts with optional whitespace, then 1-6 '#' followed by a space.
+ */
+function getHeadingLevelFromLine(lineText: string): number | null {
+  const match = lineText.match(/^(\s*)#{1,6}\s/);
+  if (!match) return null;
+  // Count the # characters in the heading marker
+  const headingPart = lineText.trimStart();
+  const hashMatch = headingPart.match(/^(#{1,6})/);
+  return hashMatch ? hashMatch[1].length : null;
 }
 
 // --- Heading promote/demote (Tab / Shift+Tab) -------------------------------
 
 /**
  * Handle Tab on a heading line: demote (H1→H2, etc.), clamped to H6.
+ * Detects heading level from line text (works for both typed and loaded headings).
+ * Falls back to WeakMap for headings created via shortcut (where marker was stripped).
  */
 export function demoteHeading(view: EditorView): boolean {
   const line = view.state.doc.lineAt(view.state.selection.main.head);
-  const currentLevel = getHeadingLevel(view);
+  const lineText = line.text;
 
-  if (currentLevel === undefined) return false;
+  // First try to detect heading level from line text (works for loaded/existing headings)
+  let currentLevel = getHeadingLevelFromLine(lineText);
+
+  // Fall back to WeakMap for headings created via shortcut (marker stripped)
+  if (currentLevel === null) {
+    currentLevel = getHeadingLevel(view);
+  }
+
+  if (currentLevel === null || currentLevel === undefined) return false;
   if (currentLevel >= 6) return false;
 
   const newLevel = currentLevel + 1;
   const newMarker = '#'.repeat(newLevel) + ' ';
-  const from = line.from;
-  const to = from + currentLevel + 1;
+
+  // Calculate the range of the current heading marker
+  // Find the start of the heading marker (after any leading whitespace)
+  const leadingWhitespaceMatch = lineText.match(/^(\s*)/);
+  const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[1].length : 0;
+  const from = line.from + leadingWhitespace;
+  const to = from + currentLevel + 1; // +1 for the space after #
 
   view.dispatch({
     changes: { from, to, insert: newMarker },
-    selection: { anchor: view.state.selection.main.head },
     scrollIntoView: true,
   });
   headingLevels.set(view, newLevel);
@@ -147,22 +176,37 @@ export function demoteHeading(view: EditorView): boolean {
 
 /**
  * Handle Shift+Tab on a heading line: promote (H2→H1, etc.), clamped to H1.
+ * Detects heading level from line text (works for both typed and loaded headings).
+ * Falls back to WeakMap for headings created via shortcut (where marker was stripped).
  */
 export function promoteHeading(view: EditorView): boolean {
   const line = view.state.doc.lineAt(view.state.selection.main.head);
-  const currentLevel = getHeadingLevel(view);
+  return promoteHeadingOnLine(view, line, line.text);
+}
 
-  if (currentLevel === undefined) return false;
+function promoteHeadingOnLine(view: EditorView, targetLine: { from: number; text: string }, lineText: string): boolean {
+  // First try to detect heading level from line text (works for loaded/existing headings)
+  let currentLevel = getHeadingLevelFromLine(lineText);
+
+  // Fall back to WeakMap for headings created via shortcut (marker stripped)
+  if (currentLevel === null) {
+    currentLevel = getHeadingLevel(view);
+  }
+
+  if (currentLevel === null || currentLevel === undefined) return false;
   if (currentLevel <= 1) return false;
 
   const newLevel = currentLevel - 1;
   const newMarker = '#'.repeat(newLevel) + ' ';
-  const from = line.from;
-  const to = from + currentLevel + 1;
+
+  // Calculate the range of the current heading marker
+  const leadingWhitespaceMatch = lineText.match(/^(\s*)/);
+  const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[1].length : 0;
+  const from = targetLine.from + leadingWhitespace;
+  const to = from + currentLevel + 1; // +1 for the space after #
 
   view.dispatch({
     changes: { from, to, insert: newMarker },
-    selection: { anchor: view.state.selection.main.head },
     scrollIntoView: true,
   });
   headingLevels.set(view, newLevel);
@@ -426,6 +470,15 @@ const PAIR_CHARS: Record<string, string> = {
 };
 
 /**
+ * Closing characters that can be auto-paired. Used for type-over detection:
+ * when the user types a closing char and the next char is already that
+ * closing char (from a previous auto-pair), we skip insertion and just
+ * move the cursor past it.
+ */
+const CLOSING_CHARS = new Set<string>(Object.values(PAIR_CHARS));
+CLOSING_CHARS.add(']'); // from '[' pairing
+
+/**
  * inputHandler for auto-pairing. Intercepts typed text before CM6 inserts it.
  *
  * Returns true to consume the input (pairing applied), false to fall through
@@ -437,11 +490,26 @@ const PAIR_CHARS: Record<string, string> = {
  * - All other PAIR_CHARS insert an empty pair with the caret between.
  * - With a non-empty selection, wraps the selection with the pair.
  * - While IME composing, passes through unchanged.
+ * - Type-over: when typing a closing char that matches the next char
+ *   (from a previous auto-pair), move cursor past it instead of inserting.
  */
 const autoPairInputHandler = EditorView.inputHandler.of(
   (view, from, to, text) => {
     if (composing) return false;
     if (text.length !== 1) return false;
+
+    // Type-over for closing characters: if the next char is the same closing
+    // char (from a previous auto-pair), skip insertion and move cursor past it.
+    if (CLOSING_CHARS.has(text)) {
+      const nextChar = view.state.sliceDoc(from, from + 1);
+      if (nextChar === text) {
+        view.dispatch({
+          selection: { anchor: from + 1 },
+          scrollIntoView: true,
+        });
+        return true;
+      }
+    }
 
     // ** : pair only when the PREVIOUS char is also '*'
     if (text === '*') {
@@ -579,7 +647,7 @@ export function smartInput(): Extension {
     smartEnterKeymap,
     smartBackspaceKeymap,
     autoPairInputHandler,
-    headingTabKeymap,
+    Prec.high(headingTabKeymap),
     compositionGuardPlugin,
   ];
 }
