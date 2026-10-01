@@ -112,6 +112,26 @@ describe('slash commands', () => {
     expect(callout?.hint).toBe('> [!NOTE]');
   });
 
+  it('the table row opens an N × M grid and inserts a GFM table on pick', () => {
+    insertSlashChar(view);
+    const rows = Array.from(view.dom.querySelectorAll<HTMLElement>('.mdb-slash-item'));
+    const tableIdx = rows.findIndex((row) => row.textContent?.includes('表格'));
+    for (let i = 0; i < tableIdx; i++) slashMenuSelectNext(view);
+    slashMenuApply(view);
+
+    // The table row opens the grid instead of inserting directly.
+    expect(view.state.doc.toString()).toBe('/');
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-cell').length).toBe(100);
+
+    const cell = view.dom.querySelector<HTMLElement>('.mdb-slash-grid-cell[data-r="3"][data-c="7"]');
+    expect(cell).not.toBeNull();
+    cell!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+
+    const doc = view.state.doc.toString();
+    expect(doc).toContain('| A | B | C | D | E | F | G |');
+    expect(doc.split('\n').length).toBe(5); // header + separator + 3 body rows
+  });
+
   it('Escape closes the menu without inserting anything', () => {
     insertSlashChar(view);
     const closed = slashMenuClose(view);
