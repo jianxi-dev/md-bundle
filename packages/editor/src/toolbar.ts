@@ -130,13 +130,9 @@ function isLinkAtCursor(state: EditorState, block: { from: number; to: number },
 export function getButtonsForContext(context: ToolbarContext): ToolbarButton[] {
   switch (context.kind) {
     case 'text-selected':
-      return [
-        { id: 'toolbar-bold', icon: 'B', label: '加粗', commandId: 'toggle-bold' },
-        { id: 'toolbar-italic', icon: 'I', label: '斜体', commandId: 'toggle-italic' },
-        { id: 'toolbar-strikethrough', icon: 'S', label: '删除线', commandId: 'toggle-strikethrough' },
-        { id: 'toolbar-code', icon: '`', label: '行内代码', commandId: 'toggle-code' },
-        { id: 'toolbar-link', icon: '🔗', label: '插入链接', commandId: 'toggle-link' },
-      ];
+      // Selection is owned by the floating toolbar — a single selection toolbar
+      // avoids two overlapping bars each carrying a link button (#233).
+      return [];
     case 'code-block':
       return [{ id: 'toolbar-copy-code', icon: '📋', label: '复制代码', commandId: 'code-copy' }];
     case 'empty':
@@ -239,22 +235,31 @@ function renderToolbar(view: EditorView, state: ToolbarState): void {
 }
 
 function positionToolbar(view: EditorView, dom: HTMLDivElement): void {
+  // coordsAtPos is forbidden during the update cycle, so read in the measure
+  // phase (#233), then clamp relative to the editor's own rect.
   try {
-    const { selection } = view.state;
-    const { main } = selection;
-    const pos = main.empty ? main.head : Math.min(main.anchor, main.head);
-    const coords = view.coordsAtPos(pos);
-
-    if (coords) {
-      const editorRect = view.dom.getBoundingClientRect();
-      const left = coords.left - editorRect.left;
-      const top = coords.top - editorRect.top - 36; // 36px above cursor
-
-      // Clamp to editor bounds
-      const clampedLeft = Math.max(4, Math.min(left, editorRect.width - dom.offsetWidth - 4));
-      dom.style.left = `${clampedLeft}px`;
-      dom.style.top = `${Math.max(4, top)}px`;
-    }
+    view.requestMeasure({
+      read: (v) => {
+        const { main } = v.state.selection;
+        const pos = main.empty ? main.head : Math.min(main.anchor, main.head);
+        const coords = v.coordsAtPos(pos);
+        if (!coords) return null;
+        return {
+          coords,
+          editorRect: v.dom.getBoundingClientRect(),
+          width: dom.getBoundingClientRect().width,
+        };
+      },
+      write: (measure) => {
+        if (!measure) return;
+        const { coords, editorRect, width } = measure;
+        const left = coords.left - editorRect.left;
+        const top = coords.top - editorRect.top - 36; // 36px above cursor
+        const clampedLeft = Math.max(4, Math.min(left, editorRect.width - width - 4));
+        dom.style.left = `${clampedLeft}px`;
+        dom.style.top = `${Math.max(4, top)}px`;
+      },
+    });
   } catch {
     // jsdom / unmeasured content — leave at default position
   }

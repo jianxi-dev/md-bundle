@@ -139,15 +139,9 @@ describe('toolbar context detection', () => {
 });
 
 describe('toolbar button definitions', () => {
-  it('returns text formatting buttons for text-selected context', () => {
+  it('returns no buttons for text-selected (floating toolbar owns selection)', () => {
     const ctx: ToolbarContext = { kind: 'text-selected', from: 0, to: 5 };
-    const buttons = getButtonsForContext(ctx);
-    expect(buttons.length).toBe(5);
-    expect(buttons[0].commandId).toBe('toggle-bold');
-    expect(buttons[1].commandId).toBe('toggle-italic');
-    expect(buttons[2].commandId).toBe('toggle-strikethrough');
-    expect(buttons[3].commandId).toBe('toggle-code');
-    expect(buttons[4].commandId).toBe('toggle-link');
+    expect(getButtonsForContext(ctx)).toEqual([]);
   });
 
   it('every toolbar button commandId is registered', () => {
@@ -208,15 +202,14 @@ describe('toolbar DOM integration', () => {
     removeClipboard();
   });
 
-  it('shows toolbar when text is selected', () => {
+  it('hides the context toolbar when text is selected (floating toolbar owns selection)', () => {
     view.dispatch({
       changes: { from: 0, insert: 'Hello world' },
       selection: { anchor: 0, head: 5 },
     });
     updateToolbar(view);
-    const toolbar = view.dom.querySelector('.mdb-toolbar');
-    expect(toolbar).not.toBeNull();
-    expect(toolbar?.querySelectorAll('.mdb-toolbar-btn').length).toBe(5);
+    const toolbar = view.dom.querySelector<HTMLDivElement>('.mdb-toolbar');
+    expect(toolbar === null || toolbar.style.display === 'none').toBe(true);
   });
 
   it('hides toolbar for normal paragraph', () => {
@@ -232,10 +225,12 @@ describe('toolbar DOM integration', () => {
 
   it('hideContextToolbar hides the toolbar', () => {
     view.dispatch({
-      changes: { from: 0, insert: 'Hello world' },
-      selection: { anchor: 0, head: 5 },
+      changes: { from: 0, insert: '```\ncode here\n```' },
+      selection: { anchor: 7 },
     });
     updateToolbar(view);
+    const shown = view.dom.querySelector<HTMLDivElement>('.mdb-toolbar');
+    expect(shown?.style.display).toBe('flex');
     hideContextToolbar(view);
     const toolbar = view.dom.querySelector<HTMLDivElement>('.mdb-toolbar');
     expect(toolbar?.style.display).toBe('none');

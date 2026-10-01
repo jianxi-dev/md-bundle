@@ -118,14 +118,30 @@ function createToolbarDom(view: EditorView, commands: Command[]): HTMLDivElement
 }
 
 function positionToolbar(view: EditorView, toolbar: HTMLDivElement): void {
+  // coordsAtPos is forbidden during the update cycle, so read in the measure
+  // phase (#233); place relative to the editor rect (the offset parent).
   try {
-    const coords = view.coordsAtPos(view.state.selection.main.head);
-    if (coords) {
-      toolbar.style.left = `${coords.left}px`;
-      toolbar.style.top = `${coords.bottom + 4}px`;
-    }
+    view.requestMeasure({
+      read: (v) => {
+        const coords = v.coordsAtPos(v.state.selection.main.head);
+        if (!coords) return null;
+        return {
+          coords,
+          rect: v.dom.getBoundingClientRect(),
+          width: toolbar.getBoundingClientRect().width,
+        };
+      },
+      write: (measure) => {
+        if (!measure) return;
+        const { coords, rect, width } = measure;
+        const left = coords.left - rect.left;
+        const maxLeft = Math.max(4, rect.width - width - 4);
+        toolbar.style.left = `${Math.max(4, Math.min(left, maxLeft))}px`;
+        toolbar.style.top = `${Math.max(4, coords.bottom - rect.top + 4)}px`;
+      },
+    });
   } catch {
-    // jsdom / unmeasured content — leave at 0,0
+    // jsdom / unmeasured content — leave at default position
   }
 }
 

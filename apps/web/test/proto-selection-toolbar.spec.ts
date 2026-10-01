@@ -23,6 +23,8 @@ function demo() {
 
 Empty line above, empty line below.
 
+Bottom marker **BOTTOMWORD** near end.
+
 `
 
 test.use({ viewport: { width: 1440, height: 900 } })
@@ -226,6 +228,38 @@ test.describe('原型 §3：上下文工具栏（context-toolbar / mdb-toolbar�
     await expect(buttons).toHaveCount(1)
     await expect(buttons.first()).toHaveAttribute('title', '复制代码')
     await expect(buttons.first()).toHaveText('📋')
+  })
+})
+
+test.describe('缺陷 #233：选区工具条跟随 + 唯一', () => {
+  test('7. 选中文本时仅 floating-toolbar 可见，left/top 已设置，链接按钮唯一', async ({ page }) => {
+    await openEditor(page)
+    await doubleClickWord(page, 'UNIQUEWORD')
+
+    const floating = page.locator('.mdb-floating-toolbar')
+    await assertToolbarVisible(floating, true)
+    await assertToolbarVisible(page.locator('.mdb-toolbar'), false)
+
+    const styles = await floating.evaluate((el) => ({
+      left: (el as HTMLElement).style.left,
+      top: (el as HTMLElement).style.top,
+    }))
+    expect(styles.left, 'floating toolbar left must be set').not.toBe('')
+    expect(styles.top, 'floating toolbar top must be set').not.toBe('')
+
+    const linkButtons = await page.locator('.mdb-toolbar-btn[title="插入链接"]:visible').count()
+    expect(linkButtons, 'exactly one visible link button').toBe(1)
+  })
+
+  test('8. 选择靠下的词时工具条跟随到该行附近（而非钉在编辑器原点）', async ({ page }) => {
+    await openEditor(page)
+    const line = await doubleClickWord(page, 'BOTTOMWORD')
+
+    const lineBox = await boxOf(line)
+    const toolbarBox = await boxOf(page.locator('.mdb-floating-toolbar'))
+
+    expect(toolbarBox.y).toBeGreaterThan(lineBox.y)
+    expect(toolbarBox.y).toBeLessThan(lineBox.y + lineBox.height + 80)
   })
 })
 
