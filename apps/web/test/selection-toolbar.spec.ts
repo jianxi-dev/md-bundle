@@ -51,19 +51,19 @@ async function rawDoc(page: Page): Promise<string> {
   return text
 }
 
-test.describe('选区浮条：9 控件 + 字体/颜色下拉 + 切换（#261）', () => {
-  test('选中文本后浮条出现 9 个控件', async ({ page }) => {
+test.describe('选区浮条：10 控件 + 字体/颜色/对齐下拉 + 切换（#261 + #262）', () => {
+  test('选中文本后浮条出现 10 个控件', async ({ page }) => {
     await openEditor(page)
     await selectWord(page, 'UNIQUEMARKER')
 
     const toolbar = page.locator('.mdb-floating-toolbar')
     await expect(toolbar).toBeVisible()
     const buttons = toolbar.locator('.mdb-toolbar-btn, .mdb-toolbar-dropdown-btn')
-    await expect(buttons).toHaveCount(9)
+    await expect(buttons).toHaveCount(10)
     const titles = await buttons.evaluateAll((els) =>
       els.map((e) => (e as HTMLButtonElement).title),
     )
-    expect(titles).toEqual(['字体', '颜色', '加粗', '斜体', '删除线', '下划线', '行内代码', '插入链接', '复制'])
+    expect(titles).toEqual(['字体', '颜色', '对齐', '加粗', '斜体', '删除线', '下划线', '行内代码', '插入链接', '复制'])
   })
 
   test('删除线 applies ~~…~~ and toggles off on second click', async ({ page }) => {
@@ -208,5 +208,180 @@ test.describe('选区浮条：9 控件 + 字体/颜色下拉 + 切换（#261）'
 
     expect(fontFamily).toMatch(/Georgia|serif/i)
     expect(color).toMatch(/rgb\(240, 97, 109\)|rgb\(207, 34, 46\)|#f0616d|#cf222e/i)
+  })
+})
+
+test.describe('选区浮条：对齐下拉（左/中/右/清除）#262', () => {
+  test('浮条包含 10 个控件（含对齐下拉）', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const toolbar = page.locator('.mdb-floating-toolbar')
+    await expect(toolbar).toBeVisible()
+    const buttons = toolbar.locator('.mdb-toolbar-btn, .mdb-toolbar-dropdown-btn')
+    await expect(buttons).toHaveCount(10)
+    const titles = await buttons.evaluateAll((els) =>
+      els.map((e) => (e as HTMLButtonElement).title),
+    )
+    expect(titles).toEqual(['字体', '颜色', '对齐', '加粗', '斜体', '删除线', '下划线', '行内代码', '插入链接', '复制'])
+  })
+
+  test('对齐下拉：居中 wraps block in ::: {.align-center} … :::', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const alignDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="对齐"]')
+    await expect(alignDropdown).toBeVisible()
+    await alignDropdown.click()
+    await settle(page)
+
+    const centerOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '居中' }).first()
+    await expect(centerOption).toBeVisible()
+    await centerOption.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).toContain('::: {.align-center}')
+    expect(raw).toContain('UNIQUEMARKER')
+    expect(raw).toContain(':::')
+  })
+
+  test('对齐下拉：左对齐 wraps block in ::: {.align-left} … :::', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const alignDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="对齐"]')
+    await alignDropdown.click()
+    await settle(page)
+
+    const leftOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '左对齐' }).first()
+    await expect(leftOption).toBeVisible()
+    await leftOption.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).toContain('::: {.align-left}')
+    expect(raw).toContain('UNIQUEMARKER')
+    expect(raw).toContain(':::')
+  })
+
+  test('对齐下拉：右对齐 wraps block in ::: {.align-right} … :::', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const alignDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="对齐"]')
+    await alignDropdown.click()
+    await settle(page)
+
+    const rightOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '右对齐' }).first()
+    await expect(rightOption).toBeVisible()
+    await rightOption.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).toContain('::: {.align-right}')
+    expect(raw).toContain('UNIQUEMARKER')
+    expect(raw).toContain(':::')
+  })
+
+  test('对齐下拉：再次点击同一对齐 toggles off (removes wrapper)', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const alignDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="对齐"]')
+    await alignDropdown.click()
+    await settle(page)
+
+    const centerOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '居中' }).first()
+    await centerOption.click()
+    await settle(page)
+
+    await selectWord(page, 'UNIQUEMARKER')
+    await alignDropdown.click()
+    await settle(page)
+    await centerOption.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).not.toContain('::: {.align-center}')
+    expect(raw).not.toContain(':::')
+    expect(raw).toContain('UNIQUEMARKER')
+  })
+
+  test('对齐下拉：切换对齐 replaces the class (center → left)', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const alignDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="对齐"]')
+    await alignDropdown.click()
+    await settle(page)
+
+    const centerOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '居中' }).first()
+    await centerOption.click()
+    await settle(page)
+
+    await selectWord(page, 'UNIQUEMARKER')
+    await alignDropdown.click()
+    await settle(page)
+    const leftOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '左对齐' }).first()
+    await leftOption.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).not.toContain('::: {.align-center}')
+    expect(raw).toContain('::: {.align-left}')
+    expect(raw).toContain('UNIQUEMARKER')
+  })
+
+  test('对齐下拉：清除 removes alignment wrapper', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const alignDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="对齐"]')
+    await alignDropdown.click()
+    await settle(page)
+
+    const centerOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '居中' }).first()
+    await centerOption.click()
+    await settle(page)
+
+    await selectWord(page, 'UNIQUEMARKER')
+    await alignDropdown.click()
+    await settle(page)
+    // Wait for the 对齐 dropdown menu to be visible (it's the last dropdown in the toolbar)
+    const alignMenu = page.locator('.mdb-toolbar-dropdown-menu').filter({ hasText: '左对齐' })
+    await expect(alignMenu).toBeVisible()
+    const clearOption = alignMenu.locator('.mdb-toolbar-dropdown-option', { hasText: '清除' }).first()
+    await expect(clearOption).toBeVisible()
+    await clearOption.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).not.toContain('::: {.align-center}')
+    expect(raw).not.toContain(':::')
+    expect(raw).toContain('UNIQUEMARKER')
+  })
+
+  test('预览模式下对齐渲染保真：居中 shows text-align: center', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const alignDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="对齐"]')
+    await alignDropdown.click()
+    await settle(page)
+
+    const centerOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '居中' }).first()
+    await centerOption.click()
+    await settle(page)
+
+    await page.getByTestId('mode-preview-btn').click()
+    await expect(page.locator('.preview-content').first()).toBeVisible()
+    await settle(page)
+
+    const previewBlock = page.locator('.preview-content .layout-align-center').first()
+    await expect(previewBlock).toBeVisible()
+
+    const textAlign = await previewBlock.evaluate((el) => window.getComputedStyle(el).textAlign)
+    expect(textAlign).toBe('center')
   })
 })

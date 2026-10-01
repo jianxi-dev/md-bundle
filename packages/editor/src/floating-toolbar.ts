@@ -72,8 +72,8 @@ export interface FloatingToolbarOptions {
 }
 
 /**
- * Default 9-control inline format set — the contract for ticket #261.
- * Order: 字体▾ / 颜色▾ / 加粗 / 斜体 / 删除线 / 下划线 / 行内代码 / 链接 / 复制.
+ * Default 10-control inline format set — the contract for ticket #262.
+ * Order: 字体▾ / 颜色▾ / 对齐▾ / 加粗 / 斜体 / 删除线 / 下划线 / 行内代码 / 链接 / 复制.
  * `code-copy` is reused (clipboard write logic) but its toolbar label is
  * overridden to "复制" per the ticket.
  */
@@ -102,6 +102,18 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
       { commandId: 'color-green', label: '绿色' },
       { commandId: 'color-orange', label: '橙色' },
       { commandId: 'color-purple', label: '紫色' },
+    ],
+  },
+  {
+    commandId: 'align-left',
+    label: '对齐',
+    icon: '⬌',
+    kind: 'dropdown',
+    options: [
+      { commandId: 'align-left', label: '左对齐' },
+      { commandId: 'align-center', label: '居中' },
+      { commandId: 'align-right', label: '右对齐' },
+      { commandId: 'align-clear', label: '清除' },
     ],
   },
   { commandId: 'toggle-bold' },

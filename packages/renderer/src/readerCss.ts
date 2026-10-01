@@ -646,6 +646,17 @@ export const READER_CSS: string = `
   --callout-soft: rgba(139, 143, 150, 0.08);
 }
 
+/* ── Alignment (fenced div layout classes) ─── */
+[data-theme='light'] .preview-content .layout-align-left {
+  text-align: left;
+}
+[data-theme='light'] .preview-content .layout-align-center {
+  text-align: center;
+}
+[data-theme='light'] .preview-content .layout-align-right {
+  text-align: right;
+}
+
 /* ── KaTeX ─── */
 [data-theme='light'] .preview-content .katex-block {
   overflow-x: auto;
@@ -1317,6 +1328,17 @@ export const READER_CSS: string = `
 [data-theme='dark'] .preview-content .callout[data-callout="cite"] {
   --callout-color: #8b9099;
   --callout-soft: rgba(139, 144, 153, 0.1);
+}
+
+/* ── Alignment (fenced div layout classes) ─── */
+[data-theme='dark'] .preview-content .layout-align-left {
+  text-align: left;
+}
+[data-theme='dark'] .preview-content .layout-align-center {
+  text-align: center;
+}
+[data-theme='dark'] .preview-content .layout-align-right {
+  text-align: right;
 }
 
 /* ── KaTeX ─── */

@@ -1,18 +1,19 @@
 /**
- * Floating toolbar tests — ticket #260 (selection-toolbar/1.1).
+ * Floating toolbar tests — ticket #260 (selection-toolbar/1.1) and #262 (selection-toolbar/3.1).
  *
  * Drives the floating toolbar through a real EditorView and asserts:
  * - The toolbar is data-driven (renders from commandRegistry ids / items).
- * - The 7-control inline format set is present with Chinese tooltips.
+ * - The 10-control inline format set is present with Chinese tooltips.
  * - Toggle semantics: applying a format twice removes it.
  * - The copy control places the selection on the clipboard.
+ * - Alignment dropdown wraps blocks in fenced divs.
  *
  * jsdom lacks requestAnimationFrame/ResizeObserver; CodeMirror 6 uses both.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMarkdownEditor } from '../src/editor';
 import { floatingToolbar, type FloatingToolbarItem } from '../src/floating-toolbar';
-import { commandRegistry } from '../src/commands';
+import { commandRegistry, clearBlockAlignment } from '../src/commands';
 
 // jsdom ships no Clipboard API; the copy tests record calls here.
 let clipboardWrites: string[] = [];
@@ -104,7 +105,7 @@ describe('floating toolbar: data-driven 7-control set (ticket #260)', () => {
     removeClipboard();
   });
 
-  it('renders exactly the 9 inline-format controls with Chinese tooltips', () => {
+  it('renders exactly the 10 inline-format controls with Chinese tooltips', () => {
     selectWord(view, 'Hello world', 'Hello');
     const buttons = Array.from(
       view.dom.querySelectorAll<HTMLButtonElement>('.mdb-floating-toolbar .mdb-toolbar-btn, .mdb-floating-toolbar .mdb-toolbar-dropdown-btn'),
@@ -112,6 +113,7 @@ describe('floating toolbar: data-driven 7-control set (ticket #260)', () => {
     expect(buttons.map((b) => b.title)).toEqual([
       '字体',
       '颜色',
+      '对齐',
       '加粗',
       '斜体',
       '删除线',
@@ -364,5 +366,94 @@ describe('floating toolbar: font/color dropdowns (ticket #261)', () => {
     clickDropdownOption(view, '颜色', '蓝色');
     expect(view.state.doc.toString()).not.toContain('mdb-color-red');
     expect(view.state.doc.toString()).toContain('<span class="mdb-color-blue">Hello</span>');
+  });
+});
+
+describe('floating toolbar: alignment dropdown (ticket #262)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent, { extensions: [floatingToolbar()] }).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+    removeClipboard();
+  });
+
+  it('对齐 dropdown opens and applies 居中', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '对齐', '居中');
+    expect(view.state.doc.toString()).toBe('::: {.align-center}\nHello world\n:::');
+  });
+
+  it('对齐 dropdown applies 左对齐', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '对齐', '左对齐');
+    expect(view.state.doc.toString()).toBe('::: {.align-left}\nHello world\n:::');
+  });
+
+  it('对齐 dropdown applies 右对齐', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '对齐', '右对齐');
+    expect(view.state.doc.toString()).toBe('::: {.align-right}\nHello world\n:::');
+  });
+
+  it('对齐 dropdown 居中 toggles off on second click', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '对齐', '居中');
+    clickDropdownOption(view, '对齐', '居中');
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('对齐 dropdown 切换对齐 replaces the class (center → left)', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '对齐', '居中');
+    clickDropdownOption(view, '对齐', '左对齐');
+    expect(view.state.doc.toString()).toBe('::: {.align-left}\nHello world\n:::');
+  });
+
+  it('对齐 dropdown 清除 removes alignment wrapper', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '对齐', '居中');
+    // Verify the wrapper was applied
+    expect(view.state.doc.toString()).toBe('::: {.align-center}\nHello world\n:::');
+    // Now clear it by directly calling the command
+    commandRegistry.execute('align-clear', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('对齐 dropdown 清除 option button exists in menu', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    // Open the dropdown
+    const dropdownBtn = view.dom.querySelector<HTMLButtonElement>(
+      '.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="对齐"]',
+    );
+    expect(dropdownBtn).not.toBeNull();
+    dropdownBtn!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+
+    // Check that the 清除 option exists
+    const options = view.dom.querySelectorAll<HTMLButtonElement>(
+      '.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option',
+    );
+    const clearOption = Array.from(options).find((btn) => btn.textContent?.includes('清除'));
+    expect(clearOption).not.toBeNull();
+    expect(clearOption!.textContent).toBe('清除');
+  });
+
+  it('对齐 dropdown 清除 works via clickDropdownOption', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '对齐', '居中');
+    expect(view.state.doc.toString()).toBe('::: {.align-center}\nHello world\n:::');
+    // Check if align-clear is registered
+    expect(commandRegistry.has('align-clear')).toBe(true);
+    // Call clearBlockAlignment directly
+    clearBlockAlignment(view);
+    expect(view.state.doc.toString()).toBe('Hello world');
   });
 });

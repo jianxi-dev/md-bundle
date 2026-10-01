@@ -24,6 +24,9 @@ const facts = {
   cardGrid: false,
   timeline: false,
   cta: false,
+  alignLeft: false,
+  alignCenter: false,
+  alignRight: false,
   htmlBlockAllowed: false,
   htmlBlockStripped: false,
   dangerousBlocked: false,
@@ -186,6 +189,80 @@ describe('layout templates via fenced divs', () => {
     );
     expect(html).toContain('class="layout-custom-layout');
   });
+
+  it('converts {.align-center} into a div with layout-align-center class', () => {
+    const html = renderMarkdown(
+      [
+        '::: {.align-center}',
+        '',
+        '## Centered Content',
+        'This should be centered.',
+        '',
+        ':::',
+      ].join('\n'),
+    );
+    expect(html).toContain('class="layout-align-center');
+    expect(html).toContain('<div');
+    expect(html).toContain('Centered Content');
+    facts.alignCenter = true;
+  });
+
+  it('converts {.align-left} into a div with layout-align-left class', () => {
+    const html = renderMarkdown(
+      [
+        '::: {.align-left}',
+        '',
+        '## Left Aligned',
+        'This should be left aligned.',
+        '',
+        ':::',
+      ].join('\n'),
+    );
+    expect(html).toContain('class="layout-align-left');
+    expect(html).toContain('<div');
+    expect(html).toContain('Left Aligned');
+    facts.alignLeft = true;
+  });
+
+  it('converts {.align-right} into a div with layout-align-right class', () => {
+    const html = renderMarkdown(
+      [
+        '::: {.align-right}',
+        '',
+        '## Right Aligned',
+        'This should be right aligned.',
+        '',
+        ':::',
+      ].join('\n'),
+    );
+    expect(html).toContain('class="layout-align-right');
+    expect(html).toContain('<div');
+    expect(html).toContain('Right Aligned');
+    facts.alignRight = true;
+  });
+
+  it('renders inner markdown inside alignment fenced divs', () => {
+    const html = renderMarkdown(
+      [
+        '::: {.align-center}',
+        '',
+        '# Heading',
+        '',
+        '**Bold** and *italic* text.',
+        '',
+        '- List item 1',
+        '- List item 2',
+        '',
+        ':::',
+      ].join('\n'),
+    );
+    expect(html).toContain('class="layout-align-center');
+    expect(html).toContain('<h1>');
+    expect(html).toContain('<strong>Bold</strong>');
+    expect(html).toContain('<em>italic</em>');
+    expect(html).toContain('<li>List item 1</li>');
+    expect(html).toContain('<li>List item 2</li>');
+  });
 });
 
 describe('HTML block safe embedding', () => {
@@ -297,7 +374,7 @@ describe('HTML block safe embedding', () => {
 });
 
 afterAll(() => {
-  facts.tests = 16;
+  facts.tests = 19;
   mkdirSync(dirname(EVIDENCE_PATH), { recursive: true });
   writeFileSync(EVIDENCE_PATH, JSON.stringify(facts, null, 2));
 });
