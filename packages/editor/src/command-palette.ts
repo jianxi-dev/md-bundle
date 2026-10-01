@@ -16,7 +16,6 @@
 
 import { EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/view';
 import { Prec, type Extension } from '@codemirror/state';
-import { getThemeColor } from './theme';
 import { commandRegistry } from './commands';
 import { markUsed, searchCommands, type MatchEntry } from './command-palette-search';
 import {
@@ -66,7 +65,7 @@ function renderPalette(view: EditorView, state: PaletteState): void {
     border: 'none',
     outline: 'none',
     background: 'transparent',
-    color: getThemeColor('dark', 'text'),
+    color: 'var(--mdb-text)',
     fontSize: '14px',
     boxSizing: 'border-box',
   });
@@ -109,7 +108,7 @@ function renderPalette(view: EditorView, state: PaletteState): void {
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    color: getThemeColor('dark', 'text-secondary'),
+    color: 'var(--mdb-text-secondary)',
     fontSize: '18px',
     lineHeight: '1',
     padding: '6px 10px',
@@ -128,7 +127,7 @@ function renderPalette(view: EditorView, state: PaletteState): void {
   Object.assign(list.style, {
     maxHeight: '300px',
     overflowY: 'auto',
-    borderTop: `1px solid ${getThemeColor('dark', 'border')}`,
+    borderTop: `1px solid var(--mdb-border)`,
   });
 
   if (state.matches.length === 0) {
@@ -136,7 +135,7 @@ function renderPalette(view: EditorView, state: PaletteState): void {
     empty.textContent = '未找到匹配命令';
     Object.assign(empty.style, {
       padding: '12px',
-      color: getThemeColor('dark', 'text-secondary'),
+      color: 'var(--mdb-text-secondary)',
       fontSize: '13px',
       textAlign: 'center',
     });
@@ -174,7 +173,6 @@ export function openCommandPalette(view: EditorView): boolean {
   const panel = document.createElement('div');
   panel.className = 'mdb-command-palette';
   panel.setAttribute('data-testid', 'command-palette');
-  panel.setAttribute('data-theme', 'dark');
   Object.assign(panel.style, {
     position: 'fixed',
     left: '50%',
@@ -182,8 +180,8 @@ export function openCommandPalette(view: EditorView): boolean {
     transform: 'translate(-50%, -50%)',
     width: '360px',
     maxWidth: 'calc(100vw - 24px)',
-    background: getThemeColor('dark', 'bg-secondary'),
-    border: `1px solid ${getThemeColor('dark', 'border')}`,
+    background: 'var(--mdb-bg-secondary)',
+    border: `1px solid var(--mdb-border)`,
     borderRadius: '8px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
     zIndex: '2001',

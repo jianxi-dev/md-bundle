@@ -17,7 +17,6 @@
 
 import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { type EditorState, type Extension } from '@codemirror/state';
-import { getThemeColor } from './theme';
 import { commandRegistry } from './commands';
 import { getBlocks, getBlockAt } from './block-model';
 
@@ -164,8 +163,8 @@ function createToolbarDom(view: EditorView): HTMLDivElement {
   dom.style.gap = '2px';
   dom.style.display = 'none';
   dom.style.alignItems = 'center';
-  dom.style.background = getThemeColor('dark', 'bg-secondary');
-  dom.style.border = `1px solid ${getThemeColor('dark', 'border')}`;
+  dom.style.background = 'var(--mdb-bg-secondary)';
+  dom.style.border = `1px solid var(--mdb-border)`;
   dom.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
   dom.style.pointerEvents = 'auto';
   dom.style.whiteSpace = 'nowrap';
@@ -202,7 +201,7 @@ function renderToolbar(view: EditorView, state: ToolbarState): void {
     button.title = btn.label;
     button.style.background = 'transparent';
     button.style.border = 'none';
-    button.style.color = getThemeColor('dark', 'text');
+    button.style.color = 'var(--mdb-text)';
     button.style.cursor = 'pointer';
     button.style.padding = '4px 8px';
     button.style.borderRadius = '4px';

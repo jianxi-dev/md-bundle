@@ -12,7 +12,6 @@
  *   synchronously with the selection state.
  */
 import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
-import { getThemeColor } from './theme';
 import type { Command } from './commands';
 
 export interface FloatingToolbarOptions {
@@ -84,8 +83,8 @@ function createToolbarDom(view: EditorView, commands: Command[]): HTMLDivElement
   const toolbar = document.createElement('div');
   toolbar.className = 'mdb-floating-toolbar';
   toolbar.style.position = 'absolute';
-  toolbar.style.background = getThemeColor('dark', 'bg-secondary');
-  toolbar.style.border = `1px solid ${getThemeColor('dark', 'border')}`;
+  toolbar.style.background = 'var(--mdb-bg-secondary)';
+  toolbar.style.border = `1px solid var(--mdb-border)`;
   toolbar.style.borderRadius = '6px';
   toolbar.style.padding = '4px';
   toolbar.style.display = 'flex';
@@ -100,7 +99,7 @@ function createToolbarDom(view: EditorView, commands: Command[]): HTMLDivElement
     btn.title = cmd.label;
     btn.style.background = 'transparent';
     btn.style.border = 'none';
-    btn.style.color = getThemeColor('dark', 'text');
+    btn.style.color = 'var(--mdb-text)';
     btn.style.padding = '4px 8px';
     btn.style.cursor = 'pointer';
     btn.style.borderRadius = '4px';
