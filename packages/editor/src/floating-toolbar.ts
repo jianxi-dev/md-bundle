@@ -72,16 +72,18 @@ export interface FloatingToolbarOptions {
 }
 
 /**
- * Default 11-control inline format set — the contract for ticket #263.
- * Order: 字体▾ / 颜色▾ / 对齐▾ / 分栏▾ / 加粗 / 斜体 / 删除线 / 下划线 / 行内代码 / 插入链接 / 复制.
- * `code-copy` is reused (clipboard write logic) but its toolbar label is
- * overridden to "复制" per the ticket.
+ * Default 11-control inline format set.
+ * Order (user-pinned, ticket #269):
+ * 字体 / A(颜色) / 对齐 / 加粗 / 删除线 / 斜体 / 下划线 / 插入链接 / 行内代码 / 分栏 / 复制.
+ * The dropdown buttons show a short glyph (`字体`/`A`/`对齐`/`分栏`) with a `▾`
+ * caret; the button controls keep their command glyphs (B/S/I/U/🔗/</>). Tooltips
+ * stay the semantic labels.
  */
 const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
   {
     commandId: 'font-sans',
     label: '字体',
-    icon: 'Aa',
+    icon: '字体',
     kind: 'dropdown',
     options: [
       { commandId: 'font-clear', label: '无' },
@@ -93,7 +95,7 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
   {
     commandId: 'color-red',
     label: '颜色',
-    icon: '●',
+    icon: 'A',
     kind: 'dropdown',
     options: [
       { commandId: 'color-clear', label: '清除' },
@@ -107,7 +109,7 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
   {
     commandId: 'align-left',
     label: '对齐',
-    icon: '⬌',
+    icon: '对齐',
     kind: 'dropdown',
     options: [
       { commandId: 'align-left', label: '左对齐' },
@@ -116,10 +118,16 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
       { commandId: 'align-clear', label: '清除' },
     ],
   },
+  { commandId: 'toggle-bold' },
+  { commandId: 'toggle-strikethrough' },
+  { commandId: 'toggle-italic' },
+  { commandId: 'toggle-underline' },
+  { commandId: 'toggle-link' },
+  { commandId: 'toggle-code', icon: '</>' },
   {
     commandId: 'col-2',
     label: '分栏',
-    icon: '❘',
+    icon: '分栏',
     kind: 'dropdown',
     options: [
       { commandId: 'col-2', label: '2 栏' },
@@ -127,13 +135,7 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
       { commandId: 'col-clear', label: '清除' },
     ],
   },
-  { commandId: 'toggle-bold' },
-  { commandId: 'toggle-italic' },
-  { commandId: 'toggle-strikethrough' },
-  { commandId: 'toggle-underline' },
-  { commandId: 'toggle-code' },
-  { commandId: 'toggle-link' },
-  { commandId: 'code-copy', label: '复制' },
+  { commandId: 'code-copy', label: '复制', icon: '复制' },
 ];
 
 interface ToolbarState {

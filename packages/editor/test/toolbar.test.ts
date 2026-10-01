@@ -311,13 +311,13 @@ describe('floating toolbar Chinese labels (ticket #192 / #260 / #262)', () => {
       '字体',
       '颜色',
       '对齐',
-      '分栏',
       '加粗',
-      '斜体',
       '删除线',
+      '斜体',
       '下划线',
-      '行内代码',
       '插入链接',
+      '行内代码',
+      '分栏',
       '复制',
     ]);
     for (const btn of buttons) {
