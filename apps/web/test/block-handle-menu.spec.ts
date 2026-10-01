@@ -55,6 +55,14 @@ test('手柄菜单点击别处关闭（#238）', async ({ page }) => {
   await expect(menu).toBeHidden()
 })
 
+test('块手柄暴露拖拽重排提示（#170 ③）', async ({ page }) => {
+  await openEditor(page)
+  await revealHandle(page)
+
+  const title = await page.locator('.mdb-block-handle').getAttribute('title')
+  expect(title).toContain('拖拽重排')
+})
+
 test('指针移到手柄上时手柄保持可见（#238 忽闪）', async ({ page }) => {
   await openEditor(page)
   await revealHandle(page)
