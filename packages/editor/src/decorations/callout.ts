@@ -8,11 +8,12 @@
  * Invalid callout types ([!FOO]) fall back to regular blockquote display.
  * Decorations are view-only: doc value must never change.
  *
- * Uses Decoration.replace with block: true to replace the entire callout
- * block range with a styled card. The widget is suppressed by the
- * selection-reveal filter when the cursor is inside the callout range.
+ * Uses Decoration.replace to swap the entire callout block for a styled card.
+ * When the cursor is inside the callout (active block) the replacement is
+ * skipped so the raw `> [!TYPE]` source stays editable, matching how heading
+ * and list suppress their decorations in the active block.
  */
-import { Decoration, WidgetType } from '@codemirror/view';
+import { Decoration, WidgetType, type EditorView } from '@codemirror/view';
 import type { Range } from '@codemirror/state';
 import { calloutTypeMap } from '@md-bundle/renderer';
 
@@ -31,14 +32,24 @@ class CalloutWidget extends WidgetType {
     readonly title: string,
     readonly content: string,
     readonly fold: '+' | '-' | '',
+    readonly from: number,
   ) {
     super();
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view?: EditorView): HTMLElement {
     const container = document.createElement('div');
     container.className = `cm-callout cm-callout-tone-${this.tone}`;
     if (this.fold) container.setAttribute('data-fold', this.fold);
+
+    // The card replaces the whole block; without this the widget swallows the
+    // pointer and the cursor can never enter the callout to edit it (#236).
+    container.addEventListener('mousedown', (event) => {
+      if (!view) return;
+      event.preventDefault();
+      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
+      view.focus();
+    });
 
     const header = document.createElement('div');
     header.className = 'cm-callout-header';
@@ -186,15 +197,23 @@ function findCalloutBlocks(docText: string): CalloutBlock[] {
 
 /**
  * Create callout decorations for the given document text.
- * Returns an array of CM6 Range<Decoration> for callout widgets.
+ * Callouts overlapping the active block are left undecorated so their source
+ * stays editable. Returns an array of CM6 Range<Decoration> for callout widgets.
  */
-export function createCalloutDecorations(docText: string): Range<Decoration>[] {
+export function createCalloutDecorations(
+  docText: string,
+  activeFrom: number = -1,
+  activeTo: number = -1,
+): Range<Decoration>[] {
   const decorations: Range<Decoration>[] = [];
   const blocks = findCalloutBlocks(docText);
 
   for (const block of blocks) {
     const typeInfo = calloutTypeMap[block.type];
     if (!typeInfo) continue;
+
+    const isActive = activeFrom >= 0 && block.from >= activeFrom && block.to <= activeTo;
+    if (isActive) continue;
 
     decorations.push(
       Decoration.replace({
@@ -206,8 +225,9 @@ export function createCalloutDecorations(docText: string): Range<Decoration>[] {
           block.title || typeInfo.label,
           block.content,
           block.fold,
+          block.from,
         ),
-        inclusive: false,
+        inclusive: true,
       }).range(block.from, block.to),
     );
   }
