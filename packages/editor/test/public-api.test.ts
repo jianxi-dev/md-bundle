@@ -283,9 +283,15 @@ describe('slash menu through the public API', () => {
     handle.destroy();
   });
 
-  it('slashMenuApply replaces the slash with "## " (heading)', () => {
+  it('slashMenuApply on the heading row opens the H1–H6 submenu, then inserts a level', () => {
     const handle = makeView();
     insertSlashChar(handle.view);
+    // Heading is a submenu opener: applying it shows H1–H6 and leaves the doc.
+    expect(slashMenuApply(handle.view)).toBe(true);
+    expect(handle.getValue()).toBe('/');
+    expect(handle.view.dom.querySelectorAll('.mdb-slash-item').length).toBe(6);
+
+    slashMenuSelectNext(handle.view);
     expect(slashMenuApply(handle.view)).toBe(true);
     expect(handle.getValue()).toBe('## ');
     expect(handle.view.dom.querySelector('.mdb-slash-menu')).toBeNull();

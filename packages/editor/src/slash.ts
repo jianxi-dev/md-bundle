@@ -24,48 +24,51 @@ export interface SlashCommand {
   label: string;
   hint?: string;
   icon?: string;
+  /** Group heading this row is shown under (root level only). */
+  group?: string;
+  /** When present, activating the row opens this second-level panel of rows. */
+  children?: SlashCommand[];
   /**
    * Returns the change that replaces the `/` (the character immediately to the
    * left of the cursor) with the template text. Called with the state where
    * the `/` is still in the document and the cursor sits right after it, so
-   * `head - 1` is the slash position.
+   * `head - 1` is the slash position. Leaf rows only; submenu openers omit it.
    */
-  insert(state: EditorState): { from: number; to: number; text: string };
+  insert?(state: EditorState): { from: number; to: number; text: string };
+}
+
+function headingLevel(level: 1 | 2 | 3 | 4 | 5 | 6): SlashCommand {
+  const prefix = `${'#'.repeat(level)} `;
+  return {
+    id: `heading-${level}`,
+    label: `${level} 级标题`,
+    hint: prefix.trimEnd(),
+    icon: `H${level}`,
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: prefix };
+    },
+  };
 }
 
 export const defaultCommands: SlashCommand[] = [
   {
     id: 'heading',
     label: '标题',
-    hint: '## ',
+    hint: 'H1–H6',
     icon: '#',
-    insert(state) {
-      const head = state.selection.main.head;
-      return { from: head - 1, to: head, text: '## ' };
-    },
+    group: '基础',
+    children: ([1, 2, 3, 4, 5, 6] as const).map(headingLevel),
   },
   {
-    id: 'callout',
-    label: '标注',
-    hint: '> [!NOTE]',
-    icon: '\u275D',
+    id: 'quote',
+    label: '引用',
+    hint: '> ',
+    icon: '\u00BB',
+    group: '基础',
     insert(state) {
       const head = state.selection.main.head;
-      return { from: head - 1, to: head, text: '> [!NOTE]\n> ' };
-    },
-  },
-  {
-    id: 'image-ref',
-    label: '图片引用',
-    hint: '![](...)',
-    icon: '\u25A3',
-    insert(state) {
-      const head = state.selection.main.head;
-      return {
-        from: head - 1,
-        to: head,
-        text: '![](https://example.com/image.png)',
-      };
+      return { from: head - 1, to: head, text: '> ' };
     },
   },
   {
@@ -73,6 +76,7 @@ export const defaultCommands: SlashCommand[] = [
     label: '代码块',
     hint: '```',
     icon: '{ }',
+    group: '基础',
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: '```\n\n```' };
@@ -83,6 +87,7 @@ export const defaultCommands: SlashCommand[] = [
     label: '表格',
     hint: '| a | b |',
     icon: '\u25A6',
+    group: '常用',
     insert(state) {
       const head = state.selection.main.head;
       return {
@@ -93,13 +98,29 @@ export const defaultCommands: SlashCommand[] = [
     },
   },
   {
-    id: 'quote',
-    label: '引用',
-    hint: '> ',
-    icon: '\u00BB',
+    id: 'callout',
+    label: '标注',
+    hint: '> [!NOTE]',
+    icon: '\u275D',
+    group: '常用',
     insert(state) {
       const head = state.selection.main.head;
-      return { from: head - 1, to: head, text: '> ' };
+      return { from: head - 1, to: head, text: '> [!NOTE]\n> ' };
+    },
+  },
+  {
+    id: 'image-ref',
+    label: '图片引用',
+    hint: '![](...)',
+    icon: '\u25A3',
+    group: '常用',
+    insert(state) {
+      const head = state.selection.main.head;
+      return {
+        from: head - 1,
+        to: head,
+        text: '![](https://example.com/image.png)',
+      };
     },
   },
   {
@@ -107,6 +128,7 @@ export const defaultCommands: SlashCommand[] = [
     label: '插入 HTML',
     hint: '<div>',
     icon: '</>',
+    group: '小组件',
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: '<div align="center">\n\n</div>' };
@@ -117,6 +139,7 @@ export const defaultCommands: SlashCommand[] = [
     label: '插入 CSS',
     hint: '<style>',
     icon: '#',
+    group: '小组件',
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: '<style>\n\n</style>' };
@@ -128,7 +151,12 @@ interface SlashMenuState {
   open: boolean;
   slashPos: number;
   selected: number;
+  /** Root rows (may include submenu openers). */
   commands: SlashCommand[];
+  /** Rows currently displayed (root, or the open submenu's children). */
+  rows: SlashCommand[];
+  /** The opener whose children are displayed, or null at root. */
+  submenuParent: SlashCommand | null;
   dom: HTMLDivElement | null;
 }
 
@@ -147,7 +175,20 @@ function closeMenu(view: EditorView): void {
 function renderMenu(view: EditorView, state: SlashMenuState): void {
   if (!state.dom) return;
   state.dom.textContent = '';
-  state.commands.forEach((cmd, i) => {
+  let lastGroup: string | undefined;
+  state.rows.forEach((cmd, i) => {
+    if (!state.submenuParent && cmd.group && cmd.group !== lastGroup) {
+      const header = document.createElement('div');
+      header.className = 'mdb-slash-group';
+      header.textContent = cmd.group;
+      header.style.padding = '6px 12px 2px';
+      header.style.fontSize = '11px';
+      header.style.color = 'var(--mdb-text-secondary)';
+      header.style.opacity = '0.8';
+      state.dom!.appendChild(header);
+      lastGroup = cmd.group;
+    }
+
     const row = document.createElement('div');
     row.className = 'mdb-slash-item';
     row.style.padding = '6px 12px';
@@ -171,20 +212,18 @@ function renderMenu(view: EditorView, state: SlashMenuState): void {
     label.textContent = cmd.label;
     row.appendChild(label);
 
-    if (cmd.hint) {
-      const hint = document.createElement('span');
-      hint.textContent = cmd.hint;
-      hint.style.marginLeft = 'auto';
-      hint.style.color = 'var(--mdb-text-secondary)';
-      hint.style.fontSize = '11px';
-      hint.style.opacity = '0.8';
-      row.appendChild(hint);
-    }
+    const hint = document.createElement('span');
+    hint.style.marginLeft = 'auto';
+    hint.style.color = 'var(--mdb-text-secondary)';
+    hint.style.fontSize = '11px';
+    hint.style.opacity = '0.8';
+    hint.textContent = cmd.children ? '\u25B8' : (cmd.hint ?? '');
+    row.appendChild(hint);
 
     row.addEventListener('mousedown', (e) => {
       e.preventDefault();
       state.selected = i;
-      applyCommand(view, cmd);
+      activateRow(view, cmd);
     });
 
     state.dom!.appendChild(row);
@@ -209,38 +248,62 @@ function openMenu(
   menu.style.padding = '4px 0';
   menu.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.24)';
 
+  menu.style.overflowY = 'auto';
+
   const state: SlashMenuState = {
     open: true,
     slashPos,
     selected: 0,
     commands,
+    rows: commands,
+    submenuParent: null,
     dom: menu,
   };
   menus.set(view, state);
   renderMenu(view, state);
 
-  // Position near the cursor; jsdom has no layout, so a failure leaves 0,0.
-  // coordsAtPos returns VIEWPORT coordinates, but the menu is an absolutely
-  // positioned child of view.dom — the editor's page origin must be subtracted
-  // or the menu lands offset by that origin (issue #203).
-  try {
-    const coords = view.coordsAtPos(slashPos + 1);
-    if (coords) {
-      const rect = view.dom.getBoundingClientRect();
-      menu.style.left = `${coords.left - rect.left}px`;
-      menu.style.top = `${coords.bottom + 4 - rect.top}px`;
-    }
-  } catch {
-    // ignore — jsdom / unmeasured content
-  }
-
   if (view.dom.style.position === 'static' || view.dom.style.position === '') {
     view.dom.style.position = 'relative';
   }
   view.dom.appendChild(menu);
+  positionMenu(view, menu, slashPos);
+}
+
+/**
+ * Place the menu at the cursor, clamping its right/bottom edges into the
+ * viewport and capping its height so long or second-level menus scroll instead
+ * of overflowing (#250). coordsAtPos is viewport-relative but the menu is a
+ * child of view.dom, so the editor origin is subtracted (issue #203). jsdom has
+ * no layout; the try/catch leaves the menu at 0,0 there.
+ */
+function positionMenu(view: EditorView, menu: HTMLDivElement, slashPos: number): void {
+  try {
+    const coords = view.coordsAtPos(slashPos + 1);
+    if (!coords) return;
+    const rect = view.dom.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+
+    let leftV = coords.left;
+    let topV = coords.bottom + 4;
+    if (leftV + menuRect.width > viewportW - 8) {
+      leftV = Math.max(8, viewportW - 8 - menuRect.width);
+    }
+    if (topV + menuRect.height > viewportH - 8) {
+      topV = Math.max(8, viewportH - 8 - menuRect.height);
+    }
+
+    menu.style.left = `${leftV - rect.left}px`;
+    menu.style.top = `${topV - rect.top}px`;
+    menu.style.maxHeight = `${Math.max(120, viewportH - 8 - topV)}px`;
+  } catch {
+    // ignore — jsdom / unmeasured content
+  }
 }
 
 function applyCommand(view: EditorView, cmd: SlashCommand): void {
+  if (!cmd.insert) return;
   // Close FIRST so the docChanged closer in the ViewPlugin never fights the
   // transaction we are about to dispatch.
   closeMenu(view);
@@ -251,6 +314,35 @@ function applyCommand(view: EditorView, cmd: SlashCommand): void {
     selection: { anchor: change.from + change.text.length },
     scrollIntoView: true,
   });
+}
+
+/** Activate a row: open its submenu, or apply its insert. */
+function activateRow(view: EditorView, cmd: SlashCommand): void {
+  if (cmd.children && cmd.children.length > 0) {
+    enterSubmenu(view, cmd);
+    return;
+  }
+  applyCommand(view, cmd);
+}
+
+/** Show a row's second-level panel of children. */
+function enterSubmenu(view: EditorView, cmd: SlashCommand): void {
+  const state = menus.get(view);
+  if (!state?.open || !state.dom || !cmd.children?.length) return;
+  state.submenuParent = cmd;
+  state.rows = cmd.children;
+  state.selected = 0;
+  renderMenu(view, state);
+}
+
+/** Return from a submenu to the root row list. */
+function backToRoot(view: EditorView): void {
+  const state = menus.get(view);
+  if (!state?.open || !state.dom || !state.submenuParent) return;
+  state.submenuParent = null;
+  state.rows = state.commands;
+  state.selected = 0;
+  renderMenu(view, state);
 }
 
 /**
@@ -306,7 +398,7 @@ export function insertSlashChar(
 export function slashMenuSelectNext(view: EditorView): boolean {
   const state = menus.get(view);
   if (!state?.open || !state.dom) return false;
-  state.selected = Math.min(state.selected + 1, state.commands.length - 1);
+  state.selected = Math.min(state.selected + 1, state.rows.length - 1);
   renderMenu(view, state);
   return true;
 }
@@ -320,13 +412,34 @@ export function slashMenuSelectPrev(view: EditorView): boolean {
   return true;
 }
 
-/** Enter: apply the selected command (replaces the `/` with the template). */
+/**
+ * Enter: activate the selected row — open its submenu, or replace the `/` with
+ * the template for a leaf row.
+ */
 export function slashMenuApply(view: EditorView): boolean {
   const state = menus.get(view);
   if (!state?.open || !state.dom) return false;
-  const cmd = state.commands[state.selected];
+  const cmd = state.rows[state.selected];
   if (!cmd) return false;
-  applyCommand(view, cmd);
+  activateRow(view, cmd);
+  return true;
+}
+
+/** ArrowRight: open the selected row's submenu when it has children. */
+export function slashMenuSubmenuEnter(view: EditorView): boolean {
+  const state = menus.get(view);
+  if (!state?.open || !state.dom) return false;
+  const cmd = state.rows[state.selected];
+  if (!cmd?.children?.length) return false;
+  enterSubmenu(view, cmd);
+  return true;
+}
+
+/** ArrowLeft: leave an open submenu and return to the root rows. */
+export function slashMenuSubmenuBack(view: EditorView): boolean {
+  const state = menus.get(view);
+  if (!state?.open || !state.dom || !state.submenuParent) return false;
+  backToRoot(view);
   return true;
 }
 
@@ -385,6 +498,8 @@ export function slashKeymap(options: { commands?: SlashCommand[] } = {}): Extens
         },
         { key: 'ArrowDown', run: (view) => slashMenuSelectNext(view) },
         { key: 'ArrowUp', run: (view) => slashMenuSelectPrev(view) },
+        { key: 'ArrowRight', run: (view) => slashMenuSubmenuEnter(view) },
+        { key: 'ArrowLeft', run: (view) => slashMenuSubmenuBack(view) },
         { key: 'Enter', run: (view) => slashMenuApply(view) },
         { key: 'Escape', run: (view) => slashMenuClose(view) },
       ]),

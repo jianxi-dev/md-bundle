@@ -79,10 +79,15 @@ describe('slash commands', () => {
     expect(menu?.style.top).toBe('281px');
   });
 
-  it('applying the heading command replaces the slash with "## " and puts the cursor at the end', () => {
+  it('applying the heading row opens the H1–H6 submenu, and choosing a level inserts it', () => {
     insertSlashChar(view);
-    const applied = slashMenuApply(view);
-    expect(applied).toBe(true);
+    // Heading is a submenu opener now: applying it opens the second level.
+    expect(slashMenuApply(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe('/');
+    expect(view.dom.querySelectorAll('.mdb-slash-item').length).toBe(6);
+
+    slashMenuSelectNext(view); // H1 -> H2
+    slashMenuApply(view);
     expect(view.state.doc.toString()).toBe('## ');
     expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
@@ -90,7 +95,11 @@ describe('slash commands', () => {
 
   it('applying the callout command inserts a standard "> [!NOTE]" blockquote', () => {
     insertSlashChar(view);
-    slashMenuSelectNext(view); // row 1 = callout
+    // Rows are grouped; locate 标注 rather than relying on a fixed index.
+    const rowIndex = Array.from(view.dom.querySelectorAll<HTMLElement>('.mdb-slash-item')).findIndex(
+      (row) => row.textContent?.includes('标注'),
+    );
+    for (let i = 0; i < rowIndex; i++) slashMenuSelectNext(view);
     slashMenuApply(view);
     const doc = view.state.doc.toString();
     expect(doc).toContain('> [!NOTE]');
