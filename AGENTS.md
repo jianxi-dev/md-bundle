@@ -147,6 +147,19 @@ Issue 和 spec 统一以 GitHub issue 形式存在于 `jianxi-dev/md-bundle`。�
 
 > 收尾铁律：合并后本地工作区停留在 main（详见 docs/agents/incident-merge-local-workspace.md）
 
+### 更新 change-workflow 工具包
+
+```bash
+# 检查是否有新版本（不落盘）
+./scripts/cw-update.sh --check
+
+# 执行更新（有冲突会写 .new 旁路文件，退 1 是正常语义）
+./scripts/cw-update.sh
+
+# 快捷方式（如已安装 Makefile）
+make cw-update
+```
+
 ### Quality gates（质量门禁，2026-09-20 起强制）
 
 任何 change / 缺陷修复的**票内容与完成判据**必须满足 `docs/agents/quality-gates.md`：**QG-1..QG-7**（变更开发侧）+ **DQ-1..DQ-8**（缺陷处理侧）。
