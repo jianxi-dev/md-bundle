@@ -229,7 +229,7 @@ describe('editorDecorations with callout support', () => {
   // --- Selection reveal (cursor enters callout → show source) ---
 
   describe('semantic editing mode', () => {
-    it('keeps callout card visible when cursor enters callout block', () => {
+    it('suppresses the callout card when the cursor enters the block', () => {
       view = createMarkdownEditor(parent, {
         value: '> [!NOTE] 标题\n> 内容',
         extensions: [editorDecorations()],
@@ -244,32 +244,25 @@ describe('editorDecorations with callout support', () => {
       view.dispatch({ selection: { anchor: 1 } });
       view.requestMeasure();
 
-      // Callout is a block-level widget — it stays rendered as a card
-      // in both active and inactive blocks. The user edits the raw
-      // markdown source when inside the block.
-      const widget = view.dom.querySelector('.cm-callout');
-      expect(widget).not.toBeNull();
+      expect(view.dom.querySelector('.cm-callout')).toBeNull();
+      expect(view.dom.querySelector('.cm-content')?.textContent ?? '').toContain('[!NOTE]');
 
       evidence.selectionReveal = true;
       evidence.tests++;
     });
 
-    it('callout card is stable when cursor moves in and out of block', () => {
+    it('restores the callout card when the cursor leaves the block', () => {
       view = createMarkdownEditor(parent, {
         value: '> [!NOTE] 标题\n> 内容',
         extensions: [editorDecorations()],
       }).view;
 
-      // Move cursor into callout block
       view.dispatch({ selection: { anchor: 1 } });
       view.requestMeasure();
-      expect(view.dom.querySelector('.cm-callout')).not.toBeNull();
+      expect(view.dom.querySelector('.cm-callout')).toBeNull();
 
-      // Move cursor back outside
       view.dispatch({ selection: { anchor: view.state.doc.length } });
       view.requestMeasure();
-
-      // Card is still visible (block-level widget, always rendered)
       expect(view.dom.querySelector('.cm-callout')).not.toBeNull();
       evidence.tests++;
     });

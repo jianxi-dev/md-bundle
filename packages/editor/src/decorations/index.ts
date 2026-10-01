@@ -121,7 +121,7 @@ function buildDecorationSet(
         onImageLocate: options?.onImageLocate,
       },
     ),
-    ...createCalloutDecorations(docText),
+    ...createCalloutDecorations(docText, activeFrom, activeTo),
   ];
 
   // Sort by from-position (required by CM6)
