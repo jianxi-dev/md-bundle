@@ -565,3 +565,126 @@ describe('font/color toggle commands (ticket #261)', () => {
     }
   });
 });
+
+describe('alignment toggle commands (ticket #262)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+  });
+
+  it('align-center wraps the block in ::: {.align-center} … :::', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('align-center', view);
+    expect(view.state.doc.toString()).toBe('::: {.align-center}\nHello world\n:::');
+  });
+
+  it('align-left wraps the block in ::: {.align-left} … :::', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('align-left', view);
+    expect(view.state.doc.toString()).toBe('::: {.align-left}\nHello world\n:::');
+  });
+
+  it('align-right wraps the block in ::: {.align-right} … :::', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('align-right', view);
+    expect(view.state.doc.toString()).toBe('::: {.align-right}\nHello world\n:::');
+  });
+
+  it('align-center toggles off on second click (removes wrapper)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('align-center', view);
+    commandRegistry.execute('align-center', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('align-left toggles off on second click', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('align-left', view);
+    commandRegistry.execute('align-left', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('align-right toggles off on second click', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('align-right', view);
+    commandRegistry.execute('align-right', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('switching alignment replaces the class (center → left)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('align-center', view);
+    commandRegistry.execute('align-left', view);
+    expect(view.state.doc.toString()).toBe('::: {.align-left}\nHello world\n:::');
+  });
+
+  it('switching alignment replaces the class (left → right)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('align-left', view);
+    commandRegistry.execute('align-right', view);
+    expect(view.state.doc.toString()).toBe('::: {.align-right}\nHello world\n:::');
+  });
+
+  it('align-clear removes the alignment wrapper', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('align-center', view);
+    commandRegistry.execute('align-clear', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('align-clear on a block without alignment is a no-op', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('align-clear', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('all alignment commands are registered with Chinese labels and group 块', () => {
+    const alignIds = ['align-left', 'align-center', 'align-right', 'align-clear'];
+    for (const id of alignIds) {
+      const cmd = commandRegistry.all().find((c) => c.id === id);
+      expect(cmd, `command ${id} should be registered`).toBeDefined();
+      expect(cmd?.label, `${id} should have Chinese label`).toBeTruthy();
+      expect(cmd?.group).toBe('块');
+    }
+  });
+});

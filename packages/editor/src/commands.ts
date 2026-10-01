@@ -100,6 +100,113 @@ function toggleWrap(
 }
 
 /**
+ * Toggle alignment of the block containing the selection by wrapping it in a
+ * Pandoc fenced div `::: {.align-left|center|right}`.
+ *
+ * Toggle semantics:
+ * - If the block is already wrapped with the SAME alignment class → remove the wrapper.
+ * - If the block is wrapped with a DIFFERENT alignment class → replace the class.
+ * - If the block has no alignment wrapper → insert the new wrapper.
+ *
+ * Uses a single `dispatch` for undo atomicity.
+ */
+export function toggleBlockAlignment(
+  view: EditorView,
+  alignment: 'left' | 'center' | 'right',
+): boolean {
+  const { state } = view;
+  const { main } = state.selection;
+  // Use main.from for non-empty selection (guaranteed inside the block);
+  // main.head can land on the exclusive end of a half-open block range.
+  const pos = main.empty ? main.head : main.from;
+  const blocks = getBlocks(state);
+  const block = getBlockAt(pos, blocks);
+
+  if (!block) return false;
+
+  const blockText = state.doc.sliceString(block.from, block.to);
+
+  // Check if block is already wrapped with an alignment fenced div
+  const existingAlignMatch = blockText.match(/^:::\s*\{\.align-(left|center|right)\}\s*\n/);
+  const hasCloseMarker = blockText.trimEnd().endsWith(':::');
+
+  if (existingAlignMatch && hasCloseMarker) {
+    const existingAlignment = existingAlignMatch[1];
+
+    if (existingAlignment === alignment) {
+      // Same alignment → remove wrapper (toggle off)
+      const openLineEnd = blockText.indexOf('\n');
+      const innerStart = openLineEnd + 1;
+      const innerEnd = blockText.lastIndexOf('\n:::');
+      const innerContent = blockText.slice(innerStart, innerEnd);
+
+      view.dispatch({
+        changes: { from: block.from, to: block.to, insert: innerContent },
+        selection: { anchor: block.from, head: block.from + innerContent.length },
+      });
+      return true;
+    } else {
+      // Different alignment → replace the class
+      const openLineEnd = blockText.indexOf('\n');
+      const newOpenLine = `::: {.align-${alignment}}`;
+      const innerStart = openLineEnd + 1;
+      const innerEnd = blockText.lastIndexOf('\n:::');
+      const innerContent = blockText.slice(innerStart, innerEnd);
+
+      view.dispatch({
+        changes: { from: block.from, to: block.to, insert: `${newOpenLine}\n${innerContent}\n:::` },
+        selection: { anchor: block.from, head: block.from + newOpenLine.length + 1 + innerContent.length },
+      });
+      return true;
+    }
+  }
+
+  // No existing alignment wrapper → wrap the block
+  const wrapped = `::: {.align-${alignment}}\n${blockText}\n:::`;
+  const openLineLen = `::: {.align-${alignment}}`.length + 1; // +1 for newline
+  view.dispatch({
+    changes: { from: block.from, to: block.to, insert: wrapped },
+    // Keep inner content selected so a second click toggles off (mirrors toggleWrap Case 3)
+    selection: { anchor: block.from + openLineLen, head: block.from + openLineLen + blockText.length },
+  });
+  return true;
+}
+
+/**
+ * Remove any alignment fenced div wrapper from the block containing the selection.
+ */
+export function clearBlockAlignment(view: EditorView): boolean {
+  const { state } = view;
+  const { main } = state.selection;
+  // Use main.from for non-empty selection (guaranteed inside the block);
+  // main.head can land on the exclusive end of a half-open block range.
+  const pos = main.empty ? main.head : main.from;
+  const blocks = getBlocks(state);
+  const block = getBlockAt(pos, blocks);
+
+  if (!block) return false;
+
+  const blockText = state.doc.sliceString(block.from, block.to);
+  const existingAlignMatch = blockText.match(/^:::\s*\{\.align-(left|center|right)\}\s*\n/);
+  const hasCloseMarker = blockText.trimEnd().endsWith(':::');
+
+  if (existingAlignMatch && hasCloseMarker) {
+    const openLineEnd = blockText.indexOf('\n');
+    const innerStart = openLineEnd + 1;
+    const innerEnd = blockText.lastIndexOf('\n:::');
+    const innerContent = blockText.slice(innerStart, innerEnd);
+
+    view.dispatch({
+      changes: { from: block.from, to: block.to, insert: innerContent },
+      selection: { anchor: block.from, head: block.from + innerContent.length },
+    });
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Source text of the block containing `pos`. Used by code-copy to grab the
  * whole fenced block when the selection is empty. Returns '' if no block
  * matches (e.g. empty document).
@@ -872,6 +979,42 @@ export function registerEditorCommands(): void {
     group: '格式',
     execute: (view) => {
       clearColorClass(view);
+    },
+  });
+
+  commandRegistry.register({
+    id: 'align-left',
+    label: '左对齐',
+    group: '块',
+    execute: (view) => {
+      toggleBlockAlignment(view, 'left');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'align-center',
+    label: '居中',
+    group: '块',
+    execute: (view) => {
+      toggleBlockAlignment(view, 'center');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'align-right',
+    label: '右对齐',
+    group: '块',
+    execute: (view) => {
+      toggleBlockAlignment(view, 'right');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'align-clear',
+    label: '清除对齐',
+    group: '块',
+    execute: (view) => {
+      clearBlockAlignment(view);
     },
   });
 }

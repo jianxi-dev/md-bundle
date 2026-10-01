@@ -282,7 +282,7 @@ describe('toolbar commands registered', () => {
   });
 });
 
-describe('floating toolbar Chinese labels (ticket #192 / #260)', () => {
+describe('floating toolbar Chinese labels (ticket #192 / #260 / #262)', () => {
   let parent: HTMLElement;
   let view: ReturnType<typeof createMarkdownEditor>['view'];
 
@@ -298,7 +298,7 @@ describe('floating toolbar Chinese labels (ticket #192 / #260)', () => {
     parent.remove();
   });
 
-  it('renders the nine default inline-format actions with Chinese tooltips only', () => {
+  it('renders the ten default inline-format actions with Chinese tooltips only', () => {
     view.dispatch({
       changes: { from: 0, insert: 'Hello world' },
       selection: { anchor: 0, head: 5 },
@@ -310,6 +310,7 @@ describe('floating toolbar Chinese labels (ticket #192 / #260)', () => {
     expect(buttons.map((btn) => btn.title)).toEqual([
       '字体',
       '颜色',
+      '对齐',
       '加粗',
       '斜体',
       '删除线',
@@ -320,7 +321,7 @@ describe('floating toolbar Chinese labels (ticket #192 / #260)', () => {
     ]);
     for (const btn of buttons) {
       expect(btn.title, `${btn.title} must not be English`).not.toMatch(
-        /\b(Bold|Italic|Code|Link|Strikethrough|Underline|Copy|Font|Color)\b/,
+        /\b(Bold|Italic|Code|Link|Strikethrough|Underline|Copy|Font|Color|Align)\b/,
       );
     }
   });
