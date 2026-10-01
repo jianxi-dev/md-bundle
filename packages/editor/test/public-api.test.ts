@@ -80,6 +80,7 @@ import {
   type LintResult,
   type FloatingToolbarOptions,
   type FloatingToolbarItem,
+  type DropdownOption,
 } from '../src/index';
 
 function installPolyfills(): void {
@@ -116,6 +117,7 @@ const _typeProbe: MarkdownEditorOptions & {
   toolbarCtx: ToolbarContext;
   toolbarBtn: ToolbarButton;
   floatingItem: FloatingToolbarItem;
+  dropdownOpt: DropdownOption;
 } = {
   value: 'x',
   theme: 'dark',
@@ -133,6 +135,7 @@ const _typeProbe: MarkdownEditorOptions & {
   toolbarCtx: { kind: 'normal' },
   toolbarBtn: { id: 'x', icon: 'x', label: 'x', commandId: 'x' },
   floatingItem: { commandId: 'toggle-bold' },
+  dropdownOpt: { commandId: 'font-serif' },
 };
 void _typeProbe;
 

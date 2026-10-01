@@ -1,5 +1,3 @@
-// Ticket #260 (selection-toolbar/1.1): 选区浮条数据驱动 + 基础内联格式 + 切换语义。
-// 覆盖：7 控件出现 / 删除线 toggle / 下划线 <u> / 复制剪贴板。
 import { expect, test, type Page } from '@playwright/test'
 
 test.use({ viewport: { width: 1200, height: 800 } })
@@ -53,19 +51,19 @@ async function rawDoc(page: Page): Promise<string> {
   return text
 }
 
-test.describe('选区浮条：7 控件 + 切换（#260）', () => {
-  test('选中文本后浮条出现 7 个控件', async ({ page }) => {
+test.describe('选区浮条：9 控件 + 字体/颜色下拉 + 切换（#261）', () => {
+  test('选中文本后浮条出现 9 个控件', async ({ page }) => {
     await openEditor(page)
     await selectWord(page, 'UNIQUEMARKER')
 
     const toolbar = page.locator('.mdb-floating-toolbar')
     await expect(toolbar).toBeVisible()
-    const buttons = toolbar.locator('.mdb-toolbar-btn')
-    await expect(buttons).toHaveCount(7)
+    const buttons = toolbar.locator('.mdb-toolbar-btn, .mdb-toolbar-dropdown-btn')
+    await expect(buttons).toHaveCount(9)
     const titles = await buttons.evaluateAll((els) =>
       els.map((e) => (e as HTMLButtonElement).title),
     )
-    expect(titles).toEqual(['加粗', '斜体', '删除线', '下划线', '行内代码', '插入链接', '复制'])
+    expect(titles).toEqual(['字体', '颜色', '加粗', '斜体', '删除线', '下划线', '行内代码', '插入链接', '复制'])
   })
 
   test('删除线 applies ~~…~~ and toggles off on second click', async ({ page }) => {
@@ -118,5 +116,97 @@ test.describe('选区浮条：7 控件 + 切换（#260）', () => {
 
     const clip = await page.evaluate(() => navigator.clipboard.readText())
     expect(clip).toContain('UNIQUEMARKER')
+  })
+
+  test('字体 dropdown applies 衬线 and toggles off', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const fontDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="字体"]')
+    await expect(fontDropdown).toBeVisible()
+    await fontDropdown.click()
+    await settle(page)
+
+    const serifOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '衬线' }).first()
+    await expect(serifOption).toBeVisible()
+    await serifOption.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).toContain('<span class="mdb-font-serif">UNIQUEMARKER</span>')
+
+    await selectWord(page, 'UNIQUEMARKER')
+    await fontDropdown.click()
+    await settle(page)
+    const clearOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '无' }).first()
+    await expect(clearOption).toBeVisible()
+    await clearOption.click()
+    await settle(page)
+
+    raw = await rawDoc(page)
+    expect(raw).not.toContain('mdb-font-')
+    expect(raw).toContain('UNIQUEMARKER')
+  })
+
+  test('颜色 dropdown applies 红色 and toggles off', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const colorDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="颜色"]')
+    await expect(colorDropdown).toBeVisible()
+    await colorDropdown.click()
+    await settle(page)
+
+    const redOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '红色' }).first()
+    await expect(redOption).toBeVisible()
+    await redOption.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).toContain('<span class="mdb-color-red">UNIQUEMARKER</span>')
+
+    await selectWord(page, 'UNIQUEMARKER')
+    await colorDropdown.click()
+    await settle(page)
+    const clearOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '清除' }).first()
+    await expect(clearOption).toBeVisible()
+    await clearOption.click()
+    await settle(page)
+
+    raw = await rawDoc(page)
+    expect(raw).not.toContain('mdb-color-')
+    expect(raw).toContain('UNIQUEMARKER')
+  })
+
+  test('预览模式下字体/颜色渲染保真', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const fontDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="字体"]')
+    await fontDropdown.click()
+    await settle(page)
+    const serifOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '衬线' }).first()
+    await serifOption.click()
+    await settle(page)
+
+    const colorDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="颜色"]')
+    await colorDropdown.click()
+    await settle(page)
+    const redOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '红色' }).first()
+    await redOption.click()
+    await settle(page)
+
+    await page.getByTestId('mode-preview-btn').click()
+    await expect(page.locator('.preview-content').first()).toBeVisible()
+    await settle(page)
+
+    const previewWord = page.locator('.preview-content .mdb-color-red').first()
+    await expect(previewWord).toBeVisible()
+
+    const fontFamily = await previewWord.evaluate((el) => window.getComputedStyle(el).fontFamily)
+    const color = await previewWord.evaluate((el) => window.getComputedStyle(el).color)
+
+    expect(fontFamily).toMatch(/Georgia|serif/i)
+    expect(color).toMatch(/rgb\(240, 97, 109\)|rgb\(207, 34, 46\)|#f0616d|#cf222e/i)
   })
 })

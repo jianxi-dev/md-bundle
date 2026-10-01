@@ -543,6 +543,337 @@ export function registerEditorCommands(): void {
       toggleStructureLinter(view);
     },
   });
+
+  /**
+   * Toggle-wrap a selection with a class-based span.
+   *
+   * Toggle semantics (mirrors toggleWrap's 3 cases):
+   * 1. Selection starts with `<span class="mdb-font-...">` and ends with `</span>`
+   *    (markers inside selection) → strip them.
+   * 2. Selection is immediately surrounded by `<span class="mdb-font-...">`…`</span>`
+   *    (markers just outside selection — common when double-clicking decorated content)
+   *    → remove them.
+   * 3. Otherwise → wrap with the new class, replacing any existing mdb-font-* span.
+   *
+   * Empty selection → insert empty span pair with caret inside (no toggle on empty range).
+   */
+  function toggleFontClass(
+    view: EditorView,
+    className: 'mdb-font-serif' | 'mdb-font-mono' | 'mdb-font-sans',
+  ): boolean {
+    const { state } = view;
+    const { main } = state.selection;
+    const { from, to } = main;
+
+    const openTag = `<span class="${className}">`;
+    const closeTag = '</span>';
+
+    if (!main.empty) {
+      const selected = state.doc.sliceString(from, to);
+
+      if (
+        selected.length >= openTag.length + closeTag.length &&
+        selected.startsWith(openTag) &&
+        selected.endsWith(closeTag)
+      ) {
+        const inner = selected.slice(openTag.length, selected.length - closeTag.length);
+        view.dispatch({
+          changes: { from, to, insert: inner },
+          selection: { anchor: from, head: from + inner.length },
+        });
+        return true;
+      }
+
+      const prefix = from >= openTag.length ? state.doc.sliceString(from - openTag.length, from) : '';
+      const suffix = state.doc.sliceString(to, to + closeTag.length);
+      if (prefix === openTag && suffix === closeTag) {
+        view.dispatch({
+          changes: [
+            { from: from - openTag.length, to: from, insert: '' },
+            { from: to, to: to + closeTag.length, insert: '' },
+          ],
+          selection: { anchor: from - openTag.length, head: to - openTag.length },
+        });
+        return true;
+      }
+
+      const contextBefore = from >= 60 ? state.doc.sliceString(from - 60, from) : state.doc.sliceString(0, from);
+      const contextAfter = state.doc.sliceString(to, to + 20);
+
+      const existingOpenMatch = contextBefore.match(/<span class="(mdb-font-\w+)">/);
+      const existingCloseMatch = contextAfter.match(/^<\/span>/);
+
+      if (existingOpenMatch && existingCloseMatch) {
+        const existingClass = existingOpenMatch[1];
+        const existingOpenTag = `<span class="${existingClass}">`;
+        const openTagPos = contextBefore.lastIndexOf(existingOpenTag);
+        const absoluteOpenPos = from - contextBefore.length + openTagPos;
+        view.dispatch({
+          changes: [
+            { from: absoluteOpenPos, to: absoluteOpenPos + existingOpenTag.length, insert: openTag },
+            { from: to, to: to + closeTag.length, insert: closeTag },
+          ],
+          selection: { anchor: absoluteOpenPos + openTag.length, head: absoluteOpenPos + openTag.length + selected.length },
+        });
+        return true;
+      }
+
+      view.dispatch({
+        changes: [
+          { from, insert: openTag },
+          { from: to, insert: closeTag },
+        ],
+        selection: { anchor: from + openTag.length, head: from + openTag.length + selected.length },
+      });
+      return true;
+    }
+
+    view.dispatch({
+      changes: { from, insert: `${openTag}${closeTag}` },
+      selection: { anchor: from + openTag.length },
+    });
+    return true;
+  }
+
+  /**
+   * Toggle-wrap a selection with a color class-based span.
+   * Same 3-case toggle semantics as toggleFontClass.
+   */
+  function toggleColorClass(
+    view: EditorView,
+    className: 'mdb-color-red' | 'mdb-color-blue' | 'mdb-color-green' | 'mdb-color-orange' | 'mdb-color-purple',
+  ): boolean {
+    const { state } = view;
+    const { main } = state.selection;
+    const { from, to } = main;
+
+    const openTag = `<span class="${className}">`;
+    const closeTag = '</span>';
+
+    if (!main.empty) {
+      const selected = state.doc.sliceString(from, to);
+
+      if (
+        selected.length >= openTag.length + closeTag.length &&
+        selected.startsWith(openTag) &&
+        selected.endsWith(closeTag)
+      ) {
+        const inner = selected.slice(openTag.length, selected.length - closeTag.length);
+        view.dispatch({
+          changes: { from, to, insert: inner },
+          selection: { anchor: from, head: from + inner.length },
+        });
+        return true;
+      }
+
+      const prefix = from >= openTag.length ? state.doc.sliceString(from - openTag.length, from) : '';
+      const suffix = state.doc.sliceString(to, to + closeTag.length);
+      if (prefix === openTag && suffix === closeTag) {
+        view.dispatch({
+          changes: [
+            { from: from - openTag.length, to: from, insert: '' },
+            { from: to, to: to + closeTag.length, insert: '' },
+          ],
+          selection: { anchor: from - openTag.length, head: to - openTag.length },
+        });
+        return true;
+      }
+
+      const contextBefore = from >= 60 ? state.doc.sliceString(from - 60, from) : state.doc.sliceString(0, from);
+      const contextAfter = state.doc.sliceString(to, to + 20);
+
+      const existingOpenMatch = contextBefore.match(/<span class="(mdb-color-\w+)">/);
+      const existingCloseMatch = contextAfter.match(/^<\/span>/);
+
+      if (existingOpenMatch && existingCloseMatch) {
+        const existingClass = existingOpenMatch[1];
+        const existingOpenTag = `<span class="${existingClass}">`;
+        const openTagPos = contextBefore.lastIndexOf(existingOpenTag);
+        const absoluteOpenPos = from - contextBefore.length + openTagPos;
+        view.dispatch({
+          changes: [
+            { from: absoluteOpenPos, to: absoluteOpenPos + existingOpenTag.length, insert: openTag },
+            { from: to, to: to + closeTag.length, insert: closeTag },
+          ],
+          selection: { anchor: absoluteOpenPos + openTag.length, head: absoluteOpenPos + openTag.length + selected.length },
+        });
+        return true;
+      }
+
+      view.dispatch({
+        changes: [
+          { from, insert: openTag },
+          { from: to, insert: closeTag },
+        ],
+        selection: { anchor: from + openTag.length, head: from + openTag.length + selected.length },
+      });
+      return true;
+    }
+
+    view.dispatch({
+      changes: { from, insert: `${openTag}${closeTag}` },
+      selection: { anchor: from + openTag.length },
+    });
+    return true;
+  }
+
+  /**
+   * Remove any mdb-font-* span around the selection.
+   */
+  function clearFontClass(view: EditorView): boolean {
+    const { state } = view;
+    const { main } = state.selection;
+    const { from, to } = main;
+
+    if (!main.empty) {
+      const contextBefore = from >= 60 ? state.doc.sliceString(from - 60, from) : state.doc.sliceString(0, from);
+      const contextAfter = state.doc.sliceString(to, to + 20);
+
+      const existingOpenMatch = contextBefore.match(/<span class="(mdb-font-\w+)">/);
+      const existingCloseMatch = contextAfter.match(/^<\/span>/);
+
+      if (existingOpenMatch && existingCloseMatch) {
+        const existingClass = existingOpenMatch[1];
+        const existingOpenTag = `<span class="${existingClass}">`;
+        const openTagPos = contextBefore.lastIndexOf(existingOpenTag);
+        const absoluteOpenPos = from - contextBefore.length + openTagPos;
+        const closeTag = '</span>';
+        view.dispatch({
+          changes: [
+            { from: absoluteOpenPos, to: absoluteOpenPos + existingOpenTag.length, insert: '' },
+            { from: to, to: to + closeTag.length, insert: '' },
+          ],
+          selection: { anchor: absoluteOpenPos, head: to - existingOpenTag.length },
+        });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Remove any mdb-color-* span around the selection.
+   */
+  function clearColorClass(view: EditorView): boolean {
+    const { state } = view;
+    const { main } = state.selection;
+    const { from, to } = main;
+
+    if (!main.empty) {
+      const contextBefore = from >= 60 ? state.doc.sliceString(from - 60, from) : state.doc.sliceString(0, from);
+      const contextAfter = state.doc.sliceString(to, to + 20);
+
+      const existingOpenMatch = contextBefore.match(/<span class="(mdb-color-\w+)">/);
+      const existingCloseMatch = contextAfter.match(/^<\/span>/);
+
+      if (existingOpenMatch && existingCloseMatch) {
+        const existingClass = existingOpenMatch[1];
+        const existingOpenTag = `<span class="${existingClass}">`;
+        const openTagPos = contextBefore.lastIndexOf(existingOpenTag);
+        const absoluteOpenPos = from - contextBefore.length + openTagPos;
+        const closeTag = '</span>';
+        view.dispatch({
+          changes: [
+            { from: absoluteOpenPos, to: absoluteOpenPos + existingOpenTag.length, insert: '' },
+            { from: to, to: to + closeTag.length, insert: '' },
+          ],
+          selection: { anchor: absoluteOpenPos, head: to - existingOpenTag.length },
+        });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  commandRegistry.register({
+    id: 'font-serif',
+    label: '衬线',
+    group: '格式',
+    execute: (view) => {
+      toggleFontClass(view, 'mdb-font-serif');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'font-mono',
+    label: '等宽',
+    group: '格式',
+    execute: (view) => {
+      toggleFontClass(view, 'mdb-font-mono');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'font-sans',
+    label: '无衬线',
+    group: '格式',
+    execute: (view) => {
+      toggleFontClass(view, 'mdb-font-sans');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'font-clear',
+    label: '清除字体',
+    group: '格式',
+    execute: (view) => {
+      clearFontClass(view);
+    },
+  });
+
+  commandRegistry.register({
+    id: 'color-red',
+    label: '红色',
+    group: '格式',
+    execute: (view) => {
+      toggleColorClass(view, 'mdb-color-red');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'color-blue',
+    label: '蓝色',
+    group: '格式',
+    execute: (view) => {
+      toggleColorClass(view, 'mdb-color-blue');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'color-green',
+    label: '绿色',
+    group: '格式',
+    execute: (view) => {
+      toggleColorClass(view, 'mdb-color-green');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'color-orange',
+    label: '橙色',
+    group: '格式',
+    execute: (view) => {
+      toggleColorClass(view, 'mdb-color-orange');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'color-purple',
+    label: '紫色',
+    group: '格式',
+    execute: (view) => {
+      toggleColorClass(view, 'mdb-color-purple');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'color-clear',
+    label: '清除颜色',
+    group: '格式',
+    execute: (view) => {
+      clearColorClass(view);
+    },
+  });
 }
 
 // Auto-register on module load.
