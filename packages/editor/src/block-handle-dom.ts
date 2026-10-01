@@ -34,6 +34,7 @@ export function createHandle(): HTMLElement {
   const handle = document.createElement('div');
   handle.className = HANDLE_CLASS;
   handle.setAttribute('data-testid', 'block-handle');
+  handle.title = '拖拽重排 · 点击打开菜单';
   handle.textContent = '⠿';
   handle.style.display = 'none';
   return handle;
