@@ -331,16 +331,19 @@ describe('blockHandle lifecycle', () => {
     expect(changeDispatchCount(dispatchSpy)).toBe(1)
   })
 
-  it('positions the handle relative to the editor origin, not the viewport', () => {
+  it('positions the handle in the gutter column, relative to the editor origin', () => {
     // coordsAtPos/getBoundingClientRect are viewport-relative, but the handle
     // is an absolute child of view.dom — the editor origin must be subtracted.
     vi.spyOn(view, 'posAtCoords').mockReturnValue(PARAGRAPH_POS)
     vi.spyOn(view, 'coordsAtPos').mockReturnValue({ left: 300, right: 320, top: 240, bottom: 260 })
     vi.spyOn(view.dom, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 50, 800, 600))
+    vi.spyOn(view.contentDOM, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(100, 50, 800, 600),
+    )
     view.dom.dispatchEvent(mouse('mousemove', { clientX: 5, clientY: 25 }))
 
     const el = handleEl()
-    expect(el.style.left).toBe('174px')
+    expect(el.style.left).toBe('-22px')
     expect(el.style.top).toBe('190px')
   })
 
