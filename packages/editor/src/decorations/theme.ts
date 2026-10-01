@@ -119,6 +119,9 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   // ── Bold / italic (no transition — instant) ─────────────────────────
   '.cm-content .cm-strong': { fontWeight: '650', color: 'var(--mdb-text)' },
   '.cm-content .cm-em': { fontStyle: 'italic' },
+  // Strikethrough / underline inline markers (ticket #260 — hide raw ~~ / <u> tags)
+  '.cm-content .cm-strikethrough': { textDecoration: 'line-through' },
+  '.cm-content .cm-underline': { textDecoration: 'underline' },
 
   // ── Lists ─────────────────────────────────────────────────────────────
   '.cm-content .cm-line.cm-list': {

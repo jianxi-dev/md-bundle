@@ -20,35 +20,81 @@ import type { EditorView } from '@codemirror/view';
 import { getBlockAt, getBlocks } from './block-model';
 import { toggleStructureLinter } from './structure-linter-extension';
 
-// --- Wrapping helpers -------------------------------------------------------
+// --- Wrapping helpers (toggle-aware) ----------------------------------------
 
 /**
- * Wrap a non-empty selection with `before`/`after`. When the selection is
- * empty, insert `before + after` and place the caret between them so the
- * user can type the content. Returns true if a change was dispatched.
+ * Toggle-wrap a selection with `before`/`after` markers.
+ *
+ * Toggle semantics (ticket #260): clicking a format on already-formatted
+ * text removes the markers instead of re-wrapping.
+ *
+ * Detection (lightweight string match, no HTML parser):
+ * 1. The selection itself starts with `before` and ends with `after`
+ *    (markers are inside the selection range) → strip them.
+ * 2. The selection is immediately surrounded by `before`…`after` (markers
+ *    sit just outside the selection range — the common case when the user
+ *    double-clicks the visible content of a decorated region) → remove them.
+ * 3. Otherwise → wrap, and leave the inner content selected so a second
+ *    click toggles the format off.
+ *
+ * Empty selection → insert `before + after` and place the caret between
+ * them (no toggle on an empty range).
  */
-function wrapSelection(
+function toggleWrap(
   view: EditorView,
   before: string,
   after: string,
 ): boolean {
   const { state } = view;
   const { main } = state.selection;
+  const { from, to } = main;
+
   if (!main.empty) {
-    const text = state.doc.sliceString(main.from, main.to);
+    const selected = state.doc.sliceString(from, to);
+
+    // Case 1: markers are inside the selection (`**text**` selected whole).
+    if (
+      selected.length >= before.length + after.length &&
+      selected.startsWith(before) &&
+      selected.endsWith(after)
+    ) {
+      const inner = selected.slice(before.length, selected.length - after.length);
+      view.dispatch({
+        changes: { from, to, insert: inner },
+        selection: { anchor: from, head: from + inner.length },
+      });
+      return true;
+    }
+
+    // Case 2: markers sit just outside the selection (visible content selected).
+    const prefix = from >= before.length ? state.doc.sliceString(from - before.length, from) : '';
+    const suffix = state.doc.sliceString(to, to + after.length);
+    if (prefix === before && suffix === after) {
+      view.dispatch({
+        changes: [
+          { from: from - before.length, to: from, insert: '' },
+          { from: to, to: to + after.length, insert: '' },
+        ],
+        selection: { anchor: from - before.length, head: to - before.length },
+      });
+      return true;
+    }
+
+    // Case 3: wrap. Keep the inner content selected so a second click toggles off.
     view.dispatch({
       changes: [
-        { from: main.from, insert: before },
-        { from: main.to, insert: after },
+        { from, insert: before },
+        { from: to, insert: after },
       ],
-      selection: { anchor: main.from + before.length + text.length + after.length },
+      selection: { anchor: from + before.length, head: from + before.length + selected.length },
     });
     return true;
   }
+
   // Empty selection — insert pair with caret inside.
   view.dispatch({
-    changes: { from: main.from, insert: `${before}${after}` },
-    selection: { anchor: main.from + before.length },
+    changes: { from, insert: `${before}${after}` },
+    selection: { anchor: from + before.length },
   });
   return true;
 }
@@ -238,7 +284,7 @@ export function registerEditorCommands(): void {
     group: '格式',
     keyBinding: 'Mod-b',
     execute: (view) => {
-      wrapSelection(view, '**', '**');
+      toggleWrap(view, '**', '**');
     },
   });
 
@@ -249,7 +295,7 @@ export function registerEditorCommands(): void {
     group: '格式',
     keyBinding: 'Mod-i',
     execute: (view) => {
-      wrapSelection(view, '*', '*');
+      toggleWrap(view, '*', '*');
     },
   });
 
@@ -260,7 +306,17 @@ export function registerEditorCommands(): void {
     group: '格式',
     keyBinding: 'Mod-Shift-x',
     execute: (view) => {
-      wrapSelection(view, '~~', '~~');
+      toggleWrap(view, '~~', '~~');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'toggle-underline',
+    label: '下划线',
+    icon: 'U',
+    group: '格式',
+    execute: (view) => {
+      toggleWrap(view, '<u>', '</u>');
     },
   });
 
@@ -271,7 +327,7 @@ export function registerEditorCommands(): void {
     group: '格式',
     keyBinding: 'Mod-e',
     execute: (view) => {
-      wrapSelection(view, '`', '`');
+      toggleWrap(view, '`', '`');
     },
   });
 
@@ -282,23 +338,10 @@ export function registerEditorCommands(): void {
     group: '插入',
     keyBinding: 'Mod-l',
     execute: (view) => {
-      const { state } = view;
-      const { main } = state.selection;
-      if (!main.empty) {
-        const text = state.doc.sliceString(main.from, main.to);
-        view.dispatch({
-          changes: [
-            { from: main.from, insert: '[' },
-            { from: main.to, insert: '](url)' },
-          ],
-          selection: { anchor: main.from + text.length + 5 },
-        });
-      } else {
-        view.dispatch({
-          changes: { from: main.from, insert: '[](url)' },
-          selection: { anchor: main.from + 1 },
-        });
-      }
+      // Reuse toggleWrap for the bracket pair so a second click removes the
+      // link wrapper. `](url)` is the literal closing marker — toggling it off
+      // restores the bare text. (url) defaults to "url" as the placeholder.
+      toggleWrap(view, '[', '](url)');
     },
   });
 

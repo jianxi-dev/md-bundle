@@ -79,6 +79,7 @@ import {
   type Diagnostic,
   type LintResult,
   type FloatingToolbarOptions,
+  type FloatingToolbarItem,
 } from '../src/index';
 
 function installPolyfills(): void {
@@ -114,6 +115,7 @@ const _typeProbe: MarkdownEditorOptions & {
   command: Command;
   toolbarCtx: ToolbarContext;
   toolbarBtn: ToolbarButton;
+  floatingItem: FloatingToolbarItem;
 } = {
   value: 'x',
   theme: 'dark',
@@ -130,6 +132,7 @@ const _typeProbe: MarkdownEditorOptions & {
   command: undefined as unknown as Command,
   toolbarCtx: { kind: 'normal' },
   toolbarBtn: { id: 'x', icon: 'x', label: 'x', commandId: 'x' },
+  floatingItem: { commandId: 'toggle-bold' },
 };
 void _typeProbe;
 
@@ -218,7 +221,9 @@ describe('public export contract', () => {
   it('exports the floating toolbar API surface', () => {
     expect(typeof floatingToolbar).toBe('function');
     const _opts: FloatingToolbarOptions = {};
+    const _item: FloatingToolbarItem = { commandId: 'toggle-bold' };
     expect(_opts).toBeDefined();
+    expect(_item).toBeDefined();
   });
 
   it('exports the editor keybindings API surface', () => {

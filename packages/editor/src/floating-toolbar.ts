@@ -1,9 +1,16 @@
 /**
- * Floating toolbar — appears immediately when text is selected.
+ * Floating toolbar — appears immediately when text is selected (ticket #260).
  *
- * The toolbar shows formatting actions (bold, italic, code, link) and
- * updates its position in real-time as the selection changes. It
- * disappears immediately when the selection is cleared.
+ * Data-driven: the toolbar renders from a list of `FloatingToolbarItem`
+ * descriptors (command ids + optional label/icon overrides) instead of
+ * hardcoding commands. This keeps the toolbar the single source of truth for
+ * the selection surface — `context-toolbar`'s `text-selected` returns `[]`
+ * (#233 contract) and this plugin owns the selection toolbar.
+ *
+ * The item shape supports a `kind` discriminator (`'button'` | `'dropdown'`)
+ * so later tickets (font / align / color / columns) can add dropdown
+ * controls without reworking the render path. Only `'button'` is wired today;
+ * `'dropdown'` renders a placeholder button container future tickets extend.
  *
  * Architecture:
  * - A ViewPlugin listens for selection changes via EditorView.updateListener.
@@ -12,66 +19,60 @@
  *   synchronously with the selection state.
  */
 import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
-import type { Command } from './commands';
+import { commandRegistry, type Command } from './commands';
 
-export interface FloatingToolbarOptions {
-  /** Commands to show in the toolbar. Defaults to a built-in set. */
-  commands?: Command[];
+/**
+ * A single toolbar control descriptor.
+ *
+ * References a registered command by `commandId`; the toolbar looks it up in
+ * `commandRegistry` at render time (so the toolbar reflects the live
+ * registry). `label` and `icon` override the command's defaults for this
+ * toolbar slot (e.g. `code-copy` shows as "复制" here while the palette keeps
+ * its canonical "复制代码" label).
+ */
+export interface FloatingToolbarItem {
+  /** Command id to execute on click — must be registered in commandRegistry. */
+  readonly commandId: string;
+  /** Override the command's label for this toolbar slot (tooltip). */
+  readonly label?: string;
+  /** Override the command's icon for this toolbar slot (button text). */
+  readonly icon?: string;
+  /**
+   * Control shape. `'button'` (default) renders a flat action button.
+   * `'dropdown'` renders a button container future tickets (font / align /
+   * color / columns) populate with a submenu; today it behaves as a button.
+   */
+  readonly kind?: 'button' | 'dropdown';
 }
 
-const DEFAULT_TOOLBAR_COMMANDS: Command[] = [
-  {
-    id: 'bold',
-    label: '加粗',
-    icon: 'B',
-    execute(view) {
-      const { from, to } = view.state.selection.main;
-      const selected = view.state.doc.sliceString(from, to);
-      view.dispatch({
-        changes: { from, to, insert: `**${selected}**` },
-        selection: { anchor: from + 2 + selected.length },
-      });
-    },
-  },
-  {
-    id: 'italic',
-    label: '斜体',
-    icon: 'I',
-    execute(view) {
-      const { from, to } = view.state.selection.main;
-      const selected = view.state.doc.sliceString(from, to);
-      view.dispatch({
-        changes: { from, to, insert: `*${selected}*` },
-        selection: { anchor: from + 1 + selected.length },
-      });
-    },
-  },
-  {
-    id: 'code',
-    label: '行内代码',
-    icon: '</>',
-    execute(view) {
-      const { from, to } = view.state.selection.main;
-      const selected = view.state.doc.sliceString(from, to);
-      view.dispatch({
-        changes: { from, to, insert: `\`${selected}\`` },
-        selection: { anchor: from + 1 + selected.length },
-      });
-    },
-  },
-  {
-    id: 'link',
-    label: '插入链接',
-    icon: '🔗',
-    execute(view) {
-      const { from, to } = view.state.selection.main;
-      const selected = view.state.doc.sliceString(from, to);
-      view.dispatch({
-        changes: { from, to, insert: `[${selected}](url)` },
-        selection: { anchor: from + selected.length + 3 },
-      });
-    },
-  },
+export interface FloatingToolbarOptions {
+  /**
+   * Legacy raw command list. Rendered directly when provided. Prefer `items`
+   * for data-driven rendering from commandRegistry.
+   */
+  readonly commands?: Command[];
+  /**
+   * Data-driven item descriptors. Defaults to the built-in 7-control inline
+   * format set. When `commands` is also provided, `commands` wins (backwards
+   * compat with callers that pass a raw list).
+   */
+  readonly items?: FloatingToolbarItem[];
+}
+
+/**
+ * Default 7-control inline format set — the contract for ticket #260.
+ * Order: 加粗 / 斜体 / 删除线 / 下划线 / 行内代码 / 链接 / 复制.
+ * `code-copy` is reused (clipboard write logic) but its toolbar label is
+ * overridden to "复制" per the ticket.
+ */
+const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
+  { commandId: 'toggle-bold' },
+  { commandId: 'toggle-italic' },
+  { commandId: 'toggle-strikethrough' },
+  { commandId: 'toggle-underline' },
+  { commandId: 'toggle-code' },
+  { commandId: 'toggle-link' },
+  { commandId: 'code-copy', label: '复制' },
 ];
 
 interface ToolbarState {
@@ -79,7 +80,60 @@ interface ToolbarState {
   visible: boolean;
 }
 
-function createToolbarDom(view: EditorView, commands: Command[]): HTMLDivElement {
+function resolveCommand(item: FloatingToolbarItem): Command | undefined {
+  return commandRegistry.all().find((c) => c.id === item.commandId);
+}
+
+function createButtonItemDom(
+  view: EditorView,
+  item: FloatingToolbarItem,
+  cmd: Command,
+): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.className = 'mdb-toolbar-btn';
+  // Item overrides win over the command's defaults.
+  const label = item.label ?? cmd.label;
+  const icon = item.icon ?? cmd.icon;
+  btn.textContent = icon ?? label;
+  btn.title = label;
+  btn.style.background = 'transparent';
+  btn.style.border = 'none';
+  btn.style.color = 'var(--mdb-text)';
+  btn.style.padding = '4px 8px';
+  btn.style.cursor = 'pointer';
+  btn.style.borderRadius = '4px';
+  btn.style.fontSize = '13px';
+  btn.style.lineHeight = '1';
+  btn.style.display = 'flex';
+  btn.style.alignItems = 'center';
+  btn.style.justifyContent = 'center';
+  btn.style.minWidth = '28px';
+  btn.style.height = '28px';
+
+  // Visual hint for the few glyph-bearing controls so B/I read as bold/italic.
+  if (icon === 'B') btn.style.fontWeight = '600';
+  if (icon === 'I') btn.style.fontStyle = 'italic';
+
+  btn.addEventListener('mouseenter', () => {
+    btn.style.background = 'rgba(255,255,255,0.1)';
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.background = 'transparent';
+  });
+
+  btn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    commandRegistry.execute(item.commandId, view);
+  });
+
+  return btn;
+}
+
+function createToolbarDom(
+  view: EditorView,
+  items: readonly FloatingToolbarItem[],
+): HTMLDivElement {
   const toolbar = document.createElement('div');
   toolbar.className = 'mdb-floating-toolbar';
   toolbar.style.position = 'absolute';
@@ -92,25 +146,21 @@ function createToolbarDom(view: EditorView, commands: Command[]): HTMLDivElement
   toolbar.style.zIndex = '1000';
   toolbar.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.18)';
 
-  for (const cmd of commands) {
-    const btn = document.createElement('button');
-    btn.className = 'mdb-toolbar-btn';
-    btn.textContent = cmd.icon ?? cmd.label;
-    btn.title = cmd.label;
-    btn.style.background = 'transparent';
-    btn.style.border = 'none';
-    btn.style.color = 'var(--mdb-text)';
-    btn.style.padding = '4px 8px';
-    btn.style.cursor = 'pointer';
-    btn.style.borderRadius = '4px';
-    btn.style.fontSize = '13px';
-    btn.style.fontWeight = cmd.icon === 'B' ? '600' : 'normal';
-    btn.style.fontStyle = cmd.icon === 'I' ? 'italic' : 'normal';
-    btn.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      cmd.execute(view);
-    });
-    toolbar.appendChild(btn);
+  for (const item of items) {
+    const cmd = resolveCommand(item);
+    // Gracefully skip unregistered commands instead of throwing — the
+    // toolbar is a progressive surface and a missing command must never
+    // crash the editor (NEVER-throw contract).
+    if (!cmd) continue;
+    if (item.kind === 'dropdown') {
+      // Dropdown container: today a plain button; later tickets attach a
+      // submenu. Rendered with a ▾ hint so the affordance is stable.
+      const btn = createButtonItemDom(view, item, cmd);
+      btn.textContent = `${item.icon ?? cmd.icon ?? cmd.label} ▾`;
+      toolbar.appendChild(btn);
+    } else {
+      toolbar.appendChild(createButtonItemDom(view, item, cmd));
+    }
   }
 
   return toolbar;
@@ -151,14 +201,27 @@ function positionToolbar(view: EditorView, toolbar: HTMLDivElement): void {
  * real-time, and disappears immediately on selection clear.
  */
 export function floatingToolbar(options: FloatingToolbarOptions = {}) {
-  const commands = options.commands ?? DEFAULT_TOOLBAR_COMMANDS;
+  // Backwards compat: legacy `commands` (raw Command[]) wins when provided.
+  const legacyCommands = options.commands;
+  const items = options.items ?? DEFAULT_TOOLBAR_ITEMS;
 
   return ViewPlugin.define((view) => {
     const state: ToolbarState = { dom: null, visible: false };
 
+    function buildDom(): HTMLDivElement {
+      if (legacyCommands) {
+        // Legacy path — render raw commands directly (pre-data-driven callers).
+        return createToolbarDom(
+          view,
+          legacyCommands.map((c) => ({ commandId: c.id, label: c.label, icon: c.icon })),
+        );
+      }
+      return createToolbarDom(view, items);
+    }
+
     function showToolbar(): void {
       if (!state.dom) {
-        state.dom = createToolbarDom(view, commands);
+        state.dom = buildDom();
         if (view.dom.style.position === 'static' || view.dom.style.position === '') {
           view.dom.style.position = 'relative';
         }
@@ -181,15 +244,12 @@ export function floatingToolbar(options: FloatingToolbarOptions = {}) {
         if (u.selectionSet) {
           const { from, to } = u.state.selection.main;
           if (from !== to) {
-            // Selection is non-empty — show toolbar immediately
             if (!state.visible) {
               showToolbar();
             } else {
-              // Already visible — just reposition
               if (state.dom) positionToolbar(view, state.dom);
             }
           } else {
-            // Selection is empty — hide immediately
             if (state.visible) {
               hideToolbar();
             }
