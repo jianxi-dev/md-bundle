@@ -95,7 +95,10 @@ class BlockHandlePlugin {
       const coords = this.view.coordsAtPos(from)
       if (coords) {
         const r = this.view.dom.getBoundingClientRect()
-        this.chrome.handle.style.left = `${coords.left - r.left - 26}px`
+        // Fixed gutter column: block.from sits after the list marker, so
+        // anchoring x to it drifted the handle inward on lists (#237).
+        const contentLeft = this.view.contentDOM.getBoundingClientRect().left
+        this.chrome.handle.style.left = `${contentLeft - r.left - 22}px`
         this.chrome.handle.style.top = `${coords.top - r.top}px`
       }
     } catch {
