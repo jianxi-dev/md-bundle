@@ -12,4 +12,4 @@
 
 ## 4. 标题级别控件 + Backspace 降级
 
-- [ ] 4.1 活动标题行可编辑（不再 replace `# ` marker）+ 块手柄菜单 H1–H6 切换 + Backspace 降级/清除；e2e 覆盖
+- [x] 4.1 活动标题行可编辑（不再 replace `# ` marker）+ 块手柄菜单 H1–H6 切换 + Backspace 降级/清除；e2e 覆盖
