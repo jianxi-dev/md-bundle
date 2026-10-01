@@ -132,3 +132,29 @@ export function computeBlockDelete(docText: string, blockFrom: number, blockTo: 
   if (joined.length === 0) return ''
   return docText.endsWith('\n') ? `${joined}\n` : joined
 }
+
+/** A single CM6 change replacing one range with `insert`. */
+export interface MinimalChange {
+  from: number
+  to: number
+  insert: string
+}
+
+/**
+ * Minimal change turning `oldText` into `next`, trimming the common prefix and
+ * suffix. Dispatching only the changed range keeps the viewport and selection
+ * stable, instead of replacing the whole document on every block edit (#239).
+ */
+export function computeMinimalChange(oldText: string, next: string): MinimalChange {
+  let from = 0
+  const maxPrefix = Math.min(oldText.length, next.length)
+  while (from < maxPrefix && oldText[from] === next[from]) from++
+
+  let oldEnd = oldText.length
+  let newEnd = next.length
+  while (oldEnd > from && newEnd > from && oldText[oldEnd - 1] === next[newEnd - 1]) {
+    oldEnd--
+    newEnd--
+  }
+  return { from, to: oldEnd, insert: next.slice(from, newEnd) }
+}
