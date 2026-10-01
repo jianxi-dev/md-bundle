@@ -153,8 +153,14 @@ class BlockHandlePlugin {
     this.showHandleAt(block.from)
   }
 
-  private onMouseLeave = (): void => {
+  private onMouseLeave = (event: MouseEvent): void => {
     if (currentDrag(this.view.state)) return
+    // The gutter handle sits outside view.dom's box, so moving onto it fires
+    // mouseleave and previously hid the handle mid-hover (#238).
+    const to = event.relatedTarget
+    if (to instanceof Node && (this.chrome.handle.contains(to) || this.chrome.menu.contains(to))) {
+      return
+    }
     this.chrome.hideAll()
   }
 

@@ -70,10 +70,11 @@ export function createInsertLine(): HTMLElement {
 }
 
 /**
- * Owns the three widget elements and the document-level Escape guard.
- * `hideAll()` is the single "dismissed" transition; the guard binds on the
- * first show and unbinds once both the handle and the menu are hidden, so no
- * global listener outlives the widget (issue #189).
+ * Owns the three widget elements and the document-level dismiss guards
+ * (Escape and outside mousedown).
+ * `hideAll()` is the single "dismissed" transition; the guards bind on the
+ * first show and unbind once both the handle and the menu are hidden, so no
+ * global listener outlives the widget (issue #189, #238).
  */
 export class HandleChrome {
   readonly handle: HTMLElement = createHandle();
@@ -134,17 +135,31 @@ export class HandleChrome {
     if (event.key === 'Escape') this.onEscape();
   };
 
+  private readonly onDocMouseDown = (event: MouseEvent): void => {
+    const target = event.target;
+    if (target instanceof Node && (this.handle.contains(target) || this.menu.contains(target))) {
+      return;
+    }
+    this.onEscape();
+  };
+
   private syncKeyListener(): void {
     const active = this.handle.style.display !== 'none' || this.menu.style.display !== 'none';
     if (active === this.keyListening) return;
-    if (active) document.addEventListener('keydown', this.onKeyDown, true);
-    else document.removeEventListener('keydown', this.onKeyDown, true);
+    if (active) {
+      document.addEventListener('keydown', this.onKeyDown, true);
+      document.addEventListener('mousedown', this.onDocMouseDown, true);
+    } else {
+      document.removeEventListener('keydown', this.onKeyDown, true);
+      document.removeEventListener('mousedown', this.onDocMouseDown, true);
+    }
     this.keyListening = active;
   }
 
   private removeKeyListener(): void {
     if (!this.keyListening) return;
     document.removeEventListener('keydown', this.onKeyDown, true);
+    document.removeEventListener('mousedown', this.onDocMouseDown, true);
     this.keyListening = false;
   }
 }
