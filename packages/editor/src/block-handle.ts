@@ -11,7 +11,7 @@
  */
 import type { Extension } from '@codemirror/state'
 import { ViewPlugin, type EditorView, type ViewUpdate } from '@codemirror/view'
-import type { Block } from './block-model'
+import { getBlocks, type Block } from './block-model'
 import { currentDrag, setDragEffect } from './chapter-reorg-extension'
 import { HandleChrome, blockHandleTheme, ITEM_CLASS } from './block-handle-dom'
 import {
@@ -260,6 +260,25 @@ class BlockHandlePlugin {
 
   // --- Menu actions ----------------------------------------------------------
 
+  /**
+   * 上移/下移 are the same swap from opposite sides: move this block before its
+   * previous sibling, or move its next sibling before this block. Returning the
+   * source unchanged signals "already at the edge".
+   */
+  private computeMove(text: string, block: Block, action: 'move-up' | 'move-down'): string {
+    const blocks = getBlocks(this.view.state)
+    const idx = blocks.findIndex((b) => b.from === block.from && b.to === block.to)
+    if (idx < 0) return text
+    const doc = this.view.state.doc
+    if (action === 'move-up') {
+      if (idx === 0) return text
+      return computeBlockMove(text, block.from, block.to, doc.lineAt(blocks[idx - 1].from).number)
+    }
+    if (idx >= blocks.length - 1) return text
+    const next = blocks[idx + 1]
+    return computeBlockMove(text, next.from, next.to, doc.lineAt(block.from).number)
+  }
+
   private onMenuClick = (event: MouseEvent): void => {
     const from = event.target
     if (!(from instanceof Element) || !this.menuBlock) return
@@ -277,6 +296,8 @@ class BlockHandlePlugin {
       next = computeBlockDuplicate(text, block.from, block.to)
     } else if (action === 'delete') {
       next = computeBlockDelete(text, block.from, block.to)
+    } else if (action === 'move-up' || action === 'move-down') {
+      next = this.computeMove(text, block, action)
     }
     if (next !== text) {
       this.view.dispatch({ changes: computeMinimalChange(text, next) })

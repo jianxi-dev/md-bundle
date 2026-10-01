@@ -17,15 +17,17 @@ export const INSERT_LINE_CLASS = 'block-insert-line';
 interface MenuAction {
   readonly label: string;
   readonly convert?: BlockConvertTarget;
-  readonly action?: 'duplicate' | 'delete';
+  readonly action?: 'duplicate' | 'delete' | 'move-up' | 'move-down';
 }
 
-/** Menu rows: the 转换为 group first, then copy/delete. */
+/** Menu rows: the 转换为 group first, then move/copy/delete. */
 const MENU_ACTIONS: readonly MenuAction[] = [
   { label: '一级标题', convert: 'h1' },
   { label: '二级标题', convert: 'h2' },
   { label: '三级标题', convert: 'h3' },
   { label: '正文', convert: 'paragraph' },
+  { label: '上移', action: 'move-up' },
+  { label: '下移', action: 'move-down' },
   { label: '复制块', action: 'duplicate' },
   { label: '删除块', action: 'delete' },
 ];

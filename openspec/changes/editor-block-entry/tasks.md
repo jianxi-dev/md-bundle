@@ -8,7 +8,7 @@
 
 ## 3. 块手柄菜单：上移 / 下移
 
-- [ ] 3.1 块手柄菜单增「上移 / 下移」（复用 `computeBlockMove` + `computeMinimalChange`）；e2e 覆盖
+- [x] 3.1 块手柄菜单增「上移 / 下移」（复用 `computeBlockMove` + `computeMinimalChange`）；e2e 覆盖
 
 ## 4. 标题级别控件 + Backspace 降级
 
