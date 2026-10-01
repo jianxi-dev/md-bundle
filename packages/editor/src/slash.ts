@@ -18,7 +18,6 @@
 
 import { EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/view';
 import { Prec, type EditorState, type Extension } from '@codemirror/state';
-import { getThemeColor } from './theme';
 
 export interface SlashCommand {
   id: string;
@@ -165,7 +164,7 @@ function renderMenu(view: EditorView, state: SlashMenuState): void {
     const icon = document.createElement('span');
     icon.textContent = cmd.icon ?? '';
     icon.style.width = '18px';
-    icon.style.color = getThemeColor('dark', 'primary');
+    icon.style.color = 'var(--mdb-primary)';
     row.appendChild(icon);
 
     const label = document.createElement('span');
@@ -176,7 +175,7 @@ function renderMenu(view: EditorView, state: SlashMenuState): void {
       const hint = document.createElement('span');
       hint.textContent = cmd.hint;
       hint.style.marginLeft = 'auto';
-      hint.style.color = getThemeColor('dark', 'text-secondary');
+      hint.style.color = 'var(--mdb-text-secondary)';
       hint.style.fontSize = '11px';
       hint.style.opacity = '0.8';
       row.appendChild(hint);
@@ -199,11 +198,10 @@ function openMenu(
 ): void {
   const menu = document.createElement('div');
   menu.className = 'mdb-slash-menu';
-  menu.setAttribute('data-theme', 'dark');
   menu.style.position = 'absolute';
-  menu.style.background = getThemeColor('dark', 'bg-secondary');
-  menu.style.border = `1px solid ${getThemeColor('dark', 'border')}`;
-  menu.style.color = getThemeColor('dark', 'text');
+  menu.style.background = 'var(--mdb-bg-secondary)';
+  menu.style.border = `1px solid var(--mdb-border)`;
+  menu.style.color = 'var(--mdb-text)';
   menu.style.zIndex = '1000';
   menu.style.fontSize = '13px';
   menu.style.borderRadius = '6px';

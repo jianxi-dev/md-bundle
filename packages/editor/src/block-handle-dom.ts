@@ -7,7 +7,6 @@
  * `block-handle.ts` is the single import surface.
  */
 import { EditorView } from '@codemirror/view';
-import { getThemeColor } from './theme';
 import type { BlockConvertTarget } from './block-handle-ops';
 
 export const HANDLE_CLASS = 'mdb-block-handle';
@@ -159,7 +158,7 @@ export const blockHandleTheme = EditorView.baseTheme({
     width: '20px',
     height: '20px',
     cursor: 'grab',
-    color: getThemeColor('dark', 'text-secondary'),
+    color: 'var(--mdb-text-secondary)',
     userSelect: 'none',
     zIndex: '5',
   },
@@ -172,8 +171,8 @@ export const blockHandleTheme = EditorView.baseTheme({
     display: 'none',
     minWidth: '120px',
     padding: '4px',
-    backgroundColor: getThemeColor('dark', 'bg-secondary'),
-    border: `1px solid ${getThemeColor('dark', 'border')}`,
+    backgroundColor: 'var(--mdb-bg-secondary)',
+    border: `1px solid var(--mdb-border)`,
     borderRadius: '6px',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.18)',
     zIndex: '1000',
@@ -181,7 +180,7 @@ export const blockHandleTheme = EditorView.baseTheme({
   '.mdb-block-handle-label': {
     padding: '2px 8px',
     fontSize: '11px',
-    color: getThemeColor('dark', 'muted'),
+    color: 'var(--mdb-muted)',
   },
   '.mdb-block-handle-item': {
     display: 'block',
@@ -189,7 +188,7 @@ export const blockHandleTheme = EditorView.baseTheme({
     textAlign: 'left',
     background: 'transparent',
     border: 'none',
-    color: getThemeColor('dark', 'text'),
+    color: 'var(--mdb-text)',
     padding: '4px 8px',
     cursor: 'pointer',
     fontSize: '13px',
@@ -200,7 +199,7 @@ export const blockHandleTheme = EditorView.baseTheme({
     left: '0',
     right: '0',
     height: '2px',
-    backgroundColor: getThemeColor('dark', 'primary'),
+    backgroundColor: 'var(--mdb-primary)',
     pointerEvents: 'none',
     zIndex: '4',
   },

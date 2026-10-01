@@ -5,7 +5,6 @@
  * EditorView. NOT part of the package public API.
  */
 
-import { getThemeColor } from './theme';
 import type { MatchEntry } from './command-palette-search';
 
 /** Full-viewport scrim. `onOutside` fires on mousedown anywhere on it. */
@@ -39,7 +38,7 @@ export function createGroupHeader(group: string): HTMLDivElement {
     padding: '8px 12px 4px',
     fontSize: '11px',
     fontWeight: '600',
-    color: getThemeColor('dark', 'text-secondary'),
+    color: 'var(--mdb-text-secondary)',
   });
   return header;
 }
@@ -70,7 +69,7 @@ export function createPaletteRow(
   Object.assign(icon.style, {
     width: '18px',
     fontSize: '13px',
-    color: getThemeColor('dark', 'primary'),
+    color: 'var(--mdb-primary)',
   });
   row.appendChild(icon);
 
@@ -85,9 +84,9 @@ export function createPaletteRow(
     Object.assign(kb.style, {
       fontSize: '11px',
       padding: '1px 6px',
-      border: `1px solid ${getThemeColor('dark', 'border')}`,
+      border: `1px solid var(--mdb-border)`,
       borderRadius: '3px',
-      color: getThemeColor('dark', 'text-secondary'),
+      color: 'var(--mdb-text-secondary)',
     });
     row.appendChild(kb);
   }
