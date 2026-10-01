@@ -60,13 +60,9 @@ export function createListDecorations(
       const match = line.match(unorderedListRegex);
       const markerLen = match ? match[0].length : 0;
       if (markerLen > 0) {
-        if (isActive) {
-          decorations.push(
-            Decoration.mark({ class: 'cm-list-marker-active' }).range(pos, pos + markerLen),
-          );
-        } else {
-          decorations.push(Decoration.replace({}).range(pos, pos + markerLen));
-        }
+        // Unordered "-" is hidden in both states — the CSS ::before bullet
+        // is the marker. Revealing it in the active block showed both (#235).
+        decorations.push(Decoration.replace({}).range(pos, pos + markerLen));
       }
       decorations.push(Decoration.line({ class: `${LIST_CLASS} ${isActive ? 'cm-block-active' : 'cm-block-inactive'}` }).range(pos));
     } else if (orderedListRegex.test(line)) {
