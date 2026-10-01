@@ -399,3 +399,169 @@ describe('command anchors stay within document bounds', () => {
     expect(view.state.selection.main.head).toBe('hello> [!NOTE]\n> '.length);
   });
 });
+
+describe('font/color toggle commands (ticket #261)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+  });
+
+  it('font-serif wraps selection with <span class="mdb-font-serif">', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('font-serif', view);
+    expect(view.state.doc.toString()).toContain('<span class="mdb-font-serif">Hello</span>');
+  });
+
+  it('font-serif toggles off on second click', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('font-serif', view);
+    commandRegistry.execute('font-serif', view);
+    expect(view.state.doc.toString()).not.toContain('mdb-font-serif');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('font-mono wraps selection with <span class="mdb-font-mono">', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('font-mono', view);
+    expect(view.state.doc.toString()).toContain('<span class="mdb-font-mono">Hello</span>');
+  });
+
+  it('font-sans wraps selection with <span class="mdb-font-sans">', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('font-sans', view);
+    expect(view.state.doc.toString()).toContain('<span class="mdb-font-sans">Hello</span>');
+  });
+
+  it('switching font family replaces the span class', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('font-serif', view);
+    commandRegistry.execute('font-mono', view);
+    expect(view.state.doc.toString()).not.toContain('mdb-font-serif');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-font-mono">Hello</span>');
+  });
+
+  it('color-red wraps selection with <span class="mdb-color-red">', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('color-red', view);
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-red">Hello</span>');
+  });
+
+  it('color-red toggles off on second click', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('color-red', view);
+    commandRegistry.execute('color-red', view);
+    expect(view.state.doc.toString()).not.toContain('mdb-color-red');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('color-blue wraps selection with <span class="mdb-color-blue">', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('color-blue', view);
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-blue">Hello</span>');
+  });
+
+  it('color-green wraps selection with <span class="mdb-color-green">', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('color-green', view);
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-green">Hello</span>');
+  });
+
+  it('color-orange wraps selection with <span class="mdb-color-orange">', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('color-orange', view);
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-orange">Hello</span>');
+  });
+
+  it('color-purple wraps selection with <span class="mdb-color-purple">', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('color-purple', view);
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-purple">Hello</span>');
+  });
+
+  it('color-clear removes any mdb-color-* span', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('color-red', view);
+    commandRegistry.execute('color-clear', view);
+    expect(view.state.doc.toString()).not.toContain('mdb-color-');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('font-clear removes any mdb-font-* span', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('font-serif', view);
+    commandRegistry.execute('font-clear', view);
+    expect(view.state.doc.toString()).not.toContain('mdb-font-');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('switching color replaces the span class', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('color-red', view);
+    commandRegistry.execute('color-blue', view);
+    expect(view.state.doc.toString()).not.toContain('mdb-color-red');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-blue">Hello</span>');
+  });
+
+  it('all font/color commands are registered with Chinese labels', () => {
+    const fontIds = ['font-serif', 'font-mono', 'font-sans', 'font-clear'];
+    const colorIds = ['color-red', 'color-blue', 'color-green', 'color-orange', 'color-purple', 'color-clear'];
+    for (const id of [...fontIds, ...colorIds]) {
+      const cmd = commandRegistry.all().find((c) => c.id === id);
+      expect(cmd, `command ${id} should be registered`).toBeDefined();
+      expect(cmd?.label, `${id} should have Chinese label`).toBeTruthy();
+      expect(cmd?.group).toBe('格式');
+    }
+  });
+});

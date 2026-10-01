@@ -122,6 +122,14 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   // Strikethrough / underline inline markers (ticket #260 — hide raw ~~ / <u> tags)
   '.cm-content .cm-strikethrough': { textDecoration: 'line-through' },
   '.cm-content .cm-underline': { textDecoration: 'underline' },
+  '.cm-content .cm-font-serif': { fontFamily: 'var(--mdb-font-serif, Georgia, serif)' },
+  '.cm-content .cm-font-mono': { fontFamily: 'var(--mdb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)' },
+  '.cm-content .cm-font-sans': { fontFamily: 'var(--mdb-font-sans, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif)' },
+  '.cm-content .cm-color-red': { color: 'var(--mdb-danger)' },
+  '.cm-content .cm-color-blue': { color: 'var(--mdb-primary)' },
+  '.cm-content .cm-color-green': { color: 'var(--mdb-success)' },
+  '.cm-content .cm-color-orange': { color: 'var(--mdb-warning)' },
+  '.cm-content .cm-color-purple': { color: '#a371f7' },
 
   // ── Lists ─────────────────────────────────────────────────────────────
   '.cm-content .cm-line.cm-list': {

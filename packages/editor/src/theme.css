@@ -19,6 +19,9 @@
   --mdb-shadow: rgba(0, 0, 0, 0.5);
   --mdb-surface: #1a1b20;
   --mdb-muted: #5d626b;
+  --mdb-font-serif: Georgia, serif;
+  --mdb-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --mdb-font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
 }
 
 :root[data-theme="light"] {
@@ -41,4 +44,7 @@
   --mdb-shadow: rgba(24, 26, 40, 0.12);
   --mdb-surface: #e9e9ee;
   --mdb-muted: #8b8f99;
+  --mdb-font-serif: Georgia, serif;
+  --mdb-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --mdb-font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
 }

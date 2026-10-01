@@ -299,6 +299,66 @@ describe('calloutTypeMap snapshot', () => {
   });
 });
 
+describe('font/color class preservation (ticket #261)', () => {
+  it('preserves mdb-font-serif class in output', () => {
+    const html = renderMarkdown('<span class="mdb-font-serif">Hello</span>');
+    expect(html).toContain('class="mdb-font-serif"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-font-mono class in output', () => {
+    const html = renderMarkdown('<span class="mdb-font-mono">Hello</span>');
+    expect(html).toContain('class="mdb-font-mono"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-font-sans class in output', () => {
+    const html = renderMarkdown('<span class="mdb-font-sans">Hello</span>');
+    expect(html).toContain('class="mdb-font-sans"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-color-red class in output', () => {
+    const html = renderMarkdown('<span class="mdb-color-red">Hello</span>');
+    expect(html).toContain('class="mdb-color-red"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-color-blue class in output', () => {
+    const html = renderMarkdown('<span class="mdb-color-blue">Hello</span>');
+    expect(html).toContain('class="mdb-color-blue"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-color-green class in output', () => {
+    const html = renderMarkdown('<span class="mdb-color-green">Hello</span>');
+    expect(html).toContain('class="mdb-color-green"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-color-orange class in output', () => {
+    const html = renderMarkdown('<span class="mdb-color-orange">Hello</span>');
+    expect(html).toContain('class="mdb-color-orange"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-color-purple class in output', () => {
+    const html = renderMarkdown('<span class="mdb-color-purple">Hello</span>');
+    expect(html).toContain('class="mdb-color-purple"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves multiple font/color spans in output', () => {
+    const html = renderMarkdown(
+      '<span class="mdb-font-serif">Serif</span> <span class="mdb-color-red">Red</span>',
+    );
+    expect(html).toContain('class="mdb-font-serif"');
+    expect(html).toContain('class="mdb-color-red"');
+    expect(html).toContain('Serif');
+    expect(html).toContain('Red');
+  });
+});
+
 afterAll(() => {
   facts.tests = 24;
   mkdirSync(dirname(EVIDENCE_PATH), { recursive: true });

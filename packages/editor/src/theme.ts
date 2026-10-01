@@ -21,6 +21,9 @@ export const themeTokens = {
     shadow: 'rgba(0, 0, 0, 0.5)',
     surface: '#1a1b20',
     muted: '#5d626b',
+    'font-serif': 'Georgia, serif',
+    'font-mono': 'ui-monospace, SFMono-Regular, Menlo, monospace',
+    'font-sans': '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
   },
   light: {
     primary: '#4f5ad1',
@@ -42,6 +45,9 @@ export const themeTokens = {
     shadow: 'rgba(24, 26, 40, 0.12)',
     surface: '#e9e9ee',
     muted: '#8b8f99',
+    'font-serif': 'Georgia, serif',
+    'font-mono': 'ui-monospace, SFMono-Regular, Menlo, monospace',
+    'font-sans': '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
   },
 } as const
 

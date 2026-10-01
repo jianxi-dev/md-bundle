@@ -59,6 +59,22 @@ function clickBtn(view: ReturnType<typeof createMarkdownEditor>['view'], title: 
   btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
 }
 
+/** Click a dropdown option by label. */
+function clickDropdownOption(view: ReturnType<typeof createMarkdownEditor>['view'], dropdownTitle: string, optionLabel: string): void {
+  const dropdownBtn = view.dom.querySelector<HTMLButtonElement>(
+    `.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="${dropdownTitle}"]`,
+  );
+  if (!dropdownBtn) throw new Error(`dropdown button title="${dropdownTitle}" not found`);
+  dropdownBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+
+  const options = view.dom.querySelectorAll<HTMLButtonElement>(
+    `.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option`,
+  );
+  const targetOption = Array.from(options).find((btn) => btn.textContent?.includes(optionLabel));
+  if (!targetOption) throw new Error(`dropdown option "${optionLabel}" not found`);
+  targetOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+}
+
 /** Select `word` in the editor by dispatching a range over its first occurrence. */
 function selectWord(
   view: ReturnType<typeof createMarkdownEditor>['view'],
@@ -88,12 +104,14 @@ describe('floating toolbar: data-driven 7-control set (ticket #260)', () => {
     removeClipboard();
   });
 
-  it('renders exactly the 7 inline-format controls with Chinese tooltips', () => {
+  it('renders exactly the 9 inline-format controls with Chinese tooltips', () => {
     selectWord(view, 'Hello world', 'Hello');
     const buttons = Array.from(
-      view.dom.querySelectorAll<HTMLButtonElement>('.mdb-floating-toolbar .mdb-toolbar-btn'),
+      view.dom.querySelectorAll<HTMLButtonElement>('.mdb-floating-toolbar .mdb-toolbar-btn, .mdb-floating-toolbar .mdb-toolbar-dropdown-btn'),
     );
     expect(buttons.map((b) => b.title)).toEqual([
+      '字体',
+      '颜色',
       '加粗',
       '斜体',
       '删除线',
@@ -248,5 +266,103 @@ describe('floating toolbar: data-driven items option (ticket #260)', () => {
     expect(copyBtn).not.toBeNull();
     // The raw command label must remain "复制代码" (not mutated).
     expect(commandRegistry.all().find((c) => c.id === 'code-copy')?.label).toBe('复制代码');
+  });
+});
+
+describe('floating toolbar: font/color dropdowns (ticket #261)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent, { extensions: [floatingToolbar()] }).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+    removeClipboard();
+  });
+
+  it('字体 dropdown opens and applies 衬线', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '字体', '衬线');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-font-serif">Hello</span>');
+  });
+
+  it('字体 dropdown applies 等宽', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '字体', '等宽');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-font-mono">Hello</span>');
+  });
+
+  it('字体 dropdown applies 无衬线', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '字体', '无衬线');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-font-sans">Hello</span>');
+  });
+
+  it('字体 dropdown 无 removes font span', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '字体', '衬线');
+    clickDropdownOption(view, '字体', '无');
+    expect(view.state.doc.toString()).not.toContain('mdb-font-');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('颜色 dropdown opens and applies 红色', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '颜色', '红色');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-red">Hello</span>');
+  });
+
+  it('颜色 dropdown applies 蓝色', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '颜色', '蓝色');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-blue">Hello</span>');
+  });
+
+  it('颜色 dropdown applies 绿色', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '颜色', '绿色');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-green">Hello</span>');
+  });
+
+  it('颜色 dropdown applies 橙色', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '颜色', '橙色');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-orange">Hello</span>');
+  });
+
+  it('颜色 dropdown applies 紫色', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '颜色', '紫色');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-purple">Hello</span>');
+  });
+
+  it('颜色 dropdown 清除 removes color span', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '颜色', '红色');
+    clickDropdownOption(view, '颜色', '清除');
+    expect(view.state.doc.toString()).not.toContain('mdb-color-');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('switching font family replaces the span class', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '字体', '衬线');
+    clickDropdownOption(view, '字体', '等宽');
+    expect(view.state.doc.toString()).not.toContain('mdb-font-serif');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-font-mono">Hello</span>');
+  });
+
+  it('switching color replaces the span class', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickDropdownOption(view, '颜色', '红色');
+    clickDropdownOption(view, '颜色', '蓝色');
+    expect(view.state.doc.toString()).not.toContain('mdb-color-red');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-color-blue">Hello</span>');
   });
 });

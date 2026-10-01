@@ -9,8 +9,7 @@
  *
  * The item shape supports a `kind` discriminator (`'button'` | `'dropdown'`)
  * so later tickets (font / align / color / columns) can add dropdown
- * controls without reworking the render path. Only `'button'` is wired today;
- * `'dropdown'` renders a placeholder button container future tickets extend.
+ * controls without reworking the render path.
  *
  * Architecture:
  * - A ViewPlugin listens for selection changes via EditorView.updateListener.
@@ -29,6 +28,9 @@ import { commandRegistry, type Command } from './commands';
  * registry). `label` and `icon` override the command's defaults for this
  * toolbar slot (e.g. `code-copy` shows as "复制" here while the palette keeps
  * its canonical "复制代码" label).
+ *
+ * For `kind: 'dropdown'`, the `options` array defines the submenu items.
+ * Each option has a `commandId` to execute and optional `label`/`icon` overrides.
  */
 export interface FloatingToolbarItem {
   /** Command id to execute on click — must be registered in commandRegistry. */
@@ -39,10 +41,20 @@ export interface FloatingToolbarItem {
   readonly icon?: string;
   /**
    * Control shape. `'button'` (default) renders a flat action button.
-   * `'dropdown'` renders a button container future tickets (font / align /
-   * color / columns) populate with a submenu; today it behaves as a button.
+   * `'dropdown'` renders a button that opens a submenu of options.
    */
   readonly kind?: 'button' | 'dropdown';
+  /** Submenu options for dropdown controls. */
+  readonly options?: readonly DropdownOption[];
+}
+
+export interface DropdownOption {
+  /** Command id to execute when this option is selected. */
+  readonly commandId: string;
+  /** Override the command's label for this option. */
+  readonly label?: string;
+  /** Override the command's icon for this option. */
+  readonly icon?: string;
 }
 
 export interface FloatingToolbarOptions {
@@ -60,12 +72,38 @@ export interface FloatingToolbarOptions {
 }
 
 /**
- * Default 7-control inline format set — the contract for ticket #260.
- * Order: 加粗 / 斜体 / 删除线 / 下划线 / 行内代码 / 链接 / 复制.
+ * Default 9-control inline format set — the contract for ticket #261.
+ * Order: 字体▾ / 颜色▾ / 加粗 / 斜体 / 删除线 / 下划线 / 行内代码 / 链接 / 复制.
  * `code-copy` is reused (clipboard write logic) but its toolbar label is
  * overridden to "复制" per the ticket.
  */
 const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
+  {
+    commandId: 'font-sans',
+    label: '字体',
+    icon: 'Aa',
+    kind: 'dropdown',
+    options: [
+      { commandId: 'font-clear', label: '无' },
+      { commandId: 'font-serif', label: '衬线' },
+      { commandId: 'font-mono', label: '等宽' },
+      { commandId: 'font-sans', label: '无衬线' },
+    ],
+  },
+  {
+    commandId: 'color-red',
+    label: '颜色',
+    icon: '●',
+    kind: 'dropdown',
+    options: [
+      { commandId: 'color-clear', label: '清除' },
+      { commandId: 'color-red', label: '红色' },
+      { commandId: 'color-blue', label: '蓝色' },
+      { commandId: 'color-green', label: '绿色' },
+      { commandId: 'color-orange', label: '橙色' },
+      { commandId: 'color-purple', label: '紫色' },
+    ],
+  },
   { commandId: 'toggle-bold' },
   { commandId: 'toggle-italic' },
   { commandId: 'toggle-strikethrough' },
@@ -130,6 +168,136 @@ function createButtonItemDom(
   return btn;
 }
 
+function createDropdownItemDom(
+  view: EditorView,
+  item: FloatingToolbarItem,
+  cmd: Command,
+): HTMLDivElement {
+  const container = document.createElement('div');
+  container.className = 'mdb-toolbar-dropdown';
+  container.style.position = 'relative';
+  container.style.display = 'inline-flex';
+
+  const btn = document.createElement('button');
+  btn.className = 'mdb-toolbar-btn mdb-toolbar-dropdown-btn';
+  const label = item.label ?? cmd.label;
+  const icon = item.icon ?? cmd.icon;
+  btn.textContent = `${icon ?? label} ▾`;
+  btn.title = label;
+  btn.style.background = 'transparent';
+  btn.style.border = 'none';
+  btn.style.color = 'var(--mdb-text)';
+  btn.style.padding = '4px 8px';
+  btn.style.cursor = 'pointer';
+  btn.style.borderRadius = '4px';
+  btn.style.fontSize = '13px';
+  btn.style.lineHeight = '1';
+  btn.style.display = 'flex';
+  btn.style.alignItems = 'center';
+  btn.style.justifyContent = 'center';
+  btn.style.minWidth = '28px';
+  btn.style.height = '28px';
+
+  btn.addEventListener('mouseenter', () => {
+    btn.style.background = 'rgba(255,255,255,0.1)';
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.background = 'transparent';
+  });
+
+  const menu = document.createElement('div');
+  menu.className = 'mdb-toolbar-dropdown-menu';
+  menu.style.position = 'absolute';
+  menu.style.top = '100%';
+  menu.style.left = '0';
+  menu.style.marginTop = '4px';
+  menu.style.background = 'var(--mdb-bg-secondary)';
+  menu.style.border = '1px solid var(--mdb-border)';
+  menu.style.borderRadius = '4px';
+  menu.style.padding = '4px';
+  menu.style.display = 'none';
+  menu.style.flexDirection = 'column';
+  menu.style.gap = '2px';
+  menu.style.zIndex = '1001';
+  menu.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.18)';
+  menu.style.minWidth = '120px';
+
+  if (item.options) {
+    for (const option of item.options) {
+      const optionCmd = commandRegistry.all().find((c) => c.id === option.commandId);
+      if (!optionCmd) continue;
+
+      const optionBtn = document.createElement('button');
+      optionBtn.className = 'mdb-toolbar-dropdown-option';
+      const optionLabel = option.label ?? optionCmd.label;
+      const optionIcon = option.icon ?? optionCmd.icon;
+      optionBtn.textContent = optionIcon ? `${optionIcon} ${optionLabel}` : optionLabel;
+      optionBtn.title = optionLabel;
+      optionBtn.style.background = 'transparent';
+      optionBtn.style.border = 'none';
+      optionBtn.style.color = 'var(--mdb-text)';
+      optionBtn.style.padding = '4px 8px';
+      optionBtn.style.cursor = 'pointer';
+      optionBtn.style.borderRadius = '4px';
+      optionBtn.style.fontSize = '13px';
+      optionBtn.style.lineHeight = '1';
+      optionBtn.style.textAlign = 'left';
+      optionBtn.style.width = '100%';
+
+      optionBtn.addEventListener('mouseenter', () => {
+        optionBtn.style.background = 'rgba(255,255,255,0.1)';
+      });
+      optionBtn.addEventListener('mouseleave', () => {
+        optionBtn.style.background = 'transparent';
+      });
+
+      optionBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        commandRegistry.execute(option.commandId, view);
+        menu.style.display = 'none';
+      });
+
+      menu.appendChild(optionBtn);
+    }
+  }
+
+  let isOpen = false;
+
+  function openMenu(): void {
+    menu.style.display = 'flex';
+    isOpen = true;
+    document.addEventListener('mousedown', closeOnOutsideClick);
+  }
+
+  function closeMenu(): void {
+    menu.style.display = 'none';
+    isOpen = false;
+    document.removeEventListener('mousedown', closeOnOutsideClick);
+  }
+
+  function closeOnOutsideClick(e: MouseEvent): void {
+    if (!container.contains(e.target as Node)) {
+      closeMenu();
+    }
+  }
+
+  btn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isOpen) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  });
+
+  container.appendChild(btn);
+  container.appendChild(menu);
+
+  return container;
+}
+
 function createToolbarDom(
   view: EditorView,
   items: readonly FloatingToolbarItem[],
@@ -148,16 +316,9 @@ function createToolbarDom(
 
   for (const item of items) {
     const cmd = resolveCommand(item);
-    // Gracefully skip unregistered commands instead of throwing — the
-    // toolbar is a progressive surface and a missing command must never
-    // crash the editor (NEVER-throw contract).
     if (!cmd) continue;
-    if (item.kind === 'dropdown') {
-      // Dropdown container: today a plain button; later tickets attach a
-      // submenu. Rendered with a ▾ hint so the affordance is stable.
-      const btn = createButtonItemDom(view, item, cmd);
-      btn.textContent = `${item.icon ?? cmd.icon ?? cmd.label} ▾`;
-      toolbar.appendChild(btn);
+    if (item.kind === 'dropdown' && item.options && item.options.length > 0) {
+      toolbar.appendChild(createDropdownItemDom(view, item, cmd));
     } else {
       toolbar.appendChild(createButtonItemDom(view, item, cmd));
     }

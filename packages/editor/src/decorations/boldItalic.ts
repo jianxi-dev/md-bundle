@@ -6,11 +6,21 @@ const italicRegex = /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|_(.+?)_/g;
 const strikeRegex = /~~(.+?)~~/g;
 // Match <u>…</u> raw-HTML passthrough (ticket #260). Non-greedy, single-line.
 const underlineRegex = /<u>([^<]+?)<\/u>/g;
+const fontRegex = /<span class="mdb-font-(serif|mono|sans)">([^<]+?)<\/span>/g;
+const colorRegex = /<span class="mdb-color-(red|blue|green|orange|purple)">([^<]+?)<\/span>/g;
 
 const BOLD_CLASS = 'cm-strong';
 const ITALIC_CLASS = 'cm-em';
 const STRIKE_CLASS = 'cm-strikethrough';
 const UNDERLINE_CLASS = 'cm-underline';
+const FONT_SERIF_CLASS = 'cm-font-serif';
+const FONT_MONO_CLASS = 'cm-font-mono';
+const FONT_SANS_CLASS = 'cm-font-sans';
+const COLOR_RED_CLASS = 'cm-color-red';
+const COLOR_BLUE_CLASS = 'cm-color-blue';
+const COLOR_GREEN_CLASS = 'cm-color-green';
+const COLOR_ORANGE_CLASS = 'cm-color-orange';
+const COLOR_PURPLE_CLASS = 'cm-color-purple';
 
 // --- Incomplete marker detection (Type-as-Render) ----------------------------
 
@@ -129,6 +139,76 @@ export function createBoldItalicDecorations(
     decorations.push(Decoration.replace({}).range(from, from + openLen));
     decorations.push(
       Decoration.mark({ class: UNDERLINE_CLASS }).range(from + openLen, to - closeLen),
+    );
+    decorations.push(Decoration.replace({}).range(to - closeLen, to));
+  }
+
+  fontRegex.lastIndex = 0;
+  while ((match = fontRegex.exec(text)) !== null) {
+    const from = match.index;
+    const to = from + match[0].length;
+    const fontType = match[1];
+    const openTag = `<span class="mdb-font-${fontType}">`;
+    const closeTag = '</span>';
+    const openLen = openTag.length;
+    const closeLen = closeTag.length;
+
+    let fontClass: string;
+    switch (fontType) {
+      case 'serif':
+        fontClass = FONT_SERIF_CLASS;
+        break;
+      case 'mono':
+        fontClass = FONT_MONO_CLASS;
+        break;
+      case 'sans':
+        fontClass = FONT_SANS_CLASS;
+        break;
+      default:
+        fontClass = FONT_SANS_CLASS;
+    }
+
+    decorations.push(Decoration.replace({}).range(from, from + openLen));
+    decorations.push(
+      Decoration.mark({ class: fontClass }).range(from + openLen, to - closeLen),
+    );
+    decorations.push(Decoration.replace({}).range(to - closeLen, to));
+  }
+
+  colorRegex.lastIndex = 0;
+  while ((match = colorRegex.exec(text)) !== null) {
+    const from = match.index;
+    const to = from + match[0].length;
+    const colorType = match[1];
+    const openTag = `<span class="mdb-color-${colorType}">`;
+    const closeTag = '</span>';
+    const openLen = openTag.length;
+    const closeLen = closeTag.length;
+
+    let colorClass: string;
+    switch (colorType) {
+      case 'red':
+        colorClass = COLOR_RED_CLASS;
+        break;
+      case 'blue':
+        colorClass = COLOR_BLUE_CLASS;
+        break;
+      case 'green':
+        colorClass = COLOR_GREEN_CLASS;
+        break;
+      case 'orange':
+        colorClass = COLOR_ORANGE_CLASS;
+        break;
+      case 'purple':
+        colorClass = COLOR_PURPLE_CLASS;
+        break;
+      default:
+        colorClass = COLOR_RED_CLASS;
+    }
+
+    decorations.push(Decoration.replace({}).range(from, from + openLen));
+    decorations.push(
+      Decoration.mark({ class: colorClass }).range(from + openLen, to - closeLen),
     );
     decorations.push(Decoration.replace({}).range(to - closeLen, to));
   }
