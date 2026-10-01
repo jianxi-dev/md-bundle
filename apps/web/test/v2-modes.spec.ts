@@ -434,9 +434,8 @@ test('斜杠 [!NOTE] 插入 → edit 模式即时 callout 卡', async ({ page })
 
   const slashMenu = page.locator('.mdb-slash-menu');
   await expect(slashMenu).toBeVisible({ timeout: 3000 });
-  // Callout 是 defaultCommands 第二项（index 1）：Heading/Callout/Image ref/Code block/Table/Quote
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
+  // 菜单已分组（#250）：直接点「标注」行，不再依赖固定序号。
+  await page.locator('.mdb-slash-item').filter({ hasText: '标注' }).first().click();
 
   await expect(editorPane.locator('.cm-callout').first()).toBeVisible();
   // edit 模式 callout 卡即时可见（coration replace 隐藏原始 > [!NOTE] 文本）
