@@ -20,6 +20,7 @@ import {
   computeBlockConvert,
   computeBlockDuplicate,
   computeBlockDelete,
+  computeMinimalChange,
   type BlockConvertTarget,
 } from './block-handle-ops'
 
@@ -29,7 +30,9 @@ export {
   computeBlockConvert,
   computeBlockDuplicate,
   computeBlockDelete,
+  computeMinimalChange,
   type BlockConvertTarget,
+  type MinimalChange,
 } from './block-handle-ops'
 
 /** Pointer travel (px) before a press becomes a drag rather than a click. */
@@ -233,7 +236,7 @@ class BlockHandlePlugin {
       const text = this.view.state.doc.toString()
       const next = computeBlockMove(text, drag.from, drag.to, drag.targetLine)
       if (next !== text) {
-        this.view.dispatch({ changes: { from: 0, to: text.length, insert: next } })
+        this.view.dispatch({ changes: computeMinimalChange(text, next) })
       }
       this.justDragged = true
     }
@@ -276,7 +279,7 @@ class BlockHandlePlugin {
       next = computeBlockDelete(text, block.from, block.to)
     }
     if (next !== text) {
-      this.view.dispatch({ changes: { from: 0, to: text.length, insert: next } })
+      this.view.dispatch({ changes: computeMinimalChange(text, next) })
     }
     this.chrome.hideMenu()
     event.stopPropagation()

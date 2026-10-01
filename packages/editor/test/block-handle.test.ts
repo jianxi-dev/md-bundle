@@ -26,6 +26,7 @@ import {
   computeBlockConvert,
   computeBlockDuplicate,
   computeBlockDelete,
+  computeMinimalChange,
 } from '../src/block-handle'
 
 // jsdom lacks requestAnimationFrame/ResizeObserver; CodeMirror 6 uses both.
@@ -121,6 +122,28 @@ describe('block-handle pure helpers', () => {
 
   it('computeBlockDelete removes the last block without trailing blanks', () => {
     expect(computeBlockDelete('A\n\nB', 3, 4)).toBe('A')
+  })
+
+  it('computeMinimalChange trims the common prefix and suffix', () => {
+    expect(computeMinimalChange('Hello world', '# Hello world')).toEqual({
+      from: 0,
+      to: 0,
+      insert: '# ',
+    })
+  })
+
+  it('computeMinimalChange is empty for identical text', () => {
+    expect(computeMinimalChange('same', 'same')).toEqual({ from: 4, to: 4, insert: '' })
+  })
+
+  it('computeMinimalChange keeps a long document out of the change range', () => {
+    // #239: converting a late block must not rewrite the whole document.
+    const doc = `${'para\n\n'.repeat(50)}target`
+    const next = `${'para\n\n'.repeat(50)}# target`
+    const change = computeMinimalChange(doc, next)
+    expect(change.to - change.from).toBe(0)
+    expect(change.insert).toBe('# ')
+    expect(change.from).toBeLessThan(doc.length)
   })
 
   it('computeBlockDelete leaves blank lines outside the deleted block untouched', () => {
