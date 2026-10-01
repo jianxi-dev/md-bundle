@@ -77,3 +77,19 @@ test('菜单在窗口右下缘不溢出（#250）', async ({ page }) => {
   expect(box.x + box.width).toBeLessThanOrEqual(viewport.width)
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height)
 })
+
+test('「表格」网格选择器插入 GFM 表格（#251）', async ({ page }) => {
+  await openEditor(page, '# Title\n\n')
+  await typeSlashAtDocEnd(page)
+
+  await page.locator('.mdb-slash-item').filter({ hasText: '表格' }).first().click()
+  await expect(page.locator('.mdb-slash-grid')).toBeVisible()
+  await expect(page.locator('.mdb-slash-grid-cell')).toHaveCount(100)
+
+  await page.locator('.mdb-slash-grid-cell[data-r="3"][data-c="7"]').click()
+  await settle(page)
+
+  const raw = await rawDoc(page)
+  expect(raw).toContain('| A | B | C | D | E | F | G |')
+  expect(raw.split('\n').filter((line) => line.includes('|')).length).toBe(5)
+})

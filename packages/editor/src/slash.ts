@@ -28,6 +28,8 @@ export interface SlashCommand {
   group?: string;
   /** When present, activating the row opens this second-level panel of rows. */
   children?: SlashCommand[];
+  /** When present, activating the row opens a rows×cols grid picker instead. */
+  grid?: { rows: number; cols: number };
   /**
    * Returns the change that replaces the `/` (the character immediately to the
    * left of the cursor) with the template text. Called with the state where
@@ -85,17 +87,10 @@ export const defaultCommands: SlashCommand[] = [
   {
     id: 'table',
     label: '表格',
-    hint: '| a | b |',
+    hint: 'N × M',
     icon: '\u25A6',
     group: '常用',
-    insert(state) {
-      const head = state.selection.main.head;
-      return {
-        from: head - 1,
-        to: head,
-        text: '| A | B |\n| --- | --- |\n| 1 | 2 |',
-      };
-    },
+    grid: { rows: 10, cols: 10 },
   },
   {
     id: 'callout',
@@ -147,6 +142,14 @@ export const defaultCommands: SlashCommand[] = [
   },
 ];
 
+/** Active grid picker: bounds plus the hovered cell that will be inserted. */
+interface GridState {
+  rows: number;
+  cols: number;
+  hoverR: number;
+  hoverC: number;
+}
+
 interface SlashMenuState {
   open: boolean;
   slashPos: number;
@@ -157,6 +160,8 @@ interface SlashMenuState {
   rows: SlashCommand[];
   /** The opener whose children are displayed, or null at root. */
   submenuParent: SlashCommand | null;
+  /** Active grid picker, or null when a row list is displayed. */
+  grid: GridState | null;
   dom: HTMLDivElement | null;
 }
 
@@ -174,6 +179,10 @@ function closeMenu(view: EditorView): void {
 
 function renderMenu(view: EditorView, state: SlashMenuState): void {
   if (!state.dom) return;
+  if (state.grid) {
+    renderGrid(view, state);
+    return;
+  }
   state.dom.textContent = '';
   let lastGroup: string | undefined;
   state.rows.forEach((cmd, i) => {
@@ -230,6 +239,95 @@ function renderMenu(view: EditorView, state: SlashMenuState): void {
   });
 }
 
+/** Build a GFM pipe table with `cols` columns and `rows` body rows. */
+function buildTable(cols: number, rows: number): string {
+  const header = `| ${Array.from({ length: cols }, (_, c) => String.fromCharCode(65 + c)).join(' | ')} |`;
+  const separator = `| ${Array.from({ length: cols }, () => '---').join(' | ')} |`;
+  const body = Array.from({ length: rows }, (_, r) =>
+    `| ${Array.from({ length: cols }, (_, c) => String(r * cols + c + 1)).join(' | ')} |`,
+  ).join('\n');
+  return `${header}\n${separator}\n${body}`;
+}
+
+/** Open the grid picker for a command carrying a `grid` spec. */
+function openGrid(view: EditorView, cmd: SlashCommand): void {
+  const state = menus.get(view);
+  if (!state?.open || !state.dom || !cmd.grid) return;
+  state.submenuParent = cmd;
+  state.rows = [];
+  state.grid = { rows: cmd.grid.rows, cols: cmd.grid.cols, hoverR: 1, hoverC: 1 };
+  renderMenu(view, state);
+}
+
+/** Insert the hovered table size and close the menu. */
+function applyGrid(view: EditorView, r: number, c: number): void {
+  const state = menus.get(view);
+  if (!state?.open) return;
+  const slashPos = state.slashPos;
+  closeMenu(view);
+  const text = buildTable(c, r);
+  view.dispatch({
+    changes: { from: slashPos, to: slashPos + 1, insert: text },
+    selection: { anchor: slashPos + text.length },
+    scrollIntoView: true,
+  });
+}
+
+/** Render the rows×cols grid picker with an N × M readout and hover preview. */
+function renderGrid(view: EditorView, state: SlashMenuState): void {
+  if (!state.dom || !state.grid) return;
+  const grid = state.grid;
+  state.dom.textContent = '';
+
+  const label = document.createElement('div');
+  label.className = 'mdb-slash-grid-label';
+  label.textContent = `${grid.hoverR} \u00d7 ${grid.hoverC}`;
+  label.style.padding = '4px 10px';
+  label.style.fontSize = '11px';
+  label.style.color = 'var(--mdb-text-secondary)';
+  state.dom.appendChild(label);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'mdb-slash-grid';
+  wrap.style.display = 'grid';
+  wrap.style.gridTemplateColumns = `repeat(${grid.cols}, 18px)`;
+  wrap.style.gap = '2px';
+  wrap.style.padding = '4px 10px 8px';
+
+  const paint = (r: number, c: number): void => {
+    for (const el of Array.from(wrap.children) as HTMLElement[]) {
+      const on = Number(el.dataset.r) <= r && Number(el.dataset.c) <= c;
+      el.style.background = on ? 'rgb(22,93,255,0.55)' : 'var(--mdb-surface)';
+    }
+  };
+
+  for (let r = 1; r <= grid.rows; r++) {
+    for (let c = 1; c <= grid.cols; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'mdb-slash-grid-cell';
+      cell.dataset.r = String(r);
+      cell.dataset.c = String(c);
+      cell.style.width = '18px';
+      cell.style.height = '18px';
+      cell.style.borderRadius = '3px';
+      cell.style.border = '1px solid var(--mdb-border)';
+      cell.style.background = r <= 1 && c <= 1 ? 'rgb(22,93,255,0.55)' : 'var(--mdb-surface)';
+      cell.addEventListener('mouseenter', () => {
+        grid.hoverR = r;
+        grid.hoverC = c;
+        label.textContent = `${r} \u00d7 ${c}`;
+        paint(r, c);
+      });
+      cell.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        applyGrid(view, r, c);
+      });
+      wrap.appendChild(cell);
+    }
+  }
+  state.dom.appendChild(wrap);
+}
+
 function openMenu(
   view: EditorView,
   slashPos: number,
@@ -257,6 +355,7 @@ function openMenu(
     commands,
     rows: commands,
     submenuParent: null,
+    grid: null,
     dom: menu,
   };
   menus.set(view, state);
@@ -318,6 +417,10 @@ function applyCommand(view: EditorView, cmd: SlashCommand): void {
 
 /** Activate a row: open its submenu, or apply its insert. */
 function activateRow(view: EditorView, cmd: SlashCommand): void {
+  if (cmd.grid) {
+    openGrid(view, cmd);
+    return;
+  }
   if (cmd.children && cmd.children.length > 0) {
     enterSubmenu(view, cmd);
     return;
@@ -340,6 +443,7 @@ function backToRoot(view: EditorView): void {
   const state = menus.get(view);
   if (!state?.open || !state.dom || !state.submenuParent) return;
   state.submenuParent = null;
+  state.grid = null;
   state.rows = state.commands;
   state.selected = 0;
   renderMenu(view, state);
@@ -430,6 +534,10 @@ export function slashMenuSubmenuEnter(view: EditorView): boolean {
   const state = menus.get(view);
   if (!state?.open || !state.dom) return false;
   const cmd = state.rows[state.selected];
+  if (cmd?.grid) {
+    openGrid(view, cmd);
+    return true;
+  }
   if (!cmd?.children?.length) return false;
   enterSubmenu(view, cmd);
   return true;
