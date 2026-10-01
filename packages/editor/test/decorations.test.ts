@@ -199,19 +199,19 @@ describe('editorDecorations', () => {
       expect(view.state.doc.toString()).toBe(text);
     });
 
-    it('shows raw "- " when cursor enters list line', () => {
+    it('keeps the "- " marker hidden when the cursor enters the list line', () => {
       view = createMarkdownEditor(parent, {
         value: '- item one',
         extensions: [editorDecorations()],
       }).view;
 
-      // Cursor at position 1 (inside the "- " replace range at 0..2)
       view.dispatch({ selection: { anchor: 1 } });
       view.requestMeasure();
 
-      // Line decoration stays; replace decoration is suppressed → raw "- " visible
       const content = view.dom.querySelector('.cm-content');
-      expect(content?.textContent).toContain('- ');
+      expect(content?.textContent).not.toContain('- ');
+      expect(content?.textContent).toContain('item one');
+      expect(view.dom.querySelector('.cm-list')).not.toBeNull();
     });
   });
 
