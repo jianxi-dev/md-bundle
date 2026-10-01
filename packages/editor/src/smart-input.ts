@@ -326,6 +326,20 @@ export function smartBackspace(view: EditorView): boolean {
   const lineText = line.text;
   const cursorInLine = main.head - line.from;
 
+  // Heading: Backspace at the start of a heading line demotes one level;
+  // an H1 becomes a paragraph (#253).
+  const headingLevel = getHeadingLevelFromLine(lineText);
+  if (headingLevel !== null && cursorInLine === 0) {
+    const newLevel = headingLevel - 1;
+    const insert = newLevel > 0 ? `${'#'.repeat(newLevel)} ` : '';
+    view.dispatch({
+      changes: { from: line.from, to: line.from + headingLevel + 1, insert },
+      selection: { anchor: line.from + insert.length },
+      scrollIntoView: true,
+    });
+    return true;
+  }
+
   const listMatch = lineText.match(/^(\s*)([-*+]|\d+\.)\s$/);
   if (listMatch && cursorInLine === lineText.length) {
     const [, indent] = listMatch;

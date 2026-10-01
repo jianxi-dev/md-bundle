@@ -13,9 +13,16 @@ import type { EditorState } from '@codemirror/state'
 import { getBlocks, getBlockAt, type Block } from './block-model'
 
 /** Target of the 转换为 menu group. */
-export type BlockConvertTarget = 'h1' | 'h2' | 'h3' | 'paragraph'
+export type BlockConvertTarget = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'paragraph'
 
-const HEADING_LEVEL: Record<'h1' | 'h2' | 'h3', number> = { h1: 1, h2: 2, h3: 3 }
+const HEADING_LEVEL: Record<'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6', number> = {
+  h1: 1,
+  h2: 2,
+  h3: 3,
+  h4: 4,
+  h5: 5,
+  h6: 6,
+}
 
 /**
  * Return the top-level block containing `pos`, or null when there is none.

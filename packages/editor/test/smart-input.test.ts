@@ -327,6 +327,26 @@ describe('smart backspace', () => {
     expect(view.state.doc.toString()).toBe('');
   });
 
+  it('demotes an H2 heading to H1 at the start of the line', () => {
+    view.dispatch({
+      changes: { from: 0, insert: '## Title' },
+      selection: { anchor: 0 },
+    });
+    const result = smartBackspace(view);
+    expect(result).toBe(true);
+    expect(view.state.doc.toString()).toBe('# Title');
+  });
+
+  it('drops an H1 heading to a paragraph at the start of the line', () => {
+    view.dispatch({
+      changes: { from: 0, insert: '# Title' },
+      selection: { anchor: 0 },
+    });
+    const result = smartBackspace(view);
+    expect(result).toBe(true);
+    expect(view.state.doc.toString()).toBe('Title');
+  });
+
   it('returns false for non-empty content', () => {
     view.dispatch({
       changes: { from: 0, insert: '- item' },

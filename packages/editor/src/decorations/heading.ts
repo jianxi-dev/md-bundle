@@ -1,35 +1,7 @@
 import type { Range } from '@codemirror/state';
-import { Decoration, WidgetType } from '@codemirror/view';
+import { Decoration } from '@codemirror/view';
 
 const headingRegex = /^(#{1,6})\s+(.*)$/gm;
-
-class HeadingWidget extends WidgetType {
-  constructor(
-    readonly level: string,
-    readonly active: boolean,
-  ) {
-    super();
-  }
-
-  eq(other: HeadingWidget): boolean {
-    return other.level === this.level && other.active === this.active;
-  }
-
-  toDOM(): HTMLElement {
-    const span = document.createElement('span');
-    span.className = 'cm-heading-marker';
-    span.textContent = this.level + ' ';
-    // Active blocks get the semantic-reveal class for low-opacity prefix.
-    if (this.active) {
-      span.classList.add('cm-heading-marker-active');
-    }
-    return span;
-  }
-
-  ignoreEvent(): boolean {
-    return false;
-  }
-}
 
 /**
  * Create heading decorations for the document.
@@ -49,7 +21,7 @@ export function createHeadingDecorations(
   let match: RegExpExecArray | null;
   while ((match = headingRegex.exec(text)) !== null) {
     const level = match[1];
-    // Replace only the "# " prefix, preserving the heading text
+    // The marker range is only the "# " prefix; the heading text follows.
     const from = match.index;
     const to = from + level.length + 1; // "#" + space
     const content = match[2];
@@ -57,12 +29,13 @@ export function createHeadingDecorations(
     // Determine if this heading is in the active block.
     const isActive = activeFrom >= 0 && from >= activeFrom && to <= activeTo;
 
-    decorations.push(
-      Decoration.replace({
-        widget: new HeadingWidget(level, isActive),
-        inclusive: false,
-      }).range(from, to),
-    );
+    // A mark (not replace) keeps the raw "# " in the DOM so it stays editable —
+    // the level can be retyped or Backspaced. The theme reveals it only in the
+    // active block; inactive blocks render it at opacity 0 (#253).
+    const markerClass = isActive
+      ? 'cm-heading-marker cm-heading-marker-active'
+      : 'cm-heading-marker';
+    decorations.push(Decoration.mark({ class: markerClass }).range(from, to));
 
     // Mark the content so the decorations theme can scale h1..h6.
     // Add block-semantic class for transition targeting.

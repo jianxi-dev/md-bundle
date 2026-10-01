@@ -38,8 +38,18 @@ export {
 /** Pointer travel (px) before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD_SQ = 16
 
+const CONVERT_TARGETS: readonly BlockConvertTarget[] = [
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'paragraph',
+]
+
 const isConvertTarget = (value: string | null): value is BlockConvertTarget =>
-  value === 'h1' || value === 'h2' || value === 'h3' || value === 'paragraph'
+  value !== null && (CONVERT_TARGETS as readonly string[]).includes(value)
 
 // --- ViewPlugin --------------------------------------------------------------
 
