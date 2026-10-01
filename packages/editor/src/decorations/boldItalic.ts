@@ -3,9 +3,14 @@ import { Decoration } from '@codemirror/view';
 
 const boldRegex = /\*\*(.+?)\*\*/g;
 const italicRegex = /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|_(.+?)_/g;
+const strikeRegex = /~~(.+?)~~/g;
+// Match <u>…</u> raw-HTML passthrough (ticket #260). Non-greedy, single-line.
+const underlineRegex = /<u>([^<]+?)<\/u>/g;
 
 const BOLD_CLASS = 'cm-strong';
 const ITALIC_CLASS = 'cm-em';
+const STRIKE_CLASS = 'cm-strikethrough';
+const UNDERLINE_CLASS = 'cm-underline';
 
 // --- Incomplete marker detection (Type-as-Render) ----------------------------
 
@@ -99,6 +104,33 @@ export function createBoldItalicDecorations(
       Decoration.mark({ class: ITALIC_CLASS }).range(from + delimLen, to - delimLen),
     );
     decorations.push(Decoration.replace({}).range(to - delimLen, to));
+  }
+
+  // Strikethrough: ~~text~~ → hide ~~ delimiters, style text (ticket #260)
+  strikeRegex.lastIndex = 0;
+  while ((match = strikeRegex.exec(text)) !== null) {
+    const from = match.index;
+    const to = from + match[0].length;
+    const delimLen = 2;
+    decorations.push(Decoration.replace({}).range(from, from + delimLen));
+    decorations.push(
+      Decoration.mark({ class: STRIKE_CLASS }).range(from + delimLen, to - delimLen),
+    );
+    decorations.push(Decoration.replace({}).range(to - delimLen, to));
+  }
+
+  // Underline: <u>text</u> → hide the raw HTML tags, style text (ticket #260)
+  underlineRegex.lastIndex = 0;
+  while ((match = underlineRegex.exec(text)) !== null) {
+    const from = match.index;
+    const to = from + match[0].length;
+    const openLen = '<u>'.length;
+    const closeLen = '</u>'.length;
+    decorations.push(Decoration.replace({}).range(from, from + openLen));
+    decorations.push(
+      Decoration.mark({ class: UNDERLINE_CLASS }).range(from + openLen, to - closeLen),
+    );
+    decorations.push(Decoration.replace({}).range(to - closeLen, to));
   }
 
   // Type-as-Render: Apply styling to incomplete markers

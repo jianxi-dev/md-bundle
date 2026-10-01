@@ -282,7 +282,7 @@ describe('toolbar commands registered', () => {
   });
 });
 
-describe('floating toolbar Chinese labels (ticket #192)', () => {
+describe('floating toolbar Chinese labels (ticket #192 / #260)', () => {
   let parent: HTMLElement;
   let view: ReturnType<typeof createMarkdownEditor>['view'];
 
@@ -298,7 +298,7 @@ describe('floating toolbar Chinese labels (ticket #192)', () => {
     parent.remove();
   });
 
-  it('renders the four default actions with Chinese tooltips only', () => {
+  it('renders the seven default inline-format actions with Chinese tooltips only', () => {
     view.dispatch({
       changes: { from: 0, insert: 'Hello world' },
       selection: { anchor: 0, head: 5 },
@@ -307,10 +307,19 @@ describe('floating toolbar Chinese labels (ticket #192)', () => {
     const buttons = Array.from(
       view.dom.querySelectorAll<HTMLButtonElement>('.mdb-floating-toolbar .mdb-toolbar-btn'),
     );
-    expect(buttons.map((btn) => btn.title)).toEqual(['加粗', '斜体', '行内代码', '插入链接']);
+    // Ticket #260 expanded the set from 4 → 7 (added 删除线 / 下划线 / 复制).
+    expect(buttons.map((btn) => btn.title)).toEqual([
+      '加粗',
+      '斜体',
+      '删除线',
+      '下划线',
+      '行内代码',
+      '插入链接',
+      '复制',
+    ]);
     for (const btn of buttons) {
       expect(btn.title, `${btn.title} must not be English`).not.toMatch(
-        /\b(Bold|Italic|Code|Link)\b/,
+        /\b(Bold|Italic|Code|Link|Strikethrough|Underline|Copy)\b/,
       );
     }
   });

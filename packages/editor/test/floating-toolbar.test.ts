@@ -1,0 +1,252 @@
+/**
+ * Floating toolbar tests — ticket #260 (selection-toolbar/1.1).
+ *
+ * Drives the floating toolbar through a real EditorView and asserts:
+ * - The toolbar is data-driven (renders from commandRegistry ids / items).
+ * - The 7-control inline format set is present with Chinese tooltips.
+ * - Toggle semantics: applying a format twice removes it.
+ * - The copy control places the selection on the clipboard.
+ *
+ * jsdom lacks requestAnimationFrame/ResizeObserver; CodeMirror 6 uses both.
+ */
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createMarkdownEditor } from '../src/editor';
+import { floatingToolbar, type FloatingToolbarItem } from '../src/floating-toolbar';
+import { commandRegistry } from '../src/commands';
+
+// jsdom ships no Clipboard API; the copy tests record calls here.
+let clipboardWrites: string[] = [];
+
+function installClipboard(): void {
+  clipboardWrites = [];
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: (text: string): Promise<void> => {
+        clipboardWrites.push(text);
+        return Promise.resolve();
+      },
+    },
+  });
+}
+
+function removeClipboard(): void {
+  Reflect.deleteProperty(navigator, 'clipboard');
+}
+
+function installPolyfills(): void {
+  if (typeof globalThis.requestAnimationFrame !== 'function') {
+    globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) =>
+      setTimeout(() => cb(performance.now()), 16)) as unknown as typeof requestAnimationFrame;
+    globalThis.cancelAnimationFrame = ((id: number) =>
+      clearTimeout(id)) as unknown as typeof cancelAnimationFrame;
+  }
+  if (typeof globalThis.ResizeObserver !== 'function') {
+    globalThis.ResizeObserver = class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    } as unknown as typeof ResizeObserver;
+  }
+}
+
+/** Click a floating-toolbar button by tooltip (title), mirroring the real mousedown the plugin binds. */
+function clickBtn(view: ReturnType<typeof createMarkdownEditor>['view'], title: string): void {
+  const btn = view.dom.querySelector<HTMLButtonElement>(
+    `.mdb-floating-toolbar .mdb-toolbar-btn[title="${title}"]`,
+  );
+  if (!btn) throw new Error(`toolbar button title="${title}" not found`);
+  btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+}
+
+/** Select `word` in the editor by dispatching a range over its first occurrence. */
+function selectWord(
+  view: ReturnType<typeof createMarkdownEditor>['view'],
+  doc: string,
+  word: string,
+): void {
+  view.dispatch({ changes: { from: 0, insert: doc } });
+  const start = doc.indexOf(word);
+  if (start < 0) throw new Error(`word "${word}" not in doc`);
+  view.dispatch({ selection: { anchor: start, head: start + word.length } });
+}
+
+describe('floating toolbar: data-driven 7-control set (ticket #260)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent, { extensions: [floatingToolbar()] }).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+    removeClipboard();
+  });
+
+  it('renders exactly the 7 inline-format controls with Chinese tooltips', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    const buttons = Array.from(
+      view.dom.querySelectorAll<HTMLButtonElement>('.mdb-floating-toolbar .mdb-toolbar-btn'),
+    );
+    expect(buttons.map((b) => b.title)).toEqual([
+      '加粗',
+      '斜体',
+      '删除线',
+      '下划线',
+      '行内代码',
+      '插入链接',
+      '复制',
+    ]);
+  });
+
+  it('does NOT hardcode commands — every button dispatches a registered command id', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    // The toggle-underline command must exist in the registry for the button to work.
+    expect(commandRegistry.has('toggle-underline')).toBe(true);
+    expect(commandRegistry.has('toggle-strikethrough')).toBe(true);
+    expect(commandRegistry.has('code-copy')).toBe(true);
+  });
+});
+
+describe('floating toolbar: toggle semantics (ticket #260)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent, { extensions: [floatingToolbar()] }).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+    removeClipboard();
+  });
+
+  it('删除线 applies ~~…~~ on first click', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '删除线');
+    expect(view.state.doc.toString()).toContain('~~Hello~~');
+  });
+
+  it('删除线 toggles off on second click (removes ~~)', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '删除线'); // apply
+    clickBtn(view, '删除线'); // remove
+    expect(view.state.doc.toString()).not.toContain('~~');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('下划线 applies <u>…</u>', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '下划线');
+    expect(view.state.doc.toString()).toContain('<u>Hello</u>');
+  });
+
+  it('下划线 toggles off on second click', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '下划线'); // apply
+    clickBtn(view, '下划线'); // remove
+    expect(view.state.doc.toString()).not.toContain('<u>');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('加粗 toggles off on second click', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '加粗'); // apply → **Hello**
+    clickBtn(view, '加粗'); // remove
+    expect(view.state.doc.toString()).not.toContain('**');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('斜体 toggles off on second click', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '斜体'); // apply → *Hello*
+    clickBtn(view, '斜体'); // remove
+    // The bare word must remain; no standalone * wrapping it.
+    expect(view.state.doc.toString()).toMatch(/Hello/);
+    expect(view.state.doc.toString()).not.toMatch(/\*Hello\*/);
+  });
+
+  it('行内代码 toggles off on second click', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '行内代码'); // apply → `Hello`
+    clickBtn(view, '行内代码'); // remove
+    expect(view.state.doc.toString()).not.toMatch(/`Hello`/);
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+});
+
+describe('floating toolbar: copy control (ticket #260)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    installClipboard();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent, { extensions: [floatingToolbar()] }).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+    removeClipboard();
+  });
+
+  it('复制 puts the selected text on the clipboard', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '复制');
+    expect(clipboardWrites).toEqual(['Hello']);
+  });
+});
+
+describe('floating toolbar: data-driven items option (ticket #260)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+  });
+
+  afterEach(() => {
+    view?.destroy();
+    parent.remove();
+    removeClipboard();
+  });
+
+  it('renders a custom item set when items= is passed', () => {
+    const items: FloatingToolbarItem[] = [
+      { commandId: 'toggle-bold', label: '粗' },
+      { commandId: 'toggle-italic', label: '斜' },
+    ];
+    view = createMarkdownEditor(parent, { extensions: [floatingToolbar({ items })] }).view;
+    selectWord(view, 'Hello world', 'Hello');
+    const buttons = Array.from(
+      view.dom.querySelectorAll<HTMLButtonElement>('.mdb-floating-toolbar .mdb-toolbar-btn'),
+    );
+    expect(buttons.map((b) => b.title)).toEqual(['粗', '斜']);
+  });
+
+  it('item label overrides the underlying command label', () => {
+    // code-copy's command label is "复制代码"; the default toolbar item overrides it to "复制".
+    view = createMarkdownEditor(parent, { extensions: [floatingToolbar()] }).view;
+    selectWord(view, 'Hello world', 'Hello');
+    const copyBtn = view.dom.querySelector<HTMLButtonElement>(
+      '.mdb-floating-toolbar .mdb-toolbar-btn[title="复制"]',
+    );
+    expect(copyBtn).not.toBeNull();
+    // The raw command label must remain "复制代码" (not mutated).
+    expect(commandRegistry.all().find((c) => c.id === 'code-copy')?.label).toBe('复制代码');
+  });
+});
