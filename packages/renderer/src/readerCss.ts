@@ -657,6 +657,29 @@ export const READER_CSS: string = `
   text-align: right;
 }
 
+/* ── Column layouts (fenced div layout classes) ─── */
+[data-theme='light'] .preview-content .layout-col-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5em;
+}
+[data-theme='light'] .preview-content .layout-col-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.25em;
+}
+[data-theme='light'] .preview-content .layout-card-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--card-cols, 3), 1fr);
+  gap: 1em;
+}
+[data-theme='light'] .preview-content .layout-card-grid[data-columns='2'] {
+  --card-cols: 2;
+}
+[data-theme='light'] .preview-content .layout-card-grid[data-columns='4'] {
+  --card-cols: 4;
+}
+
 /* ── KaTeX ─── */
 [data-theme='light'] .preview-content .katex-block {
   overflow-x: auto;
@@ -1339,6 +1362,29 @@ export const READER_CSS: string = `
 }
 [data-theme='dark'] .preview-content .layout-align-right {
   text-align: right;
+}
+
+/* ── Column layouts (fenced div layout classes) ─── */
+[data-theme='dark'] .preview-content .layout-col-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5em;
+}
+[data-theme='dark'] .preview-content .layout-col-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.25em;
+}
+[data-theme='dark'] .preview-content .layout-card-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--card-cols, 3), 1fr);
+  gap: 1em;
+}
+[data-theme='dark'] .preview-content .layout-card-grid[data-columns='2'] {
+  --card-cols: 2;
+}
+[data-theme='dark'] .preview-content .layout-card-grid[data-columns='4'] {
+  --card-cols: 4;
 }
 
 /* ── KaTeX ─── */
