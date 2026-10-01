@@ -63,7 +63,7 @@ test.describe('选区浮条：10 控件 + 字体/颜色/对齐下拉 + 切换（
     const titles = await buttons.evaluateAll((els) =>
       els.map((e) => (e as HTMLButtonElement).title),
     )
-    expect(titles).toEqual(['字体', '颜色', '对齐', '分栏', '加粗', '斜体', '删除线', '下划线', '行内代码', '插入链接', '复制'])
+    expect(titles).toEqual(['字体', '颜色', '对齐', '加粗', '删除线', '斜体', '下划线', '插入链接', '行内代码', '分栏', '复制'])
   })
 
   test('删除线 applies ~~…~~ and toggles off on second click', async ({ page }) => {
@@ -223,7 +223,7 @@ test.describe('选区浮条：对齐下拉（左/中/右/清除）#262', () => {
     const titles = await buttons.evaluateAll((els) =>
       els.map((e) => (e as HTMLButtonElement).title),
     )
-    expect(titles).toEqual(['字体', '颜色', '对齐', '分栏', '加粗', '斜体', '删除线', '下划线', '行内代码', '插入链接', '复制'])
+    expect(titles).toEqual(['字体', '颜色', '对齐', '加粗', '删除线', '斜体', '下划线', '插入链接', '行内代码', '分栏', '复制'])
   })
 
   test('对齐下拉：居中 wraps block in ::: {.align-center} … :::', async ({ page }) => {
@@ -398,7 +398,7 @@ test.describe('选区浮条：分栏下拉（2 栏 / 3 栏 / 清除）#263', () 
     const titles = await buttons.evaluateAll((els) =>
       els.map((e) => (e as HTMLButtonElement).title),
     )
-    expect(titles).toEqual(['字体', '颜色', '对齐', '分栏', '加粗', '斜体', '删除线', '下划线', '行内代码', '插入链接', '复制'])
+    expect(titles).toEqual(['字体', '颜色', '对齐', '加粗', '删除线', '斜体', '下划线', '插入链接', '行内代码', '分栏', '复制'])
   })
 
   test('分栏下拉：2 栏 wraps block in ::: {.col-2} … :::', async ({ page }) => {
