@@ -207,6 +207,113 @@ export function clearBlockAlignment(view: EditorView): boolean {
 }
 
 /**
+ * Toggle column layout of the block containing the selection by wrapping it in a
+ * Pandoc fenced div `::: {.col-2|col-3}`.
+ *
+ * Toggle semantics (mirrors toggleBlockAlignment):
+ * - If the block is already wrapped with the SAME column class → remove the wrapper.
+ * - If the block is wrapped with a DIFFERENT column class → replace the class.
+ * - If the block has no column wrapper → insert the new wrapper.
+ *
+ * Uses a single `dispatch` for undo atomicity.
+ */
+export function toggleBlockColumns(
+  view: EditorView,
+  columns: 'col-2' | 'col-3',
+): boolean {
+  const { state } = view;
+  const { main } = state.selection;
+  // Use main.from for non-empty selection (guaranteed inside the block);
+  // main.head can land on the exclusive end of a half-open block range.
+  const pos = main.empty ? main.head : main.from;
+  const blocks = getBlocks(state);
+  const block = getBlockAt(pos, blocks);
+
+  if (!block) return false;
+
+  const blockText = state.doc.sliceString(block.from, block.to);
+
+  // Check if block is already wrapped with a column fenced div
+  const existingColMatch = blockText.match(/^:::\s*\{\.(col-2|col-3)\}\s*\n/);
+  const hasCloseMarker = blockText.trimEnd().endsWith(':::');
+
+  if (existingColMatch && hasCloseMarker) {
+    const existingColumns = existingColMatch[1];
+
+    if (existingColumns === columns) {
+      // Same columns → remove wrapper (toggle off)
+      const openLineEnd = blockText.indexOf('\n');
+      const innerStart = openLineEnd + 1;
+      const innerEnd = blockText.lastIndexOf('\n:::');
+      const innerContent = blockText.slice(innerStart, innerEnd);
+
+      view.dispatch({
+        changes: { from: block.from, to: block.to, insert: innerContent },
+        selection: { anchor: block.from, head: block.from + innerContent.length },
+      });
+      return true;
+    } else {
+      // Different columns → replace the class
+      const openLineEnd = blockText.indexOf('\n');
+      const newOpenLine = `::: {.${columns}}`;
+      const innerStart = openLineEnd + 1;
+      const innerEnd = blockText.lastIndexOf('\n:::');
+      const innerContent = blockText.slice(innerStart, innerEnd);
+
+      view.dispatch({
+        changes: { from: block.from, to: block.to, insert: `${newOpenLine}\n${innerContent}\n:::` },
+        selection: { anchor: block.from, head: block.from + newOpenLine.length + 1 + innerContent.length },
+      });
+      return true;
+    }
+  }
+
+  // No existing column wrapper → wrap the block
+  const wrapped = `::: {.${columns}}\n${blockText}\n:::`;
+  const openLineLen = `::: {.${columns}}`.length + 1; // +1 for newline
+  view.dispatch({
+    changes: { from: block.from, to: block.to, insert: wrapped },
+    // Keep inner content selected so a second click toggles off (mirrors toggleWrap Case 3)
+    selection: { anchor: block.from + openLineLen, head: block.from + openLineLen + blockText.length },
+  });
+  return true;
+}
+
+/**
+ * Remove any column fenced div wrapper from the block containing the selection.
+ */
+export function clearBlockColumns(view: EditorView): boolean {
+  const { state } = view;
+  const { main } = state.selection;
+  // Use main.from for non-empty selection (guaranteed inside the block);
+  // main.head can land on the exclusive end of a half-open block range.
+  const pos = main.empty ? main.head : main.from;
+  const blocks = getBlocks(state);
+  const block = getBlockAt(pos, blocks);
+
+  if (!block) return false;
+
+  const blockText = state.doc.sliceString(block.from, block.to);
+  const existingColMatch = blockText.match(/^:::\s*\{\.(col-2|col-3)\}\s*\n/);
+  const hasCloseMarker = blockText.trimEnd().endsWith(':::');
+
+  if (existingColMatch && hasCloseMarker) {
+    const openLineEnd = blockText.indexOf('\n');
+    const innerStart = openLineEnd + 1;
+    const innerEnd = blockText.lastIndexOf('\n:::');
+    const innerContent = blockText.slice(innerStart, innerEnd);
+
+    view.dispatch({
+      changes: { from: block.from, to: block.to, insert: innerContent },
+      selection: { anchor: block.from, head: block.from + innerContent.length },
+    });
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Source text of the block containing `pos`. Used by code-copy to grab the
  * whole fenced block when the selection is empty. Returns '' if no block
  * matches (e.g. empty document).
@@ -1015,6 +1122,33 @@ export function registerEditorCommands(): void {
     group: '块',
     execute: (view) => {
       clearBlockAlignment(view);
+    },
+  });
+
+  commandRegistry.register({
+    id: 'col-2',
+    label: '2 栏',
+    group: '块',
+    execute: (view) => {
+      toggleBlockColumns(view, 'col-2');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'col-3',
+    label: '3 栏',
+    group: '块',
+    execute: (view) => {
+      toggleBlockColumns(view, 'col-3');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'col-clear',
+    label: '清除分栏',
+    group: '块',
+    execute: (view) => {
+      clearBlockColumns(view);
     },
   });
 }

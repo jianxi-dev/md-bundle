@@ -688,3 +688,119 @@ describe('alignment toggle commands (ticket #262)', () => {
     }
   });
 });
+
+describe('column toggle commands (ticket #263)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+  });
+
+  it('col-2 wraps the block in ::: {.col-2} … :::', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-2', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-2}\nHello world\n:::');
+  });
+
+  it('col-3 wraps the block in ::: {.col-3} … :::', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-3', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-3}\nHello world\n:::');
+  });
+
+  it('col-2 toggles off on second click (removes wrapper)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-2', view);
+    commandRegistry.execute('col-2', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('col-3 toggles off on second click', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-3', view);
+    commandRegistry.execute('col-3', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('switching columns replaces the class (col-2 → col-3)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-2', view);
+    commandRegistry.execute('col-3', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-3}\nHello world\n:::');
+  });
+
+  it('switching columns replaces the class (col-3 → col-2)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-3', view);
+    commandRegistry.execute('col-2', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-2}\nHello world\n:::');
+  });
+
+  it('col-clear removes the column wrapper', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-2', view);
+    commandRegistry.execute('col-clear', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('col-clear on a block without columns is a no-op', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-clear', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('all column commands are registered with Chinese labels and group 块', () => {
+    const colIds = ['col-2', 'col-3', 'col-clear'];
+    for (const id of colIds) {
+      const cmd = commandRegistry.all().find((c) => c.id === id);
+      expect(cmd, `command ${id} should be registered`).toBeDefined();
+      expect(cmd?.label, `${id} should have Chinese label`).toBeTruthy();
+      expect(cmd?.group).toBe('块');
+    }
+  });
+
+  it('selection spanning to block end (head at block.to) still finds the block', () => {
+    // Regression test for the half-open block range issue:
+    // When selecting a full line, main.head lands on block.to (exclusive end).
+    // The command must use main.from for non-empty selections.
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 11 }, // head at block.to
+    });
+    commandRegistry.execute('col-2', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-2}\nHello world\n:::');
+  });
+});

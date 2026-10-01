@@ -30,6 +30,9 @@ const facts = {
   htmlBlockAllowed: false,
   htmlBlockStripped: false,
   dangerousBlocked: false,
+  col2GridStyles: false,
+  col3GridStyles: false,
+  cardGridStyles: false,
   tests: 0,
 };
 
@@ -263,6 +266,77 @@ describe('layout templates via fenced divs', () => {
     expect(html).toContain('<li>List item 1</li>');
     expect(html).toContain('<li>List item 2</li>');
   });
+
+  it('converts {.col-2} into a div with layout-col-2 class and renders inner markdown', () => {
+    const html = renderMarkdown(
+      [
+        '::: {.col-2}',
+        '',
+        '## Left Column',
+        'Content on the left.',
+        '',
+        '## Right Column',
+        'Content on the right.',
+        '',
+        ':::',
+      ].join('\n'),
+    );
+    expect(html).toContain('class="layout-col-2');
+    expect(html).toContain('<div');
+    expect(html).toContain('Left Column');
+    expect(html).toContain('Right Column');
+    facts.col2 = true;
+  });
+
+  it('converts {.col-3} into a div with layout-col-3 class and renders inner markdown', () => {
+    const html = renderMarkdown(
+      [
+        '::: {.col-3}',
+        '',
+        '### One',
+        'First.',
+        '',
+        '### Two',
+        'Second.',
+        '',
+        '### Three',
+        'Third.',
+        '',
+        ':::',
+      ].join('\n'),
+    );
+    expect(html).toContain('class="layout-col-3');
+    expect(html).toContain('One');
+    expect(html).toContain('Two');
+    expect(html).toContain('Three');
+    facts.col3 = true;
+  });
+
+  it('readerCssText contains grid styles for .layout-col-2', async () => {
+    const { readerCssText } = await import('../src/index');
+    expect(readerCssText).toContain('.layout-col-2');
+    expect(readerCssText).toContain('grid-template-columns: 1fr 1fr');
+    expect(readerCssText).toContain('gap: 1.5em');
+    facts.col2GridStyles = true;
+  });
+
+  it('readerCssText contains grid styles for .layout-col-3', async () => {
+    const { readerCssText } = await import('../src/index');
+    expect(readerCssText).toContain('.layout-col-3');
+    expect(readerCssText).toContain('grid-template-columns: 1fr 1fr 1fr');
+    expect(readerCssText).toContain('gap: 1.25em');
+    facts.col3GridStyles = true;
+  });
+
+  it('readerCssText contains grid styles for .layout-card-grid with data-columns variants', async () => {
+    const { readerCssText } = await import('../src/index');
+    expect(readerCssText).toContain('.layout-card-grid');
+    expect(readerCssText).toContain('grid-template-columns: repeat(var(--card-cols, 3), 1fr)');
+    expect(readerCssText).toContain('[data-columns');
+    expect(readerCssText).toContain('--card-cols: 2');
+    expect(readerCssText).toContain('--card-cols: 4');
+    facts.cardGridStyles = true;
+  });
 });
 
 describe('HTML block safe embedding', () => {
@@ -374,7 +448,7 @@ describe('HTML block safe embedding', () => {
 });
 
 afterAll(() => {
-  facts.tests = 19;
+  facts.tests = 22;
   mkdirSync(dirname(EVIDENCE_PATH), { recursive: true });
   writeFileSync(EVIDENCE_PATH, JSON.stringify(facts, null, 2));
 });
