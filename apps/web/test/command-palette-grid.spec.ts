@@ -47,3 +47,18 @@ test('命令面板以网格展示，且带快捷键的命令项显示快捷键',
   const boldItem = items.filter({ hasText: '加粗' }).first()
   await expect(boldItem.locator('kbd')).toHaveText('Mod-b')
 })
+
+// #292（change editor-doubao-parity 8.2）AC A：命令面板显式展示 加粗 的绑定弦 Mod-b。
+// 与上面的 #281 网格测试同源，但独立成条，锁定本票「命令面板快捷键显示」不被回归。
+test('命令面板网格中 加粗 项显示快捷键 Mod-b（#292 AC A）', async ({ page }) => {
+  await openEditor(page)
+  await page.keyboard.press(PALETTE_KEY)
+
+  const palette = page.getByTestId('command-palette')
+  await expect(palette).toBeVisible()
+
+  const boldItem = page.locator('.mdb-palette-item').filter({ hasText: '加粗' }).first()
+  await expect(boldItem).toBeVisible()
+  await expect(boldItem.locator('kbd')).toBeVisible()
+  await expect(boldItem.locator('kbd')).toHaveText('Mod-b')
+})
