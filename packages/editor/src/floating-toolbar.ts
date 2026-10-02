@@ -147,8 +147,11 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
     icon: '分栏',
     kind: 'dropdown',
     options: [
+      { commandId: 'col-1', label: '1 栏' },
       { commandId: 'col-2', label: '2 栏' },
       { commandId: 'col-3', label: '3 栏' },
+      { commandId: 'col-4', label: '4 栏' },
+      { commandId: 'col-5', label: '5 栏' },
       { commandId: 'col-clear', label: '清除' },
     ],
   },

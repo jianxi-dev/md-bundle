@@ -775,6 +775,15 @@ describe('column toggle commands (ticket #263)', () => {
     parent.remove();
   });
 
+  it('col-1 wraps the block in ::: {.col-1} … :::', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-1', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-1}\nHello world\n:::');
+  });
+
   it('col-2 wraps the block in ::: {.col-2} … :::', () => {
     view.dispatch({
       changes: { from: 0, insert: 'Hello world' },
@@ -793,7 +802,35 @@ describe('column toggle commands (ticket #263)', () => {
     expect(view.state.doc.toString()).toBe('::: {.col-3}\nHello world\n:::');
   });
 
-  it('col-2 toggles off on second click (removes wrapper)', () => {
+  it('col-4 wraps the block in ::: {.col-4} … :::', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-4', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-4}\nHello world\n:::');
+  });
+
+  it('col-5 wraps the block in ::: {.col-5} … :::', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-5', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-5}\nHello world\n:::');
+  });
+
+  it('col-1 toggles off on second click (removes wrapper)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-1', view);
+    commandRegistry.execute('col-1', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('col-2 toggles off on second click', () => {
     view.dispatch({
       changes: { from: 0, insert: 'Hello world' },
       selection: { anchor: 0, head: 5 },
@@ -813,6 +850,36 @@ describe('column toggle commands (ticket #263)', () => {
     expect(view.state.doc.toString()).toBe('Hello world');
   });
 
+  it('col-4 toggles off on second click', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-4', view);
+    commandRegistry.execute('col-4', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('col-5 toggles off on second click', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-5', view);
+    commandRegistry.execute('col-5', view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+
+  it('switching columns replaces the class (col-1 → col-2)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-1', view);
+    commandRegistry.execute('col-2', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-2}\nHello world\n:::');
+  });
+
   it('switching columns replaces the class (col-2 → col-3)', () => {
     view.dispatch({
       changes: { from: 0, insert: 'Hello world' },
@@ -823,14 +890,34 @@ describe('column toggle commands (ticket #263)', () => {
     expect(view.state.doc.toString()).toBe('::: {.col-3}\nHello world\n:::');
   });
 
-  it('switching columns replaces the class (col-3 → col-2)', () => {
+  it('switching columns replaces the class (col-3 → col-4)', () => {
     view.dispatch({
       changes: { from: 0, insert: 'Hello world' },
       selection: { anchor: 0, head: 5 },
     });
     commandRegistry.execute('col-3', view);
-    commandRegistry.execute('col-2', view);
-    expect(view.state.doc.toString()).toBe('::: {.col-2}\nHello world\n:::');
+    commandRegistry.execute('col-4', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-4}\nHello world\n:::');
+  });
+
+  it('switching columns replaces the class (col-4 → col-5)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-4', view);
+    commandRegistry.execute('col-5', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-5}\nHello world\n:::');
+  });
+
+  it('switching columns replaces the class (col-5 → col-4)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('col-5', view);
+    commandRegistry.execute('col-4', view);
+    expect(view.state.doc.toString()).toBe('::: {.col-4}\nHello world\n:::');
   });
 
   it('col-clear removes the column wrapper', () => {
@@ -853,7 +940,7 @@ describe('column toggle commands (ticket #263)', () => {
   });
 
   it('all column commands are registered with Chinese labels and group 块', () => {
-    const colIds = ['col-2', 'col-3', 'col-clear'];
+    const colIds = ['col-1', 'col-2', 'col-3', 'col-4', 'col-5', 'col-clear'];
     for (const id of colIds) {
       const cmd = commandRegistry.all().find((c) => c.id === id);
       expect(cmd, `command ${id} should be registered`).toBeDefined();
