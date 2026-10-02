@@ -342,6 +342,47 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     background: 'var(--mdb-bg-secondary)',
     fontWeight: '600',
   },
+  '.cm-content .cm-table-wrap': {
+    display: 'inline-block',
+  },
+  '.cm-content .cm-table-col-hotzones': {
+    display: 'flex',
+    height: '12px',
+  },
+  '.cm-content .cm-table-add-col': {
+    flex: '1',
+    opacity: '0',
+    padding: '0',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--mdb-text-secondary)',
+    cursor: 'pointer',
+    fontSize: '10px',
+    lineHeight: '1',
+  },
+  '.cm-content .cm-table-wrap:hover .cm-table-add-col': {
+    opacity: '0.6',
+  },
+  '.cm-content .cm-table td:first-child': {
+    position: 'relative',
+  },
+  '.cm-content .cm-table-add-row': {
+    position: 'absolute',
+    left: '-15px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    opacity: '0',
+    padding: '0',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--mdb-text-secondary)',
+    cursor: 'pointer',
+    fontSize: '10px',
+    lineHeight: '1',
+  },
+  '.cm-content .cm-table tr:hover .cm-table-add-row': {
+    opacity: '0.8',
+  },
 
   // Callout tone colouring (defined after the base card so they win).
   ...calloutToneSpecs(),
