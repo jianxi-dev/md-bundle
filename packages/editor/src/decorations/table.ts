@@ -86,21 +86,77 @@ function findTables(text: string): TableBlock[] {
   return tables;
 }
 
+function buildTableMarkdown(header: string[], rows: string[][]): string {
+  const headerLine = `| ${header.join(' | ')} |`;
+  const sepLine = `| ${header.map(() => '---').join(' | ')} |`;
+  const bodyLines = rows.map((row) => `| ${row.join(' | ')} |`);
+  return [headerLine, sepLine, ...bodyLines].join('\n');
+}
+
 class TableWidget extends WidgetType {
   constructor(
     readonly header: string[],
     readonly rows: string[][],
     readonly cells: CellSpan[],
+    readonly from: number,
+    readonly to: number,
   ) {
     super();
   }
 
+  private rewrite(view: EditorView, header: string[], rows: string[][]): void {
+    view.dispatch({
+      changes: { from: this.from, to: this.to, insert: buildTableMarkdown(header, rows) },
+    });
+    view.focus();
+  }
+
+  private addColumn(view: EditorView, at: number): void {
+    const header = [...this.header];
+    header.splice(at, 0, '');
+    const rows = this.rows.map((row) => {
+      const next = [...row];
+      next.splice(at, 0, '');
+      return next;
+    });
+    this.rewrite(view, header, rows);
+  }
+
+  private addRow(view: EditorView, at: number): void {
+    const rows = this.rows.map((row) => [...row]);
+    rows.splice(at, 0, new Array(this.header.length).fill(''));
+    this.rewrite(view, [...this.header], rows);
+  }
+
   toDOM(view?: EditorView): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-table-wrap';
+
+    const colBar = document.createElement('div');
+    colBar.className = 'cm-table-col-hotzones';
+    this.header.forEach((_, col) => {
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'cm-table-add-col';
+      add.setAttribute('data-testid', 'cm-table-add-col');
+      add.setAttribute('data-col', String(col));
+      add.title = '在此列左侧插入一列';
+      add.textContent = '＋';
+      add.addEventListener('mousedown', (event) => {
+        if (!view) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.addColumn(view, col);
+      });
+      colBar.appendChild(add);
+    });
+    wrap.appendChild(colBar);
+
     const table = document.createElement('table');
     table.className = 'cm-table';
     table.setAttribute('data-testid', 'cm-table');
 
-    const wire = (el: HTMLElement, row: number, col: number): void => {
+    const wireCell = (el: HTMLElement, row: number, col: number): void => {
       el.addEventListener('mousedown', (event) => {
         if (!view) return;
         const span = this.cells.find((c) => c.row === row && c.col === col);
@@ -118,7 +174,7 @@ class TableWidget extends WidgetType {
       th.textContent = text;
       th.dataset.row = '-1';
       th.dataset.col = String(col);
-      wire(th, -1, col);
+      wireCell(th, -1, col);
       headRow.appendChild(th);
     });
     thead.appendChild(headRow);
@@ -132,14 +188,31 @@ class TableWidget extends WidgetType {
         td.textContent = text;
         td.dataset.row = String(r);
         td.dataset.col = String(col);
-        wire(td, r, col);
+        wireCell(td, r, col);
+        if (col === 0) {
+          const add = document.createElement('button');
+          add.type = 'button';
+          add.className = 'cm-table-add-row';
+          add.setAttribute('data-testid', 'cm-table-add-row');
+          add.setAttribute('data-row', String(r));
+          add.title = '在此行上方插入一行';
+          add.textContent = '＋';
+          add.addEventListener('mousedown', (event) => {
+            if (!view) return;
+            event.preventDefault();
+            event.stopPropagation();
+            this.addRow(view, r);
+          });
+          td.appendChild(add);
+        }
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
+    wrap.appendChild(table);
 
-    return table;
+    return wrap;
   }
 
   eq(other: TableWidget): boolean {
@@ -164,7 +237,13 @@ export function createTableDecorations(
 
     decorations.push(
       Decoration.replace({
-        widget: new TableWidget(table.header, table.rows, table.cells),
+        widget: new TableWidget(
+          table.header,
+          table.rows,
+          table.cells,
+          table.from,
+          table.to,
+        ),
       }).range(table.from, table.to),
     );
   }
