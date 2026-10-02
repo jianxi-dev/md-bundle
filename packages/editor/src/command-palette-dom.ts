@@ -39,6 +39,7 @@ export function createGroupHeader(group: string): HTMLDivElement {
     fontSize: '11px',
     fontWeight: '600',
     color: 'var(--mdb-text-secondary)',
+    gridColumn: '1 / -1',
   });
   return header;
 }
