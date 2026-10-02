@@ -121,7 +121,7 @@ describe('slash commands', () => {
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
   });
 
-  it('applying the callout command inserts a standard "> [!NOTE]" blockquote', () => {
+  it('applying the callout command opens the type flyout and inserts the chosen type', () => {
     insertSlashChar(view);
     // Rows are grouped; locate 标注 rather than relying on a fixed index.
     const rowIndex = Array.from(view.dom.querySelectorAll<HTMLElement>('.mdb-slash-item')).findIndex(
@@ -129,6 +129,9 @@ describe('slash commands', () => {
     );
     for (let i = 0; i < rowIndex; i++) slashMenuSelectNext(view);
     slashMenuApply(view);
+    // 标注 is a type flyout opener (#288): the first child is 注释 (note).
+    expect(view.dom.querySelector('.mdb-slash-flyout')).not.toBeNull();
+    expect(slashMenuApply(view)).toBe(true);
     const doc = view.state.doc.toString();
     expect(doc).toContain('> [!NOTE]');
     expect(doc).toMatch(/^> \[!NOTE\]\n> $/);
@@ -228,12 +231,14 @@ describe('slash commands', () => {
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
   });
 
-  it('Enter applies the selected filtered leaf row', () => {
+  it('Enter applies the selected filtered opener row and its chosen type', () => {
     insertSlashChar(view);
     typeText('bz'); // only 标注
     expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(1);
 
-    expect(slashMenuApply(view)).toBe(true);
+    expect(slashMenuApply(view)).toBe(true); // opens the type flyout
+    expect(view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(8);
+    expect(slashMenuApply(view)).toBe(true); // applies 注释 (note)
     expect(view.state.doc.toString()).toBe('> [!NOTE]\n> ');
   });
 
