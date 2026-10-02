@@ -624,14 +624,64 @@ const smartBackspaceKeymap = keymap.of([
   },
 ]);
 
+/**
+ * Handle Tab on a list item: increase indentation by one level (2 spaces).
+ * Matches bullet (-, *, +), ordered (1., 2., etc.), and task (- [ ]) list items.
+ * Returns true if indentation was applied, false otherwise (non-list line).
+ */
+function indentList(view: EditorView): boolean {
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  const lineText = line.text;
+
+  // Match list items: optional leading whitespace, then bullet/ordered/task marker + space
+  const listMatch = lineText.match(/^(\s*)([-*+]|\d+\.)\s/);
+  if (!listMatch) return false;
+
+  const [, leadingWhitespace] = listMatch;
+  const from = line.from + leadingWhitespace.length;
+  const indent = '  '; // INDENT_UNIT = two spaces
+
+  view.dispatch({
+    changes: { from, insert: indent },
+    selection: { anchor: from + indent.length },
+    scrollIntoView: true,
+  });
+  return true;
+}
+
+/**
+ * Handle Shift+Tab on an indented list item: decrease indentation by one level.
+ * Matches lines that start with 1-2 spaces or a tab, followed by a list marker.
+ * Returns true if outdentation was applied, false otherwise (top-level list or non-list line).
+ */
+function outdentList(view: EditorView): boolean {
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  const lineText = line.text;
+
+  // Match indented list lines: 1-2 spaces or tab, then optional whitespace, then list marker + space
+  const outdentMatch = lineText.match(/^(\t| {1,2})(?=\s*([-*+]|\d+\.)\s)/);
+  if (!outdentMatch) return false;
+
+  const indentToRemove = outdentMatch[1];
+  const from = line.from;
+  const to = line.from + indentToRemove.length;
+
+  view.dispatch({
+    changes: { from, to, insert: '' },
+    selection: { anchor: from },
+    scrollIntoView: true,
+  });
+  return true;
+}
+
 const headingTabKeymap = keymap.of([
   {
     key: 'Tab',
-    run: (view) => demoteHeading(view),
+    run: (view) => demoteHeading(view) || indentList(view),
   },
   {
     key: 'Shift-Tab',
-    run: (view) => promoteHeading(view),
+    run: (view) => promoteHeading(view) || outdentList(view),
   },
 ]);
 
