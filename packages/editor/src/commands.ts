@@ -19,7 +19,7 @@ import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { getBlockAt, getBlocks } from './block-model';
 import { toggleStructureLinter } from './structure-linter-extension';
-import { computeBlockTurnInto, computeMinimalChange, type BlockTurnIntoTarget } from './block-handle-ops';
+import { computeBlockTurnInto, computeBlockConvert, computeMinimalChange, findBlockAt, type BlockTurnIntoTarget } from './block-handle-ops';
 
 // --- Wrapping helpers (toggle-aware) ----------------------------------------
 
@@ -588,6 +588,7 @@ export function registerEditorCommands(): void {
     label: '无序列表',
     icon: '•',
     group: '块',
+    keyBinding: 'Mod-Shift-7',
     execute: (view) => {
       const { main } = view.state.selection;
       view.dispatch({
@@ -602,6 +603,7 @@ export function registerEditorCommands(): void {
     label: '有序列表',
     icon: '1.',
     group: '块',
+    keyBinding: 'Mod-Shift-8',
     execute: (view) => {
       const { main } = view.state.selection;
       view.dispatch({
@@ -616,6 +618,7 @@ export function registerEditorCommands(): void {
     label: '任务列表',
     icon: '☑',
     group: '块',
+    keyBinding: 'Mod-Shift-9',
     execute: (view) => {
       const { main } = view.state.selection;
       view.dispatch({
@@ -733,11 +736,27 @@ export function registerEditorCommands(): void {
     label: '一级标题',
     icon: 'H1',
     group: '块',
+    keyBinding: 'Mod-Alt-1',
     execute: (view) => {
-      const { main } = view.state.selection;
+      const { state } = view;
+      const { main } = state.selection;
+      const block = findBlockAt(state, main.empty ? main.head : main.from);
+      if (!block) {
+        // Empty document or no block at caret → insert heading marker at caret
+        const marker = '# ';
+        view.dispatch({
+          changes: { from: main.from, insert: marker },
+          selection: { anchor: main.from + marker.length },
+        });
+        return;
+      }
+      const docText = state.doc.toString();
+      const nextText = computeBlockConvert(docText, block.from, block.to, 'h1');
+      if (nextText === docText) return;
+      const change = computeMinimalChange(docText, nextText);
       view.dispatch({
-        changes: { from: main.from, insert: '# ' },
-        selection: { anchor: main.from + 2 },
+        changes: { from: change.from, to: change.to, insert: change.insert },
+        selection: { anchor: change.from, head: change.from + change.insert.length },
       });
     },
   });
@@ -747,11 +766,26 @@ export function registerEditorCommands(): void {
     label: '二级标题',
     icon: 'H2',
     group: '块',
+    keyBinding: 'Mod-Alt-2',
     execute: (view) => {
-      const { main } = view.state.selection;
+      const { state } = view;
+      const { main } = state.selection;
+      const block = findBlockAt(state, main.empty ? main.head : main.from);
+      if (!block) {
+        const marker = '## ';
+        view.dispatch({
+          changes: { from: main.from, insert: marker },
+          selection: { anchor: main.from + marker.length },
+        });
+        return;
+      }
+      const docText = state.doc.toString();
+      const nextText = computeBlockConvert(docText, block.from, block.to, 'h2');
+      if (nextText === docText) return;
+      const change = computeMinimalChange(docText, nextText);
       view.dispatch({
-        changes: { from: main.from, insert: '## ' },
-        selection: { anchor: main.from + 3 },
+        changes: { from: change.from, to: change.to, insert: change.insert },
+        selection: { anchor: change.from, head: change.from + change.insert.length },
       });
     },
   });
@@ -761,15 +795,116 @@ export function registerEditorCommands(): void {
     label: '三级标题',
     icon: 'H3',
     group: '块',
+    keyBinding: 'Mod-Alt-3',
     execute: (view) => {
-      const { main } = view.state.selection;
+      const { state } = view;
+      const { main } = state.selection;
+      const block = findBlockAt(state, main.empty ? main.head : main.from);
+      if (!block) {
+        const marker = '### ';
+        view.dispatch({
+          changes: { from: main.from, insert: marker },
+          selection: { anchor: main.from + marker.length },
+        });
+        return;
+      }
+      const docText = state.doc.toString();
+      const nextText = computeBlockConvert(docText, block.from, block.to, 'h3');
+      if (nextText === docText) return;
+      const change = computeMinimalChange(docText, nextText);
       view.dispatch({
-        changes: { from: main.from, insert: '### ' },
-        selection: { anchor: main.from + 4 },
+        changes: { from: change.from, to: change.to, insert: change.insert },
+        selection: { anchor: change.from, head: change.from + change.insert.length },
       });
     },
   });
 
+  commandRegistry.register({
+    id: 'heading-4',
+    label: '四级标题',
+    icon: 'H4',
+    group: '块',
+    keyBinding: 'Mod-Alt-4',
+    execute: (view) => {
+      const { state } = view;
+      const { main } = state.selection;
+      const block = findBlockAt(state, main.empty ? main.head : main.from);
+      if (!block) {
+        const marker = '#### ';
+        view.dispatch({
+          changes: { from: main.from, insert: marker },
+          selection: { anchor: main.from + marker.length },
+        });
+        return;
+      }
+      const docText = state.doc.toString();
+      const nextText = computeBlockConvert(docText, block.from, block.to, 'h4');
+      if (nextText === docText) return;
+      const change = computeMinimalChange(docText, nextText);
+      view.dispatch({
+        changes: { from: change.from, to: change.to, insert: change.insert },
+        selection: { anchor: change.from, head: change.from + change.insert.length },
+      });
+    },
+  });
+
+  commandRegistry.register({
+    id: 'heading-5',
+    label: '五级标题',
+    icon: 'H5',
+    group: '块',
+    keyBinding: 'Mod-Alt-5',
+    execute: (view) => {
+      const { state } = view;
+      const { main } = state.selection;
+      const block = findBlockAt(state, main.empty ? main.head : main.from);
+      if (!block) {
+        const marker = '##### ';
+        view.dispatch({
+          changes: { from: main.from, insert: marker },
+          selection: { anchor: main.from + marker.length },
+        });
+        return;
+      }
+      const docText = state.doc.toString();
+      const nextText = computeBlockConvert(docText, block.from, block.to, 'h5');
+      if (nextText === docText) return;
+      const change = computeMinimalChange(docText, nextText);
+      view.dispatch({
+        changes: { from: change.from, to: change.to, insert: change.insert },
+        selection: { anchor: change.from, head: change.from + change.insert.length },
+      });
+    },
+  });
+
+  commandRegistry.register({
+    id: 'heading-6',
+    label: '六级标题',
+    icon: 'H6',
+    group: '块',
+    keyBinding: 'Mod-Alt-6',
+    execute: (view) => {
+      const { state } = view;
+      const { main } = state.selection;
+      const block = findBlockAt(state, main.empty ? main.head : main.from);
+      if (!block) {
+        const marker = '###### ';
+        view.dispatch({
+          changes: { from: main.from, insert: marker },
+          selection: { anchor: main.from + marker.length },
+        });
+        return;
+      }
+      const docText = state.doc.toString();
+      const nextText = computeBlockConvert(docText, block.from, block.to, 'h6');
+      if (nextText === docText) return;
+      const change = computeMinimalChange(docText, nextText);
+      view.dispatch({
+        changes: { from: change.from, to: change.to, insert: change.insert },
+        selection: { anchor: change.from, head: change.from + change.insert.length },
+      });
+    },
+  });
   commandRegistry.register({
     id: 'structure-check',
     label: '结构体检',

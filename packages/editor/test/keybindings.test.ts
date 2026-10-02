@@ -185,6 +185,21 @@ describe('Command.group values', () => {
     const cmd = commandRegistry.all().find((c) => c.id === 'heading-1');
     expect(cmd?.group).toBe('块');
   });
+
+  it('heading-4 has group 块', () => {
+    const cmd = commandRegistry.all().find((c) => c.id === 'heading-4');
+    expect(cmd?.group).toBe('块');
+  });
+
+  it('heading-5 has group 块', () => {
+    const cmd = commandRegistry.all().find((c) => c.id === 'heading-5');
+    expect(cmd?.group).toBe('块');
+  });
+
+  it('heading-6 has group 块', () => {
+    const cmd = commandRegistry.all().find((c) => c.id === 'heading-6');
+    expect(cmd?.group).toBe('块');
+  });
 });
 
 describe('insert-html and insert-css commands', () => {

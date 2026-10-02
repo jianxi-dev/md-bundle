@@ -188,7 +188,7 @@ describe('canonical registry contents', () => {
   it('has exactly one command per capability', () => {
     const ids = commandRegistry.all().map((c) => c.id);
     const headingIds = ids.filter((id) => id.startsWith('heading-'));
-    expect(headingIds).toEqual(['heading-1', 'heading-2', 'heading-3']);
+    expect(headingIds).toEqual(['heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6']);
     expect(ids).toContain('insert-table');
     expect(ids).toContain('insert-quote');
     expect(ids).toContain('insert-code-block');
@@ -211,9 +211,18 @@ describe('canonical registry contents', () => {
 });
 
 describe('keyBinding drift prevention', () => {
-  it('exactly five commands carry a keyBinding', () => {
+  it('exactly fourteen commands carry a keyBinding', () => {
     const withBinding = commandRegistry.all().filter((c) => c.keyBinding);
     expect(withBinding.map((c) => c.id).sort()).toEqual([
+      'heading-1',
+      'heading-2',
+      'heading-3',
+      'heading-4',
+      'heading-5',
+      'heading-6',
+      'insert-ordered-list',
+      'insert-task-list',
+      'insert-unordered-list',
       'toggle-bold',
       'toggle-code',
       'toggle-italic',
@@ -340,6 +349,74 @@ describe('registry insert-html / insert-css semantics', () => {
     commandRegistry.execute('insert-css', view);
     expect(view.state.doc.toString()).toBe('ab<style>\n\n</style>');
     expect(view.state.selection.main.head).toBe(10);
+  });
+});
+
+describe('heading commands (ticket #291)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+  });
+
+  it('heading-4 inserts #### at caret', () => {
+    commandRegistry.execute('heading-4', view);
+    expect(view.state.doc.toString()).toBe('#### ');
+    expect(view.state.selection.main.head).toBe(5);
+  });
+
+  it('heading-5 inserts ##### at caret', () => {
+    commandRegistry.execute('heading-5', view);
+    expect(view.state.doc.toString()).toBe('##### ');
+    expect(view.state.selection.main.head).toBe(6);
+  });
+
+  it('heading-6 inserts ###### at caret', () => {
+    commandRegistry.execute('heading-6', view);
+    expect(view.state.doc.toString()).toBe('###### ');
+    expect(view.state.selection.main.head).toBe(7);
+  });
+
+  it('heading-4 on existing heading line replaces markers (no nesting)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: '# Title' },
+      selection: { anchor: 0 },
+    });
+    commandRegistry.execute('heading-4', view);
+    expect(view.state.doc.toString()).toBe('#### Title');
+  });
+
+  it('heading-2 on existing h4 replaces markers (no nesting)', () => {
+    view.dispatch({
+      changes: { from: 0, insert: '#### Title' },
+      selection: { anchor: 0 },
+    });
+    commandRegistry.execute('heading-2', view);
+    expect(view.state.doc.toString()).toBe('## Title');
+  });
+
+  it('heading-3 on paragraph converts to h3', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Plain text' },
+      selection: { anchor: 0 },
+    });
+    commandRegistry.execute('heading-3', view);
+    expect(view.state.doc.toString()).toBe('### Plain text');
+  });
+
+  it('heading-1 on empty selection inserts # with caret inside', () => {
+    commandRegistry.execute('heading-1', view);
+    expect(view.state.doc.toString()).toBe('# ');
+    expect(view.state.selection.main.head).toBe(2);
   });
 });
 
