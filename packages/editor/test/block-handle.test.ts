@@ -284,7 +284,7 @@ describe('blockHandle lifecycle', () => {
   function clickMenuItem(label: string): void {
     const item = Array.from(
       view.dom.querySelectorAll<HTMLButtonElement>('.mdb-block-handle-item'),
-    ).find((el) => el.textContent === label)
+    ).find((el) => el.querySelector('.mdb-block-handle-item-label')?.textContent === label)
     if (!item) throw new Error(`menu item not found: ${label}`)
     item.dispatchEvent(mouse('click'))
   }

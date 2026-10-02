@@ -16,23 +16,24 @@ export const INSERT_LINE_CLASS = 'block-insert-line';
 
 interface MenuAction {
   readonly label: string;
+  readonly icon: string;
   readonly convert?: BlockConvertTarget;
   readonly action?: 'duplicate' | 'delete' | 'move-up' | 'move-down';
 }
 
 /** Menu rows: the 转换为 group first, then move/copy/delete. */
 const MENU_ACTIONS: readonly MenuAction[] = [
-  { label: '一级标题', convert: 'h1' },
-  { label: '二级标题', convert: 'h2' },
-  { label: '三级标题', convert: 'h3' },
-  { label: '四级标题', convert: 'h4' },
-  { label: '五级标题', convert: 'h5' },
-  { label: '六级标题', convert: 'h6' },
-  { label: '正文', convert: 'paragraph' },
-  { label: '上移', action: 'move-up' },
-  { label: '下移', action: 'move-down' },
-  { label: '复制块', action: 'duplicate' },
-  { label: '删除块', action: 'delete' },
+  { label: '一级标题', icon: 'H1', convert: 'h1' },
+  { label: '二级标题', icon: 'H2', convert: 'h2' },
+  { label: '三级标题', icon: 'H3', convert: 'h3' },
+  { label: '四级标题', icon: 'H4', convert: 'h4' },
+  { label: '五级标题', icon: 'H5', convert: 'h5' },
+  { label: '六级标题', icon: 'H6', convert: 'h6' },
+  { label: '正文', icon: '¶', convert: 'paragraph' },
+  { label: '上移', icon: '↑', action: 'move-up' },
+  { label: '下移', icon: '↓', action: 'move-down' },
+  { label: '复制块', icon: '⧉', action: 'duplicate' },
+  { label: '删除块', icon: '✕', action: 'delete' },
 ];
 
 export function createHandle(): HTMLElement {
@@ -60,7 +61,16 @@ export function createMenu(): HTMLElement {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = ITEM_CLASS;
-    item.textContent = entry.label;
+    // Icon is aria-hidden so the button's accessible name stays exactly the
+    // label (role/name queries in tests and assistive tech rely on it).
+    const icon = document.createElement('span');
+    icon.className = 'mdb-block-handle-item-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = entry.icon;
+    const label = document.createElement('span');
+    label.className = 'mdb-block-handle-item-label';
+    label.textContent = entry.label;
+    item.append(icon, label);
     if (entry.convert) item.setAttribute('data-convert', entry.convert);
     if (entry.action) item.setAttribute('data-action', entry.action);
     menu.appendChild(item);
@@ -208,7 +218,9 @@ export const blockHandleTheme = EditorView.baseTheme({
     color: 'var(--mdb-muted)',
   },
   '.mdb-block-handle-item': {
-    display: 'block',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
     width: '100%',
     textAlign: 'left',
     background: 'transparent',
@@ -217,6 +229,15 @@ export const blockHandleTheme = EditorView.baseTheme({
     padding: '4px 8px',
     cursor: 'pointer',
     fontSize: '13px',
+  },
+  '.mdb-block-handle-item-icon': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '16px',
+    flexShrink: '0',
+    opacity: '0.7',
+    color: 'var(--mdb-text-secondary)',
   },
   '.block-insert-line': {
     position: 'absolute',
