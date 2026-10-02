@@ -23,6 +23,7 @@ import {
   computeMinimalChange,
   blockStillExists,
   isBlockInViewport,
+  blockHandleIcon,
   type BlockConvertTarget,
 } from './block-handle-ops'
 
@@ -35,6 +36,7 @@ export {
   computeMinimalChange,
   blockStillExists,
   isBlockInViewport,
+  blockHandleIcon,
   type BlockConvertTarget,
   type MinimalChange,
 } from './block-handle-ops'
@@ -136,6 +138,8 @@ class BlockHandlePlugin {
 
   private showHandleAt(from: number): void {
     this.chrome.showHandle()
+    const block = findBlockAt(this.view.state, from)
+    if (block) this.chrome.setIcon(blockHandleIcon(block))
     try {
       const coords = this.view.coordsAtPos(from)
       if (coords) {

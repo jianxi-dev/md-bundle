@@ -27,7 +27,9 @@ import {
   computeBlockDuplicate,
   computeBlockDelete,
   computeMinimalChange,
+  blockHandleIcon,
 } from '../src/block-handle'
+import type { Block } from '../src/block-model'
 
 // jsdom lacks requestAnimationFrame/ResizeObserver; CodeMirror 6 uses both.
 function installPolyfills(): void {
@@ -158,6 +160,75 @@ describe('block-handle pure helpers', () => {
     // block offsets from block-model: "B" spans [3, 4); the document's final
     // newline is not part of the block and must be preserved.
     expect(computeBlockDelete('A\n\nB\n', 3, 4)).toBe('A\n')
+  })
+})
+
+// --- blockHandleIcon -----------------------------------------------------------
+
+describe('blockHandleIcon', () => {
+  function makeBlock(overrides: Partial<Block>): Block {
+    return {
+      from: 0,
+      to: 10,
+      type: 'paragraph',
+      node: {},
+      ...overrides,
+    }
+  }
+
+  it('returns H1..H6 for heading blocks with level', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 1 }))).toBe('H1')
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 2 }))).toBe('H2')
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 3 }))).toBe('H3')
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 4 }))).toBe('H4')
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 5 }))).toBe('H5')
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 6 }))).toBe('H6')
+  })
+
+  it('falls back to H for heading without level', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'heading' }))).toBe('H')
+  })
+
+  it('returns checked/unchecked glyph for task blocks', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'task', checked: true }))).toBe('☑')
+    expect(blockHandleIcon(makeBlock({ type: 'task', checked: false }))).toBe('☐')
+  })
+
+  it('returns quote glyph for blockquote', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'blockquote' }))).toBe('❝')
+  })
+
+  it('returns code glyph for fencedCode and codeBlock', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'fencedCode' }))).toBe('</>')
+    expect(blockHandleIcon(makeBlock({ type: 'codeBlock' }))).toBe('</>')
+  })
+
+  it('returns list glyph for list', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'list' }))).toBe('≡')
+  })
+
+  it('returns table glyph for table', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'table' }))).toBe('▦')
+  })
+
+  it('returns thematicBreak glyph', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'thematicBreak' }))).toBe('—')
+  })
+
+  it('returns image glyph', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'image' }))).toBe('▣')
+  })
+
+  it('returns htmlBlock glyph', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'htmlBlock' }))).toBe('</>')
+  })
+
+  it('returns drag-dots for paragraph', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'paragraph' }))).toBe('⠿')
+  })
+
+  it('returns drag-dots for yamlFrontMatter and unknown types', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'yamlFrontMatter' }))).toBe('⠿')
   })
 })
 

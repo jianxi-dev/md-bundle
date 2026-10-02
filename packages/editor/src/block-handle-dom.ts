@@ -101,6 +101,10 @@ export class HandleChrome {
     this.insertLine.remove();
   }
 
+  setIcon(icon: string): void {
+    this.handle.textContent = icon;
+  }
+
   showHandle(): void {
     this.handle.style.display = 'flex';
     this.syncKeyListener();
