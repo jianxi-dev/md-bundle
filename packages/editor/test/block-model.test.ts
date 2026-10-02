@@ -59,6 +59,74 @@ describe('getBlocks', () => {
     expect(blocks[0].type).toBe('list');
   });
 
+  it('identifies heading levels for ATX headings H1-H6', () => {
+    const state = makeState('# H1\n## H2\n### H3\n#### H4\n##### H5\n###### H6');
+    const blocks = getBlocks(state);
+    expect(blocks).toHaveLength(6);
+    for (let i = 0; i < 6; i++) {
+      expect(blocks[i].type).toBe('heading');
+      expect(blocks[i].level).toBe(i + 1);
+    }
+  });
+
+  it('identifies heading levels for Setext headings H1-H2', () => {
+    const state = makeState('H1\n===\n\nH2\n---');
+    const blocks = getBlocks(state);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].type).toBe('heading');
+    expect(blocks[0].level).toBe(1);
+    expect(blocks[1].type).toBe('heading');
+    expect(blocks[1].level).toBe(2);
+  });
+
+  it('identifies task list items (bullet)', () => {
+    const state = makeState('- [ ] todo\n- [x] done\n- [X] also done');
+    const blocks = getBlocks(state);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe('task');
+    expect(blocks[0].checked).toBe(false); // all items must be checked for true
+  });
+
+  it('identifies task list items (ordered)', () => {
+    const state = makeState('1. [ ] todo\n2. [x] done');
+    const blocks = getBlocks(state);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe('task');
+    expect(blocks[0].checked).toBe(false);
+  });
+
+  it('plain list items remain type list (not task)', () => {
+    const state = makeState('- item 1\n- item 2');
+    const blocks = getBlocks(state);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe('list');
+    expect(blocks[0].checked).toBeUndefined();
+  });
+
+  it('mixed task and non-task items remain type list', () => {
+    const state = makeState('- [ ] todo\n- plain item');
+    const blocks = getBlocks(state);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe('list');
+    expect(blocks[0].checked).toBeUndefined();
+  });
+
+  it('single task item classifies as task', () => {
+    const state = makeState('- [ ] solo task');
+    const blocks = getBlocks(state);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe('task');
+    expect(blocks[0].checked).toBe(false);
+  });
+
+  it('all checked task items yields checked=true', () => {
+    const state = makeState('- [x] done\n- [X] also done');
+    const blocks = getBlocks(state);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe('task');
+    expect(blocks[0].checked).toBe(true);
+  });
+
   it('identifies fenced code blocks', () => {
     const state = makeState('```\ncode here\n```');
     const blocks = getBlocks(state);
