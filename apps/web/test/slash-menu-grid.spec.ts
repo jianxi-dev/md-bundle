@@ -58,7 +58,7 @@ test('AC(A)：空行输入 / 后菜单以图标网格展示', async ({ page }) =
   await expect(grid).toHaveCSS('display', 'grid')
 
   const cells = grid.locator('.mdb-slash-item')
-  await expect(cells).toHaveCount(8)
+  await expect(cells).toHaveCount(10)
   await expect(grid).toContainText('标题')
   await expect(grid).toContainText('标注')
   await expect(grid).toContainText('代码块')
@@ -75,7 +75,7 @@ test('AC(B)：输入筛选列表 → 标题 flyout 旁展开 → 选 H2 插入 #
   await typeSlashAtDocEnd(page)
 
   const cells = page.locator('.mdb-slash-grid-menu .mdb-slash-item')
-  await expect(cells).toHaveCount(8)
+  await expect(cells).toHaveCount(10)
 
   // 真实键盘输入筛选：'b' 命中 标题/表格/标注，'bt' 收窄到 标题
   await page.keyboard.type('b')
