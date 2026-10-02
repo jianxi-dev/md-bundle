@@ -291,18 +291,21 @@ describe('slash menu through the public API', () => {
     handle.destroy();
   });
 
-  it('slashMenuApply on the heading row opens the H1–H6 submenu, then inserts a level', () => {
+  it('slashMenuApply on the heading row opens the H1–H6 flyout, then inserts a level', () => {
     const handle = makeView();
     insertSlashChar(handle.view);
-    // Heading is a submenu opener: applying it shows H1–H6 and leaves the doc.
+    // Heading is a submenu opener: applying it shows H1–H6 in a flyout while
+    // the root grid and the document stay in place.
     expect(slashMenuApply(handle.view)).toBe(true);
     expect(handle.getValue()).toBe('/');
-    expect(handle.view.dom.querySelectorAll('.mdb-slash-item').length).toBe(6);
+    expect(handle.view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(8);
+    expect(handle.view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(6);
 
     slashMenuSelectNext(handle.view);
     expect(slashMenuApply(handle.view)).toBe(true);
     expect(handle.getValue()).toBe('## ');
     expect(handle.view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+    expect(handle.view.dom.querySelector('.mdb-slash-flyout')).toBeNull();
     handle.destroy();
   });
 

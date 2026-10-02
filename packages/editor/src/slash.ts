@@ -4,6 +4,13 @@
  * - Module-level `WeakMap<EditorView, SlashMenuState>` holds the open-menu state
  *   per view, so tests can drive the menu by calling the exported functions
  *   directly with a view (no DOM event simulation needed).
+ * - Root rows render as an icon grid; a row with children opens a flyout panel
+ *   beside its cell (the root grid stays visible) instead of replacing the
+ *   root list in place. The table size picker keeps its own grid panel.
+ * - Typing after the `/` filters the root grid. The typed characters are real
+ *   document text: `readQuery` derives the filter from `[slashPos + 1, head]`
+ *   on every doc change, so filtering never fights the doc-change closer and
+ *   every apply replaces the whole `/query` range.
  * - Exported keymap `run` targets double as testable command functions.
  * - `slashKeymap()` returns `Prec.high(...)` so its Enter/Arrow/Escape/`/`
  *   bindings beat `defaultKeymap` when the consumer wires it AFTER
@@ -31,10 +38,11 @@ export interface SlashCommand {
   /** When present, activating the row opens a rows×cols grid picker instead. */
   grid?: { rows: number; cols: number };
   /**
-   * Returns the change that replaces the `/` (the character immediately to the
-   * left of the cursor) with the template text. Called with the state where
-   * the `/` is still in the document and the cursor sits right after it, so
-   * `head - 1` is the slash position. Leaf rows only; submenu openers omit it.
+   * Returns the change whose `text` replaces the menu range with the template
+   * text. Called with the state where the `/` (and any typed filter) is still
+   * in the document. `applyCommand` replaces `[slashPos, head]` itself, so the
+   * returned `from`/`to` are advisory (they locate the slash for the
+   * no-query case). Leaf rows only; submenu openers omit it.
    */
   insert?(state: EditorState): { from: number; to: number; text: string };
 }
@@ -142,6 +150,56 @@ export const defaultCommands: SlashCommand[] = [
   },
 ];
 
+/**
+ * Pinyin initials for the CJK characters used by the root labels. Kept local
+ * (the palette matcher is not exported) and intentionally small — extend when
+ * root commands grow more labels.
+ */
+const PINYIN_INITIALS: Record<string, string> = {
+  标: 'b',
+  题: 't',
+  引: 'y',
+  用: 'y',
+  代: 'd',
+  码: 'm',
+  块: 'k',
+  表: 'b',
+  格: 'g',
+  注: 'z',
+  图: 't',
+  片: 'p',
+  插: 'c',
+  入: 'r',
+};
+
+/** Case-insensitive subsequence test: are all `query` chars in `text`, in order? */
+function isSubsequence(query: string, text: string): boolean {
+  const lowerQuery = query.toLowerCase();
+  const lowerText = text.toLowerCase();
+  let qi = 0;
+  for (let ti = 0; ti < lowerText.length && qi < lowerQuery.length; ti++) {
+    if (lowerText[ti] === lowerQuery[qi]) qi++;
+  }
+  return qi === lowerQuery.length;
+}
+
+/** Pinyin first letters for a label; non-CJK characters keep their lowercase form. */
+function pinyinInitials(text: string): string {
+  return [...text].map((ch) => PINYIN_INITIALS[ch] ?? ch.toLowerCase()).join('');
+}
+
+/**
+ * Root rows matching the typed filter, original order preserved. Matches the
+ * label directly (ASCII case-insensitive subsequence) or through pinyin
+ * initials, so `bt` finds 「标题」. Single-key codes (#280) slot in before this.
+ */
+function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
+  if (!query) return commands;
+  return commands.filter(
+    (cmd) => isSubsequence(query, cmd.label) || isSubsequence(query, pinyinInitials(cmd.label)),
+  );
+}
+
 /** Active grid picker: bounds plus the hovered cell that will be inserted. */
 interface GridState {
   rows: number;
@@ -153,26 +211,40 @@ interface GridState {
 interface SlashMenuState {
   open: boolean;
   slashPos: number;
+  /** Filter typed after the `/`, derived from the document. */
+  query: string;
   selected: number;
   /** Root rows (may include submenu openers). */
   commands: SlashCommand[];
-  /** Rows currently displayed (root, or the open submenu's children). */
+  /** Root rows currently displayed (filtered by `query`). */
   rows: SlashCommand[];
-  /** The opener whose children are displayed, or null at root. */
+  /** The opener whose children are shown in the flyout, or null. */
   submenuParent: SlashCommand | null;
+  /** Children displayed in the open flyout. */
+  flyoutRows: SlashCommand[];
+  /** Selection index inside the open flyout. */
+  flyoutSelected: number;
+  /** The parent cell the flyout is anchored to. */
+  parentCell: HTMLElement | null;
+  /** Cells of the current root render, index-aligned with `rows`. */
+  cells: HTMLElement[];
   /** Active grid picker, or null when a row list is displayed. */
   grid: GridState | null;
   dom: HTMLDivElement | null;
+  flyoutDom: HTMLDivElement | null;
 }
 
 const menus = new WeakMap<EditorView, SlashMenuState>();
 
-/** Closes the menu for `view` without touching the document. */
+/** Closes the menu (root panel + flyout) for `view` without touching the document. */
 function closeMenu(view: EditorView): void {
   const state = menus.get(view);
   if (!state) return;
   if (state.dom && state.dom.parentNode) {
     state.dom.parentNode.removeChild(state.dom);
+  }
+  if (state.flyoutDom && state.flyoutDom.parentNode) {
+    state.flyoutDom.parentNode.removeChild(state.flyoutDom);
   }
   menus.delete(view);
 }
@@ -183,60 +255,119 @@ function renderMenu(view: EditorView, state: SlashMenuState): void {
     renderGrid(view, state);
     return;
   }
+  renderRootGrid(view, state);
+  if (isFlyoutOpen(state)) {
+    renderFlyout(view, state);
+    positionFlyout(view, state);
+  }
+}
+
+/** True when a second-level flyout is present. */
+function isFlyoutOpen(state: SlashMenuState): boolean {
+  return state.submenuParent !== null && state.flyoutRows.length > 0;
+}
+
+/**
+ * Render the root rows as an icon grid: one cell per command (icon above
+ * label), grouped by `cmd.group` with full-width group headings. `rows` is the
+ * query-filtered list; `data-selected` tracks keyboard selection.
+ */
+function renderRootGrid(view: EditorView, state: SlashMenuState): void {
+  if (!state.dom) return;
   state.dom.textContent = '';
+  state.cells = [];
+
+  const grid = document.createElement('div');
+  grid.className = 'mdb-slash-grid-menu';
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
+  grid.style.gap = '2px';
+  grid.style.padding = '6px';
+  state.dom.appendChild(grid);
+
   let lastGroup: string | undefined;
   state.rows.forEach((cmd, i) => {
-    if (!state.submenuParent && cmd.group && cmd.group !== lastGroup) {
+    if (cmd.group && cmd.group !== lastGroup) {
       const header = document.createElement('div');
       header.className = 'mdb-slash-group';
       header.textContent = cmd.group;
-      header.style.padding = '6px 12px 2px';
+      header.style.gridColumn = '1 / -1';
+      header.style.padding = '6px 6px 2px';
       header.style.fontSize = '11px';
       header.style.color = 'var(--mdb-text-secondary)';
       header.style.opacity = '0.8';
-      state.dom!.appendChild(header);
+      grid.appendChild(header);
       lastGroup = cmd.group;
     }
 
-    const row = document.createElement('div');
-    row.className = 'mdb-slash-item';
-    row.style.padding = '6px 12px';
-    row.style.cursor = 'pointer';
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '8px';
+    const cell = document.createElement('div');
+    cell.className = 'mdb-slash-item';
+    cell.dataset.cmd = cmd.id;
+    cell.style.display = 'flex';
+    cell.style.flexDirection = 'column';
+    cell.style.alignItems = 'center';
+    cell.style.gap = '3px';
+    cell.style.padding = '8px 6px';
+    cell.style.borderRadius = '6px';
+    cell.style.cursor = 'pointer';
+    cell.style.minWidth = '0';
+    cell.style.textAlign = 'center';
     if (i === state.selected) {
-      row.setAttribute('data-selected', 'true');
-      row.style.background = 'rgb(22,93,255,0.18)';
-      row.style.fontWeight = '600';
+      cell.setAttribute('data-selected', 'true');
+      cell.style.background = 'rgb(22,93,255,0.18)';
+      cell.style.fontWeight = '600';
     }
 
     const icon = document.createElement('span');
     icon.textContent = cmd.icon ?? '';
-    icon.style.width = '18px';
+    icon.style.height = '18px';
+    icon.style.lineHeight = '18px';
     icon.style.color = 'var(--mdb-primary)';
-    row.appendChild(icon);
+    cell.appendChild(icon);
 
     const label = document.createElement('span');
     label.textContent = cmd.label;
-    row.appendChild(label);
+    label.style.maxWidth = '100%';
+    label.style.overflow = 'hidden';
+    label.style.textOverflow = 'ellipsis';
+    label.style.whiteSpace = 'nowrap';
+    cell.appendChild(label);
 
-    const hint = document.createElement('span');
-    hint.style.marginLeft = 'auto';
-    hint.style.color = 'var(--mdb-text-secondary)';
-    hint.style.fontSize = '11px';
-    hint.style.opacity = '0.8';
-    hint.textContent = cmd.children ? '\u25B8' : (cmd.hint ?? '');
-    row.appendChild(hint);
+    if (cmd.children?.length || cmd.hint) {
+      const hint = document.createElement('span');
+      hint.style.color = 'var(--mdb-text-secondary)';
+      hint.style.fontSize = '10px';
+      hint.style.opacity = '0.8';
+      hint.textContent = cmd.children?.length ? '\u25B8' : (cmd.hint ?? '');
+      cell.appendChild(hint);
+    }
 
-    row.addEventListener('mousedown', (e) => {
+    cell.addEventListener('mouseenter', () => {
+      if (!cmd.children?.length) return;
+      state.selected = i;
+      enterSubmenu(view, cmd);
+    });
+
+    cell.addEventListener('mousedown', (e) => {
       e.preventDefault();
       state.selected = i;
       activateRow(view, cmd);
     });
 
-    state.dom!.appendChild(row);
+    grid.appendChild(cell);
+    state.cells.push(cell);
   });
+
+  if (state.rows.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'mdb-slash-empty';
+    empty.textContent = '无匹配项';
+    empty.style.gridColumn = '1 / -1';
+    empty.style.padding = '8px 10px';
+    empty.style.fontSize = '12px';
+    empty.style.color = 'var(--mdb-text-secondary)';
+    grid.appendChild(empty);
+  }
 }
 
 /** Build a GFM pipe table with `cols` columns and `rows` body rows. */
@@ -253,7 +384,7 @@ function buildTable(cols: number, rows: number): string {
 function openGrid(view: EditorView, cmd: SlashCommand): void {
   const state = menus.get(view);
   if (!state?.open || !state.dom || !cmd.grid) return;
-  state.submenuParent = cmd;
+  closeFlyout(state);
   state.rows = [];
   state.grid = { rows: cmd.grid.rows, cols: cmd.grid.cols, hoverR: 1, hoverC: 1 };
   renderMenu(view, state);
@@ -264,10 +395,12 @@ function applyGrid(view: EditorView, r: number, c: number): void {
   const state = menus.get(view);
   if (!state?.open) return;
   const slashPos = state.slashPos;
+  // Replace the `/` plus any typed filter — not just the single slash char.
+  const to = Math.max(view.state.selection.main.head, slashPos + 1);
   closeMenu(view);
   const text = buildTable(c, r);
   view.dispatch({
-    changes: { from: slashPos, to: slashPos + 1, insert: text },
+    changes: { from: slashPos, to, insert: text },
     selection: { anchor: slashPos + text.length },
     scrollIntoView: true,
   });
@@ -342,8 +475,8 @@ function openMenu(
   menu.style.zIndex = '1000';
   menu.style.fontSize = '13px';
   menu.style.borderRadius = '6px';
-  menu.style.minWidth = '160px';
-  menu.style.padding = '4px 0';
+  menu.style.minWidth = '224px';
+  menu.style.padding = '0';
   menu.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.24)';
 
   menu.style.overflowY = 'auto';
@@ -351,12 +484,18 @@ function openMenu(
   const state: SlashMenuState = {
     open: true,
     slashPos,
+    query: '',
     selected: 0,
     commands,
     rows: commands,
     submenuParent: null,
+    flyoutRows: [],
+    flyoutSelected: 0,
+    parentCell: null,
+    cells: [],
     grid: null,
     dom: menu,
+    flyoutDom: null,
   };
   menus.set(view, state);
   renderMenu(view, state);
@@ -403,19 +542,25 @@ function positionMenu(view: EditorView, menu: HTMLDivElement, slashPos: number):
 
 function applyCommand(view: EditorView, cmd: SlashCommand): void {
   if (!cmd.insert) return;
-  // Close FIRST so the docChanged closer in the ViewPlugin never fights the
-  // transaction we are about to dispatch.
+  const state = menus.get(view);
+  const head = view.state.selection.main.head;
+  // The `/` plus any typed filter is one replaceable range; command `insert`
+  // implementations only supply the replacement text.
+  const from = state ? state.slashPos : head - 1;
+  // Close FIRST so the doc-change sync plugin never fights the transaction we
+  // are about to dispatch.
   closeMenu(view);
+  if (head < from) return;
   const change = cmd.insert(view.state);
   // `text` is our interface field; CM6's ChangeSpec field is `insert`.
   view.dispatch({
-    changes: { from: change.from, to: change.to, insert: change.text },
-    selection: { anchor: change.from + change.text.length },
+    changes: { from, to: head, insert: change.text },
+    selection: { anchor: from + change.text.length },
     scrollIntoView: true,
   });
 }
 
-/** Activate a row: open its submenu, or apply its insert. */
+/** Activate a row: open its flyout or grid, or apply its insert. */
 function activateRow(view: EditorView, cmd: SlashCommand): void {
   if (cmd.grid) {
     openGrid(view, cmd);
@@ -428,24 +573,136 @@ function activateRow(view: EditorView, cmd: SlashCommand): void {
   applyCommand(view, cmd);
 }
 
-/** Show a row's second-level panel of children. */
+/** Open a row's second-level flyout beside its cell; the root grid stays put. */
 function enterSubmenu(view: EditorView, cmd: SlashCommand): void {
   const state = menus.get(view);
-  if (!state?.open || !state.dom || !cmd.children?.length) return;
+  if (!state?.open || !state.dom || state.grid || !cmd.children?.length) return;
   state.submenuParent = cmd;
-  state.rows = cmd.children;
-  state.selected = 0;
-  renderMenu(view, state);
+  state.flyoutRows = cmd.children;
+  state.flyoutSelected = 0;
+  state.parentCell = state.cells[state.selected] ?? null;
+
+  if (!state.flyoutDom) {
+    const flyout = document.createElement('div');
+    flyout.className = 'mdb-slash-flyout';
+    flyout.style.position = 'absolute';
+    flyout.style.background = 'var(--mdb-bg-secondary)';
+    flyout.style.border = '1px solid var(--mdb-border)';
+    flyout.style.color = 'var(--mdb-text)';
+    flyout.style.zIndex = '1001';
+    flyout.style.fontSize = '13px';
+    flyout.style.borderRadius = '6px';
+    flyout.style.minWidth = '150px';
+    flyout.style.padding = '4px 0';
+    flyout.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.24)';
+    flyout.style.overflowY = 'auto';
+    state.flyoutDom = flyout;
+  }
+  if (state.flyoutDom.parentNode !== view.dom) {
+    view.dom.appendChild(state.flyoutDom);
+  }
+  renderFlyout(view, state);
+  positionFlyout(view, state);
 }
 
-/** Return from a submenu to the root row list. */
+/** Close the second-level flyout; the root grid and query stay as they are. */
+function closeFlyout(state: SlashMenuState): void {
+  if (state.flyoutDom?.parentNode) {
+    state.flyoutDom.parentNode.removeChild(state.flyoutDom);
+  }
+  state.submenuParent = null;
+  state.flyoutRows = [];
+  state.flyoutSelected = 0;
+  state.parentCell = null;
+}
+
+/** Render the flyout rows, marking the keyboard selection. */
+function renderFlyout(view: EditorView, state: SlashMenuState): void {
+  if (!state.flyoutDom) return;
+  state.flyoutDom.textContent = '';
+  state.flyoutRows.forEach((cmd, i) => {
+    const row = document.createElement('div');
+    row.className = 'mdb-slash-flyout-item';
+    row.dataset.cmd = cmd.id;
+    row.style.padding = '6px 12px';
+    row.style.cursor = 'pointer';
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '8px';
+    if (i === state.flyoutSelected) {
+      row.setAttribute('data-selected', 'true');
+      row.style.background = 'rgb(22,93,255,0.18)';
+      row.style.fontWeight = '600';
+    }
+
+    const icon = document.createElement('span');
+    icon.textContent = cmd.icon ?? '';
+    icon.style.width = '18px';
+    icon.style.color = 'var(--mdb-primary)';
+    row.appendChild(icon);
+
+    const label = document.createElement('span');
+    label.textContent = cmd.label;
+    row.appendChild(label);
+
+    const hint = document.createElement('span');
+    hint.style.marginLeft = 'auto';
+    hint.style.color = 'var(--mdb-text-secondary)';
+    hint.style.fontSize = '11px';
+    hint.style.opacity = '0.8';
+    hint.textContent = cmd.hint ?? '';
+    row.appendChild(hint);
+
+    row.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      state.flyoutSelected = i;
+      activateRow(view, cmd);
+    });
+
+    state.flyoutDom!.appendChild(row);
+  });
+}
+
+/**
+ * Place the flyout beside its parent cell, flipping to the cell's left and
+ * clamping top/bottom when the viewport edge is reached. Same coordinate
+ * recipe as `positionMenu` (viewport coords minus the editor origin).
+ */
+function positionFlyout(view: EditorView, state: SlashMenuState): void {
+  const flyout = state.flyoutDom;
+  const anchor = state.parentCell;
+  if (!flyout || !anchor) return;
+  try {
+    const cellRect = anchor.getBoundingClientRect();
+    const editorRect = view.dom.getBoundingClientRect();
+    const flyoutRect = flyout.getBoundingClientRect();
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+
+    let leftV = cellRect.right + 4;
+    if (leftV + flyoutRect.width > viewportW - 8) {
+      leftV = Math.max(8, cellRect.left - flyoutRect.width - 4);
+    }
+    let topV = cellRect.top;
+    if (topV + flyoutRect.height > viewportH - 8) {
+      topV = Math.max(8, viewportH - 8 - flyoutRect.height);
+    }
+
+    flyout.style.left = `${leftV - editorRect.left}px`;
+    flyout.style.top = `${topV - editorRect.top}px`;
+    flyout.style.maxHeight = `${Math.max(120, viewportH - 8 - topV)}px`;
+  } catch {
+    // ignore — jsdom / unmeasured content
+  }
+}
+
+/** Leave the grid picker and restore the (filtered) root row list. */
 function backToRoot(view: EditorView): void {
   const state = menus.get(view);
-  if (!state?.open || !state.dom || !state.submenuParent) return;
-  state.submenuParent = null;
+  if (!state?.open || !state.dom || !state.grid) return;
   state.grid = null;
-  state.rows = state.commands;
-  state.selected = 0;
+  state.rows = filterCommands(state.commands, state.query);
+  state.selected = Math.min(state.selected, Math.max(0, state.rows.length - 1));
   renderMenu(view, state);
 }
 
@@ -498,41 +755,55 @@ export function insertSlashChar(
   return true;
 }
 
-/** ArrowDown: move the selected row down while the menu is open. */
+/** ArrowDown: move the flyout selection, or the root selection, down. */
 export function slashMenuSelectNext(view: EditorView): boolean {
   const state = menus.get(view);
   if (!state?.open || !state.dom) return false;
+  if (state.grid) return true;
+  if (isFlyoutOpen(state)) {
+    state.flyoutSelected = Math.min(state.flyoutSelected + 1, state.flyoutRows.length - 1);
+    renderFlyout(view, state);
+    return true;
+  }
   state.selected = Math.min(state.selected + 1, state.rows.length - 1);
-  renderMenu(view, state);
+  renderRootGrid(view, state);
   return true;
 }
 
-/** ArrowUp: move the selected row up while the menu is open. */
+/** ArrowUp: move the flyout selection, or the root selection, up. */
 export function slashMenuSelectPrev(view: EditorView): boolean {
   const state = menus.get(view);
   if (!state?.open || !state.dom) return false;
+  if (state.grid) return true;
+  if (isFlyoutOpen(state)) {
+    state.flyoutSelected = Math.max(state.flyoutSelected - 1, 0);
+    renderFlyout(view, state);
+    return true;
+  }
   state.selected = Math.max(state.selected - 1, 0);
-  renderMenu(view, state);
+  renderRootGrid(view, state);
   return true;
 }
 
 /**
- * Enter: activate the selected row — open its submenu, or replace the `/` with
- * the template for a leaf row.
+ * Enter: activate the selected row — a flyout open means the selected child,
+ * otherwise the selected root row (which may itself open a flyout or grid).
  */
 export function slashMenuApply(view: EditorView): boolean {
   const state = menus.get(view);
-  if (!state?.open || !state.dom) return false;
-  const cmd = state.rows[state.selected];
+  if (!state?.open || !state.dom || state.grid) return false;
+  const cmd = isFlyoutOpen(state)
+    ? state.flyoutRows[state.flyoutSelected]
+    : state.rows[state.selected];
   if (!cmd) return false;
   activateRow(view, cmd);
   return true;
 }
 
-/** ArrowRight: open the selected row's submenu when it has children. */
+/** ArrowRight: open the selected row's flyout when it has children. */
 export function slashMenuSubmenuEnter(view: EditorView): boolean {
   const state = menus.get(view);
-  if (!state?.open || !state.dom) return false;
+  if (!state?.open || !state.dom || state.grid || isFlyoutOpen(state)) return false;
   const cmd = state.rows[state.selected];
   if (cmd?.grid) {
     openGrid(view, cmd);
@@ -543,12 +814,19 @@ export function slashMenuSubmenuEnter(view: EditorView): boolean {
   return true;
 }
 
-/** ArrowLeft: leave an open submenu and return to the root rows. */
+/** ArrowLeft: close an open flyout, or leave the grid picker. */
 export function slashMenuSubmenuBack(view: EditorView): boolean {
   const state = menus.get(view);
-  if (!state?.open || !state.dom || !state.submenuParent) return false;
-  backToRoot(view);
-  return true;
+  if (!state?.open || !state.dom) return false;
+  if (isFlyoutOpen(state)) {
+    closeFlyout(state);
+    return true;
+  }
+  if (state.grid) {
+    backToRoot(view);
+    return true;
+  }
+  return false;
 }
 
 /** Escape: close the menu without inserting anything (the `/` remains). */
@@ -559,12 +837,52 @@ export function slashMenuClose(view: EditorView): boolean {
   return true;
 }
 
-/** Closes the menu whenever the document changes (e.g. typing a character). */
-const menuCloserPlugin = ViewPlugin.define((view) => ({
+/**
+ * Read the filter typed after the `/`: the characters between `slashPos + 1`
+ * and the caret. Returns null when the document no longer looks like an open
+ * menu — slash deleted, caret moved before it, or a newline was typed — and
+ * the caller closes the menu then.
+ */
+function readQuery(state: SlashMenuState, editorState: EditorState): string | null {
+  const head = editorState.selection.main.head;
+  if (head < state.slashPos + 1) return null;
+  const text = editorState.doc.sliceString(state.slashPos, head);
+  if (!text.startsWith('/')) return null;
+  const query = text.slice(1);
+  if (query.includes('\n')) return null;
+  return query;
+}
+
+/** Apply a document-derived filter query; typing closes any open flyout. */
+function applyQuery(view: EditorView, state: SlashMenuState, query: string): void {
+  closeFlyout(state);
+  state.query = query;
+  state.rows = filterCommands(state.commands, query);
+  state.selected = Math.min(state.selected, Math.max(0, state.rows.length - 1));
+  renderMenu(view, state);
+}
+
+/**
+ * Keeps the open menu in sync with the document:
+ * - Query typing (characters after the `/`, before the caret) updates the
+ *   filter instead of closing the menu — those characters ARE the query
+ *   buffer, so they must not trip the old "any doc change closes" rule.
+ * - Any other doc change (newline, slash deleted, edit elsewhere) closes.
+ * - While an IME composition is active the menu is left untouched: composing
+ *   must neither close the menu nor select a command.
+ */
+const menuSyncPlugin = ViewPlugin.define((view) => ({
   update(u: ViewUpdate): void {
-    if (u.docChanged && menus.get(u.view)?.open) {
-      closeMenu(u.view);
+    const state = menus.get(u.view);
+    if (!state?.open || !u.docChanged || slashComposing) return;
+    if (!state.grid) {
+      const query = readQuery(state, u.state);
+      if (query !== null) {
+        applyQuery(u.view, state, query);
+        return;
+      }
     }
+    closeMenu(u.view);
   },
   destroy(): void {
     closeMenu(view);
@@ -612,7 +930,7 @@ export function slashKeymap(options: { commands?: SlashCommand[] } = {}): Extens
         { key: 'Escape', run: (view) => slashMenuClose(view) },
       ]),
     ),
-    menuCloserPlugin,
+    menuSyncPlugin,
     slashCompositionGuard,
   ];
 }

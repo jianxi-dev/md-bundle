@@ -8,6 +8,8 @@ import {
   slashMenuClose,
   slashMenuSelectNext,
   slashMenuSelectPrev,
+  slashMenuSubmenuBack,
+  slashMenuSubmenuEnter,
 } from '../src/slash';
 import { commandRegistry } from '../src/commands';
 
@@ -48,12 +50,29 @@ describe('slash commands', () => {
     parent.remove();
   });
 
-  it('typing "/" inserts the slash and opens the command menu', () => {
+  /** Simulate real typing at the caret: the chars land in the document. */
+  function typeText(text: string): void {
+    const head = view.state.selection.main.head;
+    view.dispatch({
+      changes: { from: head, insert: text },
+      selection: { anchor: head + text.length },
+    });
+  }
+
+  /** Simulate backspace at the caret. */
+  function backspace(): void {
+    const head = view.state.selection.main.head;
+    view.dispatch({ changes: { from: head - 1, to: head }, selection: { anchor: head - 1 } });
+  }
+
+  it('typing "/" inserts the slash and opens the icon-grid menu', () => {
     const inserted = insertSlashChar(view);
     expect(inserted).toBe(true);
     expect(view.state.doc.toString()).toBe('/');
     expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
-    expect(view.dom.querySelectorAll('.mdb-slash-item').length).toBe(8);
+    const grid = view.dom.querySelector('.mdb-slash-grid-menu');
+    expect(grid).not.toBeNull();
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(8);
   });
 
   it('positions the menu relative to the editor origin, not the viewport (issue #203)', () => {
@@ -79,17 +98,26 @@ describe('slash commands', () => {
     expect(menu?.style.top).toBe('281px');
   });
 
-  it('applying the heading row opens the H1–H6 submenu, and choosing a level inserts it', () => {
+  it('applying the heading row opens the H1–H6 flyout beside the root grid, and choosing a level inserts it', () => {
     insertSlashChar(view);
-    // Heading is a submenu opener now: applying it opens the second level.
+    // Heading is a submenu opener: applying it opens the second level in a
+    // flyout while the root grid stays rendered.
     expect(slashMenuApply(view)).toBe(true);
     expect(view.state.doc.toString()).toBe('/');
-    expect(view.dom.querySelectorAll('.mdb-slash-item').length).toBe(6);
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(8);
 
-    slashMenuSelectNext(view); // H1 -> H2
+    const flyout = view.dom.querySelector('.mdb-slash-flyout');
+    expect(flyout).not.toBeNull();
+    const flyoutRows = view.dom.querySelectorAll('.mdb-slash-flyout-item');
+    expect(flyoutRows.length).toBe(6);
+    expect(flyoutRows[0].textContent).toContain('1 级标题');
+    expect(flyoutRows[5].textContent).toContain('6 级标题');
+
+    slashMenuSelectNext(view); // H1 -> H2 (flyout selection)
     slashMenuApply(view);
     expect(view.state.doc.toString()).toBe('## ');
     expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+    expect(view.dom.querySelector('.mdb-slash-flyout')).toBeNull();
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
   });
 
@@ -148,11 +176,90 @@ describe('slash commands', () => {
     expect(view.state.doc.toString()).toBe('/');
   });
 
-  it('typing any other character closes the menu and leaves the slash', () => {
+  it('typing filters the root grid instead of closing the menu', () => {
     insertSlashChar(view);
-    view.dispatch({ changes: { from: view.state.doc.length, insert: 'x' } });
+    const cells = () => view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item');
+
+    typeText('b');
+    expect(view.state.doc.toString()).toBe('/b');
+    expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
+    // 标题 / 表格 / 标注 all match pinyin initial b.
+    expect(cells().length).toBe(3);
+    expect(Array.from(cells()).map((cell) => cell.textContent?.trim())).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('标题'),
+        expect.stringContaining('表格'),
+        expect.stringContaining('标注'),
+      ]),
+    );
+
+    typeText('t'); // /bt → only 标题
+    expect(cells().length).toBe(1);
+    expect(cells()[0].textContent).toContain('标题');
+
+    backspace(); // /b
+    expect(cells().length).toBe(3);
+    backspace(); // /
+    expect(cells().length).toBe(8);
+  });
+
+  it('shows an empty state for a filter with no match, and a newline closes the menu', () => {
+    insertSlashChar(view);
+    typeText('zzz');
+    expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(0);
+    expect(view.dom.querySelector('.mdb-slash-empty')).not.toBeNull();
+
+    typeText('\n');
     expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
-    expect(view.state.doc.toString()).toBe('/x');
+  });
+
+  it('applying a filtered row replaces the slash and the typed query', () => {
+    insertSlashChar(view);
+    typeText('bt');
+    expect(view.state.doc.toString()).toBe('/bt');
+
+    expect(slashMenuApply(view)).toBe(true); // opens the 标题 flyout
+    expect(view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(6);
+    slashMenuSelectNext(view); // H2
+    slashMenuApply(view);
+
+    expect(view.state.doc.toString()).toBe('## ');
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+  });
+
+  it('Enter applies the selected filtered leaf row', () => {
+    insertSlashChar(view);
+    typeText('bz'); // only 标注
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(1);
+
+    expect(slashMenuApply(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe('> [!NOTE]\n> ');
+  });
+
+  it('ArrowRight opens the flyout and ArrowLeft closes it while the root grid stays', () => {
+    insertSlashChar(view);
+    expect(view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(0);
+
+    expect(slashMenuSubmenuEnter(view)).toBe(true);
+    expect(view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(6);
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(8);
+
+    expect(slashMenuSubmenuBack(view)).toBe(true);
+    expect(view.dom.querySelector('.mdb-slash-flyout')).toBeNull();
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(8);
+    expect(view.state.doc.toString()).toBe('/');
+  });
+
+  it('hovering a parent cell opens its flyout', () => {
+    insertSlashChar(view);
+    const headingCell = Array.from(
+      view.dom.querySelectorAll<HTMLElement>('.mdb-slash-grid-menu .mdb-slash-item'),
+    ).find((cell) => cell.textContent?.includes('标题'));
+    expect(headingCell).toBeDefined();
+
+    headingCell!.dispatchEvent(new MouseEvent('mouseenter'));
+    expect(view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(6);
   });
 
   it('ArrowDown/ArrowUp navigate the selected item', () => {

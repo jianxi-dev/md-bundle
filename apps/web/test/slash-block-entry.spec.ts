@@ -43,21 +43,28 @@ test('斜杠菜单按分组渲染（#250）', async ({ page }) => {
   await openEditor(page, '# Title\n\n')
   await typeSlashAtDocEnd(page)
 
+  // #279：分组标题挂在图标网格内部，根命令仍是 8 个图标单元格。
+  await expect(page.locator('.mdb-slash-grid-menu')).toBeVisible()
+  await expect(page.locator('.mdb-slash-grid-menu .mdb-slash-item')).toHaveCount(8)
   const groups = await page.locator('.mdb-slash-group').allInnerTexts()
   expect(groups).toContain('基础')
   expect(groups).toContain('常用')
   expect(groups).toContain('小组件')
 })
 
-test('「标题」打开 H1–H6 二级并插入所选级别（#250）', async ({ page }) => {
+test('「标题」打开 H1–H6 flyout 并插入所选级别（#279）', async ({ page }) => {
   await openEditor(page, '# Title\n\n')
   await typeSlashAtDocEnd(page)
 
   await page.locator('.mdb-slash-item').filter({ hasText: '标题' }).first().click()
-  const submenu = page.locator('.mdb-slash-item')
-  await expect(submenu).toHaveCount(6)
+  const flyout = page.locator('.mdb-slash-flyout')
+  await expect(flyout).toBeVisible()
+  const flyoutItems = flyout.locator('.mdb-slash-flyout-item')
+  await expect(flyoutItems).toHaveCount(6)
+  // 根网格未被替换（二级项以 flyout 展开，而不是就地替换根列表）。
+  await expect(page.locator('.mdb-slash-grid-menu .mdb-slash-item')).toHaveCount(8)
 
-  await page.locator('.mdb-slash-item').filter({ hasText: '2 级标题' }).first().click()
+  await flyoutItems.filter({ hasText: '2 级标题' }).first().click()
   await settle(page)
 
   const raw = await rawDoc(page)
