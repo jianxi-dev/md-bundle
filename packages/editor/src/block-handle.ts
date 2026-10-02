@@ -21,6 +21,8 @@ import {
   computeBlockDuplicate,
   computeBlockDelete,
   computeMinimalChange,
+  blockStillExists,
+  isBlockInViewport,
   type BlockConvertTarget,
 } from './block-handle-ops'
 
@@ -31,6 +33,8 @@ export {
   computeBlockDuplicate,
   computeBlockDelete,
   computeMinimalChange,
+  blockStillExists,
+  isBlockInViewport,
   type BlockConvertTarget,
   type MinimalChange,
 } from './block-handle-ops'
@@ -62,6 +66,7 @@ class BlockHandlePlugin {
   private justDragged = false
   private listening = false
   private dragOrigin = { x: 0, y: 0 }
+  private pointerInHandleOrMenu = false
 
   /** Escape must close the widget no matter where focus currently is. */
   private readonly onEscape = (): void => this.chrome.hideAll()
@@ -76,26 +81,53 @@ class BlockHandlePlugin {
 
     view.dom.addEventListener('mousemove', this.onMouseMove)
     view.dom.addEventListener('mouseleave', this.onMouseLeave)
-    view.scrollDOM.addEventListener('scroll', this.onScroll)
     this.chrome.handle.addEventListener('mousedown', this.onHandleMouseDown)
     this.chrome.handle.addEventListener('click', this.onHandleClick)
+    this.chrome.handle.addEventListener('mouseenter', this.onHandleMouseEnter)
+    this.chrome.handle.addEventListener('mouseleave', this.onHandleMouseLeave)
     this.chrome.menu.addEventListener('click', this.onMenuClick)
+    this.chrome.menu.addEventListener('mouseenter', this.onMenuMouseEnter)
+    this.chrome.menu.addEventListener('mouseleave', this.onMenuMouseLeave)
+  }
+
+  // Called by ViewPlugin after each scroll — viewport is guaranteed updated.
+  scroll(): void {
+    if (!this.currentBlock) return
+    if (isBlockInViewport(this.view, this.currentBlock)) {
+      this.showHandleAt(this.currentBlock.from)
+    } else {
+      this.chrome.hideHandle()
+      this.chrome.hideMenu()
+      this.currentBlock = null
+      this.menuBlock = null
+    }
   }
 
   update(update: ViewUpdate): void {
     if (!update.docChanged) return
-    this.chrome.hideAll()
-    // A document change under an active drag invalidates its offsets; abort it.
+
+    // Drag abort must ALWAYS run on doc change, regardless of handle state.
     if (currentDrag(update.state)) this.endDrag()
+
+    // Re-anchor: if tracked block still exists, reposition; else hide.
+    if (this.currentBlock && blockStillExists(update.state, this.currentBlock)) {
+      this.showHandleAt(this.currentBlock.from)
+    } else {
+      this.chrome.hideAll()
+      this.currentBlock = null
+    }
   }
 
   destroy(): void {
     this.view.dom.removeEventListener('mousemove', this.onMouseMove)
     this.view.dom.removeEventListener('mouseleave', this.onMouseLeave)
-    this.view.scrollDOM.removeEventListener('scroll', this.onScroll)
     this.chrome.handle.removeEventListener('mousedown', this.onHandleMouseDown)
     this.chrome.handle.removeEventListener('click', this.onHandleClick)
+    this.chrome.handle.removeEventListener('mouseenter', this.onHandleMouseEnter)
+    this.chrome.handle.removeEventListener('mouseleave', this.onHandleMouseLeave)
     this.chrome.menu.removeEventListener('click', this.onMenuClick)
+    this.chrome.menu.removeEventListener('mouseenter', this.onMenuMouseEnter)
+    this.chrome.menu.removeEventListener('mouseleave', this.onMenuMouseLeave)
     this.removeDocumentListeners()
     this.chrome.unmount()
   }
@@ -145,41 +177,105 @@ class BlockHandlePlugin {
 
   private onMouseMove = (event: MouseEvent): void => {
     if (currentDrag(this.view.state) || this.moved) return
-    const target = event.target
-    const overOwnUi =
-      target instanceof Node &&
-      (this.chrome.handle.contains(target) || this.chrome.menu.contains(target))
-    // An open menu (and the handle it hangs from) must never dismiss itself
-    // under the pointer that is travelling towards it.
-    if (overOwnUi || this.chrome.menu.style.display !== 'none') return
+
+    // If pointer is over our own UI (handle or menu), don't dismiss —
+    // the handle/menu mouseenter/leave handlers track this.
+    if (this.pointerInHandleOrMenu) return
+
+    // If menu is open, keep it and the handle visible
+    if (this.chrome.menu.style.display !== 'none') return
+
     const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY })
     if (pos === null) {
+      // Pointer over empty area (e.g. blank line). Keep current handle visible
+      // as long as the pointer is horizontally within the editor bounds.
+      // This creates the "sticky bridge" across vertical gaps.
+      if (this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) {
+        return
+      }
       this.chrome.hideAll()
+      this.currentBlock = null
       return
     }
+
     const block = findBlockAt(this.view.state, pos)
     if (!block) {
+      // Pointer over non-block area but posAtCoords returned a position.
+      // Keep current handle if horizontally in editor.
+      if (this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) {
+        return
+      }
       this.chrome.hideAll()
+      this.currentBlock = null
       return
     }
+
+    // New block hovered — update currentBlock and show handle
     this.currentBlock = block
     this.showHandleAt(block.from)
   }
 
+  private isPointerInEditorHorizontally(clientX: number): boolean {
+    const contentRect = this.view.contentDOM.getBoundingClientRect()
+    const handleLeft = contentRect.left - 22
+    const contentRight = contentRect.right
+    return clientX >= handleLeft && clientX <= contentRight
+  }
+
   private onMouseLeave = (event: MouseEvent): void => {
     if (currentDrag(this.view.state)) return
-    // The gutter handle sits outside view.dom's box, so moving onto it fires
-    // mouseleave and previously hid the handle mid-hover (#238).
+
+    // If pointer is moving to our own handle or menu, don't hide
     const to = event.relatedTarget
     if (to instanceof Node && (this.chrome.handle.contains(to) || this.chrome.menu.contains(to))) {
       return
     }
+
+    // If pointer is still horizontally within editor bounds, keep handle visible
+    // (covers gap-crossing and empty-line traversal).
+    if (this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) {
+      return
+    }
+
     this.chrome.hideAll()
+    this.currentBlock = null
   }
 
-  private onScroll = (): void => {
-    this.chrome.hideHandle()
-    this.chrome.hideMenu()
+  private onHandleMouseEnter = (): void => {
+    this.pointerInHandleOrMenu = true
+  }
+
+  private onHandleMouseLeave = (event: MouseEvent): void => {
+    this.pointerInHandleOrMenu = false
+    // If leaving handle but still horizontally in editor, keep visible
+    if (this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) {
+      return
+    }
+    // If menu is open, keep handle visible
+    if (this.chrome.menu.style.display !== 'none') return
+    this.chrome.hideAll()
+    this.currentBlock = null
+  }
+
+  private onMenuMouseEnter = (): void => {
+    this.pointerInHandleOrMenu = true
+  }
+
+  private onMenuMouseLeave = (event: MouseEvent): void => {
+    this.pointerInHandleOrMenu = false
+    // If leaving menu but still horizontally in editor, keep visible
+    const refBlock = this.menuBlock ?? this.currentBlock
+    if (refBlock && this.isPointerInEditorHorizontally(event.clientX)) {
+      return
+    }
+    // If moving back to handle, keep visible
+    const to = event.relatedTarget
+    if (to instanceof Node && this.chrome.handle.contains(to)) {
+      return
+    }
+    this.chrome.hideAll()
+    this.currentBlock = null
+    this.menuBlock = null
   }
 
   // --- Drag ------------------------------------------------------------------

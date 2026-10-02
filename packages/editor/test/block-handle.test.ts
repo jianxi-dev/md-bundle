@@ -330,10 +330,12 @@ describe('blockHandle lifecycle', () => {
     expect(changeDispatchCount(dispatchSpy)).toBe(1)
   })
 
-  it('hides the handle when the editor scrolls away', () => {
+  it('re-anchors the handle on scroll when block stays in viewport', () => {
     hover(PARAGRAPH_POS)
     view.scrollDOM.dispatchEvent(new Event('scroll'))
-    expect(handleEl().style.display).toBe('none')
+    // In jsdom there is no real viewport change; the block remains in viewport,
+    // so the handle should stay visible (re-anchor behavior).
+    expect(handleEl().style.display).not.toBe('none')
   })
 
   it('drag shows a blue insertion line and reorders the block in one transaction', () => {
