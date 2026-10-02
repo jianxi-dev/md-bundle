@@ -7,9 +7,9 @@
  * the selection surface — `context-toolbar`'s `text-selected` returns `[]`
  * (#233 contract) and this plugin owns the selection toolbar.
  *
- * The item shape supports a `kind` discriminator (`'button'` | `'dropdown'`)
- * so later tickets (font / align / color / columns) can add dropdown
- * controls without reworking the render path.
+ * The item shape supports a `kind` discriminator (`'button'` | `'dropdown'` |
+ * `'color'` | `'columns'`) so later tickets (font / align / color / columns)
+ * can add dropdown controls without reworking the render path.
  *
  * Architecture:
  * - A ViewPlugin listens for selection changes via EditorView.updateListener.
@@ -44,12 +44,16 @@ export interface FloatingToolbarItem {
    * `'dropdown'` renders a button that opens a submenu of options.
    * `'color'` renders a button that opens the dual-palette color popup
    * (`color` field, ticket #278).
+   * `'columns'` renders a button that opens the visual bar picker for 1..N
+   * columns (`columns` field, ticket #290).
    */
-  readonly kind?: 'button' | 'dropdown' | 'color';
+  readonly kind?: 'button' | 'dropdown' | 'color' | 'columns';
   /** Submenu options for dropdown controls. */
   readonly options?: readonly DropdownOption[];
   /** Dual-palette rows for color-popup controls. */
   readonly color?: ColorPopupOptions;
+  /** Bar-picker bounds for column controls. */
+  readonly columns?: ColumnsPopupOptions;
 }
 
 /**
@@ -63,6 +67,15 @@ export interface ColorPopupOptions {
   readonly background: readonly DropdownOption[];
   /** 恢复默认 action — clears both wrappers on the selection. */
   readonly reset: DropdownOption;
+}
+
+/**
+ * Bounds of the `kind: 'columns'` visual picker (ticket #290): the popup
+ * renders one clickable bar group per count from 1 to `max`.
+ */
+export interface ColumnsPopupOptions {
+  /** Highest selectable column count (1..max groups rendered). */
+  readonly max: number;
 }
 
 export interface DropdownOption {
@@ -145,15 +158,8 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
     commandId: 'col-2',
     label: '分栏',
     icon: '分栏',
-    kind: 'dropdown',
-    options: [
-      { commandId: 'col-1', label: '1 栏' },
-      { commandId: 'col-2', label: '2 栏' },
-      { commandId: 'col-3', label: '3 栏' },
-      { commandId: 'col-4', label: '4 栏' },
-      { commandId: 'col-5', label: '5 栏' },
-      { commandId: 'col-clear', label: '清除' },
-    ],
+    kind: 'columns',
+    columns: { max: 5 },
   },
   { commandId: 'code-copy', label: '复制', icon: '复制' },
   {
@@ -489,6 +495,117 @@ function createColorPopupItemDom(
   return container;
 }
 
+function createColumnBarButtonDom(
+  view: EditorView,
+  count: number,
+  closeMenu: () => void,
+): HTMLButtonElement {
+  const optionBtn = document.createElement('button');
+  optionBtn.className = 'mdb-column-option';
+  optionBtn.dataset.columns = String(count);
+  optionBtn.title = `${count} 栏`;
+  optionBtn.setAttribute('aria-label', optionBtn.title);
+  optionBtn.style.display = 'flex';
+  optionBtn.style.alignItems = 'center';
+  optionBtn.style.justifyContent = 'center';
+  optionBtn.style.gap = '2px';
+  optionBtn.style.width = '100%';
+  optionBtn.style.height = '26px';
+  optionBtn.style.padding = '0 8px';
+  optionBtn.style.background = 'transparent';
+  optionBtn.style.border = 'none';
+  optionBtn.style.borderRadius = '4px';
+  optionBtn.style.cursor = 'pointer';
+
+  const bars: HTMLSpanElement[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const bar = document.createElement('span');
+    bar.className = 'mdb-column-bar';
+    bar.style.width = '3px';
+    bar.style.height = '14px';
+    bar.style.borderRadius = '1px';
+    bar.style.background = 'var(--mdb-text-secondary)';
+    bars.push(bar);
+    optionBtn.appendChild(bar);
+  }
+
+  function highlight(on: boolean): void {
+    optionBtn.style.background = on ? 'var(--mdb-selection)' : 'transparent';
+    for (const bar of bars) {
+      bar.style.background = on ? 'var(--mdb-text)' : 'var(--mdb-text-secondary)';
+    }
+  }
+
+  optionBtn.addEventListener('mouseenter', () => highlight(true));
+  optionBtn.addEventListener('mouseleave', () => highlight(false));
+
+  optionBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    commandRegistry.execute(`col-${count}`, view);
+    closeMenu();
+  });
+
+  return optionBtn;
+}
+
+/**
+ * Visual column-count picker (ticket #290): one trigger (title 分栏) whose panel
+ * shows a clickable bar group per count — N vertical bars for N columns — plus
+ * a 清除 action. Replaces the former text dropdown (#263).
+ */
+function createColumnsItemDom(
+  view: EditorView,
+  item: FloatingToolbarItem,
+  cmd: Command,
+): HTMLDivElement {
+  const container = document.createElement('div');
+  container.className = 'mdb-toolbar-dropdown';
+  container.style.position = 'relative';
+  container.style.display = 'inline-flex';
+
+  const btn = document.createElement('button');
+  btn.className = 'mdb-toolbar-btn mdb-toolbar-dropdown-btn';
+  const label = item.label ?? cmd.label;
+  const icon = item.icon ?? cmd.icon;
+  btn.textContent = `${icon ?? label} ▾`;
+  btn.title = label;
+  applyToolbarButtonStyle(btn);
+  wireHoverHighlight(btn);
+
+  const menu = document.createElement('div');
+  menu.className = 'mdb-toolbar-dropdown-menu mdb-toolbar-columns-menu';
+  stylePopupMenu(menu);
+  menu.style.minWidth = '110px';
+
+  const { closeMenu } = wirePopup(container, btn, menu);
+
+  if (item.columns) {
+    for (let count = 1; count <= item.columns.max; count += 1) {
+      if (!commandRegistry.has(`col-${count}`)) continue;
+      menu.appendChild(createColumnBarButtonDom(view, count, closeMenu));
+    }
+
+    const clearCmd = commandRegistry.all().find((c) => c.id === 'col-clear');
+    if (clearCmd) {
+      menu.appendChild(
+        createOptionButtonDom(
+          view,
+          { commandId: 'col-clear', label: '清除' },
+          clearCmd,
+          closeMenu,
+          'mdb-columns-clear',
+        ),
+      );
+    }
+  }
+
+  container.appendChild(btn);
+  container.appendChild(menu);
+
+  return container;
+}
+
 function createToolbarDom(
   view: EditorView,
   items: readonly FloatingToolbarItem[],
@@ -510,6 +627,8 @@ function createToolbarDom(
     if (!cmd) continue;
     if (item.kind === 'color' && item.color) {
       toolbar.appendChild(createColorPopupItemDom(view, item, cmd));
+    } else if (item.kind === 'columns' && item.columns) {
+      toolbar.appendChild(createColumnsItemDom(view, item, cmd));
     } else if (item.kind === 'dropdown' && item.options && item.options.length > 0) {
       toolbar.appendChild(createDropdownItemDom(view, item, cmd));
     } else {

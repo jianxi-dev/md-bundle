@@ -47,20 +47,25 @@ async function rawDoc(page: Page): Promise<string> {
   return text
 }
 
+/** Open the 分栏 visual picker and click the bar group for `count` columns. */
+async function pickColumnBar(page: Page, count: number): Promise<void> {
+  const colButton = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
+  await expect(colButton).toBeVisible()
+  await colButton.click()
+  await settle(page)
+
+  const option = page.locator(`.mdb-toolbar-columns-menu .mdb-column-option[data-columns="${count}"]`)
+  await expect(option).toBeVisible()
+  await option.click()
+  await settle(page)
+}
+
 test.describe('分栏 1–5 栏：源码含 {.col-N} + 预览渲染 grid-template-columns', () => {
   test('5 栏：源码含 {.col-5} 且预览 grid-template-columns 有 5 轨', async ({ page }) => {
     await openEditor(page)
     await selectWord(page, 'UNIQUEMARKER')
 
-    const colDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
-    await expect(colDropdown).toBeVisible()
-    await colDropdown.click()
-    await settle(page)
-
-    const col5Option = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '5 栏' }).first()
-    await expect(col5Option).toBeVisible()
-    await col5Option.click()
-    await settle(page)
+    await pickColumnBar(page, 5)
 
     // Verify source contains {.col-5}
     let raw = await rawDoc(page)
@@ -89,15 +94,7 @@ test.describe('分栏 1–5 栏：源码含 {.col-N} + 预览渲染 grid-templat
     await openEditor(page)
     await selectWord(page, 'UNIQUEMARKER')
 
-    const colDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
-    await expect(colDropdown).toBeVisible()
-    await colDropdown.click()
-    await settle(page)
-
-    const col1Option = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '1 栏' }).first()
-    await expect(col1Option).toBeVisible()
-    await col1Option.click()
-    await settle(page)
+    await pickColumnBar(page, 1)
 
     // Verify source contains {.col-1}
     let raw = await rawDoc(page)

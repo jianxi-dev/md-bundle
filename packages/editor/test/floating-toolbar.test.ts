@@ -98,6 +98,27 @@ function clickColorReset(view: ReturnType<typeof createMarkdownEditor>['view']):
   reset.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
 }
 
+/** Open the 分栏 popup and click the bar group for `count` columns. */
+function clickColumnBar(
+  view: ReturnType<typeof createMarkdownEditor>['view'],
+  count: number,
+): void {
+  const btn = view.dom.querySelector<HTMLButtonElement>(
+    `.mdb-floating-toolbar .mdb-column-option[data-columns="${count}"]`,
+  );
+  if (!btn) throw new Error(`column bar option ${count} not found`);
+  btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+}
+
+/** Click 清除 inside the 分栏 popup. */
+function clickColumnsClear(view: ReturnType<typeof createMarkdownEditor>['view']): void {
+  const clear = view.dom.querySelector<HTMLButtonElement>(
+    '.mdb-floating-toolbar .mdb-columns-clear',
+  );
+  if (!clear) throw new Error('columns clear button not found');
+  clear.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+}
+
 /** Select `word` in the editor by dispatching a range over its first occurrence. */
 function selectWord(
   view: ReturnType<typeof createMarkdownEditor>['view'],
@@ -465,6 +486,63 @@ describe('floating toolbar: alignment dropdown (ticket #262)', () => {
     expect(commandRegistry.has('align-clear')).toBe(true);
     // Call clearBlockAlignment directly
     clearBlockAlignment(view);
+    expect(view.state.doc.toString()).toBe('Hello world');
+  });
+});
+
+describe('floating toolbar: columns bar picker (ticket #290)', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent, { extensions: [floatingToolbar()] }).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+    removeClipboard();
+  });
+
+  it('分栏 popup renders 1..5 bar groups (N bars for N columns) and 清除', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '分栏');
+    const menu = view.dom.querySelector<HTMLDivElement>('.mdb-toolbar-columns-menu');
+    expect(menu).not.toBeNull();
+    expect(menu?.style.display).toBe('flex');
+    const options = Array.from(
+      view.dom.querySelectorAll<HTMLButtonElement>('.mdb-toolbar-columns-menu .mdb-column-option'),
+    );
+    expect(options.map((o) => o.dataset.columns)).toEqual(['1', '2', '3', '4', '5']);
+    expect(options.map((o) => o.querySelectorAll('.mdb-column-bar').length)).toEqual([1, 2, 3, 4, 5]);
+    expect(view.dom.querySelector('.mdb-toolbar-columns-menu .mdb-columns-clear')?.textContent).toBe(
+      '清除',
+    );
+  });
+
+  it('clicking the 3rd bar group wraps the block in {.col-3}', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '分栏');
+    clickColumnBar(view, 3);
+    expect(view.state.doc.toString()).toBe('::: {.col-3}\nHello world\n:::');
+  });
+
+  it('clicking the 5th bar group wraps the block in {.col-5}', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '分栏');
+    clickColumnBar(view, 5);
+    expect(view.state.doc.toString()).toBe('::: {.col-5}\nHello world\n:::');
+  });
+
+  it('清除 removes the column wrapper', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '分栏');
+    clickColumnBar(view, 3);
+    clickBtn(view, '分栏');
+    clickColumnsClear(view);
     expect(view.state.doc.toString()).toBe('Hello world');
   });
 });
