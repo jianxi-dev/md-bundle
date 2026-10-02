@@ -196,3 +196,36 @@ export function computeMinimalChange(oldText: string, next: string): MinimalChan
   }
   return { from, to: oldEnd, insert: next.slice(from, newEnd) }
 }
+
+/**
+ * Return the glyph/icon for a block handle based on the block's type and state.
+ * Pure and total over BlockType — adding a new BlockType will cause a type error
+ * if not handled here.
+ */
+export function blockHandleIcon(block: Block): string {
+  switch (block.type) {
+    case 'heading':
+      return block.level !== undefined ? `H${block.level}` : 'H'
+    case 'task':
+      return block.checked ? '☑' : '☐'
+    case 'blockquote':
+      return '❝'
+    case 'fencedCode':
+    case 'codeBlock':
+      return '</>'
+    case 'list':
+      return '≡'
+    case 'table':
+      return '▦'
+    case 'thematicBreak':
+      return '—'
+    case 'image':
+      return '▣'
+    case 'htmlBlock':
+      return '</>'
+    case 'paragraph':
+    case 'yamlFrontMatter':
+    default:
+      return '⠿'
+  }
+}
