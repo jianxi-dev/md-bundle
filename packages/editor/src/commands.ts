@@ -19,6 +19,7 @@ import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { getBlockAt, getBlocks } from './block-model';
 import { toggleStructureLinter } from './structure-linter-extension';
+import { computeBlockTurnInto, computeMinimalChange, type BlockTurnIntoTarget } from './block-handle-ops';
 
 // --- Wrapping helpers (toggle-aware) ----------------------------------------
 
@@ -1151,6 +1152,79 @@ export function registerEditorCommands(): void {
       clearBlockColumns(view);
     },
   });
+
+  // --- Turn-into commands (ticket #277 task 3.1) ------------------------------
+
+  /**
+   * Execute a turn-into command on the block(s) spanned by the selection.
+   * Expands partial selection to the whole block, unions multi-block selections,
+   * and applies computeBlockTurnInto with minimal change dispatch.
+   */
+  function executeTurnInto(view: EditorView, target: BlockTurnIntoTarget): boolean {
+    const { state } = view;
+    const { main } = state.selection;
+
+    // Empty selection → no-op (guard)
+    if (main.empty) return false;
+
+    // Use main.from for non-empty selection (guaranteed inside the block);
+    // main.head can land on the exclusive end of a half-open block range.
+    const pos = main.from;
+    const blocks = getBlocks(state);
+    const firstBlock = getBlockAt(pos, blocks);
+
+    if (!firstBlock) return false;
+
+    // Find all blocks that intersect the selection range [main.from, main.to)
+    const selectedBlocks = blocks.filter(
+      (b) => b.to > main.from && b.from < main.to,
+    );
+
+    // Union the block range: from first block's from to last block's to
+    const unionFrom = selectedBlocks[0].from;
+    const unionTo = selectedBlocks[selectedBlocks.length - 1].to;
+
+    const docText = state.doc.toString();
+    const nextText = computeBlockTurnInto(docText, unionFrom, unionTo, target);
+
+    // No change → no-op
+    if (nextText === docText) return false;
+
+    const change = computeMinimalChange(docText, nextText);
+    view.dispatch({
+      changes: { from: change.from, to: change.to, insert: change.insert },
+      // Keep selection anchored at the start of the changed range
+      selection: { anchor: change.from, head: change.from + change.insert.length },
+    });
+    return true;
+  }
+
+  const TURN_INTO_TARGETS: readonly { id: string; label: string; target: BlockTurnIntoTarget }[] = [
+    { id: 'turn-into-h1', label: '一级标题', target: 'h1' },
+    { id: 'turn-into-h2', label: '二级标题', target: 'h2' },
+    { id: 'turn-into-h3', label: '三级标题', target: 'h3' },
+    { id: 'turn-into-h4', label: '四级标题', target: 'h4' },
+    { id: 'turn-into-h5', label: '五级标题', target: 'h5' },
+    { id: 'turn-into-h6', label: '六级标题', target: 'h6' },
+    { id: 'turn-into-paragraph', label: '正文', target: 'paragraph' },
+    { id: 'turn-into-list', label: '列表', target: 'list' },
+    { id: 'turn-into-task', label: '任务', target: 'task' },
+    { id: 'turn-into-quote', label: '引用', target: 'quote' },
+    { id: 'turn-into-code', label: '代码', target: 'code' },
+    { id: 'turn-into-callout', label: '高亮', target: 'callout' },
+    { id: 'turn-into-table', label: '表格', target: 'table' },
+  ];
+
+  for (const { id, label, target } of TURN_INTO_TARGETS) {
+    commandRegistry.register({
+      id,
+      label,
+      group: '块',
+      execute: (view) => {
+        executeTurnInto(view, target);
+      },
+    });
+  }
 }
 
 // Auto-register on module load.
