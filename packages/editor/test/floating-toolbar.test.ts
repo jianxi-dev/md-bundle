@@ -76,6 +76,28 @@ function clickDropdownOption(view: ReturnType<typeof createMarkdownEditor>['view
   targetOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
 }
 
+/** Click a swatch in the 颜色 popup by row variant (`text` / `bg`) + tooltip. */
+function clickColorSwatch(
+  view: ReturnType<typeof createMarkdownEditor>['view'],
+  variant: 'text' | 'bg',
+  title: string,
+): void {
+  const swatch = view.dom.querySelector<HTMLButtonElement>(
+    `.mdb-floating-toolbar .mdb-color-swatch-${variant}[title="${title}"]`,
+  );
+  if (!swatch) throw new Error(`color swatch ${variant} title="${title}" not found`);
+  swatch.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+}
+
+/** Click 恢复默认 inside the 颜色 popup. */
+function clickColorReset(view: ReturnType<typeof createMarkdownEditor>['view']): void {
+  const reset = view.dom.querySelector<HTMLButtonElement>(
+    '.mdb-floating-toolbar .mdb-color-reset',
+  );
+  if (!reset) throw new Error('color reset button not found');
+  reset.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+}
+
 /** Select `word` in the editor by dispatching a range over its first occurrence. */
 function selectWord(
   view: ReturnType<typeof createMarkdownEditor>['view'],
@@ -88,7 +110,7 @@ function selectWord(
   view.dispatch({ selection: { anchor: start, head: start + word.length } });
 }
 
-describe('floating toolbar: data-driven 7-control set (ticket #260)', () => {
+describe('floating toolbar: data-driven 11-control set (ticket #260)', () => {
   let parent: HTMLElement;
   let view: ReturnType<typeof createMarkdownEditor>['view'];
 
@@ -105,13 +127,12 @@ describe('floating toolbar: data-driven 7-control set (ticket #260)', () => {
     removeClipboard();
   });
 
-  it('renders exactly the 12 inline-format controls with Chinese tooltips', () => {
+  it('renders exactly the 11 inline-format controls with Chinese tooltips', () => {
     selectWord(view, 'Hello world', 'Hello');
     const buttons = Array.from(
       view.dom.querySelectorAll<HTMLButtonElement>('.mdb-floating-toolbar .mdb-toolbar-btn, .mdb-floating-toolbar .mdb-toolbar-dropdown-btn'),
     );
     expect(buttons.map((b) => b.title)).toEqual([
-      '字体',
       '颜色',
       '对齐',
       '加粗',
@@ -124,6 +145,8 @@ describe('floating toolbar: data-driven 7-control set (ticket #260)', () => {
       '复制',
       '转换',
     ]);
+    // The 字体 control was removed in #278.
+    expect(buttons.map((b) => b.title)).not.toContain('字体');
   });
 
   it('does NOT hardcode commands — every button dispatches a registered command id', () => {
@@ -273,7 +296,7 @@ describe('floating toolbar: data-driven items option (ticket #260)', () => {
   });
 });
 
-describe('floating toolbar: font/color dropdowns (ticket #261)', () => {
+describe('floating toolbar: color popup (ticket #278)', () => {
   let parent: HTMLElement;
   let view: ReturnType<typeof createMarkdownEditor>['view'];
 
@@ -290,84 +313,70 @@ describe('floating toolbar: font/color dropdowns (ticket #261)', () => {
     removeClipboard();
   });
 
-  it('字体 dropdown opens and applies 衬线', () => {
+  it('颜色 popup opens with 字体色/背景色 swatch rows and 恢复默认', () => {
     selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '字体', '衬线');
-    expect(view.state.doc.toString()).toContain('<span class="mdb-font-serif">Hello</span>');
+    clickBtn(view, '颜色');
+    const menu = view.dom.querySelector<HTMLDivElement>('.mdb-toolbar-color-menu');
+    expect(menu).not.toBeNull();
+    expect(menu?.style.display).toBe('flex');
+    const labels = Array.from(
+      view.dom.querySelectorAll('.mdb-toolbar-color-menu .mdb-color-row-label'),
+    ).map((el) => el.textContent);
+    expect(labels).toEqual(['字体色', '背景色']);
+    expect(view.dom.querySelectorAll('.mdb-toolbar-color-menu .mdb-color-swatch-text')).toHaveLength(5);
+    expect(view.dom.querySelectorAll('.mdb-toolbar-color-menu .mdb-color-swatch-bg')).toHaveLength(5);
+    expect(view.dom.querySelector('.mdb-toolbar-color-menu .mdb-color-reset')?.textContent).toBe(
+      '恢复默认',
+    );
   });
 
-  it('字体 dropdown applies 等宽', () => {
+  it('字体色 swatch applies 红色 (mdb-color-red)', () => {
     selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '字体', '等宽');
-    expect(view.state.doc.toString()).toContain('<span class="mdb-font-mono">Hello</span>');
-  });
-
-  it('字体 dropdown applies 无衬线', () => {
-    selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '字体', '无衬线');
-    expect(view.state.doc.toString()).toContain('<span class="mdb-font-sans">Hello</span>');
-  });
-
-  it('字体 dropdown 无 removes font span', () => {
-    selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '字体', '衬线');
-    clickDropdownOption(view, '字体', '无');
-    expect(view.state.doc.toString()).not.toContain('mdb-font-');
-    expect(view.state.doc.toString()).toContain('Hello');
-  });
-
-  it('颜色 dropdown opens and applies 红色', () => {
-    selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '颜色', '红色');
+    clickColorSwatch(view, 'text', '红色');
     expect(view.state.doc.toString()).toContain('<span class="mdb-color-red">Hello</span>');
   });
 
-  it('颜色 dropdown applies 蓝色', () => {
+  it('字体色 switching replaces the span class', () => {
     selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '颜色', '蓝色');
+    clickColorSwatch(view, 'text', '红色');
+    clickColorSwatch(view, 'text', '蓝色');
+    expect(view.state.doc.toString()).not.toContain('mdb-color-red');
     expect(view.state.doc.toString()).toContain('<span class="mdb-color-blue">Hello</span>');
   });
 
-  it('颜色 dropdown applies 绿色', () => {
+  it('背景色 swatch applies 蓝色 (mdb-bg-blue)', () => {
     selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '颜色', '绿色');
-    expect(view.state.doc.toString()).toContain('<span class="mdb-color-green">Hello</span>');
+    clickColorSwatch(view, 'bg', '蓝色');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-bg-blue">Hello</span>');
   });
 
-  it('颜色 dropdown applies 橙色', () => {
+  it('背景色 toggles off on second click', () => {
     selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '颜色', '橙色');
-    expect(view.state.doc.toString()).toContain('<span class="mdb-color-orange">Hello</span>');
-  });
-
-  it('颜色 dropdown applies 紫色', () => {
-    selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '颜色', '紫色');
-    expect(view.state.doc.toString()).toContain('<span class="mdb-color-purple">Hello</span>');
-  });
-
-  it('颜色 dropdown 清除 removes color span', () => {
-    selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '颜色', '红色');
-    clickDropdownOption(view, '颜色', '清除');
-    expect(view.state.doc.toString()).not.toContain('mdb-color-');
+    clickColorSwatch(view, 'bg', '绿色');
+    clickColorSwatch(view, 'bg', '绿色');
+    expect(view.state.doc.toString()).not.toContain('mdb-bg-');
     expect(view.state.doc.toString()).toContain('Hello');
   });
 
-  it('switching font family replaces the span class', () => {
+  it('字体色 and 背景色 coexist on the same selection', () => {
     selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '字体', '衬线');
-    clickDropdownOption(view, '字体', '等宽');
-    expect(view.state.doc.toString()).not.toContain('mdb-font-serif');
-    expect(view.state.doc.toString()).toContain('<span class="mdb-font-mono">Hello</span>');
+    clickColorSwatch(view, 'text', '红色');
+    clickColorSwatch(view, 'bg', '蓝色');
+    const doc = view.state.doc.toString();
+    expect(doc).toContain('mdb-color-red');
+    expect(doc).toContain('mdb-bg-blue');
+    expect(doc).toContain('Hello');
   });
 
-  it('switching color replaces the span class', () => {
+  it('恢复默认 removes both text and background wrappers', () => {
     selectWord(view, 'Hello world', 'Hello');
-    clickDropdownOption(view, '颜色', '红色');
-    clickDropdownOption(view, '颜色', '蓝色');
-    expect(view.state.doc.toString()).not.toContain('mdb-color-red');
-    expect(view.state.doc.toString()).toContain('<span class="mdb-color-blue">Hello</span>');
+    clickColorSwatch(view, 'text', '红色');
+    clickColorSwatch(view, 'bg', '蓝色');
+    clickColorReset(view);
+    const doc = view.state.doc.toString();
+    expect(doc).not.toContain('mdb-color-');
+    expect(doc).not.toContain('mdb-bg-');
+    expect(doc).toContain('Hello');
   });
 });
 

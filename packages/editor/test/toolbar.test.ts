@@ -298,7 +298,7 @@ describe('floating toolbar Chinese labels (ticket #192 / #260 / #262)', () => {
     parent.remove();
   });
 
-  it('renders the twelve default inline-format actions with Chinese tooltips only', () => {
+  it('renders the eleven default inline-format actions with Chinese tooltips only', () => {
     view.dispatch({
       changes: { from: 0, insert: 'Hello world' },
       selection: { anchor: 0, head: 5 },
@@ -308,7 +308,6 @@ describe('floating toolbar Chinese labels (ticket #192 / #260 / #262)', () => {
       view.dom.querySelectorAll<HTMLButtonElement>('.mdb-floating-toolbar .mdb-toolbar-btn, .mdb-floating-toolbar .mdb-toolbar-dropdown-btn'),
     );
     expect(buttons.map((btn) => btn.title)).toEqual([
-      '字体',
       '颜色',
       '对齐',
       '加粗',

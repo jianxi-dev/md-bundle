@@ -144,6 +144,42 @@ describe('editorDecorations', () => {
       expect(strong).not.toBeNull();
       expect(strong?.textContent).toBe('bold');
     });
+
+    it('hides mdb-bg-* span tags and applies the cm-bg-* class (#278)', () => {
+      view = createMarkdownEditor(parent, {
+        value: 'A <span class="mdb-bg-blue">tinted</span> B',
+        extensions: [editorDecorations()],
+      }).view;
+
+      const tinted = view.dom.querySelector('.cm-bg-blue');
+      expect(tinted).not.toBeNull();
+      expect(tinted?.textContent).toBe('tinted');
+      expect(view.state.doc.toString()).toBe('A <span class="mdb-bg-blue">tinted</span> B');
+    });
+
+    it('still hides mdb-color-* span tags and applies the cm-color-* class', () => {
+      view = createMarkdownEditor(parent, {
+        value: 'A <span class="mdb-color-green">green</span> B',
+        extensions: [editorDecorations()],
+      }).view;
+
+      const green = view.dom.querySelector('.cm-color-green');
+      expect(green).not.toBeNull();
+      expect(green?.textContent).toBe('green');
+      expect(view.state.doc.toString()).toBe('A <span class="mdb-color-green">green</span> B');
+    });
+
+    it('still hides mdb-font-* span tags and applies the cm-font-* class', () => {
+      view = createMarkdownEditor(parent, {
+        value: 'A <span class="mdb-font-serif">serif</span> B',
+        extensions: [editorDecorations()],
+      }).view;
+
+      const serif = view.dom.querySelector('.cm-font-serif');
+      expect(serif).not.toBeNull();
+      expect(serif?.textContent).toBe('serif');
+      expect(view.state.doc.toString()).toBe('A <span class="mdb-font-serif">serif</span> B');
+    });
   });
 
   // --- List decorations ---

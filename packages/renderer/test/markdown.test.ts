@@ -15,7 +15,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
-import { calloutTypeMap, renderMarkdown } from '../src/index';
+import { calloutTypeMap, readerCssText, renderMarkdown } from '../src/index';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const EVIDENCE_PATH = join(HERE, '..', 'test-results', 'markdown.json');
@@ -348,6 +348,45 @@ describe('font/color class preservation (ticket #261)', () => {
     expect(html).toContain('Hello');
   });
 
+  it('preserves mdb-bg-red class in output', () => {
+    const html = renderMarkdown('<span class="mdb-bg-red">Hello</span>');
+    expect(html).toContain('class="mdb-bg-red"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-bg-blue class in output', () => {
+    const html = renderMarkdown('<span class="mdb-bg-blue">Hello</span>');
+    expect(html).toContain('class="mdb-bg-blue"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-bg-green class in output', () => {
+    const html = renderMarkdown('<span class="mdb-bg-green">Hello</span>');
+    expect(html).toContain('class="mdb-bg-green"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-bg-orange class in output', () => {
+    const html = renderMarkdown('<span class="mdb-bg-orange">Hello</span>');
+    expect(html).toContain('class="mdb-bg-orange"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves mdb-bg-purple class in output', () => {
+    const html = renderMarkdown('<span class="mdb-bg-purple">Hello</span>');
+    expect(html).toContain('class="mdb-bg-purple"');
+    expect(html).toContain('Hello');
+  });
+
+  it('preserves nested text color + background color spans', () => {
+    const html = renderMarkdown(
+      '<span class="mdb-bg-blue"><span class="mdb-color-red">Both</span></span>',
+    );
+    expect(html).toContain('class="mdb-bg-blue"');
+    expect(html).toContain('class="mdb-color-red"');
+    expect(html).toContain('Both');
+  });
+
   it('preserves multiple font/color spans in output', () => {
     const html = renderMarkdown(
       '<span class="mdb-font-serif">Serif</span> <span class="mdb-color-red">Red</span>',
@@ -359,8 +398,28 @@ describe('font/color class preservation (ticket #261)', () => {
   });
 });
 
+describe('background color rules in readerCssText (ticket #278)', () => {
+  it('light theme ships .mdb-bg-* rules with background-color', () => {
+    for (const color of ['red', 'blue', 'green', 'orange', 'purple']) {
+      const selector = `[data-theme='light'] .preview-content .mdb-bg-${color}`;
+      expect(readerCssText).toContain(selector);
+      const block = readerCssText.slice(readerCssText.indexOf(selector));
+      expect(block.slice(0, block.indexOf('}'))).toContain('background-color:');
+    }
+  });
+
+  it('dark theme ships .mdb-bg-* rules with background-color', () => {
+    for (const color of ['red', 'blue', 'green', 'orange', 'purple']) {
+      const selector = `[data-theme='dark'] .preview-content .mdb-bg-${color}`;
+      expect(readerCssText).toContain(selector);
+      const block = readerCssText.slice(readerCssText.indexOf(selector));
+      expect(block.slice(0, block.indexOf('}'))).toContain('background-color:');
+    }
+  });
+});
+
 afterAll(() => {
-  facts.tests = 24;
+  facts.tests = 41;
   mkdirSync(dirname(EVIDENCE_PATH), { recursive: true });
   writeFileSync(EVIDENCE_PATH, JSON.stringify(facts, null, 2));
 });

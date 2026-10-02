@@ -51,19 +51,19 @@ async function rawDoc(page: Page): Promise<string> {
   return text
 }
 
-test.describe('选区浮条：11 控件 + 字体/颜色/对齐/转换下拉 + 切换（#261 + #262 + #277）', () => {
-  test('选中文本后浮条出现 12 个控件', async ({ page }) => {
+test.describe('选区浮条：11 控件 + 颜色弹出面板/对齐/转换 + 切换（#261 + #262 + #277 + #278）', () => {
+  test('选中文本后浮条出现 11 个控件（无字体控件）', async ({ page }) => {
     await openEditor(page)
     await selectWord(page, 'UNIQUEMARKER')
 
     const toolbar = page.locator('.mdb-floating-toolbar')
     await expect(toolbar).toBeVisible()
     const buttons = toolbar.locator('.mdb-toolbar-btn, .mdb-toolbar-dropdown-btn')
-    await expect(buttons).toHaveCount(12)
+    await expect(buttons).toHaveCount(11)
     const titles = await buttons.evaluateAll((els) =>
       els.map((e) => (e as HTMLButtonElement).title),
     )
-    expect(titles).toEqual(['字体', '颜色', '对齐', '加粗', '删除线', '斜体', '下划线', '插入链接', '行内代码', '分栏', '复制', '转换'])
+    expect(titles).toEqual(['颜色', '对齐', '加粗', '删除线', '斜体', '下划线', '插入链接', '行内代码', '分栏', '复制', '转换'])
   })
 
   test('删除线 applies ~~…~~ and toggles off on second click', async ({ page }) => {
@@ -118,59 +118,31 @@ test.describe('选区浮条：11 控件 + 字体/颜色/对齐/转换下拉 + �
     expect(clip).toContain('UNIQUEMARKER')
   })
 
-  test('字体 dropdown applies 衬线 and toggles off', async ({ page }) => {
+  test('颜色弹出面板：字体色红色 + 恢复默认', async ({ page }) => {
     await openEditor(page)
     await selectWord(page, 'UNIQUEMARKER')
 
-    const fontDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="字体"]')
-    await expect(fontDropdown).toBeVisible()
-    await fontDropdown.click()
+    const colorBtn = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="颜色"]')
+    await expect(colorBtn).toBeVisible()
+    await colorBtn.click()
     await settle(page)
 
-    const serifOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '衬线' }).first()
-    await expect(serifOption).toBeVisible()
-    await serifOption.click()
-    await settle(page)
-
-    let raw = await rawDoc(page)
-    expect(raw).toContain('<span class="mdb-font-serif">UNIQUEMARKER</span>')
-
-    await selectWord(page, 'UNIQUEMARKER')
-    await fontDropdown.click()
-    await settle(page)
-    const clearOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '无' }).first()
-    await expect(clearOption).toBeVisible()
-    await clearOption.click()
-    await settle(page)
-
-    raw = await rawDoc(page)
-    expect(raw).not.toContain('mdb-font-')
-    expect(raw).toContain('UNIQUEMARKER')
-  })
-
-  test('颜色 dropdown applies 红色 and toggles off', async ({ page }) => {
-    await openEditor(page)
-    await selectWord(page, 'UNIQUEMARKER')
-
-    const colorDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="颜色"]')
-    await expect(colorDropdown).toBeVisible()
-    await colorDropdown.click()
-    await settle(page)
-
-    const redOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '红色' }).first()
-    await expect(redOption).toBeVisible()
-    await redOption.click()
+    const menu = page.locator('.mdb-toolbar-dropdown-menu.mdb-toolbar-color-menu')
+    await expect(menu).toBeVisible()
+    const redSwatch = menu.locator('.mdb-color-swatch-text[title="红色"]')
+    await expect(redSwatch).toBeVisible()
+    await redSwatch.click()
     await settle(page)
 
     let raw = await rawDoc(page)
     expect(raw).toContain('<span class="mdb-color-red">UNIQUEMARKER</span>')
 
     await selectWord(page, 'UNIQUEMARKER')
-    await colorDropdown.click()
+    await colorBtn.click()
     await settle(page)
-    const clearOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '清除' }).first()
-    await expect(clearOption).toBeVisible()
-    await clearOption.click()
+    const reset = page.locator('.mdb-toolbar-dropdown-menu.mdb-toolbar-color-menu .mdb-color-reset')
+    await expect(reset).toBeVisible()
+    await reset.click()
     await settle(page)
 
     raw = await rawDoc(page)
@@ -178,22 +150,22 @@ test.describe('选区浮条：11 控件 + 字体/颜色/对齐/转换下拉 + �
     expect(raw).toContain('UNIQUEMARKER')
   })
 
-  test('预览模式下字体/颜色渲染保真', async ({ page }) => {
+  test('预览模式下字体色与背景色渲染保真', async ({ page }) => {
     await openEditor(page)
     await selectWord(page, 'UNIQUEMARKER')
 
-    const fontDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="字体"]')
-    await fontDropdown.click()
+    const colorBtn = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="颜色"]')
+    await colorBtn.click()
     await settle(page)
-    const serifOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '衬线' }).first()
-    await serifOption.click()
+    const menu = page.locator('.mdb-toolbar-dropdown-menu.mdb-toolbar-color-menu')
+    await expect(menu).toBeVisible()
+    await menu.locator('.mdb-color-swatch-text[title="红色"]').click()
     await settle(page)
 
-    const colorDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="颜色"]')
-    await colorDropdown.click()
+    await colorBtn.click()
     await settle(page)
-    const redOption = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '红色' }).first()
-    await redOption.click()
+    await expect(menu).toBeVisible()
+    await menu.locator('.mdb-color-swatch-bg[title="蓝色"]').click()
     await settle(page)
 
     await page.getByTestId('mode-preview-btn').click()
@@ -202,28 +174,30 @@ test.describe('选区浮条：11 控件 + 字体/颜色/对齐/转换下拉 + �
 
     const previewWord = page.locator('.preview-content .mdb-color-red').first()
     await expect(previewWord).toBeVisible()
-
-    const fontFamily = await previewWord.evaluate((el) => window.getComputedStyle(el).fontFamily)
     const color = await previewWord.evaluate((el) => window.getComputedStyle(el).color)
-
-    expect(fontFamily).toMatch(/Georgia|serif/i)
     expect(color).toMatch(/rgb\(240, 97, 109\)|rgb\(207, 34, 46\)|#f0616d|#cf222e/i)
+
+    const previewBg = page.locator('.preview-content .mdb-bg-blue').first()
+    await expect(previewBg).toBeVisible()
+    const bg = await previewBg.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+    expect(bg).not.toBe('rgba(0, 0, 0, 0)')
+    expect(bg).not.toBe('transparent')
   })
 })
 
 test.describe('选区浮条：对齐下拉（左/中/右/清除）#262', () => {
-  test('浮条包含 12 个控件（含对齐下拉）', async ({ page }) => {
+  test('浮条包含 11 个控件（含对齐下拉）', async ({ page }) => {
     await openEditor(page)
     await selectWord(page, 'UNIQUEMARKER')
 
     const toolbar = page.locator('.mdb-floating-toolbar')
     await expect(toolbar).toBeVisible()
     const buttons = toolbar.locator('.mdb-toolbar-btn, .mdb-toolbar-dropdown-btn')
-    await expect(buttons).toHaveCount(12)
+    await expect(buttons).toHaveCount(11)
     const titles = await buttons.evaluateAll((els) =>
       els.map((e) => (e as HTMLButtonElement).title),
     )
-    expect(titles).toEqual(['字体', '颜色', '对齐', '加粗', '删除线', '斜体', '下划线', '插入链接', '行内代码', '分栏', '复制', '转换'])
+    expect(titles).toEqual(['颜色', '对齐', '加粗', '删除线', '斜体', '下划线', '插入链接', '行内代码', '分栏', '复制', '转换'])
   })
 
   test('对齐下拉：居中 wraps block in ::: {.align-center} … :::', async ({ page }) => {
@@ -387,18 +361,18 @@ test.describe('选区浮条：对齐下拉（左/中/右/清除）#262', () => {
 })
 
 test.describe('选区浮条：分栏下拉（2 栏 / 3 栏 / 清除）#263', () => {
-  test('浮条包含 12 个控件（含分栏下拉）', async ({ page }) => {
+  test('浮条包含 11 个控件（含分栏下拉）', async ({ page }) => {
     await openEditor(page)
     await selectWord(page, 'UNIQUEMARKER')
 
     const toolbar = page.locator('.mdb-floating-toolbar')
     await expect(toolbar).toBeVisible()
     const buttons = toolbar.locator('.mdb-toolbar-btn, .mdb-toolbar-dropdown-btn')
-    await expect(buttons).toHaveCount(12)
+    await expect(buttons).toHaveCount(11)
     const titles = await buttons.evaluateAll((els) =>
       els.map((e) => (e as HTMLButtonElement).title),
     )
-    expect(titles).toEqual(['字体', '颜色', '对齐', '加粗', '删除线', '斜体', '下划线', '插入链接', '行内代码', '分栏', '复制', '转换'])
+    expect(titles).toEqual(['颜色', '对齐', '加粗', '删除线', '斜体', '下划线', '插入链接', '行内代码', '分栏', '复制', '转换'])
   })
 
   test('分栏下拉：2 栏 wraps block in ::: {.col-2} … :::', async ({ page }) => {

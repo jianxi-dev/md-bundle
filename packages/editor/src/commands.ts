@@ -24,6 +24,29 @@ import { computeBlockTurnInto, computeMinimalChange, type BlockTurnIntoTarget } 
 // --- Wrapping helpers (toggle-aware) ----------------------------------------
 
 /**
+ * Class families the shared span helpers operate on. Keeping the prefix as a
+ * parameter (#278) is what lets text color and background color nest without
+ * one family's "replace existing span" search eating the other's wrapper.
+ */
+type SpanClassPrefix = 'mdb-font' | 'mdb-color' | 'mdb-bg';
+
+/** Every class name the shared span toggle can wrap/unwrap. */
+type SpanClass =
+  | 'mdb-font-serif'
+  | 'mdb-font-mono'
+  | 'mdb-font-sans'
+  | 'mdb-color-red'
+  | 'mdb-color-blue'
+  | 'mdb-color-green'
+  | 'mdb-color-orange'
+  | 'mdb-color-purple'
+  | 'mdb-bg-red'
+  | 'mdb-bg-blue'
+  | 'mdb-bg-green'
+  | 'mdb-bg-orange'
+  | 'mdb-bg-purple';
+
+/**
  * Toggle-wrap a selection with `before`/`after` markers.
  *
  * Toggle semantics (ticket #260): clicking a format on already-formatted
@@ -760,21 +783,27 @@ export function registerEditorCommands(): void {
   });
 
   /**
-   * Toggle-wrap a selection with a class-based span.
+   * Toggle-wrap a selection with a class-based span (shared generic, #278).
+   *
+   * `prefix` scopes the "replace existing span" search to one class family
+   * (`mdb-font` / `mdb-color` / `mdb-bg`) so text color and background color
+   * never overwrite each other's wrapper.
    *
    * Toggle semantics (mirrors toggleWrap's 3 cases):
-   * 1. Selection starts with `<span class="mdb-font-...">` and ends with `</span>`
+   * 1. Selection starts with `<span class="<prefix>-...">` and ends with `</span>`
    *    (markers inside selection) → strip them.
-   * 2. Selection is immediately surrounded by `<span class="mdb-font-...">`…`</span>`
+   * 2. Selection is immediately surrounded by `<span class="<prefix>-...">`…`</span>`
    *    (markers just outside selection — common when double-clicking decorated content)
    *    → remove them.
-   * 3. Otherwise → wrap with the new class, replacing any existing mdb-font-* span.
+   * 3. Otherwise → wrap with the new class, replacing any existing span of the
+   *    same prefix.
    *
    * Empty selection → insert empty span pair with caret inside (no toggle on empty range).
    */
-  function toggleFontClass(
+  function toggleSpanClass(
     view: EditorView,
-    className: 'mdb-font-serif' | 'mdb-font-mono' | 'mdb-font-sans',
+    className: SpanClass,
+    prefix: SpanClassPrefix,
   ): boolean {
     const { state } = view;
     const { main } = state.selection;
@@ -799,9 +828,9 @@ export function registerEditorCommands(): void {
         return true;
       }
 
-      const prefix = from >= openTag.length ? state.doc.sliceString(from - openTag.length, from) : '';
+      const beforeText = from >= openTag.length ? state.doc.sliceString(from - openTag.length, from) : '';
       const suffix = state.doc.sliceString(to, to + closeTag.length);
-      if (prefix === openTag && suffix === closeTag) {
+      if (beforeText === openTag && suffix === closeTag) {
         view.dispatch({
           changes: [
             { from: from - openTag.length, to: from, insert: '' },
@@ -815,7 +844,7 @@ export function registerEditorCommands(): void {
       const contextBefore = from >= 60 ? state.doc.sliceString(from - 60, from) : state.doc.sliceString(0, from);
       const contextAfter = state.doc.sliceString(to, to + 20);
 
-      const existingOpenMatch = contextBefore.match(/<span class="(mdb-font-\w+)">/);
+      const existingOpenMatch = contextBefore.match(new RegExp(`<span class="(${prefix}-\\w+)">`));
       const existingCloseMatch = contextAfter.match(/^<\/span>/);
 
       if (existingOpenMatch && existingCloseMatch) {
@@ -851,91 +880,10 @@ export function registerEditorCommands(): void {
   }
 
   /**
-   * Toggle-wrap a selection with a color class-based span.
-   * Same 3-case toggle semantics as toggleFontClass.
+   * Remove any span of `prefix` around the selection (shared generic, #278).
+   * Returns true when a wrapper was removed, false on a no-op.
    */
-  function toggleColorClass(
-    view: EditorView,
-    className: 'mdb-color-red' | 'mdb-color-blue' | 'mdb-color-green' | 'mdb-color-orange' | 'mdb-color-purple',
-  ): boolean {
-    const { state } = view;
-    const { main } = state.selection;
-    const { from, to } = main;
-
-    const openTag = `<span class="${className}">`;
-    const closeTag = '</span>';
-
-    if (!main.empty) {
-      const selected = state.doc.sliceString(from, to);
-
-      if (
-        selected.length >= openTag.length + closeTag.length &&
-        selected.startsWith(openTag) &&
-        selected.endsWith(closeTag)
-      ) {
-        const inner = selected.slice(openTag.length, selected.length - closeTag.length);
-        view.dispatch({
-          changes: { from, to, insert: inner },
-          selection: { anchor: from, head: from + inner.length },
-        });
-        return true;
-      }
-
-      const prefix = from >= openTag.length ? state.doc.sliceString(from - openTag.length, from) : '';
-      const suffix = state.doc.sliceString(to, to + closeTag.length);
-      if (prefix === openTag && suffix === closeTag) {
-        view.dispatch({
-          changes: [
-            { from: from - openTag.length, to: from, insert: '' },
-            { from: to, to: to + closeTag.length, insert: '' },
-          ],
-          selection: { anchor: from - openTag.length, head: to - openTag.length },
-        });
-        return true;
-      }
-
-      const contextBefore = from >= 60 ? state.doc.sliceString(from - 60, from) : state.doc.sliceString(0, from);
-      const contextAfter = state.doc.sliceString(to, to + 20);
-
-      const existingOpenMatch = contextBefore.match(/<span class="(mdb-color-\w+)">/);
-      const existingCloseMatch = contextAfter.match(/^<\/span>/);
-
-      if (existingOpenMatch && existingCloseMatch) {
-        const existingClass = existingOpenMatch[1];
-        const existingOpenTag = `<span class="${existingClass}">`;
-        const openTagPos = contextBefore.lastIndexOf(existingOpenTag);
-        const absoluteOpenPos = from - contextBefore.length + openTagPos;
-        view.dispatch({
-          changes: [
-            { from: absoluteOpenPos, to: absoluteOpenPos + existingOpenTag.length, insert: openTag },
-            { from: to, to: to + closeTag.length, insert: closeTag },
-          ],
-          selection: { anchor: absoluteOpenPos + openTag.length, head: absoluteOpenPos + openTag.length + selected.length },
-        });
-        return true;
-      }
-
-      view.dispatch({
-        changes: [
-          { from, insert: openTag },
-          { from: to, insert: closeTag },
-        ],
-        selection: { anchor: from + openTag.length, head: from + openTag.length + selected.length },
-      });
-      return true;
-    }
-
-    view.dispatch({
-      changes: { from, insert: `${openTag}${closeTag}` },
-      selection: { anchor: from + openTag.length },
-    });
-    return true;
-  }
-
-  /**
-   * Remove any mdb-font-* span around the selection.
-   */
-  function clearFontClass(view: EditorView): boolean {
+  function clearSpanClass(view: EditorView, prefix: SpanClassPrefix): boolean {
     const { state } = view;
     const { main } = state.selection;
     const { from, to } = main;
@@ -944,7 +892,7 @@ export function registerEditorCommands(): void {
       const contextBefore = from >= 60 ? state.doc.sliceString(from - 60, from) : state.doc.sliceString(0, from);
       const contextAfter = state.doc.sliceString(to, to + 20);
 
-      const existingOpenMatch = contextBefore.match(/<span class="(mdb-font-\w+)">/);
+      const existingOpenMatch = contextBefore.match(new RegExp(`<span class="(${prefix}-\\w+)">`));
       const existingCloseMatch = contextAfter.match(/^<\/span>/);
 
       if (existingOpenMatch && existingCloseMatch) {
@@ -967,37 +915,40 @@ export function registerEditorCommands(): void {
   }
 
   /**
-   * Remove any mdb-color-* span around the selection.
+   * Remove the text-color and/or background-color wrappers around the
+   * selection (颜色面板的「恢复默认」, #278). Removes the innermost wrapper
+   * first (its close tag is the one right after the selection), so either
+   * nesting order unwinds correctly.
    */
-  function clearColorClass(view: EditorView): boolean {
-    const { state } = view;
-    const { main } = state.selection;
-    const { from, to } = main;
+  function clearAllColorSpans(view: EditorView): boolean {
+    let removed = false;
+    for (;;) {
+      const { state } = view;
+      const { main } = state.selection;
+      if (main.empty) break;
 
-    if (!main.empty) {
-      const contextBefore = from >= 60 ? state.doc.sliceString(from - 60, from) : state.doc.sliceString(0, from);
-      const contextAfter = state.doc.sliceString(to, to + 20);
+      const contextBefore = main.from >= 60
+        ? state.doc.sliceString(main.from - 60, main.from)
+        : state.doc.sliceString(0, main.from);
+      const colorMatch = contextBefore.match(/<span class="(mdb-color-\w+)">/);
+      const bgMatch = contextBefore.match(/<span class="(mdb-bg-\w+)">/);
 
-      const existingOpenMatch = contextBefore.match(/<span class="(mdb-color-\w+)">/);
-      const existingCloseMatch = contextAfter.match(/^<\/span>/);
-
-      if (existingOpenMatch && existingCloseMatch) {
-        const existingClass = existingOpenMatch[1];
-        const existingOpenTag = `<span class="${existingClass}">`;
-        const openTagPos = contextBefore.lastIndexOf(existingOpenTag);
-        const absoluteOpenPos = from - contextBefore.length + openTagPos;
-        const closeTag = '</span>';
-        view.dispatch({
-          changes: [
-            { from: absoluteOpenPos, to: absoluteOpenPos + existingOpenTag.length, insert: '' },
-            { from: to, to: to + closeTag.length, insert: '' },
-          ],
-          selection: { anchor: absoluteOpenPos, head: to - existingOpenTag.length },
-        });
-        return true;
+      let prefix: SpanClassPrefix | null = null;
+      if (colorMatch && bgMatch) {
+        prefix =
+          contextBefore.lastIndexOf(colorMatch[0]) > contextBefore.lastIndexOf(bgMatch[0])
+            ? 'mdb-color'
+            : 'mdb-bg';
+      } else if (colorMatch) {
+        prefix = 'mdb-color';
+      } else if (bgMatch) {
+        prefix = 'mdb-bg';
       }
+
+      if (!prefix || !clearSpanClass(view, prefix)) break;
+      removed = true;
     }
-    return false;
+    return removed;
   }
 
   commandRegistry.register({
@@ -1005,7 +956,7 @@ export function registerEditorCommands(): void {
     label: '衬线',
     group: '格式',
     execute: (view) => {
-      toggleFontClass(view, 'mdb-font-serif');
+      toggleSpanClass(view, 'mdb-font-serif', 'mdb-font');
     },
   });
 
@@ -1014,7 +965,7 @@ export function registerEditorCommands(): void {
     label: '等宽',
     group: '格式',
     execute: (view) => {
-      toggleFontClass(view, 'mdb-font-mono');
+      toggleSpanClass(view, 'mdb-font-mono', 'mdb-font');
     },
   });
 
@@ -1023,7 +974,7 @@ export function registerEditorCommands(): void {
     label: '无衬线',
     group: '格式',
     execute: (view) => {
-      toggleFontClass(view, 'mdb-font-sans');
+      toggleSpanClass(view, 'mdb-font-sans', 'mdb-font');
     },
   });
 
@@ -1032,7 +983,7 @@ export function registerEditorCommands(): void {
     label: '清除字体',
     group: '格式',
     execute: (view) => {
-      clearFontClass(view);
+      clearSpanClass(view, 'mdb-font');
     },
   });
 
@@ -1041,7 +992,7 @@ export function registerEditorCommands(): void {
     label: '红色',
     group: '格式',
     execute: (view) => {
-      toggleColorClass(view, 'mdb-color-red');
+      toggleSpanClass(view, 'mdb-color-red', 'mdb-color');
     },
   });
 
@@ -1050,7 +1001,7 @@ export function registerEditorCommands(): void {
     label: '蓝色',
     group: '格式',
     execute: (view) => {
-      toggleColorClass(view, 'mdb-color-blue');
+      toggleSpanClass(view, 'mdb-color-blue', 'mdb-color');
     },
   });
 
@@ -1059,7 +1010,7 @@ export function registerEditorCommands(): void {
     label: '绿色',
     group: '格式',
     execute: (view) => {
-      toggleColorClass(view, 'mdb-color-green');
+      toggleSpanClass(view, 'mdb-color-green', 'mdb-color');
     },
   });
 
@@ -1068,7 +1019,7 @@ export function registerEditorCommands(): void {
     label: '橙色',
     group: '格式',
     execute: (view) => {
-      toggleColorClass(view, 'mdb-color-orange');
+      toggleSpanClass(view, 'mdb-color-orange', 'mdb-color');
     },
   });
 
@@ -1077,7 +1028,7 @@ export function registerEditorCommands(): void {
     label: '紫色',
     group: '格式',
     execute: (view) => {
-      toggleColorClass(view, 'mdb-color-purple');
+      toggleSpanClass(view, 'mdb-color-purple', 'mdb-color');
     },
   });
 
@@ -1086,7 +1037,70 @@ export function registerEditorCommands(): void {
     label: '清除颜色',
     group: '格式',
     execute: (view) => {
-      clearColorClass(view);
+      clearSpanClass(view, 'mdb-color');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-red',
+    label: '红色背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-red', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-blue',
+    label: '蓝色背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-blue', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-green',
+    label: '绿色背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-green', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-orange',
+    label: '橙色背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-orange', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-purple',
+    label: '紫色背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-purple', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-clear',
+    label: '清除背景色',
+    group: '格式',
+    execute: (view) => {
+      clearSpanClass(view, 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'color-reset',
+    label: '恢复默认',
+    group: '格式',
+    execute: (view) => {
+      clearAllColorSpans(view);
     },
   });
 
