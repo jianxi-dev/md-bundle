@@ -232,7 +232,7 @@ export function clearBlockAlignment(view: EditorView): boolean {
 
 /**
  * Toggle column layout of the block containing the selection by wrapping it in a
- * Pandoc fenced div `::: {.col-2|col-3}`.
+ * Pandoc fenced div `::: {.col-1|col-2|col-3|col-4|col-5}`.
  *
  * Toggle semantics (mirrors toggleBlockAlignment):
  * - If the block is already wrapped with the SAME column class → remove the wrapper.
@@ -243,7 +243,7 @@ export function clearBlockAlignment(view: EditorView): boolean {
  */
 export function toggleBlockColumns(
   view: EditorView,
-  columns: 'col-2' | 'col-3',
+  columns: 'col-1' | 'col-2' | 'col-3' | 'col-4' | 'col-5',
 ): boolean {
   const { state } = view;
   const { main } = state.selection;
@@ -258,7 +258,7 @@ export function toggleBlockColumns(
   const blockText = state.doc.sliceString(block.from, block.to);
 
   // Check if block is already wrapped with a column fenced div
-  const existingColMatch = blockText.match(/^:::\s*\{\.(col-2|col-3)\}\s*\n/);
+  const existingColMatch = blockText.match(/^:::\s*\{\.(col-[1-5])\}\s*\n/);
   const hasCloseMarker = blockText.trimEnd().endsWith(':::');
 
   if (existingColMatch && hasCloseMarker) {
@@ -318,7 +318,7 @@ export function clearBlockColumns(view: EditorView): boolean {
   if (!block) return false;
 
   const blockText = state.doc.sliceString(block.from, block.to);
-  const existingColMatch = blockText.match(/^:::\s*\{\.(col-2|col-3)\}\s*\n/);
+  const existingColMatch = blockText.match(/^:::\s*\{\.(col-[1-5])\}\s*\n/);
   const hasCloseMarker = blockText.trimEnd().endsWith(':::');
 
   if (existingColMatch && hasCloseMarker) {
@@ -1141,6 +1141,15 @@ export function registerEditorCommands(): void {
   });
 
   commandRegistry.register({
+    id: 'col-1',
+    label: '1 栏',
+    group: '块',
+    execute: (view) => {
+      toggleBlockColumns(view, 'col-1');
+    },
+  });
+
+  commandRegistry.register({
     id: 'col-2',
     label: '2 栏',
     group: '块',
@@ -1155,6 +1164,24 @@ export function registerEditorCommands(): void {
     group: '块',
     execute: (view) => {
       toggleBlockColumns(view, 'col-3');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'col-4',
+    label: '4 栏',
+    group: '块',
+    execute: (view) => {
+      toggleBlockColumns(view, 'col-4');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'col-5',
+    label: '5 栏',
+    group: '块',
+    execute: (view) => {
+      toggleBlockColumns(view, 'col-5');
     },
   });
 

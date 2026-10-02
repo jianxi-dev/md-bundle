@@ -52,9 +52,11 @@ function resolveWrapper(classes: string[], attrs: Record<string, string>): {
   switch (primary) {
     case 'hero':
       return { tag: 'section', className: allClasses, extraAttr: '' };
+    case 'col-1':
     case 'col-2':
-      return { tag: 'div', className: allClasses, extraAttr: '' };
     case 'col-3':
+    case 'col-4':
+    case 'col-5':
       return { tag: 'div', className: allClasses, extraAttr: '' };
     case 'card-grid': {
       const cols = attrs.cards ?? '3';

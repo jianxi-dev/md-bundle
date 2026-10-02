@@ -674,6 +674,11 @@ export const READER_CSS: string = `
 }
 
 /* ── Column layouts (fenced div layout classes) ─── */
+[data-theme='light'] .preview-content .layout-col-1 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5em;
+}
 [data-theme='light'] .preview-content .layout-col-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -683,6 +688,16 @@ export const READER_CSS: string = `
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 1.25em;
+}
+[data-theme='light'] .preview-content .layout-col-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25em;
+}
+[data-theme='light'] .preview-content .layout-col-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1em;
 }
 [data-theme='light'] .preview-content .layout-card-grid {
   display: grid;
@@ -1397,6 +1412,11 @@ export const READER_CSS: string = `
 }
 
 /* ── Column layouts (fenced div layout classes) ─── */
+[data-theme='dark'] .preview-content .layout-col-1 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5em;
+}
 [data-theme='dark'] .preview-content .layout-col-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1406,6 +1426,16 @@ export const READER_CSS: string = `
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 1.25em;
+}
+[data-theme='dark'] .preview-content .layout-col-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25em;
+}
+[data-theme='dark'] .preview-content .layout-col-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1em;
 }
 [data-theme='dark'] .preview-content .layout-card-grid {
   display: grid;

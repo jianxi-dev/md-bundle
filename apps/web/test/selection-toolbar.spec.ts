@@ -360,7 +360,7 @@ test.describe('选区浮条：对齐下拉（左/中/右/清除）#262', () => {
   })
 })
 
-test.describe('选区浮条：分栏下拉（2 栏 / 3 栏 / 清除）#263', () => {
+test.describe('选区浮条：分栏下拉（1 栏 / 2 栏 / 3 栏 / 4 栏 / 5 栏 / 清除）#263', () => {
   test('浮条包含 11 个控件（含分栏下拉）', async ({ page }) => {
     await openEditor(page)
     await selectWord(page, 'UNIQUEMARKER')
@@ -373,6 +373,26 @@ test.describe('选区浮条：分栏下拉（2 栏 / 3 栏 / 清除）#263', () 
       els.map((e) => (e as HTMLButtonElement).title),
     )
     expect(titles).toEqual(['颜色', '对齐', '加粗', '删除线', '斜体', '下划线', '插入链接', '行内代码', '分栏', '复制', '转换'])
+  })
+
+  test('分栏下拉：1 栏 wraps block in ::: {.col-1} … :::', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const colDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
+    await expect(colDropdown).toBeVisible()
+    await colDropdown.click()
+    await settle(page)
+
+    const col1Option = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '1 栏' }).first()
+    await expect(col1Option).toBeVisible()
+    await col1Option.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).toContain('::: {.col-1}')
+    expect(raw).toContain('UNIQUEMARKER')
+    expect(raw).toContain(':::')
   })
 
   test('分栏下拉：2 栏 wraps block in ::: {.col-2} … :::', async ({ page }) => {
@@ -410,6 +430,46 @@ test.describe('选区浮条：分栏下拉（2 栏 / 3 栏 / 清除）#263', () 
 
     let raw = await rawDoc(page)
     expect(raw).toContain('::: {.col-3}')
+    expect(raw).toContain('UNIQUEMARKER')
+    expect(raw).toContain(':::')
+  })
+
+  test('分栏下拉：4 栏 wraps block in ::: {.col-4} … :::', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const colDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
+    await expect(colDropdown).toBeVisible()
+    await colDropdown.click()
+    await settle(page)
+
+    const col4Option = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '4 栏' }).first()
+    await expect(col4Option).toBeVisible()
+    await col4Option.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).toContain('::: {.col-4}')
+    expect(raw).toContain('UNIQUEMARKER')
+    expect(raw).toContain(':::')
+  })
+
+  test('分栏下拉：5 栏 wraps block in ::: {.col-5} … :::', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const colDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
+    await expect(colDropdown).toBeVisible()
+    await colDropdown.click()
+    await settle(page)
+
+    const col5Option = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '5 栏' }).first()
+    await expect(col5Option).toBeVisible()
+    await col5Option.click()
+    await settle(page)
+
+    let raw = await rawDoc(page)
+    expect(raw).toContain('::: {.col-5}')
     expect(raw).toContain('UNIQUEMARKER')
     expect(raw).toContain(':::')
   })
@@ -479,7 +539,7 @@ test.describe('选区浮条：分栏下拉（2 栏 / 3 栏 / 清除）#263', () 
     await colDropdown.click()
     await settle(page)
     // Wait for the 分栏 dropdown menu to be visible
-    const colMenu = page.locator('.mdb-toolbar-dropdown-menu').filter({ hasText: '2 栏' })
+    const colMenu = page.locator('.mdb-toolbar-dropdown-menu').filter({ hasText: '1 栏' })
     await expect(colMenu).toBeVisible()
     const clearOption = colMenu.locator('.mdb-toolbar-dropdown-option', { hasText: '清除' }).first()
     await expect(clearOption).toBeVisible()
@@ -490,6 +550,34 @@ test.describe('选区浮条：分栏下拉（2 栏 / 3 栏 / 清除）#263', () 
     expect(raw).not.toContain('::: {.col-2}')
     expect(raw).not.toContain(':::')
     expect(raw).toContain('UNIQUEMARKER')
+  })
+
+  test('预览模式下分栏渲染保真：1 栏 shows grid with 1 column', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const colDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
+    await colDropdown.click()
+    await settle(page)
+
+    const col1Option = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '1 栏' }).first()
+    await col1Option.click()
+    await settle(page)
+
+    await page.getByTestId('mode-preview-btn').click()
+    await expect(page.locator('.preview-content').first()).toBeVisible()
+    await settle(page)
+
+    const previewBlock = page.locator('.preview-content .layout-col-1').first()
+    await expect(previewBlock).toBeVisible()
+
+    const display = await previewBlock.evaluate((el) => window.getComputedStyle(el).display)
+    expect(display).toBe('grid')
+
+    const gridTemplateColumns = await previewBlock.evaluate((el) => window.getComputedStyle(el).gridTemplateColumns)
+    // Should have 1 column
+    const columnCount = gridTemplateColumns.split(' ').filter((s) => s.endsWith('px')).length
+    expect(columnCount).toBe(1)
   })
 
   test('预览模式下分栏渲染保真：2 栏 shows grid with 2 columns', async ({ page }) => {
@@ -546,5 +634,61 @@ test.describe('选区浮条：分栏下拉（2 栏 / 3 栏 / 清除）#263', () 
     // Should have 3 columns (computed as pixel values, e.g., "297.828px 297.828px 297.844px")
     const columnCount = gridTemplateColumns.split(' ').filter((s) => s.endsWith('px')).length
     expect(columnCount).toBe(3)
+  })
+
+  test('预览模式下分栏渲染保真：4 栏 shows grid with 4 columns', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const colDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
+    await colDropdown.click()
+    await settle(page)
+
+    const col4Option = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '4 栏' }).first()
+    await col4Option.click()
+    await settle(page)
+
+    await page.getByTestId('mode-preview-btn').click()
+    await expect(page.locator('.preview-content').first()).toBeVisible()
+    await settle(page)
+
+    const previewBlock = page.locator('.preview-content .layout-col-4').first()
+    await expect(previewBlock).toBeVisible()
+
+    const display = await previewBlock.evaluate((el) => window.getComputedStyle(el).display)
+    expect(display).toBe('grid')
+
+    const gridTemplateColumns = await previewBlock.evaluate((el) => window.getComputedStyle(el).gridTemplateColumns)
+    // Should have 4 columns
+    const columnCount = gridTemplateColumns.split(' ').filter((s) => s.endsWith('px')).length
+    expect(columnCount).toBe(4)
+  })
+
+  test('预览模式下分栏渲染保真：5 栏 shows grid with 5 columns', async ({ page }) => {
+    await openEditor(page)
+    await selectWord(page, 'UNIQUEMARKER')
+
+    const colDropdown = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
+    await colDropdown.click()
+    await settle(page)
+
+    const col5Option = page.locator('.mdb-toolbar-dropdown-menu .mdb-toolbar-dropdown-option', { hasText: '5 栏' }).first()
+    await col5Option.click()
+    await settle(page)
+
+    await page.getByTestId('mode-preview-btn').click()
+    await expect(page.locator('.preview-content').first()).toBeVisible()
+    await settle(page)
+
+    const previewBlock = page.locator('.preview-content .layout-col-5').first()
+    await expect(previewBlock).toBeVisible()
+
+    const display = await previewBlock.evaluate((el) => window.getComputedStyle(el).display)
+    expect(display).toBe('grid')
+
+    const gridTemplateColumns = await previewBlock.evaluate((el) => window.getComputedStyle(el).gridTemplateColumns)
+    // Should have 5 columns
+    const columnCount = gridTemplateColumns.split(' ').filter((s) => s.endsWith('px')).length
+    expect(columnCount).toBe(5)
   })
 })
