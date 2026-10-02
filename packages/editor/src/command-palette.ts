@@ -125,9 +125,14 @@ function renderPalette(view: EditorView, state: PaletteState): void {
   const list = document.createElement('div');
   list.className = 'mdb-palette-list';
   Object.assign(list.style, {
-    maxHeight: '300px',
+    maxHeight: '320px',
     overflowY: 'auto',
     borderTop: `1px solid var(--mdb-border)`,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+    alignContent: 'start',
+    gap: '4px',
+    padding: '4px',
   });
 
   if (state.matches.length === 0) {
@@ -138,6 +143,7 @@ function renderPalette(view: EditorView, state: PaletteState): void {
       color: 'var(--mdb-text-secondary)',
       fontSize: '13px',
       textAlign: 'center',
+      gridColumn: '1 / -1',
     });
     list.appendChild(empty);
   }
@@ -178,7 +184,7 @@ export function openCommandPalette(view: EditorView): boolean {
     left: '50%',
     top: '50%',
     transform: 'translate(-50%, -50%)',
-    width: '360px',
+    width: '520px',
     maxWidth: 'calc(100vw - 24px)',
     background: 'var(--mdb-bg-secondary)',
     border: `1px solid var(--mdb-border)`,
