@@ -34,6 +34,7 @@ import { createQuoteDecorations } from './quote';
 import { createCodeDecorations } from './code';
 import { createImageDecorations } from './image';
 import { createCalloutDecorations } from './callout';
+import { createTableDecorations } from './table';
 import { editorDecorationsTheme } from './theme';
 import { getBlocks, getBlockAt } from '../block-model';
 import type { ImageResolver } from './image';
@@ -122,6 +123,7 @@ function buildDecorationSet(
       },
     ),
     ...createCalloutDecorations(docText, activeFrom, activeTo),
+    ...createTableDecorations(docText, activeFrom, activeTo),
   ];
 
   // Sort by from-position (required by CM6)

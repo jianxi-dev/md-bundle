@@ -326,6 +326,23 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     marginTop: '0.35em',
   },
 
+  // ── Tables ────────────────────────────────────────────────────────────
+  '.cm-content .cm-table': {
+    borderCollapse: 'collapse',
+    margin: '0.35em 0',
+    fontSize: '0.95em',
+  },
+  '.cm-content .cm-table th, .cm-content .cm-table td': {
+    border: '1px solid var(--mdb-border)',
+    padding: '4px 10px',
+    textAlign: 'left',
+    cursor: 'text',
+  },
+  '.cm-content .cm-table th': {
+    background: 'var(--mdb-bg-secondary)',
+    fontWeight: '600',
+  },
+
   // Callout tone colouring (defined after the base card so they win).
   ...calloutToneSpecs(),
 });
