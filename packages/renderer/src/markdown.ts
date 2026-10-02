@@ -54,7 +54,7 @@ const SANITIZE_CONFIG = {
     'kbd', 'sup', 'sub', 'mark', 'abbr', 'small', 'u', 's',
     'var', 'samp', 'cite', 'q', 'time',
     'ins',
-    'picture', 'source',
+    'picture', 'source', 'video',
     // code block copy button
     'button',
   ],
@@ -63,6 +63,7 @@ const SANITIZE_CONFIG = {
     'type', 'checked', 'disabled',
     'colspan', 'rowspan', 'start', 'value',
     'width', 'height', 'open', 'lang', 'dir',
+    'controls', 'preload', 'poster',
     'data-math', 'data-math-tex', 'data-math-display', 'data-callout', 'data-zoomable', 'data-columns',
   ],
   ALLOW_DATA_ATTR: true,
@@ -73,6 +74,17 @@ const SANITIZE_CONFIG = {
 // ── HTML escape (source-level defense before DOMPurify) ───────────────────
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'ogv', 'mov', 'm4v']);
+const IMAGE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'bmp', 'ico',
+]);
+
+function extensionOf(href: string): string {
+  const clean = href.split(/[?#]/)[0];
+  const dot = clean.lastIndexOf('.');
+  return dot >= 0 ? clean.slice(dot + 1).toLowerCase() : '';
 }
 
 // ── Marked configuration ─────────────────────────────────────────────────
@@ -144,11 +156,18 @@ marked.use({
       return `<div class="code-block wide">${label}${copy}<pre><code>${inner}</code></pre></div>`;
     },
     image({ href, title, text }: { href: string; title: string | null; text: string }) {
+      const safeHref = escapeHtml(href);
       const alt = escapeHtml(text ?? '');
-      const caption = title
-        ? `<figcaption>${escapeHtml(title)}</figcaption>`
-        : '';
-      return `<figure class="wide"><img src="${escapeHtml(href)}" alt="${alt}" data-zoomable="" />${caption}</figure>`;
+      const caption = title ? `<figcaption>${escapeHtml(title)}</figcaption>` : '';
+      const ext = extensionOf(href);
+      if (ext !== '' && VIDEO_EXTENSIONS.has(ext)) {
+        return `<figure class="wide mdb-video"><video controls preload="metadata" src="${safeHref}"></video>${caption}</figure>`;
+      }
+      if (ext !== '' && !IMAGE_EXTENSIONS.has(ext)) {
+        const name = alt !== '' ? alt : escapeHtml(href);
+        return `<figure class="wide mdb-file"><a href="${safeHref}">${name}</a>${caption}</figure>`;
+      }
+      return `<figure class="wide"><img src="${safeHref}" alt="${alt}" data-zoomable="" />${caption}</figure>`;
     },
     table(this: Renderer, token) {
       // Delegate cell/row rendering to the default renderer, then wrap.
