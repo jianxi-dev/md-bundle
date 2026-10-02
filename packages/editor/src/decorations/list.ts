@@ -1,5 +1,5 @@
 import type { Range } from '@codemirror/state';
-import { Decoration } from '@codemirror/view';
+import { Decoration, WidgetType, type EditorView } from '@codemirror/view';
 
 const unorderedListRegex = /^[-*+]\s/m;
 const orderedListRegex = /^\d+\.\s/m;
@@ -10,6 +10,51 @@ const LIST_ORDERED_CLASS = 'cm-list-ordered';
 const LIST_MARKER_CLASS = 'cm-list-marker';
 const TASK_DONE_CLASS = 'cm-task-done';
 const TASK_PENDING_CLASS = 'cm-task-pending';
+
+/**
+ * Clickable checkbox that replaces the `- [ ] ` / `- [x] ` task marker.
+ * Toggling writes `[ ]` / `[x]` back to the source at the bracket offset.
+ */
+class TaskCheckboxWidget extends WidgetType {
+  constructor(
+    readonly checked: boolean,
+    readonly bracketFrom: number,
+  ) {
+    super();
+  }
+
+  toDOM(view?: EditorView): HTMLElement {
+    const box = document.createElement('span');
+    box.className = 'cm-task-checkbox';
+    box.setAttribute('role', 'checkbox');
+    box.setAttribute('aria-checked', String(this.checked));
+    box.setAttribute('data-testid', 'task-checkbox');
+    if (this.checked) box.setAttribute('data-checked', 'true');
+    box.title = this.checked ? '标记为未完成' : '标记为已完成';
+    box.addEventListener('mousedown', (event) => {
+      if (!view) return;
+      event.preventDefault();
+      event.stopPropagation();
+      view.dispatch({
+        changes: {
+          from: this.bracketFrom,
+          to: this.bracketFrom + 3,
+          insert: this.checked ? '[ ]' : '[x]',
+        },
+      });
+      view.focus();
+    });
+    return box;
+  }
+
+  eq(other: TaskCheckboxWidget): boolean {
+    return this.checked === other.checked && this.bracketFrom === other.bracketFrom;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
 
 /**
  * Create list decorations for the document.
@@ -44,16 +89,14 @@ export function createListDecorations(
       const isDone = /^- \[[xX]\]/.test(line);
       const lineClasses = `${LIST_CLASS} ${isDone ? TASK_DONE_CLASS : TASK_PENDING_CLASS} ${isActive ? 'cm-block-active' : 'cm-block-inactive'}`;
 
-      // In active blocks, show the marker at low opacity instead of hiding.
       if (markerLen > 0) {
-        if (isActive) {
-          // Mark the marker range with a faint class for low-opacity display.
-          decorations.push(
-            Decoration.mark({ class: 'cm-list-marker-active' }).range(pos, pos + markerLen),
-          );
-        } else {
-          decorations.push(Decoration.replace({}).range(pos, pos + markerLen));
-        }
+        const bracketFrom = pos + line.indexOf('[');
+        decorations.push(
+          Decoration.replace({ widget: new TaskCheckboxWidget(isDone, bracketFrom) }).range(
+            pos,
+            pos + markerLen,
+          ),
+        );
       }
       decorations.push(Decoration.line({ class: lineClasses }).range(pos));
     } else if (unorderedListRegex.test(line)) {

@@ -149,13 +149,28 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     // Fade in/out when toggling between active/inactive.
     transition: 'opacity 100ms ease-out',
   },
-  '.cm-content .cm-line.cm-task-done::before': {
-    content: "'✓  '",
-    color: 'var(--mdb-success)',
+  '.cm-content .cm-task-checkbox': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '14px',
+    height: '14px',
+    marginInlineEnd: '0.4em',
+    border: '1.5px solid var(--mdb-muted)',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    verticalAlign: 'middle',
+    transition: 'background 100ms ease-out, border-color 100ms ease-out',
   },
-  '.cm-content .cm-line.cm-task-pending::before': {
-    content: "'○  '",
-    color: 'var(--mdb-muted)',
+  '.cm-content .cm-task-checkbox[data-checked="true"]': {
+    background: 'var(--mdb-success)',
+    borderColor: 'var(--mdb-success)',
+  },
+  '.cm-content .cm-task-checkbox[data-checked="true"]::after': {
+    content: "'✓'",
+    fontSize: '10px',
+    lineHeight: '1',
+    color: '#ffffff',
   },
 
   // Ordered-list digit marker: always visible (a digit IS the marker).
