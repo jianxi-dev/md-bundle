@@ -27,6 +27,7 @@ export type BlockType =
   | 'heading'
   | 'blockquote'
   | 'list'
+  | 'task'
   | 'fencedCode'
   | 'codeBlock'
   | 'table'
@@ -45,12 +46,16 @@ export type BlockType =
  * `node` is the Lezer SyntaxNode for targeted decoration.
  * The node type is inferred from syntaxTree() — we use `unknown` to
  * avoid importing @lezer/common directly (not a direct dependency).
+ * `level` is present only when `type === 'heading'` (1-6 for H1-H6).
+ * `checked` is present only when `type === 'task'` (true if all items checked).
  */
 export interface Block {
   readonly from: number;
   readonly to: number;
   readonly type: BlockType;
   readonly node: unknown;
+  readonly level?: number;
+  readonly checked?: boolean;
 }
 
 // --- Lezer node name → BlockType mapping ------------------------------------
@@ -89,6 +94,39 @@ function resolveBlockType(node: { name: string }): BlockType | null {
   return BLOCK_TYPE_MAP[node.name] ?? null;
 }
 
+/**
+ * Extract the heading level from a Lezer heading node name.
+ * Returns 1-6 for ATXHeading1-6 / SetextHeading1-2, or null for non-heading nodes.
+ */
+function headingLevel(nodeName: string): number | null {
+  if (nodeName.startsWith('ATXHeading')) {
+    const level = Number(nodeName.slice('ATXHeading'.length));
+    if (level >= 1 && level <= 6) return level;
+  }
+  if (nodeName.startsWith('SetextHeading')) {
+    const level = Number(nodeName.slice('SetextHeading'.length));
+    if (level >= 1 && level <= 2) return level;
+  }
+  return null;
+}
+
+/**
+ * Check if a list item's text starts with a task marker.
+ * Matches bullet task markers: `^\s*[-*+] \[[ xX]\] `
+ * Matches ordered task markers: `^\s*\d+\. \[[ xX]\] `
+ */
+function isTaskItem(text: string): boolean {
+  return /^\s*[-*+] \[[ xX]\] /.test(text) || /^\s*\d+\. \[[ xX]\] /.test(text);
+}
+
+/**
+ * Check if a task item's text indicates a checked state.
+ * Matches `[x]`, `[X]`, `[ ]` (unchecked).
+ */
+function isTaskChecked(text: string): boolean {
+  return /^\s*(?:[-*+]|\d+\.) \[[xX]\] /.test(text);
+}
+
 // --- getBlocks ---------------------------------------------------------------
 
 /**
@@ -96,6 +134,10 @@ function resolveBlockType(node: { name: string }): BlockType | null {
  *
  * Uses `Tree.cursor()` for efficient iteration — enters only the
  * top-level children of the Document node, not inline content.
+ *
+ * For heading blocks, extracts the heading level (1-6).
+ * For list blocks, checks if all top-level items are task items.
+ * If so, classifies as `task` with `checked` = true only if all items checked.
  *
  * @param state - The current EditorState (provides the syntax tree).
  * @returns Array of Block descriptors, sorted by `from` ascending.
@@ -112,7 +154,44 @@ export function getBlocks(state: EditorState): Block[] {
     const node = cursor.node;
     const type = resolveBlockType(node);
     if (type !== null) {
-      blocks.push({ from: node.from, to: node.to, type, node });
+      let level: number | undefined;
+      let checked: boolean | undefined;
+      let finalType = type;
+
+      if (type === 'heading') {
+        const lvl = headingLevel(node.name);
+        if (lvl !== null) level = lvl;
+      } else if (type === 'list') {
+        // Walk into the list to inspect top-level ListItem children.
+        // Classify as 'task' only if EVERY top-level item is a task item.
+        // checked = true only if ALL items are checked.
+        const listCursor = node.cursor();
+        if (listCursor.firstChild()) {
+          let allTask = true;
+          let allChecked = true;
+          let hasItems = false;
+
+          do {
+            const child = listCursor.node;
+            if (child.name === 'ListItem') {
+              hasItems = true;
+              const itemText = state.doc.sliceString(child.from, child.to);
+              if (!isTaskItem(itemText)) {
+                allTask = false;
+              } else if (!isTaskChecked(itemText)) {
+                allChecked = false;
+              }
+            }
+          } while (listCursor.nextSibling());
+
+          if (hasItems && allTask) {
+            finalType = 'task';
+            checked = allChecked;
+          }
+        }
+      }
+
+      blocks.push({ from: node.from, to: node.to, type: finalType, node, level, checked });
     }
   } while (cursor.nextSibling());
 
