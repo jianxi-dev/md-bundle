@@ -47,7 +47,7 @@
 
 ## 7. Final verification wave
 
-- [ ] 7.1 计划符合性审计：29 todos 逐条 References/Acceptance/QA/Commit 落地；OUT 核对（无折叠/无块拖拽/无分屏/无 Milkdown/无皮肤/无右栏/无系统目录预置/无文档 payload 分享/无遮罩 UI/邀请署名仅存于 URL）。
-- [ ] 7.2 代码质量：typecheck/lint 0；无 as any/ts-ignore/TODO；两包 public-api 快照；随机函数注入缝抽查。
-- [ ] 7.3 真机手动 QA：开页签→编辑装饰→右上大纲浮层跳转→拖入文件直达新页签→授权文件夹（Chromium）→树内打开→单一主按钮保存写回→刷新恢复→关闭脏页签三分支→邀请链接跨浏览器打开 InviteView 署名 + CTA 预载演示文档→分享卡四种卡型随机→主题切换。截图留证。
-- [ ] 7.4 范围忠实度：vendor 零改动；fixture 无品牌串；渲染链路两条；降级验证（Firefox/无 FSA 环境跑主流程 v1 等价 + 全部功能无白屏）。
+- [x] 7.1 计划符合性审计：29 todos 逐条 References/Acceptance/QA/Commit 落地；OUT 核对（无折叠/无块拖拽/无分屏/无 Milkdown/无皮肤/无右栏/无系统目录预置/无文档 payload 分享/无遮罩 UI/邀请署名仅存于 URL）。
+- [x] 7.2 代码质量：typecheck/lint 0；无 as any/ts-ignore/TODO；两包 public-api 快照；随机函数注入缝抽查。
+- [x] 7.3 真机手动 QA：开页签→编辑装饰→右上大纲浮层跳转→拖入文件直达新页签→授权文件夹（Chromium）→树内打开→单一主按钮保存写回→刷新恢复→关闭脏页签三分支→邀请链接跨浏览器打开 InviteView 署名 + CTA 预载演示文档→分享卡四种卡型随机→主题切换。截图留证。
+- [x] 7.4 范围忠实度：vendor 零改动；fixture 无品牌串；渲染链路两条；降级验证（Firefox/无 FSA 环境跑主流程 v1 等价 + 全部功能无白屏）。
