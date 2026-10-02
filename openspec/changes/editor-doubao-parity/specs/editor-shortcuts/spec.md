@@ -1,0 +1,37 @@
+## ADDED Requirements
+
+### Requirement: Inline Markdown shortcuts convert on typing
+
+Typing a Markdown prefix at the start of a line SHALL convert the block: `# ␣`…`###### ␣` to H1–H6, `- ␣`/`* ␣` to bullet, `1. ␣` to ordered, `> ␣` to quote, ` ``` ␣` to code block, `[ ] ␣`/`[] ␣` to task, `--- ␣` to divider.
+
+#### Scenario: Hash converts to heading
+- **WHEN** the user types `## ` at the start of an empty line
+- **THEN** the line becomes an H2 heading
+
+### Requirement: Function-key shortcuts cover headings and lists
+
+The editor SHALL provide `⌘/Ctrl+Alt+1…6` for heading levels, `⌘/Ctrl+Alt+0` for paragraph, `⌘/Ctrl+⇧7/8/9` for ordered/bullet/task, `⌘/Ctrl+⇧.` for quote, `⌘/Ctrl+⇧C` for code block, `⌘/Ctrl+B/I/U/⇧S` for bold/italic/underline/strikethrough, `⌘/Ctrl+⇧L` for link, `⌘/Ctrl+⇧H` for the color panel, and `Tab`/`⇧Tab` for indent/outdent.
+
+#### Scenario: Heading level via keyboard
+- **WHEN** the cursor is on a paragraph and the user presses ⌘/Ctrl+Alt+3
+- **THEN** the line becomes an H3 heading
+
+#### Scenario: Indent a list item
+- **WHEN** the cursor is on a list item and the user presses Tab
+- **THEN** the item is indented one level in the source
+
+### Requirement: Shortcut conflicts are resolved deterministically
+
+The shortcut scheme SHALL keep `⌘/Ctrl+K` for the command palette (link uses `⌘/Ctrl+⇧L`) and SHALL NOT bind `⌘/Ctrl+M` on macOS.
+
+#### Scenario: Command palette keeps Mod-K
+- **WHEN** the user presses ⌘/Ctrl+K
+- **THEN** the command palette opens (not the link dialog)
+
+### Requirement: Shortcuts are discoverable in the command palette
+
+Every bound shortcut SHALL be listed in the command palette grid and shown next to the corresponding menu item.
+
+#### Scenario: Shortcut is visible in the palette
+- **WHEN** the user opens the command palette and looks at 加粗
+- **THEN** the item shows `⌘/Ctrl+B`
