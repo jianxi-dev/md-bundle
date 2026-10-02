@@ -436,6 +436,12 @@ test('斜杠 [!NOTE] 插入 → edit 模式即时 callout 卡', async ({ page })
   await expect(slashMenu).toBeVisible({ timeout: 3000 });
   // 菜单已分组（#250）：直接点「标注」行，不再依赖固定序号。
   await page.locator('.mdb-slash-item').filter({ hasText: '标注' }).first().click();
+  // #288：标注改为类型 flyout —— 选「注释」(note) 才插入 `> [!NOTE]`。
+  await page
+    .locator('.mdb-slash-flyout-item')
+    .filter({ hasText: '注释' })
+    .first()
+    .click();
 
   await expect(editorPane.locator('.cm-callout').first()).toBeVisible();
   // edit 模式 callout 卡即时可见（coration replace 隐藏原始 > [!NOTE] 文本）

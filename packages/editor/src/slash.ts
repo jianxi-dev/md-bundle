@@ -25,6 +25,7 @@
 
 import { EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/view';
 import { Prec, type EditorState, type Extension } from '@codemirror/state';
+import { calloutTypeMap } from '@md-bundle/renderer';
 
 export interface SlashCommand {
   id: string;
@@ -57,6 +58,31 @@ function headingLevel(level: 1 | 2 | 3 | 4 | 5 | 6): SlashCommand {
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: prefix };
+    },
+  };
+}
+
+const CALLOUT_TYPES = [
+  'note',
+  'info',
+  'tip',
+  'success',
+  'warning',
+  'danger',
+  'error',
+  'question',
+] as const;
+
+function calloutType(type: string): SlashCommand {
+  const marker = type.toUpperCase();
+  return {
+    id: `callout-${type}`,
+    label: calloutTypeMap[type]?.label ?? type,
+    hint: `> [!${marker}]`,
+    icon: '\u275D',
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: `> [!${marker}]\n> ` };
     },
   };
 }
@@ -106,6 +132,7 @@ export const defaultCommands: SlashCommand[] = [
     hint: '> [!NOTE]',
     icon: '\u275D',
     group: '常用',
+    children: CALLOUT_TYPES.map(calloutType),
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: '> [!NOTE]\n> ' };

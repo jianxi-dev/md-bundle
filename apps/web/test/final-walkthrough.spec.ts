@@ -136,6 +136,12 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
     await expect(page.locator('.mdb-slash-menu')).toBeVisible();
     // 菜单已分组（#250）：直接点「标注」行，不再假设 标题→标注 仅差一行。
     await page.locator('.mdb-slash-item').filter({ hasText: '标注' }).first().click();
+    // #288：标注改为类型 flyout —— 选「注释」(note) 才插入 `> [!NOTE]`。
+    await page
+      .locator('.mdb-slash-flyout-item')
+      .filter({ hasText: '注释' })
+      .first()
+      .click();
     // 编辑态渲染为 callout 卡片；断言插入结果须读源码态原文。
     expect(await rawDocText()).toContain('> [!NOTE]');
   });
