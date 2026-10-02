@@ -47,12 +47,16 @@ The insert menu SHALL declare a single-key code for the root items it exposes (`
 - **WHEN** the menu is open and the user types `nd`
 - **THEN** a callout with the danger style is inserted
 
-### Requirement: Insert window is triggered by slash
+### Requirement: Insert window is triggered by slash or Chinese comma
 
-The insert window SHALL be triggerable by typing `/` at a valid start position, subject to the existing IME guard.
+The insert window SHALL be triggerable by typing `/` or `、` at a valid start position, subject to the existing IME guard.
 
 #### Scenario: Slash triggers the window
 - **WHEN** the user types `/` on an empty line
+- **THEN** the insert window opens
+
+#### Scenario: Chinese comma triggers the window
+- **WHEN** the user types `、` on an empty line
 - **THEN** the insert window opens
 
 ### Requirement: Command palette renders as a grid with shortcuts and previews

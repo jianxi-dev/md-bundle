@@ -1038,6 +1038,22 @@ const slashCompositionGuard = ViewPlugin.define(() => ({}), {
   },
 });
 
+const COMMA_TRIGGER = '\u3001';
+
+const chineseCommaTrigger = ViewPlugin.define((view) => {
+  const onBeforeInput = (event: Event): void => {
+    if ((event as InputEvent).data !== COMMA_TRIGGER) return;
+    if (slashComposing || menus.get(view)?.open) return;
+    if (insertSlashChar(view)) event.preventDefault();
+  };
+  view.contentDOM.addEventListener('beforeinput', onBeforeInput);
+  return {
+    destroy(): void {
+      view.contentDOM.removeEventListener('beforeinput', onBeforeInput);
+    },
+  };
+});
+
 /**
  * Keymap extension wiring the slash menu. Returns `Prec.high(...)` so its
  * bindings beat `defaultKeymap`; every binding returns false when the menu is
@@ -1065,5 +1081,6 @@ export function slashKeymap(options: { commands?: SlashCommand[] } = {}): Extens
     ),
     menuSyncPlugin,
     slashCompositionGuard,
+    chineseCommaTrigger,
   ];
 }

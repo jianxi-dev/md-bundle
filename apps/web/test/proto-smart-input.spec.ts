@@ -244,19 +244,14 @@ test.describe('智能输入：块级快捷方式（真实键盘路径）', () =>
       expect(await exactDoc(page)).toBe('# Alpha\n\nBeta paragraph.\n\nabc/')
     })
 
-    test('全角 、 后输入 / → 菜单不出现，且无杂散字符', async ({ page }) => {
+    test('全角 、 在合法起始位置触发插入菜单（#280 新行为）', async ({ page }) => {
       await openEditor(page)
       await placeCaretAtLineEnd(page)
 
       await page.keyboard.insertText('、')
       await settle(page)
-      // §8-2 报告的「输入 / 有时变成 、/」：必须实际按 / 才能验证守卫。
-      await page.keyboard.press('/')
-      await settle(page)
 
-      await expect(page.locator('.mdb-slash-menu')).toHaveCount(0)
-      // 只允许用户输入的一个顿号 + 一个斜杠，不允许重复/拼接污染。
-      expect(await exactDoc(page)).toBe('# Alpha\n\nBeta paragraph.\n\n、/')
+      await expect(page.locator('.mdb-slash-menu')).toBeVisible()
     })
 
     test('IME 合成态下输入 / → 菜单不出现（CDP 驱动真实组合事件）', async ({ page }) => {
