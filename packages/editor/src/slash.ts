@@ -32,6 +32,10 @@ export interface SlashCommand {
   label: string;
   hint?: string;
   icon?: string;
+  /** Single-key code typed after `/` (e.g. `r` task, `t` table, `q` quote). */
+  code?: string;
+  /** Extra codes that resolve to this command (e.g. `w` for the bullet list). */
+  aliases?: readonly string[];
   /** Group heading this row is shown under (root level only). */
   group?: string;
   /** When present, activating the row opens this second-level panel of rows. */
@@ -55,6 +59,7 @@ function headingLevel(level: 1 | 2 | 3 | 4 | 5 | 6): SlashCommand {
     label: `${level} 级标题`,
     hint: prefix.trimEnd(),
     icon: `H${level}`,
+    code: String(level),
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: prefix };
@@ -73,6 +78,17 @@ const CALLOUT_TYPES = [
   'question',
 ] as const;
 
+const CALLOUT_CODES: Record<string, string> = {
+  note: 'nn',
+  info: 'ni',
+  tip: 'nt',
+  success: 'ns',
+  warning: 'nw',
+  danger: 'nd',
+  error: 'ne',
+  question: 'nq',
+};
+
 function calloutType(type: string): SlashCommand {
   const marker = type.toUpperCase();
   return {
@@ -80,6 +96,7 @@ function calloutType(type: string): SlashCommand {
     label: calloutTypeMap[type]?.label ?? type,
     hint: `> [!${marker}]`,
     icon: '\u275D',
+    code: CALLOUT_CODES[type],
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: `> [!${marker}]\n> ` };
@@ -101,6 +118,7 @@ export const defaultCommands: SlashCommand[] = [
     label: '引用',
     hint: '> ',
     icon: '\u00BB',
+    code: 'q',
     group: '基础',
     insert(state) {
       const head = state.selection.main.head;
@@ -112,6 +130,7 @@ export const defaultCommands: SlashCommand[] = [
     label: '代码块',
     hint: '```',
     icon: '{ }',
+    code: 'c',
     group: '基础',
     insert(state) {
       const head = state.selection.main.head;
@@ -123,6 +142,7 @@ export const defaultCommands: SlashCommand[] = [
     label: '表格',
     hint: 'N × M',
     icon: '\u25A6',
+    code: 't',
     group: '常用',
     grid: { rows: 10, cols: 10 },
   },
@@ -131,6 +151,7 @@ export const defaultCommands: SlashCommand[] = [
     label: '标注',
     hint: '> [!NOTE]',
     icon: '\u275D',
+    code: 'n',
     group: '常用',
     children: CALLOUT_TYPES.map(calloutType),
     insert(state) {
@@ -143,6 +164,8 @@ export const defaultCommands: SlashCommand[] = [
     label: '图片引用',
     hint: '![](...)',
     icon: '\u25A3',
+    code: 'p',
+    aliases: ['img'],
     group: '常用',
     insert(state) {
       const head = state.selection.main.head;
@@ -158,6 +181,7 @@ export const defaultCommands: SlashCommand[] = [
     label: '插入 HTML',
     hint: '<div>',
     icon: '</>',
+    code: 'm',
     group: '小组件',
     insert(state) {
       const head = state.selection.main.head;
@@ -169,10 +193,35 @@ export const defaultCommands: SlashCommand[] = [
     label: '插入 CSS',
     hint: '<style>',
     icon: '#',
+    aliases: ['css'],
     group: '小组件',
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: '<style>\n\n</style>' };
+    },
+  },
+  {
+    id: 'task',
+    label: '任务',
+    hint: '- [ ]',
+    icon: '\u2610',
+    code: 'r',
+    group: '常用',
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: '- [ ] ' };
+    },
+  },
+  {
+    id: 'divider',
+    label: '分割线',
+    hint: '---',
+    icon: '\u2014',
+    code: 'd',
+    group: '基础',
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: '---' };
     },
   },
 ];
@@ -220,10 +269,36 @@ function pinyinInitials(text: string): string {
  * label directly (ASCII case-insensitive subsequence) or through pinyin
  * initials, so `bt` finds 「标题」. Single-key codes (#280) slot in before this.
  */
+function matchesCode(cmd: SlashCommand, query: string): boolean {
+  const q = query.toLowerCase();
+  if (cmd.code !== undefined && cmd.code.toLowerCase() === q) return true;
+  return (cmd.aliases ?? []).some((alias) => alias.toLowerCase() === q);
+}
+
+/** First root or child command whose code/alias equals `query` (leaf-applyable). */
+function findCodeMatch(commands: SlashCommand[], query: string): SlashCommand | null {
+  const q = query.toLowerCase();
+  for (const cmd of commands) {
+    if (cmd.code?.toLowerCase() === q || (cmd.aliases ?? []).some((a) => a.toLowerCase() === q)) {
+      return cmd;
+    }
+    for (const child of cmd.children ?? []) {
+      if (child.code?.toLowerCase() === q || (child.aliases ?? []).some((a) => a.toLowerCase() === q)) {
+        return child;
+      }
+    }
+  }
+  return null;
+}
+
 function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
   if (!query) return commands;
   return commands.filter(
-    (cmd) => isSubsequence(query, cmd.label) || isSubsequence(query, pinyinInitials(cmd.label)),
+    (cmd) =>
+      matchesCode(cmd, query) ||
+      (cmd.children ?? []).some((child) => matchesCode(child, query)) ||
+      isSubsequence(query, cmd.label) ||
+      isSubsequence(query, pinyinInitials(cmd.label)),
   );
 }
 
@@ -816,9 +891,40 @@ export function slashMenuSelectPrev(view: EditorView): boolean {
  * Enter: activate the selected row — a flyout open means the selected child,
  * otherwise the selected root row (which may itself open a flyout or grid).
  */
+function applyTableSize(
+  view: EditorView,
+  state: SlashMenuState,
+  cols: number,
+  rows: number,
+): void {
+  const head = view.state.selection.main.head;
+  const from = state.slashPos;
+  const text = buildTable(cols, rows);
+  closeMenu(view);
+  if (head < from) return;
+  view.dispatch({
+    changes: { from, to: head, insert: text },
+    selection: { anchor: from + text.length },
+    scrollIntoView: true,
+  });
+}
+
 export function slashMenuApply(view: EditorView): boolean {
   const state = menus.get(view);
   if (!state?.open || !state.dom || state.grid) return false;
+  const tableSize = /^t([1-9])([1-9])?$/.exec(state.query);
+  if (!isFlyoutOpen(state) && tableSize) {
+    const rows = tableSize[2] !== undefined ? Number(tableSize[2]) : 1;
+    applyTableSize(view, state, Number(tableSize[1]), rows);
+    return true;
+  }
+  if (!isFlyoutOpen(state) && state.query !== '') {
+    const codeMatch = findCodeMatch(state.commands, state.query);
+    if (codeMatch && !codeMatch.children?.length && !codeMatch.grid) {
+      applyCommand(view, codeMatch);
+      return true;
+    }
+  }
   const cmd = isFlyoutOpen(state)
     ? state.flyoutRows[state.flyoutSelected]
     : state.rows[state.selected];

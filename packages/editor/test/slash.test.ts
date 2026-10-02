@@ -72,7 +72,7 @@ describe('slash commands', () => {
     expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
     const grid = view.dom.querySelector('.mdb-slash-grid-menu');
     expect(grid).not.toBeNull();
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(8);
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(10);
   });
 
   it('positions the menu relative to the editor origin, not the viewport (issue #203)', () => {
@@ -104,7 +104,7 @@ describe('slash commands', () => {
     // flyout while the root grid stays rendered.
     expect(slashMenuApply(view)).toBe(true);
     expect(view.state.doc.toString()).toBe('/');
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(8);
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(10);
 
     const flyout = view.dom.querySelector('.mdb-slash-flyout');
     expect(flyout).not.toBeNull();
@@ -203,7 +203,7 @@ describe('slash commands', () => {
     backspace(); // /b
     expect(cells().length).toBe(3);
     backspace(); // /
-    expect(cells().length).toBe(8);
+    expect(cells().length).toBe(10);
   });
 
   it('shows an empty state for a filter with no match, and a newline closes the menu', () => {
@@ -248,11 +248,11 @@ describe('slash commands', () => {
 
     expect(slashMenuSubmenuEnter(view)).toBe(true);
     expect(view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(6);
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(8);
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(10);
 
     expect(slashMenuSubmenuBack(view)).toBe(true);
     expect(view.dom.querySelector('.mdb-slash-flyout')).toBeNull();
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(8);
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(10);
     expect(view.state.doc.toString()).toBe('/');
   });
 
