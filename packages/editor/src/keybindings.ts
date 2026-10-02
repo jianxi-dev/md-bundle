@@ -46,6 +46,21 @@ export const EDITOR_KEYBINDINGS: ReadonlyArray<EditorKeybinding> = [
   { id: 'toggle-strikethrough', chord: 'Mod-Shift-x' },
   { id: 'toggle-code', chord: 'Mod-e' },
   { id: 'toggle-link', chord: 'Mod-l' },
+  // Heading level shortcuts (ticket #291): Mod-Alt-1..6 → heading-1..6
+  // These work with a collapsed caret (unlike turn-into-hN which requires a non-empty selection).
+  { id: 'heading-1', chord: 'Mod-Alt-1' },
+  { id: 'heading-2', chord: 'Mod-Alt-2' },
+  { id: 'heading-3', chord: 'Mod-Alt-3' },
+  { id: 'heading-4', chord: 'Mod-Alt-4' },
+  { id: 'heading-5', chord: 'Mod-Alt-5' },
+  { id: 'heading-6', chord: 'Mod-Alt-6' },
+  // List shortcuts (ticket #291): Mod-Shift-7/8/9 → bullet/ordered/task list
+  // These existing commands already work with a collapsed caret.
+  { id: 'insert-unordered-list', chord: 'Mod-Shift-7' },
+  { id: 'insert-ordered-list', chord: 'Mod-Shift-8' },
+  { id: 'insert-task-list', chord: 'Mod-Shift-9' },
+  // Mod-k is intentionally NOT bound (reserved for the command palette).
+  // Mod-m is intentionally NOT bound (no assignment).
 ];
 
 /**
