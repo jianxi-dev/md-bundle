@@ -8,6 +8,7 @@
  */
 import { EditorView } from '@codemirror/view';
 import type { BlockConvertTarget } from './block-handle-ops';
+import { commandRegistry } from './commands';
 
 export const HANDLE_CLASS = 'mdb-block-handle';
 export const MENU_CLASS = 'mdb-block-handle-menu';
@@ -35,6 +36,17 @@ const MENU_ACTIONS: readonly MenuAction[] = [
   { label: '复制块', icon: '⧉', action: 'duplicate' },
   { label: '删除块', icon: '✕', action: 'delete' },
 ];
+
+/**
+ * Registry command id backing a 转换为 row, or null for rows with no command.
+ * Headings are `heading-${level}` (registered with Mod-Alt-<level> in #291);
+ * 正文 and the structural actions have no registry command yet, so no chord.
+ */
+function registryCommandId(entry: MenuAction): string | null {
+  return entry.convert !== undefined && /^h[1-6]$/.test(entry.convert)
+    ? `heading-${entry.convert.slice(1)}`
+    : null;
+}
 
 export function createHandle(): HTMLElement {
   const handle = document.createElement('div');
@@ -71,6 +83,17 @@ export function createMenu(): HTMLElement {
     label.className = 'mdb-block-handle-item-label';
     label.textContent = entry.label;
     item.append(icon, label);
+    const commandId = registryCommandId(entry);
+    const keyBinding = commandId === null ? null : commandRegistry.getKeyBinding(commandId);
+    if (keyBinding !== null) {
+      const kbd = document.createElement('kbd');
+      kbd.className = 'mdb-block-handle-item-kbd';
+      kbd.textContent = keyBinding;
+      // The chord is also exposed accessibly by the command palette; hiding it
+      // here keeps this button's accessible name exactly the label (#276).
+      kbd.setAttribute('aria-hidden', 'true');
+      item.append(kbd);
+    }
     if (entry.convert) item.setAttribute('data-convert', entry.convert);
     if (entry.action) item.setAttribute('data-action', entry.action);
     menu.appendChild(item);
@@ -237,6 +260,15 @@ export const blockHandleTheme = EditorView.baseTheme({
     width: '16px',
     flexShrink: '0',
     opacity: '0.7',
+    color: 'var(--mdb-text-secondary)',
+  },
+  '.mdb-block-handle-item-kbd': {
+    marginLeft: 'auto',
+    flexShrink: '0',
+    fontSize: '11px',
+    padding: '1px 6px',
+    border: `1px solid var(--mdb-border)`,
+    borderRadius: '3px',
     color: 'var(--mdb-text-secondary)',
   },
   '.block-insert-line': {
