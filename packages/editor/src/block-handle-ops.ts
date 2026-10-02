@@ -12,8 +12,24 @@
 import type { EditorState } from '@codemirror/state'
 import { getBlocks, getBlockAt, type Block } from './block-model'
 
-/** Target of the 转换为 menu group. */
+/** Target of the 转换为 menu group (legacy, first-line only). */
 export type BlockConvertTarget = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'paragraph'
+
+/** Target of the 转换 dropdown (whole-block, per-line). */
+export type BlockTurnIntoTarget =
+  | 'h1'
+  | 'h2'
+  | 'h3'
+  | 'h4'
+  | 'h5'
+  | 'h6'
+  | 'paragraph'
+  | 'list'
+  | 'task'
+  | 'quote'
+  | 'code'
+  | 'callout'
+  | 'table'
 
 const HEADING_LEVEL: Record<'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6', number> = {
   h1: 1,
@@ -145,6 +161,114 @@ export function computeBlockConvert(
   const stripped = firstLine.replace(/^\s*#{1,6}\s+/, '').replace(/^\s*#{1,6}\s*$/, '')
   const prefix = target === 'paragraph' ? '' : `${'#'.repeat(HEADING_LEVEL[target])} `
   return docText.slice(0, blockFrom) + prefix + stripped + remainder + docText.slice(blockTo)
+}
+
+/**
+ * Strip common block-level markers from a line.
+ * Handles: ATX headings (#...), callouts/quotes (> [!TYPE]? / >), task items (- [ ] ),
+ * bullet lists (- * +), ordered lists (1. ).
+ * Does NOT strip inline markdown markers (**, *, __, _, ~~, `) — those are preserved.
+ */
+function stripBlockMarkers(line: string): string {
+  return line
+    .replace(/^\s*#{1,6}\s+/, '') // ATX heading
+    .replace(/^\s*#{1,6}\s*$/, '') // ATX heading only
+    .replace(/^\s*>\s*\[![\w-]+\]\s*/, '') // Callout marker > [!NOTE]
+    .replace(/^\s*>\s*/, '') // Blockquote marker >
+    .replace(/^\s*-\s*\[\s*[xX]?\s*\]\s*/, '') // Task item - [ ] / - [x]
+    .replace(/^\s*[-*+]\s+/, '') // Bullet list - * +
+    .replace(/^\s*\d+\.\s+/, '') // Ordered list 1. 2.
+}
+
+/**
+ * Convert a whole block (all non-blank lines) to the target type.
+ * Unlike computeBlockConvert, this rewrites EVERY non-blank line in the block.
+ * Existing block markers are stripped before applying new ones.
+ *
+ * @param docText - Full document text.
+ * @param blockFrom - Start offset of the block (inclusive).
+ * @param blockTo - End offset of the block (exclusive).
+ * @param target - Target block type.
+ * @returns New document text with the block converted.
+ */
+export function computeBlockTurnInto(
+  docText: string,
+  blockFrom: number,
+  blockTo: number,
+  target: BlockTurnIntoTarget,
+): string {
+  const blockText = docText.slice(blockFrom, blockTo)
+  if (blockText.length === 0) return docText
+
+  const lines = blockText.split('\n')
+  const processedLines: string[] = []
+
+  if (target === 'code') {
+    // Wrap entire block in fenced code block
+    const content = lines.join('\n')
+    const wrapped = '```\n' + content + '\n```'
+    return docText.slice(0, blockFrom) + wrapped + docText.slice(blockTo)
+  }
+
+  if (target === 'table') {
+    // Construct GFM table from non-blank lines: single column, each line = one row
+    const nonBlankLines = lines.filter((l) => l.trim().length > 0)
+    if (nonBlankLines.length === 0) return docText
+    const headerRow = '| ' + nonBlankLines[0].trim() + ' |'
+    const separatorRow = '| --- |'
+    const dataRows = nonBlankLines
+      .slice(1)
+      .map((line) => '| ' + line.trim() + ' |')
+    const tableLines = [headerRow, separatorRow, ...dataRows]
+    const tableText = tableLines.join('\n')
+    return docText.slice(0, blockFrom) + tableText + docText.slice(blockTo)
+  }
+
+  // For all other targets, process each line
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed.length === 0) {
+      // Preserve blank lines as-is
+      processedLines.push('')
+      continue
+    }
+    const stripped = stripBlockMarkers(line)
+    let prefix = ''
+    switch (target) {
+      case 'h1':
+      case 'h2':
+      case 'h3':
+      case 'h4':
+      case 'h5':
+      case 'h6':
+        prefix = '#'.repeat(HEADING_LEVEL[target]) + ' '
+        break
+      case 'paragraph':
+        prefix = ''
+        break
+      case 'list':
+        prefix = '- '
+        break
+      case 'task':
+        prefix = '- [ ] '
+        break
+      case 'quote':
+        prefix = '> '
+        break
+      case 'callout':
+        // First non-blank line gets > [!NOTE], rest get >
+        if (processedLines.length === 0 || processedLines.every((l) => l.trim().length === 0)) {
+          prefix = '> [!NOTE] '
+        } else {
+          prefix = '> '
+        }
+        break
+    }
+    processedLines.push(prefix + stripped)
+  }
+
+  const newBlockText = processedLines.join('\n')
+  return docText.slice(0, blockFrom) + newBlockText + docText.slice(blockTo)
 }
 
 /** Insert a copy of the block immediately after it, separated by a blank line. */

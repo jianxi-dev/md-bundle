@@ -24,6 +24,7 @@ import {
   findBlockAt,
   computeBlockMove,
   computeBlockConvert,
+  computeBlockTurnInto,
   computeBlockDuplicate,
   computeBlockDelete,
   computeMinimalChange,
@@ -160,6 +161,148 @@ describe('block-handle pure helpers', () => {
     // block offsets from block-model: "B" spans [3, 4); the document's final
     // newline is not part of the block and must be preserved.
     expect(computeBlockDelete('A\n\nB\n', 3, 4)).toBe('A\n')
+  })
+})
+
+// --- computeBlockTurnInto ------------------------------------------------------
+
+describe('computeBlockTurnInto', () => {
+  // Single-line block tests
+  it('turns a paragraph into h1', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'h1')).toBe('# Hello')
+  })
+
+  it('turns a paragraph into h2', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'h2')).toBe('## Hello')
+  })
+
+  it('turns a paragraph into h3', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'h3')).toBe('### Hello')
+  })
+
+  it('turns a paragraph into h4', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'h4')).toBe('#### Hello')
+  })
+
+  it('turns a paragraph into h5', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'h5')).toBe('##### Hello')
+  })
+
+  it('turns a paragraph into h6', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'h6')).toBe('###### Hello')
+  })
+
+  it('turns an h1 into paragraph (strips markers)', () => {
+    expect(computeBlockTurnInto('# Title', 0, 7, 'paragraph')).toBe('Title')
+  })
+
+  it('turns an h3 into paragraph (strips markers)', () => {
+    expect(computeBlockTurnInto('### Title', 0, 9, 'paragraph')).toBe('Title')
+  })
+
+  it('turns a paragraph into list', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'list')).toBe('- Hello')
+  })
+
+  it('turns a paragraph into task', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'task')).toBe('- [ ] Hello')
+  })
+
+  it('turns a paragraph into quote', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'quote')).toBe('> Hello')
+  })
+
+  it('turns a paragraph into callout', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'callout')).toBe('> [!NOTE] Hello')
+  })
+
+  it('turns a paragraph into code (wraps in fence)', () => {
+    const result = computeBlockTurnInto('Hello', 0, 5, 'code')
+    expect(result).toBe('```\nHello\n```')
+  })
+
+  it('turns a paragraph into table (single column)', () => {
+    const result = computeBlockTurnInto('A B', 0, 3, 'table')
+    expect(result).toContain('| A B |')
+    expect(result).toContain('| --- |')
+  })
+
+  // Multi-line block tests (per-line conversion)
+  it('turns multi-line block into h2 (per line)', () => {
+    expect(computeBlockTurnInto('one\ntwo\nthree', 0, 13, 'h2')).toBe('## one\n## two\n## three')
+  })
+
+  it('turns multi-line block into list (per line)', () => {
+    expect(computeBlockTurnInto('one\ntwo\nthree', 0, 13, 'list')).toBe('- one\n- two\n- three')
+  })
+
+  it('turns multi-line block into task (per line)', () => {
+    expect(computeBlockTurnInto('one\ntwo\nthree', 0, 13, 'task')).toBe('- [ ] one\n- [ ] two\n- [ ] three')
+  })
+
+  it('turns multi-line block into quote (per line)', () => {
+    expect(computeBlockTurnInto('one\ntwo\nthree', 0, 13, 'quote')).toBe('> one\n> two\n> three')
+  })
+
+  it('turns multi-line block into callout (first line [!NOTE], rest >)', () => {
+    expect(computeBlockTurnInto('one\ntwo\nthree', 0, 13, 'callout')).toBe('> [!NOTE] one\n> two\n> three')
+  })
+
+  it('turns multi-line block into code (wraps whole block)', () => {
+    const result = computeBlockTurnInto('one\ntwo\nthree', 0, 13, 'code')
+    expect(result).toBe('```\none\ntwo\nthree\n```')
+  })
+
+  it('turns multi-line block into table (single column)', () => {
+    const input = 'Header1 Header2\nRow1 Col1 Row1 Col2\nRow2 Col1 Row2 Col2'
+    const result = computeBlockTurnInto(input, 0, input.length, 'table')
+    expect(result).toContain('| Header1 Header2 |')
+    expect(result).toContain('| --- |')
+    expect(result).toContain('| Row1 Col1 Row1 Col2 |')
+    expect(result).toContain('| Row2 Col1 Row2 Col2 |')
+  })
+
+  // Marker stripping tests
+  it('strips existing heading markers before converting to h2', () => {
+    expect(computeBlockTurnInto('# Title', 0, 7, 'h2')).toBe('## Title')
+  })
+
+  it('strips existing list markers before converting to task', () => {
+    expect(computeBlockTurnInto('- Item', 0, 6, 'task')).toBe('- [ ] Item')
+  })
+
+  it('strips existing task markers before converting to list', () => {
+    expect(computeBlockTurnInto('- [ ] Task', 0, 10, 'list')).toBe('- Task')
+  })
+
+  it('strips existing quote markers before converting to list', () => {
+    expect(computeBlockTurnInto('> Quote', 0, 7, 'list')).toBe('- Quote')
+  })
+
+  it('strips existing callout markers before converting to quote', () => {
+    expect(computeBlockTurnInto('> [!NOTE] Note', 0, 13, 'quote')).toBe('> Note')
+  })
+
+  it('strips ordered list markers before converting to list', () => {
+    expect(computeBlockTurnInto('1. First', 0, 8, 'list')).toBe('- First')
+  })
+
+  // Blank line preservation
+  it('preserves blank lines in multi-line block', () => {
+    expect(computeBlockTurnInto('one\n\ntwo', 0, 9, 'h2')).toBe('## one\n\n## two')
+  })
+
+  // Empty block
+  it('returns original text for empty block', () => {
+    expect(computeBlockTurnInto('Hello', 5, 5, 'h1')).toBe('Hello')
+  })
+
+  // Partial selection within a larger document
+  it('converts only the specified block range in a larger document', () => {
+    const doc = 'Before\n\nTarget block\n\nAfter'
+    // "Target block" is at offset 7-19
+    const result = computeBlockTurnInto(doc, 7, 19, 'h1')
+    expect(result).toBe('Before\n\n# Target block\n\nAfter')
   })
 })
 

@@ -105,7 +105,7 @@ describe('floating toolbar: data-driven 7-control set (ticket #260)', () => {
     removeClipboard();
   });
 
-  it('renders exactly the 11 inline-format controls with Chinese tooltips', () => {
+  it('renders exactly the 12 inline-format controls with Chinese tooltips', () => {
     selectWord(view, 'Hello world', 'Hello');
     const buttons = Array.from(
       view.dom.querySelectorAll<HTMLButtonElement>('.mdb-floating-toolbar .mdb-toolbar-btn, .mdb-floating-toolbar .mdb-toolbar-dropdown-btn'),
@@ -122,6 +122,7 @@ describe('floating toolbar: data-driven 7-control set (ticket #260)', () => {
       '行内代码',
       '分栏',
       '复制',
+      '转换',
     ]);
   });
 

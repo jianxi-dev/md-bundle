@@ -72,10 +72,10 @@ export interface FloatingToolbarOptions {
 }
 
 /**
- * Default 11-control inline format set.
- * Order (user-pinned, ticket #269):
- * 字体 / A(颜色) / 对齐 / 加粗 / 删除线 / 斜体 / 下划线 / 插入链接 / 行内代码 / 分栏 / 复制.
- * The dropdown buttons show a short glyph (`字体`/`A`/`对齐`/`分栏`) with a `▾`
+ * Default 12-control inline format set.
+ * Order (user-pinned, ticket #269 + #277):
+ * 字体 / A(颜色) / 对齐 / 加粗 / 删除线 / 斜体 / 下划线 / 插入链接 / 行内代码 / 分栏 / 复制 / 转换.
+ * The dropdown buttons show a short glyph (`字体`/`A`/`对齐`/`分栏`/`转换`) with a `▾`
  * caret; the button controls keep their command glyphs (B/S/I/U/🔗/</>). Tooltips
  * stay the semantic labels.
  */
@@ -136,6 +136,27 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
     ],
   },
   { commandId: 'code-copy', label: '复制', icon: '复制' },
+  {
+    commandId: 'turn-into-h2',
+    label: '转换',
+    icon: '⇄',
+    kind: 'dropdown',
+    options: [
+      { commandId: 'turn-into-h1', label: '一级标题' },
+      { commandId: 'turn-into-h2', label: '二级标题' },
+      { commandId: 'turn-into-h3', label: '三级标题' },
+      { commandId: 'turn-into-h4', label: '四级标题' },
+      { commandId: 'turn-into-h5', label: '五级标题' },
+      { commandId: 'turn-into-h6', label: '六级标题' },
+      { commandId: 'turn-into-paragraph', label: '正文' },
+      { commandId: 'turn-into-list', label: '列表' },
+      { commandId: 'turn-into-task', label: '任务' },
+      { commandId: 'turn-into-quote', label: '引用' },
+      { commandId: 'turn-into-code', label: '代码' },
+      { commandId: 'turn-into-callout', label: '高亮' },
+      { commandId: 'turn-into-table', label: '表格' },
+    ],
+  },
 ];
 
 interface ToolbarState {

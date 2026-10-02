@@ -38,6 +38,12 @@ export {
   isBlockInViewport,
   blockHandleIcon,
   type BlockConvertTarget,
+} from './block-handle-ops'
+
+// Re-export new turn-into symbols (not used directly in this file)
+export {
+  computeBlockTurnInto,
+  type BlockTurnIntoTarget,
   type MinimalChange,
 } from './block-handle-ops'
 
