@@ -554,10 +554,80 @@ describe('font/color toggle commands (ticket #261)', () => {
     expect(view.state.doc.toString()).toContain('<span class="mdb-color-blue">Hello</span>');
   });
 
+  it('bg-red wraps selection with <span class="mdb-bg-red">', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('bg-red', view);
+    expect(view.state.doc.toString()).toContain('<span class="mdb-bg-red">Hello</span>');
+  });
+
+  it('bg-red toggles off on second click', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('bg-red', view);
+    commandRegistry.execute('bg-red', view);
+    expect(view.state.doc.toString()).not.toContain('mdb-bg-red');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('switching background replaces the span class', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('bg-red', view);
+    commandRegistry.execute('bg-blue', view);
+    expect(view.state.doc.toString()).not.toContain('mdb-bg-red');
+    expect(view.state.doc.toString()).toContain('<span class="mdb-bg-blue">Hello</span>');
+  });
+
+  it('bg-clear removes any mdb-bg-* span', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('bg-green', view);
+    commandRegistry.execute('bg-clear', view);
+    expect(view.state.doc.toString()).not.toContain('mdb-bg-');
+    expect(view.state.doc.toString()).toContain('Hello');
+  });
+
+  it('text color and background color coexist on the same selection', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('color-red', view);
+    commandRegistry.execute('bg-blue', view);
+    const doc = view.state.doc.toString();
+    expect(doc).toContain('mdb-color-red');
+    expect(doc).toContain('mdb-bg-blue');
+    expect(doc).toContain('Hello');
+  });
+
+  it('color-reset removes both mdb-color-* and mdb-bg-* wrappers', () => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute('color-purple', view);
+    commandRegistry.execute('bg-orange', view);
+    commandRegistry.execute('color-reset', view);
+    const doc = view.state.doc.toString();
+    expect(doc).not.toContain('mdb-color-');
+    expect(doc).not.toContain('mdb-bg-');
+    expect(doc).toContain('Hello');
+  });
+
   it('all font/color commands are registered with Chinese labels', () => {
     const fontIds = ['font-serif', 'font-mono', 'font-sans', 'font-clear'];
     const colorIds = ['color-red', 'color-blue', 'color-green', 'color-orange', 'color-purple', 'color-clear'];
-    for (const id of [...fontIds, ...colorIds]) {
+    const bgIds = ['bg-red', 'bg-blue', 'bg-green', 'bg-orange', 'bg-purple', 'bg-clear'];
+    for (const id of [...fontIds, ...colorIds, ...bgIds, 'color-reset']) {
       const cmd = commandRegistry.all().find((c) => c.id === id);
       expect(cmd, `command ${id} should be registered`).toBeDefined();
       expect(cmd?.label, `${id} should have Chinese label`).toBeTruthy();

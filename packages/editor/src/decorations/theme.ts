@@ -130,6 +130,13 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-color-green': { color: 'var(--mdb-success)' },
   '.cm-content .cm-color-orange': { color: 'var(--mdb-warning)' },
   '.cm-content .cm-color-purple': { color: '#a371f7' },
+  // Background colors (ticket #278): translucent so they stay readable on
+  // both dark and light editor surfaces. Mirrors the renderer's dark palette.
+  '.cm-content .cm-bg-red': { backgroundColor: 'rgba(248, 81, 73, 0.25)' },
+  '.cm-content .cm-bg-blue': { backgroundColor: 'rgba(123, 134, 234, 0.25)' },
+  '.cm-content .cm-bg-green': { backgroundColor: 'rgba(63, 185, 80, 0.25)' },
+  '.cm-content .cm-bg-orange': { backgroundColor: 'rgba(227, 179, 65, 0.25)' },
+  '.cm-content .cm-bg-purple': { backgroundColor: 'rgba(163, 113, 247, 0.25)' },
 
   // ── Lists ─────────────────────────────────────────────────────────────
   '.cm-content .cm-line.cm-list': {

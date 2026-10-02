@@ -8,19 +8,43 @@ const strikeRegex = /~~(.+?)~~/g;
 const underlineRegex = /<u>([^<]+?)<\/u>/g;
 const fontRegex = /<span class="mdb-font-(serif|mono|sans)">([^<]+?)<\/span>/g;
 const colorRegex = /<span class="mdb-color-(red|blue|green|orange|purple)">([^<]+?)<\/span>/g;
+const bgRegex = /<span class="mdb-bg-(red|blue|green|orange|purple)">([^<]+?)<\/span>/g;
 
 const BOLD_CLASS = 'cm-strong';
 const ITALIC_CLASS = 'cm-em';
 const STRIKE_CLASS = 'cm-strikethrough';
 const UNDERLINE_CLASS = 'cm-underline';
-const FONT_SERIF_CLASS = 'cm-font-serif';
-const FONT_MONO_CLASS = 'cm-font-mono';
-const FONT_SANS_CLASS = 'cm-font-sans';
-const COLOR_RED_CLASS = 'cm-color-red';
-const COLOR_BLUE_CLASS = 'cm-color-blue';
-const COLOR_GREEN_CLASS = 'cm-color-green';
-const COLOR_ORANGE_CLASS = 'cm-color-orange';
-const COLOR_PURPLE_CLASS = 'cm-color-purple';
+
+/** Class families with raw-HTML passthrough spans (font / text color / background color). */
+type SpanFamily = 'mdb-font' | 'mdb-color' | 'mdb-bg';
+
+/**
+ * Decorate `mdb-{family}-{variant}` passthrough spans: hide both raw tags and
+ * mark the content with the matching `cm-*` class. Shared by font / text color
+ * / background color (ticket #278) so the families cannot drift apart.
+ */
+function decorateSpanFamily(
+  text: string,
+  regex: RegExp,
+  family: SpanFamily,
+  decorations: Range<Decoration>[],
+): void {
+  regex.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    const from = match.index;
+    const to = from + match[0].length;
+    const openTag = `<span class="${family}-${match[1]}">`;
+    const closeTag = '</span>';
+    const openLen = openTag.length;
+    const closeLen = closeTag.length;
+    const markClass = `cm-${family.slice('mdb-'.length)}-${match[1]}`;
+
+    decorations.push(Decoration.replace({}).range(from, from + openLen));
+    decorations.push(Decoration.mark({ class: markClass }).range(from + openLen, to - closeLen));
+    decorations.push(Decoration.replace({}).range(to - closeLen, to));
+  }
+}
 
 // --- Incomplete marker detection (Type-as-Render) ----------------------------
 
@@ -143,75 +167,10 @@ export function createBoldItalicDecorations(
     decorations.push(Decoration.replace({}).range(to - closeLen, to));
   }
 
-  fontRegex.lastIndex = 0;
-  while ((match = fontRegex.exec(text)) !== null) {
-    const from = match.index;
-    const to = from + match[0].length;
-    const fontType = match[1];
-    const openTag = `<span class="mdb-font-${fontType}">`;
-    const closeTag = '</span>';
-    const openLen = openTag.length;
-    const closeLen = closeTag.length;
-
-    let fontClass: string;
-    switch (fontType) {
-      case 'serif':
-        fontClass = FONT_SERIF_CLASS;
-        break;
-      case 'mono':
-        fontClass = FONT_MONO_CLASS;
-        break;
-      case 'sans':
-        fontClass = FONT_SANS_CLASS;
-        break;
-      default:
-        fontClass = FONT_SANS_CLASS;
-    }
-
-    decorations.push(Decoration.replace({}).range(from, from + openLen));
-    decorations.push(
-      Decoration.mark({ class: fontClass }).range(from + openLen, to - closeLen),
-    );
-    decorations.push(Decoration.replace({}).range(to - closeLen, to));
-  }
-
-  colorRegex.lastIndex = 0;
-  while ((match = colorRegex.exec(text)) !== null) {
-    const from = match.index;
-    const to = from + match[0].length;
-    const colorType = match[1];
-    const openTag = `<span class="mdb-color-${colorType}">`;
-    const closeTag = '</span>';
-    const openLen = openTag.length;
-    const closeLen = closeTag.length;
-
-    let colorClass: string;
-    switch (colorType) {
-      case 'red':
-        colorClass = COLOR_RED_CLASS;
-        break;
-      case 'blue':
-        colorClass = COLOR_BLUE_CLASS;
-        break;
-      case 'green':
-        colorClass = COLOR_GREEN_CLASS;
-        break;
-      case 'orange':
-        colorClass = COLOR_ORANGE_CLASS;
-        break;
-      case 'purple':
-        colorClass = COLOR_PURPLE_CLASS;
-        break;
-      default:
-        colorClass = COLOR_RED_CLASS;
-    }
-
-    decorations.push(Decoration.replace({}).range(from, from + openLen));
-    decorations.push(
-      Decoration.mark({ class: colorClass }).range(from + openLen, to - closeLen),
-    );
-    decorations.push(Decoration.replace({}).range(to - closeLen, to));
-  }
+  // Raw-HTML passthrough spans: font family / text color / background color.
+  decorateSpanFamily(text, fontRegex, 'mdb-font', decorations);
+  decorateSpanFamily(text, colorRegex, 'mdb-color', decorations);
+  decorateSpanFamily(text, bgRegex, 'mdb-bg', decorations);
 
   // Type-as-Render: Apply styling to incomplete markers
   // Incomplete bold: **text (no closing **)
