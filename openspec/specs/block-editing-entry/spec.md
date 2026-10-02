@@ -3,38 +3,6 @@
 ## Purpose
 TBD - created by archiving change editor-block-entry. Update Purpose after archive.
 ## Requirements
-### Requirement: Slash menu is grouped
-
-The slash (`/`) menu SHALL render its commands in labelled groups (基础 / 常用 / 小组件) instead of a single flat list.
-
-#### Scenario: Grouped menu is shown
-- **WHEN** the user types `/` on an empty line in edit mode
-- **THEN** the menu shows group headings and each command under its group
-
-### Requirement: Slash menu offers a heading-level submenu
-
-The slash menu SHALL expose a 「标题」 entry that opens a second-level panel listing H1–H6; selecting a level SHALL insert that heading in a single undoable change.
-
-#### Scenario: Insert H2 from the submenu
-- **WHEN** the user types `/`, selects 「标题」, then picks H2
-- **THEN** the current line becomes an H2 heading in the underlying Markdown source
-
-### Requirement: Slash menu offers a table grid selector
-
-The slash menu SHALL expose a 「表格」 second-level panel with a hover grid showing `N × M`; clicking SHALL insert a GFM pipe table with N columns and M rows (header + separator + rows).
-
-#### Scenario: Insert a 7×3 table
-- **WHEN** the user opens `/` → 「表格」 and clicks the 7×3 grid cell
-- **THEN** a GFM pipe table with 7 columns and 3 body rows is inserted into the source
-
-### Requirement: Slash menu stays inside the viewport
-
-The slash menu SHALL clamp its right and bottom edges to the viewport and scroll internally when its content exceeds the available height.
-
-#### Scenario: Menu near the bottom-right corner does not overflow
-- **WHEN** the user opens the `/` menu with the cursor near the bottom-right of the window
-- **THEN** the menu's right and bottom edges stay within the viewport
-
 ### Requirement: Block handle menu moves a block up or down
 
 The block handle menu SHALL offer 「上移」 and 「下移」 actions that swap the current block with its previous/next sibling in a single minimal-change transaction.
@@ -62,4 +30,48 @@ When the cursor is inside a heading block, the `# ` marker SHALL NOT be replaced
 #### Scenario: Heading source is reachable
 - **WHEN** the cursor enters a heading line
 - **THEN** the raw `# ` marker is reachable and Backspace can change the level
+
+### Requirement: Block handle stays visible while the pointer is on the block or handle
+
+The block handle SHALL remain visible while the pointer is anywhere on the hovered block's line, on the handle itself, or on the handle menu, and SHALL NOT disappear when the pointer crosses the gap toward the handle. It SHALL reappear after scrolling without requiring the pointer to leave and re-enter the editor.
+
+#### Scenario: Handle survives moving toward it
+- **WHEN** the pointer moves from the block's text toward the handle
+- **THEN** the handle stays visible until the pointer leaves the block/handle/menu region
+
+#### Scenario: Handle survives scrolling
+- **WHEN** the user scrolls while a block is hovered
+- **THEN** the handle returns to the current hovered block without an extra mouse move
+
+### Requirement: Block handle hit area is enlarged and bridged
+
+The block handle SHALL have an enlarged interactive hit area with an invisible bridge between the text and the handle, so moving toward it does not lose the handle.
+
+#### Scenario: Enlarged hit area
+- **WHEN** the pointer is near but not exactly on the handle glyph
+- **THEN** the handle is still treated as hovered
+
+### Requirement: Block handle shows the block type icon
+
+The block handle SHALL display an icon reflecting the current block's type and heading level (e.g. H1/H2, task checkbox, quote, code), not a single generic glyph.
+
+#### Scenario: Heading icon on the handle
+- **WHEN** the pointer is on an H2 block
+- **THEN** the handle shows an H2-level icon
+
+### Requirement: Empty lines expose an insert affordance
+
+An empty line/blank area SHALL show a 「＋」 affordance in the gutter on hover; clicking it SHALL open the insert menu.
+
+#### Scenario: Empty line shows plus
+- **WHEN** the pointer is over an empty line
+- **THEN** a 「＋」 appears in the gutter and clicking it opens the insert menu
+
+### Requirement: Block handle menu and toolbar controls are iconified
+
+The block handle menu SHALL render each entry with an icon and label.
+
+#### Scenario: Menu shows icons
+- **WHEN** the user opens the block handle menu
+- **THEN** each entry shows an icon alongside its label
 

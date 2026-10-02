@@ -21,6 +21,14 @@ The toolbar SHALL offer a 颜色 control that opens a popup dual palette (font c
 - **WHEN** the user selects text and inspects the toolbar
 - **THEN** there is no 字体 control; the freed slot is occupied by 转换
 
+#### Scenario: Color a selection
+- **WHEN** the user selects text and picks 红色
+- **THEN** the source wraps the selection in `<span class="mdb-color-red">…</span>` and the preview renders it with the red class colour
+
+#### Scenario: Class survives sanitization
+- **WHEN** a document containing `<span class="mdb-color-blue">x</span>` is rendered
+- **THEN** the output retains `class="mdb-color-blue"` (no sanitizer change required)
+
 ## ADDED Requirements
 
 ### Requirement: Toolbar offers whole-paragraph turn-into
