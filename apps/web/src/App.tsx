@@ -14,6 +14,7 @@ import {
   structureLinterExtension,
   chapterReorgExtension,
   blockHandle,
+  emptyLineEntry,
   editorDecorations,
   type MarkdownEditorHandle,
 } from '@md-bundle/editor'
@@ -129,6 +130,8 @@ const EDITOR_EXT = [
   chapterReorgExtension(),
   // 块手柄：悬停左侧沟槽出现 ⠿，点击开「转换为/复制/删除」菜单，按住拖拽整块排序（#189）
   blockHandle(),
+  // 空行「＋」入口：悬停空行出现「＋」，点击在行首插入「/」并打开斜杠菜单（#275 task 2.3）
+  emptyLineEntry(),
 ]
 
 /** 窄屏检测 hook（<768px）：matchMedia 监听，响应式断点切换。 */

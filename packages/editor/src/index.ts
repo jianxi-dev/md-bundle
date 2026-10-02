@@ -60,6 +60,7 @@ export {
   type DragState,
 } from './chapter-reorg';
 export { blockHandle } from './block-handle';
+export { emptyLineEntry } from './empty-line-entry';
 export { lintStructure, type Diagnostic, type LintResult } from './structure-linter';
 export { structureLinterExtension } from './structure-linter-extension';
 export { commandPaletteKeymap, openCommandPalette, closeCommandPalette, paletteSelectNext, paletteSelectPrev, paletteApply, paletteClose } from './command-palette';
