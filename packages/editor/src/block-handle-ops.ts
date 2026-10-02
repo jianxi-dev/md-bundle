@@ -33,6 +33,37 @@ export function findBlockAt(state: EditorState, pos: number): Block | null {
 }
 
 /**
+ * Check if a block still exists in the given state by comparing from/to/type.
+ * Pure helper for update() re-anchor logic.
+ */
+export function blockStillExists(state: EditorState, block: Block): boolean {
+  const blocks = getBlocks(state)
+  return blocks.some((b) => b.from === block.from && b.to === block.to && b.type === block.type)
+}
+
+/**
+ * Check if a block is currently visible within the scroll viewport.
+ * Uses coordsAtPos for precise viewport overlap; returns false if coords unavailable.
+ */
+export function isBlockInViewport(
+  view: {
+    coordsAtPos: (pos: number) => { top: number; bottom: number } | null
+    scrollDOM: { getBoundingClientRect: () => { top: number; bottom: number } }
+  },
+  block: Block,
+): boolean {
+  const topCoords = view.coordsAtPos(block.from)
+  const bottomCoords = view.coordsAtPos(block.to)
+  if (!topCoords || !bottomCoords) return false
+
+  const scrollRect = view.scrollDOM.getBoundingClientRect()
+  const blockTop = topCoords.top
+  const blockBottom = bottomCoords.bottom
+
+  return blockBottom > scrollRect.top && blockTop < scrollRect.bottom
+}
+
+/**
  * Resolve a 1-based line number to its starting offset.
  * Line numbers at or beyond the end clamp to the document length (append);
  * line 1 (or lower) resolves to the document start.
