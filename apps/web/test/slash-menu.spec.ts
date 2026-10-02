@@ -55,6 +55,12 @@ test('空行输入 `/` 时菜单贴合光标行，并列出中文命令项', asy
   await expect(menu).toContainText('标注')
   await expect(menu).toContainText('代码块')
 
+  // #279：根菜单以图标网格呈现（8 个根命令），分组标题仍在。
+  const grid = page.locator('.mdb-slash-grid-menu')
+  await expect(grid).toBeVisible()
+  await expect(grid).toHaveCSS('display', 'grid')
+  await expect(grid.locator('.mdb-slash-item')).toHaveCount(8)
+
   const lineBox = await boxOf(lines.last())
   const menuBox = await boxOf(menu)
 
