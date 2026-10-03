@@ -322,34 +322,37 @@ export function computeMinimalChange(oldText: string, next: string): MinimalChan
 }
 
 /**
- * Return the glyph/icon for a block handle based on the block's type and state.
- * Pure and total over BlockType — adding a new BlockType will cause a type error
- * if not handled here.
+ * Resolve the `data-icon` name for a block handle. Pure and total over
+ * BlockType — adding a new BlockType causes a type error here. The returned
+ * name is consumed by `renderIcon` (icons.ts) and asserted via `data-icon`
+ * (ticket #322: contract changed from a text glyph to a data-icon name).
  */
 export function blockHandleIcon(block: Block): string {
   switch (block.type) {
     case 'heading':
-      return block.level !== undefined ? `H${block.level}` : 'H'
+      return block.level !== undefined && block.level >= 1 && block.level <= 6
+        ? `H${block.level}Outlined`
+        : 'HOutlined'
     case 'task':
-      return block.checked ? '☑' : '☐'
+      return block.checked ? 'TaskAltOutlined' : 'CheckBoxOutlineBlankOutlined'
     case 'blockquote':
-      return '❝'
+      return 'FormatQuoteOutlined'
     case 'fencedCode':
     case 'codeBlock':
-      return '</>'
+      return 'CodeOutlined'
     case 'list':
-      return '≡'
+      return 'ListOutlined'
     case 'table':
-      return '▦'
+      return 'TableChartOutlined'
     case 'thematicBreak':
-      return '—'
+      return 'HorizontalRuleOutlined'
     case 'image':
-      return '▣'
+      return 'ImageOutlined'
     case 'htmlBlock':
-      return '</>'
+      return 'CodeOffOutlined'
     case 'paragraph':
     case 'yamlFrontMatter':
     default:
-      return '⠿'
+      return 'DragHandleOutlined'
   }
 }

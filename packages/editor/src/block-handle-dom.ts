@@ -9,6 +9,12 @@
 import { EditorView } from '@codemirror/view';
 import type { BlockConvertTarget } from './block-handle-ops';
 import { commandRegistry } from './commands';
+import {
+  renderIcon,
+  HANDLE_DEFAULT_ICON,
+  CONVERT_ICON_NAME,
+  ACTION_ICON_NAME,
+} from './icons';
 
 export const HANDLE_CLASS = 'mdb-block-handle';
 export const MENU_CLASS = 'mdb-block-handle-menu';
@@ -24,17 +30,17 @@ interface MenuAction {
 
 /** Menu rows: the 转换为 group first, then move/copy/delete. */
 const MENU_ACTIONS: readonly MenuAction[] = [
-  { label: '一级标题', icon: 'H1', convert: 'h1' },
-  { label: '二级标题', icon: 'H2', convert: 'h2' },
-  { label: '三级标题', icon: 'H3', convert: 'h3' },
-  { label: '四级标题', icon: 'H4', convert: 'h4' },
-  { label: '五级标题', icon: 'H5', convert: 'h5' },
-  { label: '六级标题', icon: 'H6', convert: 'h6' },
-  { label: '正文', icon: '¶', convert: 'paragraph' },
-  { label: '上移', icon: '↑', action: 'move-up' },
-  { label: '下移', icon: '↓', action: 'move-down' },
-  { label: '复制块', icon: '⧉', action: 'duplicate' },
-  { label: '删除块', icon: '✕', action: 'delete' },
+  { label: '一级标题', icon: CONVERT_ICON_NAME['h1'], convert: 'h1' },
+  { label: '二级标题', icon: CONVERT_ICON_NAME['h2'], convert: 'h2' },
+  { label: '三级标题', icon: CONVERT_ICON_NAME['h3'], convert: 'h3' },
+  { label: '四级标题', icon: CONVERT_ICON_NAME['h4'], convert: 'h4' },
+  { label: '五级标题', icon: CONVERT_ICON_NAME['h5'], convert: 'h5' },
+  { label: '六级标题', icon: CONVERT_ICON_NAME['h6'], convert: 'h6' },
+  { label: '正文', icon: CONVERT_ICON_NAME['paragraph'], convert: 'paragraph' },
+  { label: '上移', icon: ACTION_ICON_NAME['move-up'], action: 'move-up' },
+  { label: '下移', icon: ACTION_ICON_NAME['move-down'], action: 'move-down' },
+  { label: '复制块', icon: ACTION_ICON_NAME['duplicate'], action: 'duplicate' },
+  { label: '删除块', icon: ACTION_ICON_NAME['delete'], action: 'delete' },
 ];
 
 /**
@@ -53,7 +59,8 @@ export function createHandle(): HTMLElement {
   handle.className = HANDLE_CLASS;
   handle.setAttribute('data-testid', 'block-handle');
   handle.title = '拖拽重排 · 点击打开菜单';
-  handle.textContent = '⠿';
+  handle.setAttribute('data-icon', HANDLE_DEFAULT_ICON);
+  handle.replaceChildren(renderIcon(HANDLE_DEFAULT_ICON));
   handle.style.display = 'none';
   return handle;
 }
@@ -78,7 +85,7 @@ export function createMenu(): HTMLElement {
     const icon = document.createElement('span');
     icon.className = 'mdb-block-handle-item-icon';
     icon.setAttribute('aria-hidden', 'true');
-    icon.textContent = entry.icon;
+    icon.replaceChildren(renderIcon(entry.icon));
     const label = document.createElement('span');
     label.className = 'mdb-block-handle-item-label';
     label.textContent = entry.label;
@@ -135,7 +142,8 @@ export class HandleChrome {
   }
 
   setIcon(icon: string): void {
-    this.handle.textContent = icon;
+    this.handle.setAttribute('data-icon', icon);
+    this.handle.replaceChildren(renderIcon(icon));
   }
 
   showHandle(): void {

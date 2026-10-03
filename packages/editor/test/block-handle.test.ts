@@ -319,59 +319,61 @@ describe('blockHandleIcon', () => {
     }
   }
 
-  it('returns H1..H6 for heading blocks with level', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 1 }))).toBe('H1')
-    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 2 }))).toBe('H2')
-    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 3 }))).toBe('H3')
-    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 4 }))).toBe('H4')
-    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 5 }))).toBe('H5')
-    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 6 }))).toBe('H6')
+  it('returns H1..H6 icon names for heading blocks with level', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 1 }))).toBe('H1Outlined')
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 2 }))).toBe('H2Outlined')
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 3 }))).toBe('H3Outlined')
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 4 }))).toBe('H4Outlined')
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 5 }))).toBe('H5Outlined')
+    expect(blockHandleIcon(makeBlock({ type: 'heading', level: 6 }))).toBe('H6Outlined')
   })
 
-  it('falls back to H for heading without level', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'heading' }))).toBe('H')
+  it('falls back to HOutlined for heading without level', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'heading' }))).toBe('HOutlined')
   })
 
-  it('returns checked/unchecked glyph for task blocks', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'task', checked: true }))).toBe('☑')
-    expect(blockHandleIcon(makeBlock({ type: 'task', checked: false }))).toBe('☐')
+  it('returns checked/unchecked icon names for task blocks', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'task', checked: true }))).toBe('TaskAltOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'task', checked: false }))).toBe(
+      'CheckBoxOutlineBlankOutlined',
+    )
   })
 
-  it('returns quote glyph for blockquote', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'blockquote' }))).toBe('❝')
+  it('returns quote icon name for blockquote', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'blockquote' }))).toBe('FormatQuoteOutlined')
   })
 
-  it('returns code glyph for fencedCode and codeBlock', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'fencedCode' }))).toBe('</>')
-    expect(blockHandleIcon(makeBlock({ type: 'codeBlock' }))).toBe('</>')
+  it('returns code icon name for fencedCode and codeBlock', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'fencedCode' }))).toBe('CodeOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'codeBlock' }))).toBe('CodeOutlined')
   })
 
-  it('returns list glyph for list', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'list' }))).toBe('≡')
+  it('returns list icon name for list', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'list' }))).toBe('ListOutlined')
   })
 
-  it('returns table glyph for table', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'table' }))).toBe('▦')
+  it('returns table icon name for table', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'table' }))).toBe('TableChartOutlined')
   })
 
-  it('returns thematicBreak glyph', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'thematicBreak' }))).toBe('—')
+  it('returns thematicBreak icon name', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'thematicBreak' }))).toBe('HorizontalRuleOutlined')
   })
 
-  it('returns image glyph', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'image' }))).toBe('▣')
+  it('returns image icon name', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'image' }))).toBe('ImageOutlined')
   })
 
-  it('returns htmlBlock glyph', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'htmlBlock' }))).toBe('</>')
+  it('returns htmlBlock icon name', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'htmlBlock' }))).toBe('CodeOffOutlined')
   })
 
-  it('returns drag-dots for paragraph', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'paragraph' }))).toBe('⠿')
+  it('returns drag-handle icon name for paragraph', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'paragraph' }))).toBe('DragHandleOutlined')
   })
 
-  it('returns drag-dots for yamlFrontMatter and unknown types', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'yamlFrontMatter' }))).toBe('⠿')
+  it('returns drag-handle icon name for yamlFrontMatter and unknown types', () => {
+    expect(blockHandleIcon(makeBlock({ type: 'yamlFrontMatter' }))).toBe('DragHandleOutlined')
   })
 })
 
@@ -441,7 +443,9 @@ describe('blockHandle lifecycle', () => {
     hover(PARAGRAPH_POS)
     const el = handleEl()
     expect(el.getAttribute('data-testid')).toBe('block-handle')
-    expect(el.textContent).toBe('⠿')
+    expect(el.getAttribute('data-icon')).toBe('DragHandleOutlined')
+    expect(el.querySelector('svg')).not.toBeNull()
+    expect(el.textContent).toBe('')
     expect(el.style.display).not.toBe('none')
   })
 
