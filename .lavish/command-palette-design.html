@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>命令面板重设计 · md-bundle</title>
+<style>
+:root{
+  --primary:#7b86ea; --primary-hover:#6671e0;
+  --bg:#08090b; --bg2:#0e0f12; --surface:#1a1b20; --card:#0e0f12;
+  --text:#f5f6f8; --text2:#858b96; --muted:#5d626b;
+  --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.14);
+  --sel:rgba(123,134,234,.18); --sel-strong:rgba(123,134,234,.30);
+  --danger:#f0616d; --success:#3fb950; --warning:#e3b341;
+  --shadow:rgba(0,0,0,.55);
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","PingFang SC",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r:14px;
+}
+html[data-theme="light"]{
+  --primary:#4f5ad1; --primary-hover:#5a66d8;
+  --bg:#ffffff; --bg2:#f0f0f3; --surface:#e9e9ee; --card:#ffffff;
+  --text:#191a1e; --text2:#6b6f78; --muted:#8b8f99;
+  --border:rgba(0,0,0,.10); --border2:rgba(0,0,0,.16);
+  --sel:rgba(79,90,209,.12); --sel-strong:rgba(79,90,209,.22);
+  --danger:#cf222e; --success:#1a7f37; --warning:#9a6700;
+  --shadow:rgba(24,26,40,.18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:44px 26px 120px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:34px}
+.crumb{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.02em;margin-bottom:12px}
+h1{font-size:32px;line-height:1.24;margin:0 0 10px;font-weight:660;letter-spacing:-.01em}
+.sub{color:var(--text2);max-width:760px;margin:0}
+.tgl{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;flex:none}
+.tgl button{background:transparent;border:0;color:var(--text2);font:inherit;font-size:12.5px;padding:6px 12px;cursor:pointer}
+.tgl button.on{background:var(--surface);color:var(--text)}
+.section{margin:46px 0 0}
+.h2{display:flex;align-items:baseline;gap:11px;margin:0 0 6px}
+.h2 .n{font-family:var(--mono);font-size:13px;color:var(--primary)}
+.h2 h2{font-size:20px;margin:0;font-weight:640}
+.lead{color:var(--text2);margin:0 0 20px;max-width:840px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.card .k{font-family:var(--mono);font-size:11.5px;color:var(--primary);margin-bottom:6px}
+.card h3{margin:0 0 6px;font-size:15px;font-weight:620}
+.card p{margin:0;color:var(--text2);font-size:13.5px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{background:transparent;border:1px solid var(--border);color:var(--text2);font:inherit;font-size:13px;padding:6px 14px;border-radius:9px;cursor:pointer}
+.tabs button.on{background:var(--surface);color:var(--text);border-color:var(--border2)}
+.stagebox{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:26px;position:relative;overflow:hidden;min-height:430px}
+.stagebox .tag{position:absolute;top:0;right:0;font-family:var(--mono);font-size:11px;color:var(--muted);border-left:1px solid var(--border);border-bottom:1px solid var(--border);padding:3px 10px;border-radius:0 0 0 10px}
+
+/* ---- 现状 mock (grid, 反面教材) ---- */
+.old{width:520px;max-width:100%;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:0 8px 32px var(--shadow)}
+.old .hdr{display:flex;align-items:center;padding-right:8px}
+.old .inp{flex:1;min-width:0;padding:8px 12px;color:var(--text2);font-size:14px}
+.old .x{color:var(--text2);font-size:18px;padding:6px 10px}
+.old .list{max-height:320px;overflow:auto;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px;padding:4px;align-content:start}
+.old .grp{grid-column:1/-1;padding:8px 12px 4px;font-size:11px;font-weight:600;color:var(--text2)}
+.old .it{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:13px;border-radius:4px}
+.old .it .i{width:18px;font-size:13px;color:var(--primary)}
+.old .it .l{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.old .it kbd{font-size:11px;padding:1px 6px;border:1px solid var(--border);border-radius:3px;color:var(--text2);font-family:var(--mono)}
+.oldnote{text-align:center;color:var(--danger);font-size:12.5px;margin-top:14px}
+
+/* ---- 重设计 ---- */
+.openbtn{display:inline-flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border2);color:var(--text);font:inherit;font-size:14px;padding:10px 16px;border-radius:10px;cursor:pointer;margin:0 auto 22px;display:flex;width:max-content}
+.openbtn kbd{font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:2px 7px;color:var(--text2)}
+.fake-editor{max-width:720px;margin:0 auto;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px 26px;color:var(--text2);font-size:14px}
+.fake-editor h4{color:var(--text);margin:0 0 10px;font-size:18px}
+.fake-editor p{margin:0 0 8px}
+.fake-editor .u{color:var(--primary);text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+
+/* palette */
+.pal-back{position:absolute;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding-top:9vh;z-index:60}
+.pal-back.on{display:flex;animation:fade .14s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.pal{width:640px;max-width:calc(100% - 32px);background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);box-shadow:0 24px 60px var(--shadow);overflow:hidden;display:flex;flex-direction:column;max-height:64vh;animation:pop .16s cubic-bezier(.2,.8,.3,1)}
+@keyframes pop{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1;transform:none}}
+.pal-search{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);flex:none}
+.pal-search svg{width:18px;height:18px;color:var(--text2);flex:none}
+.pal-input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-size:15px}
+.pal-input::placeholder{color:var(--muted)}
+.pal-hint{font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:2px 7px;flex:none}
+.pal-chips{display:flex;gap:6px;padding:10px 12px 4px;flex:none;flex-wrap:wrap}
+.chip{font-size:12px;color:var(--text2);border:1px solid var(--border);background:transparent;border-radius:999px;padding:3px 11px;cursor:pointer}
+.chip.on{background:var(--sel);color:var(--text);border-color:transparent}
+.pal-list{overflow:auto;padding:6px 8px 8px;flex:1 1 auto;min-height:0}
+.pal-group{position:sticky;top:0;z-index:2;background:linear-gradient(var(--bg2) 72%,transparent);font-size:11.5px;font-weight:600;letter-spacing:.04em;color:var(--muted);padding:10px 10px 6px;text-transform:none}
+.pal-row{display:flex;align-items:center;gap:12px;height:42px;padding:0 10px;border-radius:9px;cursor:pointer;position:relative}
+.pal-row:hover{background:var(--sel)}
+.pal-row.on{background:var(--sel-strong)}
+.pal-row.on::before{content:"";position:absolute;left:-1px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--primary)}
+.pal-row .ic{width:20px;height:20px;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:6px}
+.pal-row.on .ic{color:var(--primary);border-color:var(--sel-strong)}
+.pal-row .lbl{font-size:14px;color:var(--text);flex:none;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pal-row .lbl b{color:var(--primary);font-weight:700}
+.pal-row .desc{font-size:12.5px;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pal-row .kb{flex:none;font-family:var(--mono);font-size:11px;color:var(--text2);border:1px solid var(--border);border-radius:6px;padding:2px 7px;background:var(--card)}
+.pal-row .star{flex:none;font-family:var(--mono);font-size:10.5px;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:1px 6px}
+.pal-empty{text-align:center;padding:34px 16px;color:var(--text2)}
+.pal-empty .big{font-size:15px;color:var(--text);margin-bottom:4px}
+.pal-empty .sug{margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.pal-foot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;border-top:1px solid var(--border);color:var(--muted);font-size:12px}
+.pal-foot .keys{display:flex;gap:14px}
+.pal-foot kbd{font-family:var(--mono);font-size:11px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:1px 6px;margin-right:4px}
+
+/* spec */
+.spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+table.tk{width:100%;border-collapse:collapse;font-size:13px}
+table.tk th,table.tk td{border:1px solid var(--border);padding:8px 10px;text-align:left}
+table.tk th{background:var(--card);color:var(--text2);font-weight:600;font-size:12px}
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--border);color:var(--text2)}
+.pill.ok{color:var(--success);border-color:rgba(63,185,80,.35)}
+.pill.bad{color:var(--danger);border-color:rgba(240,97,109,.35)}
+.foot{margin-top:56px;border-top:1px solid var(--border);padding-top:16px;color:var(--muted);font-size:12.5px}
+@media (max-width:820px){.grid3,.spec{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="crumb">md-bundle · 编辑器设计 / 命令面板（⌘K）重设计 v1</div>
+      <h1>命令面板 · 重设计</h1>
+      <p class="sub">现状是「520px 的 CSS 网格 + 无简介 + 键位被挤」，所以不好看也不好用。本页给出重设计与可交互原型：单列、键位右对齐、分组吸顶、最近使用、拼音搜索、底部键位提示。</p>
+    </div>
+    <div class="tgl" id="tgl"><button data-t="dark" class="on">深色</button><button data-t="light">浅色</button></div>
+  </div>
+
+  <div class="section">
+    <div class="h2"><span class="n">01</span><h2>为什么要保留它</h2></div>
+    <p class="lead">你怀疑它存在的意义——我的判断是<strong>保留</strong>，但必须重做成"值得存在"的样子。</p>
+    <div class="grid3">
+      <div class="card"><div class="k">差异项</div><h3>豆包没有</h3><p>命令面板是我们的标志性能力；砍掉等于抹掉一处差异，而不是消除一个缺陷。</p></div>
+      <div class="card"><div class="k">可发现性</div><h3>快捷键的唯一全量入口</h3><p>你要的"菜单里显示键位"，最完整的落点就在这里——40+ 命令的键位一览。</p></div>
+      <div class="card"><div class="k">效率</div><h3>比逐级菜单快</h3><p>模糊 + 拼音，三四个键直达命令；不用记住它在哪个菜单。</p></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="h2"><span class="n">02</span><h2>现状 vs 重设计</h2></div>
+    <div class="tabs" id="tabs"><button data-v="old" class="on">现状（反面）</button><button data-v="new">重设计</button></div>
+    <div class="stagebox">
+      <div class="tag" id="stageTag">现状 · grid</div>
+      <div id="oldView">
+        <div class="old">
+          <div class="hdr"><div class="inp">输入命令…（支持拼音首字母，如 jc = 加粗）</div><div class="x">×</div></div>
+          <div class="list">
+            <div class="grp">格式</div>
+            <div class="it"><span class="i">B</span><span class="l">加粗</span><kbd>Mod-b</kbd></div>
+            <div class="it"><span class="i">I</span><span class="l">斜体</span><kbd>Mod-i</kbd></div>
+            <div class="it"><span class="i">S</span><span class="l">删除线</span><kbd>Mod-Shift-x</kbd></div>
+            <div class="it"><span class="i">U</span><span class="l">下划线</span></div>
+            <div class="it"><span class="i">`</span><span class="l">行内代码</span><kbd>Mod-e</kbd></div>
+            <div class="grp">块</div>
+            <div class="it"><span class="i">•</span><span class="l">无序列表</span><kbd>Mod-Shift-7</kbd></div>
+            <div class="it"><span class="i">1.</span><span class="l">有序列表</span><kbd>Mod-Shift-8</kbd></div>
+            <div class="it"><span class="i">☑</span><span class="l">任务列表</span><kbd>Mod-Shift-9</kbd></div>
+            <div class="it"><span class="i">H1</span><span class="l">一级标题</span><kbd>Mod-Alt-1</kbd></div>
+            <div class="it"><span class="i">H2</span><span class="l">二级标题</span><kbd>Mod-Alt-2</kbd></div>
+            <div class="it"><span class="i">❝</span><span class="l">引用块</span></div>
+          </div>
+        </div>
+        <div class="oldnote">↑ 网格把键位挤成一团、行不对齐、无简介；↑↓ 还会跨列乱跳</div>
+      </div>
+      <div id="newView" style="display:none">
+        <button class="openbtn" id="openBtn">打开命令面板 <kbd>⌘K</kbd></button>
+        <div style="text-align:center;color:var(--muted);font-size:12.5px">单击上面的按钮，或在"交互原型"区直接体验</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="h2"><span class="n">03</span><h2>交互原型</h2></div>
+    <p class="lead">点按钮打开；输入即筛选（支持拼音首字母，如 <span class="pill">jc</span>→加粗）；↑↓ 选择、↵ 执行、Esc 关闭；点分类 chip 可限定分组。</p>
+    <div class="stagebox" id="stage">
+      <div class="tag">可交互 · ⌘K</div>
+      <button class="openbtn" id="openBtn2">打开命令面板 <kbd>⌘K</kbd></button>
+      <div class="fake-editor">
+        <h4>产品发布说明</h4>
+        <p>这是一段正文，用来给命令面板当背景。</p>
+        <p>选中文字后按 <span class="u">⌘K</span> 打开命令面板，输入命令即可执行。</p>
+      </div>
+      <div class="pal-back" id="back">
+        <div class="pal" id="pal">
+          <div class="pal-search">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.2-3.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input class="pal-input" id="q" placeholder="搜索命令、功能或快捷键…" autocomplete="off" spellcheck="false">
+            <span class="pal-hint">拼音 ok</span>
+          </div>
+          <div class="pal-chips" id="chips"></div>
+          <div class="pal-list" id="list"></div>
+          <div class="pal-foot">
+            <div class="keys"><span><kbd>↑</kbd><kbd>↓</kbd> 选择</span><span><kbd>↵</kbd> 执行</span><span><kbd>esc</kbd> 关闭</span></div>
+            <div>md-bundle · 命令面板</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="h2"><span class="n">04</span><h2>设计规格</h2></div>
+    <div class="spec">
+      <div class="card"><div class="k">布局</div><h3>单列 · 键位右对齐</h3><p>一行一命令：<span class="pill">图标</span><span class="pill">名称</span><span class="pill">简介</span> … <span class="pill">键位</span>。名称左对齐、简介占中、键位固定最右，永不错位。</p></div>
+      <div class="card"><div class="k">分组</div><h3>吸顶分组 + 最近使用</h3><p>格式 / 块 / 插入 / 视图 / 体检；顶部固定「最近使用」区，重复命令一步到位。</p></div>
+      <div class="card"><div class="k">搜索</div><h3>模糊 + 拼音 + 匹配高亮</h3><p>首字母（jc→加粗）、全拼、子序列；命中的字<b style="color:var(--primary)">高亮</b>，一眼知道为什么命中。</p></div>
+      <div class="card"><div class="k">导航</div><h3>单列顺序导航</h3><p>↑↓ 沿单列上下，不跨列；选中态 = 品牌淡底 + 左侧 2px 强调条。点分类 chip 可限定分组。</p></div>
+      <div class="card"><div class="k">Token</div><h3>沿用编辑器设计变量</h3><p>primary <span class="pill">#7b86ea</span>、bg2 <span class="pill">#0e0f12</span>、border <span class="pill">rgba(255,255,255,.08)</span>、行高 42、圆角 14/9/6。</p></div>
+      <div class="card"><div class="k">状态</div><h3>默认 / 筛选 / 空态 / 最近</h3><p>空态给建议 chip；筛选实时；Esc/点外部关闭且<strong>无残留</strong>（对齐 QG-1 生命周期）。</p></div>
+    </div>
+    <table class="tk" style="margin-top:14px">
+      <thead><tr><th>维度</th><th>现状</th><th>重设计</th></tr></thead>
+      <tbody>
+        <tr><td>列表</td><td><span class="pill bad">CSS Grid 190px</span></td><td><span class="pill ok">单列 flex</span></td></tr>
+        <tr><td>键位</td><td><span class="pill bad">挤在格内、换行</span></td><td><span class="pill ok">右对齐固定列</span></td></tr>
+        <tr><td>简介</td><td><span class="pill bad">无</span></td><td><span class="pill ok">有（占中）</span></td></tr>
+        <tr><td>导航</td><td><span class="pill bad">跨列乱跳</span></td><td><span class="pill ok">单列顺序</span></td></tr>
+        <tr><td>最近使用</td><td><span class="pill bad">仅排序权重</span></td><td><span class="pill ok">独立置顶区</span></td></tr>
+        <tr><td>底部提示</td><td><span class="pill bad">无</span></td><td><span class="pill ok">键位提示条</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="foot">设计：Sisyphus · 2026-10-03 ｜ 数据源：<span style="font-family:var(--mono)">packages/editor/src/commands.ts</span> ｜ 设计系统：编辑器 themeTokens（深/浅）。本页为设计原型，未改动产品代码。</div>
+</div>
+
+<script>
+const CMDS=[
+  {id:'toggle-bold',label:'加粗',icon:'B',group:'格式',kbd:'⌘B',desc:'将选中文本设为加粗'},
+  {id:'toggle-italic',label:'斜体',icon:'I',group:'格式',kbd:'⌘I',desc:'将选中文本设为斜体'},
+  {id:'toggle-strikethrough',label:'删除线',icon:'S',group:'格式',kbd:'⇧⌘X',desc:'为选中文本加删除线'},
+  {id:'toggle-underline',label:'下划线',icon:'U',group:'格式',desc:'为选中文本加下划线'},
+  {id:'toggle-code',label:'行内代码',icon:'`',group:'格式',kbd:'⌘E',desc:'把选中文本变成行内代码'},
+  {id:'code-copy',label:'复制代码',icon:'⧉',group:'格式',desc:'复制当前代码块内容'},
+  {id:'font-serif',label:'衬线',icon:'S',group:'格式',desc:'字体切换为衬线'},
+  {id:'font-mono',label:'等宽',icon:'M',group:'格式',desc:'字体切换为等宽'},
+  {id:'font-sans',label:'无衬线',icon:'A',group:'格式',desc:'字体切换为无衬线'},
+  {id:'font-clear',label:'清除字体',icon:'⊘',group:'格式',desc:'清除字体样式，恢复默认'},
+  {id:'color-red',label:'红色',icon:'●',group:'格式',desc:'文字颜色：红'},
+  {id:'color-blue',label:'蓝色',icon:'●',group:'格式',desc:'文字颜色：蓝'},
+  {id:'color-clear',label:'清除颜色',icon:'⊘',group:'格式',desc:'清除文字颜色'},
+  {id:'bg-red',label:'红色背景',icon:'▨',group:'格式',desc:'背景色：红'},
+  {id:'bg-clear',label:'清除背景色',icon:'⊘',group:'格式',desc:'清除背景色'},
+  {id:'color-reset',label:'恢复默认',icon:'↺',group:'格式',desc:'颜色与背景恢复默认'},
+
+  {id:'insert-unordered-list',label:'无序列表',icon:'•',group:'块',kbd:'⇧⌘7',desc:'当前块转为无序列表'},
+  {id:'insert-ordered-list',label:'有序列表',icon:'1.',group:'块',kbd:'⇧⌘8',desc:'当前块转为有序列表'},
+  {id:'insert-task-list',label:'任务列表',icon:'☑',group:'块',kbd:'⇧⌘9',desc:'当前块转为待办列表'},
+  {id:'insert-quote',label:'引用块',icon:'❝',group:'块',desc:'当前块转为引用'},
+  {id:'insert-code-block',label:'代码块',icon:'{}',group:'块',desc:'插入代码块'},
+  {id:'heading-1',label:'一级标题',icon:'H1',group:'块',kbd:'⌥⌘1',desc:'当前块转为一级标题'},
+  {id:'heading-2',label:'二级标题',icon:'H2',group:'块',kbd:'⌥⌘2',desc:'当前块转为二级标题'},
+  {id:'heading-3',label:'三级标题',icon:'H3',group:'块',kbd:'⌥⌘3',desc:'当前块转为三级标题'},
+  {id:'align-left',label:'左对齐',icon:'⯇',group:'块',desc:'块内容左对齐'},
+  {id:'align-center',label:'居中',icon:'≡',group:'块',desc:'块内容居中'},
+  {id:'col-2',label:'2 栏',icon:'▥',group:'块',desc:'当前块分成 2 栏'},
+  {id:'col-3',label:'3 栏',icon:'▦',group:'块',desc:'当前块分成 3 栏'},
+
+  {id:'toggle-link',label:'插入链接',icon:'🔗',group:'插入',kbd:'⌘L',desc:'为选中文本插入链接'},
+  {id:'insert-table',label:'插入表格',icon:'⊞',group:'插入',desc:'插入表格（可选行列）'},
+  {id:'insert-callout',label:'插入标注',icon:'❝',group:'插入',desc:'插入高亮块/标注'},
+  {id:'insert-html',label:'插入 HTML',icon:'</>',group:'插入',desc:'插入 HTML 片段'},
+  {id:'insert-css',label:'插入 CSS',icon:'#',group:'插入',desc:'插入 CSS 样式'},
+
+  {id:'structure-check',label:'结构体检',icon:'✓',group:'体检',desc:'检查文档结构问题'},
+
+  {id:'view-toggle-theme',label:'切换主题',icon:'◐',group:'视图',desc:'深色 / 浅色 切换'},
+  {id:'view-toggle-outline',label:'大纲',icon:'☰',group:'视图',desc:'显示 / 隐藏大纲浮层'},
+];
+const GROUPS=['最近','格式','块','插入','视图','体检','其他'];
+const PINYIN={加:'j',粗:'c',斜:'x',体:'t',删:'s',除:'c',线:'x',下:'x',划:'h',行:'x',内:'n',代:'d',码:'m',复:'f',制:'z',衬:'c',等:'d',宽:'k',无:'w',清:'q',字:'z',红:'h',蓝:'l',绿:'l',色:'s',背:'b',景:'j',恢:'h',复:'f',默:'m',认:'r',标:'b',题:'t',列:'l',表:'b',任:'r',务:'w',引:'y',用:'y',块:'k',一:'y',级:'j',二:'e',三:'s',四:'s',五:'w',六:'l',居:'j',中:'z',栏:'l',插:'c',入:'r',链:'l',接:'j',格:'g',注:'z',结:'j',构:'g',检:'j',视:'s',图:'t',切:'q',换:'h',主:'z',大:'d',纲:'g',左:'z',对:'d',齐:'q',自:'z',定:'d'};
+const pinyin=ch=>PINYIN[ch]||ch;
+function letters(s){return [...s].map(pinyin).join('').toLowerCase()}
+function match(q,s){ // returns {score, positions} or null (positions = indices in s)
+  q=q.toLowerCase(); if(!q) return {score:0,positions:[]};
+  const l=letters(s); const pos=[]; let li=0,sc=0;
+  for(const ch of q){let f=false; while(li<l.length){ if(l[li]===ch){pos.push(li); sc+=pos.length>1?li-pos[pos.length-2]:li; li++; f=true; break;} li++; } if(!f) return null;}
+  return {score:sc,positions:pos};
+}
+const recent=['insert-table','toggle-bold','insert-callout','heading-2'];
+let activeGroup=null, sel=0, rows=[], q='';
+
+function buildEntries(){
+  const query=q.trim();
+  let out=[];
+  for(const c of CMDS){
+    if(activeGroup && activeGroup!=='最近' && c.group!==activeGroup) continue;
+    const m=match(query,c.label); if(!m) continue;
+    out.push({...c,score:m.score,pos:m.positions,recent:recent.includes(c.id)});
+  }
+  if(activeGroup==='最近') out=out.filter(c=>c.recent);
+  return out;
+}
+function render(){
+  const query=q.trim();
+  const list=document.getElementById('list'); const chips=document.getElementById('chips');
+  chips.innerHTML=['全部',...GROUPS.filter(g=>g!=='其他')].map(g=>`<button class="chip ${(g==='全部'&&!activeGroup)||g===activeGroup?'on':''}" data-g="${g==='全部'?'':g}">${g}</button>`).join('');
+  chips.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{activeGroup=b.dataset.g||null;sel=0;render();});
+
+  const entries=buildEntries();
+  if(!entries.length){
+    list.innerHTML=`<div class="pal-empty"><div class="big">没有匹配的命令</div><div>换个关键词，或试试拼音首字母</div><div class="sug"><button class="chip" data-fill="表格">表格</button><button class="chip" data-fill="jc">jc（加粗）</button><button class="chip" data-fill="标题">标题</button></div></div>`;
+    list.querySelectorAll('[data-fill]').forEach(b=>b.onclick=()=>{document.getElementById('q').value=b.dataset.fill;q=b.dataset.fill;sel=0;render();});
+    document.getElementById('q').focus();
+    return;
+  }
+  // order: recent first, then groups
+  const order=[];
+  const seen=new Set();
+  const push=(c,label)=>{ if(seen.has(label))return; seen.add(label); order.push([label]); };
+  // build row list honoring groups; recent section on top when no query
+  const byGroup={}; entries.forEach(e=>{(byGroup[e.group]=byGroup[e.group]||[]).push(e);});
+  let html='';
+  rows=[];
+  const emit=(arr,label)=>{ html+=`<div class="pal-group">${label}</div>`; arr.forEach(e=>{ const idx=rows.length; rows.push(e); html+=rowHtml(e,idx); }); };
+  if(!query && !activeGroup){
+    const rec=entries.filter(e=>e.recent); if(rec.length) emit(rec,'最近');
+  }
+  for(const g of ['格式','块','插入','视图','体检','其他']){ if(byGroup[g]) emit(byGroup[g],g); }
+  list.innerHTML=html;
+  list.querySelectorAll('.pal-row').forEach(r=>{
+    r.onmouseenter=()=>{sel=+r.dataset.i;highlight();};
+    r.onclick=()=>apply();
+  });
+  highlight();
+  document.getElementById('q').focus();
+}
+function rowHtml(e,i){
+  let lbl=''; const s=e.label;
+  const marks=new Set(e.pos||[]);
+  [...s].forEach((ch,k)=>{ lbl += marks.has(k)?`<b>${ch}</b>`:ch; });
+  return `<div class="pal-row ${i===sel?'on':''}" data-i="${i}">
+    <span class="ic">${e.icon||'•'}</span>
+    <span class="lbl">${lbl}</span>
+    <span class="desc">${e.desc||''}</span>
+    ${e.recent&&!q?'<span class="star">最近</span>':''}
+    ${e.kbd?`<span class="kb">${e.kbd}</span>`:''}
+  </div>`;
+}
+function highlight(){ document.querySelectorAll('.pal-row').forEach(r=>r.classList.toggle('on',+r.dataset.i===sel)); const on=document.querySelector('.pal-row.on'); if(on) on.scrollIntoView({block:'nearest'}); }
+function apply(){ const e=rows[sel]; if(!e) return; toast('已执行：'+e.label); closePal(); }
+function openPal(){ document.getElementById('back').classList.add('on'); q=''; activeGroup=null; sel=0; document.getElementById('q').value=''; render(); }
+function closePal(){ document.getElementById('back').classList.remove('on'); }
+let toastT=null;
+function toast(t){ let el=document.getElementById('toast'); if(!el){el=document.createElement('div');el.id='toast';el.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border2);color:var(--text);font-size:13px;padding:8px 14px;border-radius:9px;z-index:99;box-shadow:0 8px 24px var(--shadow)';document.body.appendChild(el);} el.textContent=t; clearTimeout(toastT); toastT=setTimeout(()=>el.remove(),1600); }
+document.getElementById('q').addEventListener('input',e=>{q=e.target.value;sel=0;render();});
+document.getElementById('q').addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'){e.preventDefault();sel=Math.min(sel+1,rows.length-1);highlight();}
+  else if(e.key==='ArrowUp'){e.preventDefault();sel=Math.max(sel-1,0);highlight();}
+  else if(e.key==='Enter'){e.preventDefault();apply();}
+  else if(e.key==='Escape'){e.preventDefault();closePal();}
+});
+document.getElementById('back').addEventListener('mousedown',e=>{ if(e.target.id==='back') closePal(); });
+document.getElementById('openBtn2').onclick=openPal;
+document.getElementById('openBtn').onclick=()=>{document.querySelector('.tabs [data-v="new"]').click();openPal();};
+document.addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();document.getElementById('back').classList.contains('on')?closePal():openPal();} });
+document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));const isOld=b.dataset.v==='old';document.getElementById('oldView').style.display=isOld?'':'none';document.getElementById('newView').style.display=isOld?'none':'';document.getElementById('stageTag').textContent=isOld?'现状 · grid':'重设计 · list';});
+document.getElementById('tgl').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#tgl button').forEach(x=>x.classList.toggle('on',x===b));document.documentElement.dataset.theme=b.dataset.t;});
+</script>
+</body>
+</html>
