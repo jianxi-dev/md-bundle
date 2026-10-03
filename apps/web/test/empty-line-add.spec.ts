@@ -67,6 +67,15 @@ async function hoverLine(
   return box
 }
 
+async function expectAddIcon(page: Page): Promise<void> {
+  const addBtn = page.getByTestId('empty-line-add')
+  await expect(addBtn).toHaveAttribute('data-icon', 'AddOutlined')
+  const icon = addBtn.locator('svg')
+  await expect(icon).toHaveCount(1)
+  await expect(icon).toHaveAttribute('aria-hidden', 'true')
+  await expect(icon.locator('path')).not.toHaveCount(0)
+}
+
 /** 悬停空行（通过行号定位，因为空行没有文本）。 */
 async function hoverEmptyLineByIndex(
   page: Page,
@@ -92,6 +101,7 @@ test('悬停空行时「＋」按钮出现', async ({ page }) => {
 
   const addBtn = page.getByTestId('empty-line-add')
   await expect(addBtn).toBeVisible()
+  await expectAddIcon(page)
 })
 
 test('点击空行的「＋」后弹出斜杠菜单', async ({ page }) => {

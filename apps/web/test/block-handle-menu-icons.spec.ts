@@ -45,17 +45,17 @@ async function openMenu(page: Page): Promise<void> {
 
 /** 菜单行顺序与 MENU_ACTIONS 一致：转换为组 + 上移/下移/复制/删除。 */
 const MENU_ROWS: ReadonlyArray<readonly [label: string, icon: string]> = [
-  ['一级标题', 'H1'],
-  ['二级标题', 'H2'],
-  ['三级标题', 'H3'],
-  ['四级标题', 'H4'],
-  ['五级标题', 'H5'],
-  ['六级标题', 'H6'],
-  ['正文', '¶'],
-  ['上移', '↑'],
-  ['下移', '↓'],
-  ['复制块', '⧉'],
-  ['删除块', '✕'],
+  ['一级标题', 'H1Outlined'],
+  ['二级标题', 'H2Outlined'],
+  ['三级标题', 'H3Outlined'],
+  ['四级标题', 'H4Outlined'],
+  ['五级标题', 'H5Outlined'],
+  ['六级标题', 'H6Outlined'],
+  ['正文', 'FormatParagraphOutlined'],
+  ['上移', 'ArrowUpwardOutlined'],
+  ['下移', 'ArrowDownwardOutlined'],
+  ['复制块', 'ContentCopyOutlined'],
+  ['删除块', 'DeleteOutlined'],
 ]
 
 test('菜单每一项都显示图标 + 文案（#276）', async ({ page }) => {
@@ -68,13 +68,12 @@ test('菜单每一项都显示图标 + 文案（#276）', async ({ page }) => {
   for (let i = 0; i < MENU_ROWS.length; i += 1) {
     const [label, icon] = MENU_ROWS[i]
     const item = items.nth(i)
-    // 文案仍在
     await expect(item).toContainText(label)
-    // 图标非空、可见，且对辅助技术隐藏
     const iconEl = item.locator('.mdb-block-handle-item-icon')
     await expect(iconEl).toBeVisible()
-    await expect(iconEl).toHaveText(icon)
     await expect(iconEl).toHaveAttribute('aria-hidden', 'true')
+    await expect(iconEl.locator('svg')).toHaveCount(1)
+    await expect(iconEl.locator('svg')).toHaveAttribute('data-icon', icon)
   }
 })
 

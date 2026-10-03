@@ -12,6 +12,7 @@
 import type { Extension } from '@codemirror/state'
 import { ViewPlugin, EditorView, type ViewUpdate } from '@codemirror/view'
 import { insertSlashChar } from './slash'
+import { renderIcon, ADD_ICON_NAME } from './icons'
 
 const EMPTY_LINE_ADD_CLASS = 'mdb-empty-line-add'
 
@@ -38,7 +39,8 @@ class EmptyLineEntryPlugin {
     this.button.type = 'button'
     this.button.className = EMPTY_LINE_ADD_CLASS
     this.button.setAttribute('data-testid', 'empty-line-add')
-    this.button.textContent = '＋'
+    this.button.setAttribute('data-icon', ADD_ICON_NAME)
+    this.button.replaceChildren(renderIcon(ADD_ICON_NAME))
     this.button.style.display = 'none'
     this.button.title = '插入块'
     view.dom.appendChild(this.button)
