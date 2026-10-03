@@ -225,6 +225,21 @@ describe('editorDecorations', () => {
       expect(pendingEl).not.toBeNull();
     });
 
+    it('recedes the checked task line to tertiary reader ink (#323)', () => {
+      view = createMarkdownEditor(parent, {
+        value: '- [x] done task',
+        extensions: [editorDecorations()],
+      }).view;
+
+      const css = Array.from(document.head.querySelectorAll('style'))
+        .map((el) => el.textContent ?? '')
+        .join('\n');
+      const rule = /\.cm-content \.cm-line\.cm-task-done\s*\{([^}]*)\}/.exec(css);
+
+      expect(rule).not.toBeNull();
+      expect(rule?.[1]).toContain('var(--reader-ink-3, var(--mdb-muted))');
+    });
+
     it('preserves the document value', () => {
       const text = '- item one\n1. first\n- [x] done\n- [ ] pending';
       view = createMarkdownEditor(parent, {

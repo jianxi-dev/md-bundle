@@ -188,6 +188,11 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     lineHeight: '1',
     color: '#ffffff',
   },
+  // Recede the whole checked row to tertiary ink (not just the checkbox widget,
+  // so the ✓ stays white on green). `.cm-task-pending` stays untouched on purpose.
+  '.cm-content .cm-line.cm-task-done': {
+    color: 'var(--reader-ink-3, var(--mdb-muted))',
+  },
 
   // Ordered-list digit marker: always visible (a digit IS the marker).
   '.cm-content .cm-list-marker': {
