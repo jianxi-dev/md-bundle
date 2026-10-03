@@ -2,7 +2,7 @@
 
 > 适用范围：把 OpenSpec change 的 tasks 发布为 GitHub issue，打通"spec → 开发 → 完成跟踪"全链路。
 > 生效日期：2026-09-12
-> 配套：`docs/agents/quality-gates.md`（**QG-1..QG-7 质量门禁——票的 AC 与完成判据**）、`docs/agents/issue-tracker.md`（issue 操作）、`docs/agents/triage-labels.md`（状态标签）、`docs/agents/defect-workflow.md`（缺陷流程）
+> 配套：`docs/agents/quality-gates.md`（**QG-1..QG-8 质量门禁——票的 AC 与完成判据**）、`docs/agents/issue-tracker.md`（issue 操作）、`docs/agents/triage-labels.md`（状态标签）、`docs/agents/defect-workflow.md`（缺陷流程）
 
 ---
 
@@ -215,7 +215,7 @@ gh pr list --state open --head <关联分支>            # 检查无未合并 PR
 **设计要点**：
 - 任务级闭环管"单 issue 是否交付"，change 级管"整个 change 是否收口"——两级串行，互不阻塞
 - 收尾全程自动：agent 检测到完成条件即执行，无需用户喊 `/opsx-sync` `/opsx-archive`
-- 唯一人工介入点：risk-medium/high 的 PR 合并确认（机制既有规则）
+- 人工介入点：risk-medium/high 的 PR 合并确认（机制既有规则）+ change 收口后的剩余队列盘点与继续确认（见 change-workflow SKILL.md §G3/G4）
 
 ---
 

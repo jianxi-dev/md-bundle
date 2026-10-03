@@ -4,7 +4,7 @@
 > 生效日期：2026-09-20
 > 配套：`docs/agents/quality-gates.md`（QG-5 / DQ-3 / DQ-5 定义）、`docs/agents/defect-workflow.md`（缺陷闭环）、`.opencode/skills/change-workflow/SKILL.md`（G0-G4 gate 编排——本文件的挂载点）
 
-本规范定义**证据分层协议**与 **5 类证据规范**，每条规则固定四段：规则 / 理由 / 实证案例 / 如何验证。
+本规范定义**证据分层协议**、**6 类证据规范**与**探针形态约定**，每条规则固定四段：规则 / 理由 / 实证案例 / 如何验证。
 
 ---
 
@@ -51,7 +51,7 @@ gh issue view <票号> --json body --jq .body | grep -iE "before|after|修复前
 
 ---
 
-## 三、5 类证据规范
+## 三、6 类证据规范
 
 ### 3.1 视频录制（UI 多步流程）
 
@@ -108,7 +108,64 @@ ls .artifacts/<task-name>/ | grep -E "before|after"
 
 **产出**：PNG 文件，按序号命名，附 `assertions.md` 列出每张截图对应的断言。
 
-**贴票/PR**：以两列对比表格（| 修复前 | 修复后 |）或媒体链接嵌入 PR 正文 verification 段——复用 E1 录制产物，不二次截图；不引入上游 CLI 与上传链（含敏感画面的流程标 untested 不录，见 §五）。
+**贴票/PR**：以两列对比表格（| 修复前 | 修复后 |）或媒体链接嵌入 PR 正文 verification 段——复用 E1 录制产物，不二次截图；不引入上游 CLI 与上传链（含敏感画面的流程标 untested 不录，见 §六）。
+
+---
+
+### 3.2.1 状态覆盖矩阵（交互类 UI 变更强制）
+
+#### 规则
+
+交互类 UI 变更（浮层 / 插入 / 可取消 / 可关闭 / 空态）的截图证据必须覆盖**状态覆盖矩阵**——六态中适用项，**至少 4 态**：
+
+| 态 | 命名示例 | 断言要点 |
+|---|---|---|
+| 打开 | `01-open-menu.png` | 浮层/菜单/面板可见，焦点正确 |
+| 切换 | `02-switch-tab.png` | 标签/模式切换，内容随之变化 |
+| 取消 | `03-cancel-insert.png` | 操作取消，回初始态，**无残留文本/浮层/菜单** |
+| 外部点击 | `04-click-outside.png` | 点击外部关闭，回初始态，**无残留** |
+| 空态 | `05-empty-state.png` | 列表/编辑器为空时的引导/占位可见 |
+| 关闭 | `06-close-panel.png` | 显式关闭动作，资源释放，回初始态 |
+
+**机读清单约定**：每态产出一条记录到 `.artifacts/<task>/state-coverage.json`：
+
+```json
+{
+  "task": "1.3",
+  "states": [
+    {"state": "open", "screenshot": "01-open-menu.png", "assertion": "passed"},
+    {"state": "switch", "screenshot": "02-switch-tab.png", "assertion": "passed"},
+    {"state": "cancel", "screenshot": "03-cancel-insert.png", "assertion": "passed"},
+    {"state": "click-outside", "screenshot": "04-click-outside.png", "assertion": "passed"},
+    {"state": "empty", "screenshot": "05-empty-state.png", "assertion": "passed"},
+    {"state": "close", "screenshot": "06-close-panel.png", "assertion": "passed"}
+  ]
+}
+```
+
+**机检命令**：
+```bash
+ls .artifacts/<task>/state-coverage.json && jq '.states | length' .artifacts/<task>/state-coverage.json
+# 态数 <4 = 违规
+```
+
+#### 理由
+
+editor-v2 实证：D4 菜单点外部不关、D5 空态菜单驻留、D6 取消残留 `/`——均因**单层截图**无法捕获。单层截图只能证明「某一时刻存在」，无法证明「取消后回初始」「外部点击后关闭」「空态有引导」。状态覆盖矩阵把「多态证据」绑定到 **QG-4 第 4 级状态往返断言**的副产物（而非独立手工产物），使「是否多态」可机检（扫 spec 断言 + 扫清单态数）。
+
+#### 实证案例
+
+editor-v2 D4/D5/D6：仅单层截图（打开态）→ 无法拦截取消残留、外部点击不关、空态无引导。补齐六态截图 + 状态往返断言后，三条缺陷在 e2e 层即可暴露。
+
+#### 如何验证
+
+```bash
+# 机检态数 + 断言结果
+jq '.states[] | select(.assertion=="failed")' .artifacts/<task>/state-coverage.json
+# 有失败 = 违规
+jq '.states | length' .artifacts/<task>/state-coverage.json
+# <4 = 违规
+```
 
 ---
 
@@ -201,15 +258,77 @@ ls .artifacts/<task-name>/ | grep -E "assertions\.md|\.png|probe-output"
 
 ---
 
-## 四、挂载点
+### 3.6 视觉探针（交互类 UI 变更强制）
+
+#### 规则
+
+交互类 UI 变更的验证，**必须包含视觉探针**——关键态截图 + 人工/多模态复核。视觉探针是 QG-5 探针类型的第 5 项（见 `quality-gates.md` QG-5 探针类型清单）。
+
+- **单层截图对交互票明确不足**——必须配合状态覆盖矩阵（§3.2.1，≥4 态）使用
+- 视觉探针的截图由 **QG-4 第 4 级状态往返断言驱动产生**（副产物），而非独立手工产物
+- `state-coverage.json` 与 e2e spec 状态断言**双管**机检（见 §3.2.1 机检命令）
+
+#### 理由
+
+editor-v2 实证：D2 callout「注释 注释」、D3 围栏 `\`js`、D6 取消残留 `/`——均为「元素存在」级断言 + 单层截图无法拦截。视觉探针把「人眼可辨真伪」纳入证据链：截图覆盖六态 + 人工/多模态复核文本/像素真伪，堵住保真盲区。
+
+#### 实证案例
+
+editor-v2 D2：仅单层截图（打开态）→ 无法发现标题重复。补齐状态覆盖矩阵（打开/切换/取消/外部点击/空态/关闭）+ 视觉复核「标头文本严格等于『注释』」→ 即时暴露。
+
+#### 如何验证
+
+```bash
+# 机检：状态覆盖矩阵态数 + 断言结果（同 §3.2.1）
+jq '.states | length' .artifacts/<task>/state-coverage.json
+# <4 = 违规
+# 人工/多模态复核记录须贴票（PR body verification 段或票评论）
+```
+
+---
+
+## 四、探针形态（活代码优先）
+
+### 规则
+
+探针按**形态优先级**选用；禁止为验证另建静态技能副本：
+
+| 优先级 | 形态 | 适用 |
+|---|---|---|
+| 1 | **活代码用例**：写成/扩展仓库既有测试基建的用例（如 `<E2E_DIR>` 的 e2e spec） | 仓库已有测试基建（`CMD_E2E` 已配置） |
+| 2 | **轻量探针**：脚本化命令 / 手工操作 + 原始输出 | 无测试基建，或本票验证需要特定驱动方式 |
+
+**禁止**为验证另建静态技能文档（如 `verify-<app>` 技能）承载驱动知识——选择器、启动命令、特性地图。
+
+### 理由
+
+静态文档装不下高频变化的知识。驱动知识（选择器、命令、特性地图）的变化速率远高于规范文档，快照式文档**必然腐烂**；腐烂的文档比没有文档更糟——agent 会信任它，用错误的选择器驱动、走过期路径。活代码用例随代码维护、被 CI 强制、失败即是信号。
+
+### 实证案例
+
+某工具包试点为高频迭代的 Web 应用生成静态验证技能（特性地图 + 驱动配方），自证通过。随后识别三条结构性问题：① 特性地图与选择器几天到几周过期，腐烂即误导；② 该技能的适用前提是「仓库无脚本化验证路径」，而消费仓均有 UI 且已有 e2e 基建——前提不成立；③ 与既有 e2e 套件（活代码）平行漂移——两边都要维护，只有活代码一边被 CI 约束。试点撤销，改为本约定。
+
+### 如何验证
+
+```bash
+# 有测试基建：探针须为可复跑的活代码用例
+git diff --name-only origin/main...<分支> | grep -E "\.spec\.|\.test\."
+# 无测试基建：轻量探针的原始输出已贴票（同 QG-5 判据）
+gh issue view <票号> --json body --jq .body | grep -E "原始输出|before|after"
+```
+
+---
+
+## 五、挂载点
 
 ### QG-5（G1 出口独立验证）
 
 本规范是 QG-5 的**证据采集层**。QG-5 要求「验证者自己的探针的原始输出粘贴到票上」，本规范定义**如何采集这些原始输出**：
 
-- 验证者须按 §三 的 5 类规范之一采集证据
+- 验证者须按 §三 的 6 类规范之一采集证据（视频/截图/测量数字/transcript/headless/视觉探针）
 - 证据须包含 before/after 成对（§二）
-- 视频/截图/测量数字/transcript 摘录须粘贴到票上
+- 交互类 UI 变更须含**状态覆盖矩阵**（§3.2.1，≥4 态 + `state-coverage.json`）与**视觉探针**（§3.6）
+- 视频/截图/测量数字/transcript 摘录/视觉探针复核记录须粘贴到票上
 
 ### DQ-3（先红后绿）
 
@@ -223,14 +342,14 @@ DQ-3 要求「修复前必须先有可复现的失败证据」。本规范定义
 
 DQ-5 要求「验证者跑自己的探针，原始输出粘贴到票上」。本规范定义**探针输出的形态**：
 
-- UI 行为 → 视频或截图
+- UI 行为 → 视频或截图（交互类须含状态覆盖矩阵 + 视觉探针）
 - 非 UI 行为 → 测量数字
 - agent 行为 → transcript 摘录
 - 降级环境 → headless 路径产物
 
 ---
 
-## 五、护栏
+## 六、护栏
 
 ### 规则
 
@@ -257,7 +376,7 @@ gh issue view <票号> --json body --jq .body | grep -iE "commit|branch|deployme
 
 ---
 
-## 六、降级原则
+## 七、降级原则
 
 **降级不改变门禁判据**——原始证据在任何降级形态下都必须存在，只是形态从媒体降为文本。
 
