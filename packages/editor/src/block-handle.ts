@@ -4,13 +4,25 @@
  * blue insertion line (one undoable transaction). Escape, scroll, and view
  * destroy all remove the DOM.
  *
+ * Issue #325 adds the hover-driven selection: the block under the pointer is
+ * marked through `selectedBlockField` and never enters the undo history, so
+ * reaching for a handle cannot create an undo step. `dismiss()` is the single
+ * exit for every interaction that ends a hover, which is what keeps the chrome
+ * and the selection from drifting apart.
+ *
  * Layout comes from `view.coordsAtPos` (jsdom degrades silently to an unplaced
  * element). Block boundaries come from `block-model.ts`; the pure math lives in
  * `block-handle-ops.ts` (re-exported as the single import surface). Drag state
  * lives in `chapter-reorg-extension.ts`, installed alongside this extension.
  */
-import type { Extension } from '@codemirror/state'
-import { ViewPlugin, type EditorView, type ViewUpdate } from '@codemirror/view'
+import {
+  StateEffect,
+  StateField,
+  Transaction,
+  type EditorState,
+  type Extension,
+} from '@codemirror/state'
+import { Decoration, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view'
 import { getBlocks, type Block } from './block-model'
 import { currentDrag, setDragEffect } from './chapter-reorg-extension'
 import { HandleChrome, blockHandleTheme, ITEM_CLASS } from './block-handle-dom'
@@ -21,7 +33,6 @@ import {
   computeBlockDuplicate,
   computeBlockDelete,
   computeMinimalChange,
-  blockStillExists,
   isBlockInViewport,
   blockHandleIcon,
   type BlockConvertTarget,
@@ -50,6 +61,63 @@ export {
 /** Pointer travel (px) before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD_SQ = 16
 
+/** Width (px) of the gutter corridor between the handle and its menu (#325). */
+const GUTTER_GAP = 8
+
+/** Selected-block range effect — issue #325. */
+export const setSelectedBlockEffect = StateEffect.define<{ from: number; to: number } | null>()
+
+/**
+ * The current block occupying `[from, to)` exactly, or null when those
+ * boundaries are not a block. Single identity rule shared by the selection
+ * field and the handle chrome: exact boundaries decide whether a selection
+ * survives, and the returned descriptor carries the live `type` so the icon
+ * and menu target stay current after a reclassification.
+ */
+function blockAtExactRange(state: EditorState, from: number, to: number): Block | null {
+  return getBlocks(state).find((block) => block.from === from && block.to === to) ?? null
+}
+
+/** Selected block range or null; hover-driven, so kept out of undo history. */
+export const selectedBlockField = StateField.define<{ from: number; to: number } | null>({
+  create: () => null,
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (!effect.is(setSelectedBlockEffect)) continue
+      if (effect.value === null) return null
+      const len = tr.state.doc.length
+      // Clamp then remap: a stale range must stay in-doc and follow the text.
+      const from = Math.min(effect.value.from, len)
+      const to = Math.min(effect.value.to, len)
+      if (from > to) return null
+      return { from: tr.changes.mapPos(from, -1), to: tr.changes.mapPos(to, -1) }
+    }
+    if (!tr.docChanged) return value
+    if (value === null) return null
+    const len = tr.state.doc.length
+    const from = Math.min(value.from, len)
+    const to = Math.min(value.to, len)
+    if (from > to) return null
+    const mapped = { from: tr.changes.mapPos(from, -1), to: tr.changes.mapPos(to, -1) }
+    // Surviving the mapping is not enough: converting `## h` to a paragraph keeps
+    // from/to but changes the block, so the range must still land on boundaries.
+    if (blockAtExactRange(tr.state, mapped.from, mapped.to) === null) return null
+    return mapped
+  },
+  provide: (f) =>
+    EditorView.decorations.compute([f], (state) => {
+      const value = state.field(f)
+      if (value === null) return Decoration.none
+      const { from, to } = value
+      if (from >= to) return Decoration.none
+      const marks = []
+      for (let n = state.doc.lineAt(from).number; n <= state.doc.lineAt(to).number; n++) {
+        marks.push(Decoration.line({ class: 'cm-block-selected' }).range(state.doc.line(n).from))
+      }
+      return Decoration.set(marks)
+    }),
+})
+
 const CONVERT_TARGETS: readonly BlockConvertTarget[] = [
   'h1',
   'h2',
@@ -74,10 +142,49 @@ class BlockHandlePlugin {
   private justDragged = false
   private listening = false
   private dragOrigin = { x: 0, y: 0 }
-  private pointerInHandleOrMenu = false
+
+  /**
+   * Publish or clear the hover-driven selection. `addToHistory: false` keeps
+   * selection out of undo history — it is a hover affordance, not an edit.
+   * Re-dispatching the current range is skipped so pointer movement inside one
+   * block does not churn the transaction log.
+   */
+  private setSelected(range: { from: number; to: number } | null): void {
+    const current = this.view.state.field(selectedBlockField, false) ?? null
+    const unchanged =
+      range === null ? current === null : current !== null && current.from === range.from && current.to === range.to
+    if (unchanged) return
+    this.view.dispatch({
+      effects: setSelectedBlockEffect.of(range),
+      annotations: Transaction.addToHistory.of(false),
+    })
+  }
+
+  /** Drop the chrome and tracked blocks without touching the selection field. */
+  private clearChrome(): void {
+    this.chrome.hideAll()
+    this.currentBlock = null
+    this.menuBlock = null
+  }
+
+  /**
+   * The single dismissal path: drop the chrome, the tracked blocks and the
+   * selection together. Escape, outside mousedown and leaving the editor all
+   * funnel through here so no transition can leave a selected block stranded
+   * without its handle.
+   *
+   * Never call this from `update()`: CM6 forbids dispatching while an update is
+   * in progress. Document edits reach `clearChrome()` instead, because
+   * `selectedBlockField` already invalidated the stale range in that same
+   * transaction.
+   */
+  private dismiss(): void {
+    this.clearChrome()
+    this.setSelected(null)
+  }
 
   /** Escape must close the widget no matter where focus currently is. */
-  private readonly onEscape = (): void => this.chrome.hideAll()
+  private readonly onEscape = (): void => this.dismiss()
 
   constructor(view: EditorView) {
     this.view = view
@@ -94,8 +201,12 @@ class BlockHandlePlugin {
     this.chrome.handle.addEventListener('mouseenter', this.onHandleMouseEnter)
     this.chrome.handle.addEventListener('mouseleave', this.onHandleMouseLeave)
     this.chrome.menu.addEventListener('click', this.onMenuClick)
-    this.chrome.menu.addEventListener('mouseenter', this.onMenuMouseEnter)
-    this.chrome.menu.addEventListener('mouseleave', this.onMenuMouseLeave)
+    // The menu has no mouseleave listener on purpose: sliding off the menu onto
+    // editor content is a retarget, not a dismissal. `onMouseMove` resolves the
+    // block under the pointer and re-anchors the open menu, while `view.dom`'s
+    // mouseleave listener dismisses once the pointer leaves the editor entirely.
+    // A menu that tore itself down here would drop the retarget selection the
+    // pointer had just made (#325).
   }
 
   // Called by ViewPlugin after each scroll — viewport is guaranteed updated.
@@ -104,10 +215,9 @@ class BlockHandlePlugin {
     if (isBlockInViewport(this.view, this.currentBlock)) {
       this.showHandleAt(this.currentBlock.from)
     } else {
-      this.chrome.hideHandle()
-      this.chrome.hideMenu()
-      this.currentBlock = null
-      this.menuBlock = null
+      // Scrolled out of view: the handle cannot stay anchored to a block the
+      // user can no longer see, so the selection goes with it (#325).
+      this.dismiss()
     }
   }
 
@@ -117,12 +227,18 @@ class BlockHandlePlugin {
     // Drag abort must ALWAYS run on doc change, regardless of handle state.
     if (currentDrag(update.state)) this.endDrag()
 
-    // Re-anchor: if tracked block still exists, reposition; else hide.
-    if (this.currentBlock && blockStillExists(update.state, this.currentBlock)) {
-      this.showHandleAt(this.currentBlock.from)
+    // Re-anchor on the selection's live block. `selectedBlockField` already
+    // remapped or invalidated its range in this transaction, so the chrome
+    // follows that verdict instead of holding an older descriptor: the type
+    // can change under unchanged boundaries (task/list reclassification) and
+    // must still refresh the icon and menu target (#325).
+    const range = update.state.field(selectedBlockField, false) ?? null
+    const block = range === null ? null : blockAtExactRange(update.state, range.from, range.to)
+    if (block) {
+      this.currentBlock = block
+      this.showHandleAt(block.from)
     } else {
-      this.chrome.hideAll()
-      this.currentBlock = null
+      this.clearChrome()
     }
   }
 
@@ -134,9 +250,8 @@ class BlockHandlePlugin {
     this.chrome.handle.removeEventListener('mouseenter', this.onHandleMouseEnter)
     this.chrome.handle.removeEventListener('mouseleave', this.onHandleMouseLeave)
     this.chrome.menu.removeEventListener('click', this.onMenuClick)
-    this.chrome.menu.removeEventListener('mouseenter', this.onMenuMouseEnter)
-    this.chrome.menu.removeEventListener('mouseleave', this.onMenuMouseLeave)
     this.removeDocumentListeners()
+    this.setSelected(null)
     this.chrome.unmount()
   }
 
@@ -194,41 +309,52 @@ class BlockHandlePlugin {
   private onMouseMove = (event: MouseEvent): void => {
     if (currentDrag(this.view.state) || this.moved) return
 
-    // If pointer is over our own UI (handle or menu), don't dismiss —
-    // the handle/menu mouseenter/leave handlers track this.
-    if (this.pointerInHandleOrMenu) return
+    // Events from the handle or the menu arrive here by bubbling. They must not
+    // resolve a block — there is no content under the chrome — but they are
+    // proof the pointer is on our UI, so the dimmed state is always lifted.
+    const target = event.target
+    if (target instanceof Node && (this.chrome.handle.contains(target) || this.chrome.menu.contains(target))) {
+      this.chrome.setDimmed(false)
+      return
+    }
 
-    // If menu is open, keep it and the handle visible
-    if (this.chrome.menu.style.display !== 'none') return
+    const menuOpen = this.chrome.isMenuOpen()
+    if (menuOpen) {
+      // The corridor between handle and menu is gutter, not content, so
+      // posAtCoords has no meaningful answer there. Dim to mark the crossing
+      // while keeping the menu reachable.
+      const handleRect = this.chrome.handle.getBoundingClientRect()
+      if (event.clientX >= handleRect.right && event.clientX < handleRect.right + GUTTER_GAP) {
+        this.chrome.setDimmed(true)
+        return
+      }
+    }
 
     const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY })
-    if (pos === null) {
-      // Pointer over empty area (e.g. blank line). Keep current handle visible
-      // as long as the pointer is horizontally within the editor bounds.
-      // This creates the "sticky bridge" across vertical gaps.
-      if (this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) {
+    const block = pos === null ? null : findBlockAt(this.view.state, pos)
+    if (pos === null || !block) {
+      // Off-content while the menu is open: the pointer can still be inside the
+      // editor (gutter corridor, padding below the last line), so dim instead of
+      // tearing the menu down. Reaching the app toolbar means leaving.
+      if (menuOpen && this.isPointerInsideEditor(event)) {
+        this.chrome.setDimmed(true)
         return
       }
-      this.chrome.hideAll()
-      this.currentBlock = null
+      // With no menu, the handle survives travel through the editor's own
+      // vertical space — the "sticky bridge" across blank lines.
+      if (!menuOpen && this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) return
+      this.dismiss()
       return
     }
 
-    const block = findBlockAt(this.view.state, pos)
-    if (!block) {
-      // Pointer over non-block area but posAtCoords returned a position.
-      // Keep current handle if horizontally in editor.
-      if (this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) {
-        return
-      }
-      this.chrome.hideAll()
-      this.currentBlock = null
-      return
-    }
-
-    // New block hovered — update currentBlock and show handle
+    this.chrome.setDimmed(false)
     this.currentBlock = block
+    this.setSelected({ from: block.from, to: block.to })
     this.showHandleAt(block.from)
+    if (menuOpen && this.menuBlock?.from !== block.from) {
+      this.menuBlock = block
+      this.openMenu()
+    }
   }
 
   private isPointerInEditorHorizontally(clientX: number): boolean {
@@ -241,57 +367,60 @@ class BlockHandlePlugin {
   private onMouseLeave = (event: MouseEvent): void => {
     if (currentDrag(this.view.state)) return
 
-    // If pointer is moving to our own handle or menu, don't hide
+    // Moving the pointer from the gutter handle or its menu back into the
+    // editor must not tear the chrome down; the mousemove handler picks the new
+    // target up on the next event.
     const to = event.relatedTarget
     if (to instanceof Node && (this.chrome.handle.contains(to) || this.chrome.menu.contains(to))) {
       return
     }
 
-    // If pointer is still horizontally within editor bounds, keep handle visible
-    // (covers gap-crossing and empty-line traversal).
-    if (this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) {
-      return
-    }
+    if (this.isPointerInsideEditor(event)) return
 
-    this.chrome.hideAll()
-    this.currentBlock = null
+    this.dismiss()
   }
 
+  private isPointerInsideEditor(event: MouseEvent): boolean {
+    const target = event.target
+    if (target instanceof Node && this.view.contentDOM.contains(target)) return true
+    // Off-content (gutter, padding, the handle's own column): treat the left
+    // half of the editor root as "still in the editor" so the handle survives
+    // travel through its own vertical space. Anchored to the editor rect, not
+    // window.innerWidth — the editor does not necessarily own the left half of
+    // the viewport. Both axes matter: leaving vertically (past the top into a
+    // toolbar, or below into a footer) is a dismissal, not a gutter crossing.
+    const rect = this.view.dom.getBoundingClientRect()
+    return (
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom &&
+      event.clientX < rect.left + (rect.right - rect.left) / 2
+    )
+  }
+
+  // Hovering the handle opens the menu; arriving while it is already open
+  // retargets the menu to that block rather than closing and reopening it.
   private onHandleMouseEnter = (): void => {
-    this.pointerInHandleOrMenu = true
-  }
-
-  private onHandleMouseLeave = (event: MouseEvent): void => {
-    this.pointerInHandleOrMenu = false
-    // If leaving handle but still horizontally in editor, keep visible
-    if (this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) {
+    if (!this.chrome.isMenuOpen()) {
+      if (this.currentBlock) {
+        this.menuBlock = this.currentBlock
+        this.openMenu()
+      }
       return
     }
-    // If menu is open, keep handle visible
-    if (this.chrome.menu.style.display !== 'none') return
-    this.chrome.hideAll()
-    this.currentBlock = null
+    const rect = this.chrome.handle.getBoundingClientRect()
+    const pos = this.view.posAtCoords({ x: rect.left + 2, y: rect.top + 2 })
+    const block = pos === null ? null : findBlockAt(this.view.state, pos)
+    if (!block) return
+    this.currentBlock = block
+    this.menuBlock = block
+    this.setSelected({ from: block.from, to: block.to })
+    this.showHandleAt(block.from)
+    this.openMenu()
   }
 
-  private onMenuMouseEnter = (): void => {
-    this.pointerInHandleOrMenu = true
-  }
-
-  private onMenuMouseLeave = (event: MouseEvent): void => {
-    this.pointerInHandleOrMenu = false
-    // If leaving menu but still horizontally in editor, keep visible
-    const refBlock = this.menuBlock ?? this.currentBlock
-    if (refBlock && this.isPointerInEditorHorizontally(event.clientX)) {
-      return
-    }
-    // If moving back to handle, keep visible
-    const to = event.relatedTarget
-    if (to instanceof Node && this.chrome.handle.contains(to)) {
-      return
-    }
-    this.chrome.hideAll()
-    this.currentBlock = null
-    this.menuBlock = null
+  private onHandleMouseLeave = (): void => {
+    if (this.chrome.isMenuOpen()) return
+    this.dismiss()
   }
 
   // --- Drag ------------------------------------------------------------------
@@ -425,6 +554,9 @@ class BlockHandlePlugin {
       this.view.dispatch({ changes: computeMinimalChange(text, next) })
     }
     this.chrome.hideMenu()
+    // Cleared after the action's own change so the null maps against the same
+    // document the action produced.
+    this.setSelected(null)
     event.stopPropagation()
   }
 }
@@ -436,5 +568,5 @@ class BlockHandlePlugin {
  * Requires `chapterReorgExtension()` in the same extension set for drag state.
  */
 export function blockHandle(): Extension {
-  return [ViewPlugin.fromClass(BlockHandlePlugin), blockHandleTheme]
+  return [selectedBlockField, ViewPlugin.fromClass(BlockHandlePlugin), blockHandleTheme]
 }

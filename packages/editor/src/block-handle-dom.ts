@@ -20,6 +20,21 @@ export const HANDLE_CLASS = 'mdb-block-handle';
 export const MENU_CLASS = 'mdb-block-handle-menu';
 export const ITEM_CLASS = 'mdb-block-handle-item';
 export const INSERT_LINE_CLASS = 'block-insert-line';
+export const DIMMED_CLASS = 'mdb-block-handle-dimmed';
+
+/** Reveal duration (ms) for the handle fade-in. */
+const REVEAL_MS = 120;
+
+/**
+ * Fade the handle in on reveal. Uses the Web Animations API rather than a CSS
+ * `@keyframes` because baseTheme's style-mod spec cannot define keyframes, and
+ * an inline `opacity` transition would fight the class-driven dimmed state
+ * (`DIMMED_CLASS`). jsdom has no `Element.animate`, so it degrades to an
+ * instant reveal there.
+ */
+function playFadeIn(el: HTMLElement): void {
+  el.animate?.([{ opacity: '0' }, { opacity: '1' }], { duration: REVEAL_MS, easing: 'ease-out' });
+}
 
 interface MenuAction {
   readonly label: string;
@@ -128,7 +143,7 @@ export class HandleChrome {
   readonly insertLine: HTMLElement = createInsertLine();
   private keyListening = false;
 
-  constructor(private readonly onEscape: () => void) {}
+  constructor(private readonly onEscape: (event: KeyboardEvent | MouseEvent) => void) {}
 
   mount(parent: HTMLElement): void {
     parent.append(this.handle, this.menu, this.insertLine);
@@ -147,11 +162,16 @@ export class HandleChrome {
   }
 
   showHandle(): void {
+    // Fade only on the hidden->visible edge: showHandleAt() runs on every
+    // mousemove while hovering one block, and re-fading each tick would flicker.
+    const wasHidden = this.handle.style.display === 'none';
     this.handle.style.display = 'flex';
+    if (wasHidden) playFadeIn(this.handle);
     this.syncKeyListener();
   }
 
   showMenu(): void {
+    this.handle.classList.remove(DIMMED_CLASS);
     this.menu.style.display = 'block';
     this.handle.style.display = 'flex';
     this.syncKeyListener();
@@ -176,14 +196,23 @@ export class HandleChrome {
   }
 
   hideAll(): void {
+    this.handle.classList.remove(DIMMED_CLASS);
     this.handle.style.display = 'none';
     this.menu.style.display = 'none';
     this.insertLine.style.display = 'none';
     this.syncKeyListener();
   }
 
+  setDimmed(dimmed: boolean): void {
+    this.handle.classList.toggle(DIMMED_CLASS, dimmed);
+  }
+
+  isMenuOpen(): boolean {
+    return this.menu.style.display !== 'none';
+  }
+
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape') this.onEscape();
+    if (event.key === 'Escape') this.onEscape(event);
   };
 
   private readonly onDocMouseDown = (event: MouseEvent): void => {
@@ -191,7 +220,7 @@ export class HandleChrome {
     if (target instanceof Node && (this.handle.contains(target) || this.menu.contains(target))) {
       return;
     }
-    this.onEscape();
+    this.onEscape(event);
   };
 
   private syncKeyListener(): void {
@@ -231,6 +260,12 @@ export const blockHandleTheme = EditorView.baseTheme({
   '.mdb-block-handle:hover': {
     backgroundColor: 'rgba(127, 127, 127, 0.18)',
     borderRadius: '4px',
+  },
+  '.mdb-block-handle-dimmed': {
+    opacity: '0.35',
+  },
+  '.cm-block-selected': {
+    backgroundColor: 'rgba(127, 127, 127, 0.1)',
   },
   '.mdb-block-handle-menu': {
     position: 'absolute',
