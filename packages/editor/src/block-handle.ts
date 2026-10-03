@@ -152,7 +152,13 @@ class BlockHandlePlugin {
         const r = this.view.dom.getBoundingClientRect()
         // Fixed gutter column: block.from sits after the list marker, so
         // anchoring x to it drifted the handle inward on lists (#237).
-        const contentLeft = this.view.contentDOM.getBoundingClientRect().left
+        // Use the content area's left edge (after padding) so the handle
+        // stays at a fixed offset from the text regardless of .cm-content
+        // inline padding (D1 render-parity adds 2rem inline padding).
+        const contentDOM = this.view.contentDOM
+        const contentRect = contentDOM.getBoundingClientRect()
+        const paddingLeft = parseFloat(getComputedStyle(contentDOM).paddingLeft) || 0
+        const contentLeft = contentRect.left + paddingLeft
         this.chrome.handle.style.left = `${contentLeft - r.left - 22}px`
         this.chrome.handle.style.top = `${coords.top - r.top}px`
       }

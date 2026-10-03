@@ -6,21 +6,29 @@
  * extension is what actually makes them *look* like rendered Markdown in edit
  * mode — Typora-style "living source".
  *
+ * D1 (non-destructive parity, design.md): the editor content area carries the
+ * `preview-content` class (via EditorView.contentAttributes) so the reader CSS
+ * — the single style source — applies. Its variables (`--reader-ink-strong`,
+ * `--type-font-sans`, `--reader-radius`, …) are available to every decoration
+ * rule below, and the per-type values are aligned to the reader CSS so a given
+ * block's computed styles are equal in edit and preview. The container box
+ * (max-width, margin-inline, padding-inline) comes from the reader CSS on
+ * `.preview-content`; only block-axis padding and the `.preview-content > *`
+ * child rule (which would add per-line margins and centering that break CM6
+ * line layout) are overridden.
+ *
  * Semantic editing mode: two visual states per block.
  * - Non-active (`.cm-block-inactive`): fully rendered, zero syntax markers.
  * - Active (`.cm-block-active`): semantic reveal — structure markers shown at
  *   low opacity for structural awareness.
  *
- * Layout stability: line height is fixed at 1.7em for all states so that
- * toggling marker visibility never causes CLS. Heading sizes use em-based
- * scaling within the fixed line box.
- *
  * Transitions: opacity fades for marker reveal (100–150ms) so state changes
  * feel smooth. Bold/italic have no transition (instant, as they never change).
  *
  * Deliberately written as an `EditorView.baseTheme` so the styles are present
- * whenever decorations are enabled, while referencing the global `--mdb-*`
- * design tokens so both dark and light `data-theme` values are honoured.
+ * whenever decorations are enabled, while referencing the reader CSS
+ * variables (and `--mdb-*` design tokens where no reader equivalent exists)
+ * so both dark and light `data-theme` values are honoured.
  */
 import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
@@ -70,6 +78,13 @@ const calloutToneSpecs = (): Record<string, Record<string, string>> => ({
  * Base theme extension that styles every living-source decoration class.
  * Include this once inside the `editorDecorations()` extension so the DOM
  * produced by the decoration field renders as styled Markdown.
+ *
+ * Per-type values (font-size, font-weight, border-radius, padding, …) are
+ * aligned to the reader CSS (packages/renderer/src/readerCss.ts) so a given
+ * block's computed styles are equal in edit and preview (D1 non-destructive
+ * parity). Reader CSS variables are available on `.cm-content` because the
+ * `editorDecorations` extension also adds the `preview-content` class to it
+ * (see editorContentScope below).
  */
 export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   // ── Layout stability: fixed line height for all decorated lines ──────
@@ -103,18 +118,20 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   },
 
   // ── Heading text scaling (mark applied over the heading content) ─────
+  // Values aligned to reader CSS (packages/renderer/src/readerCss.ts) so
+  // computed styles are equal in edit and preview (D1 non-destructive parity).
   '.cm-content .cm-heading': {
+    color: 'var(--reader-ink-strong)',
     fontWeight: '650',
-    lineHeight: '1.35em',
-    // Fixed line height ensures no CLS when ## visibility toggles.
+    lineHeight: '1.3',
     transition: 'font-size 120ms ease-out',
   },
-  '.cm-content .cm-heading.cm-h1': { fontSize: '1.6em', letterSpacing: '0.01em' },
-  '.cm-content .cm-heading.cm-h2': { fontSize: '1.35em', letterSpacing: '0.005em' },
-  '.cm-content .cm-heading.cm-h3': { fontSize: '1.2em' },
-  '.cm-content .cm-heading.cm-h4': { fontSize: '1.05em' },
-  '.cm-content .cm-heading.cm-h5': { fontSize: '0.95em' },
-  '.cm-content .cm-heading.cm-h6': { fontSize: '0.875em', letterSpacing: '0.04em' },
+  '.cm-content .cm-heading.cm-h1': { fontSize: '1.75em', fontWeight: '700', letterSpacing: '0.01em' },
+  '.cm-content .cm-heading.cm-h2': { fontSize: '1.4em', fontWeight: '700', letterSpacing: '0.005em' },
+  '.cm-content .cm-heading.cm-h3': { fontSize: '1.2em', lineHeight: '1.4' },
+  '.cm-content .cm-heading.cm-h4': { fontSize: '1.05em', lineHeight: '1.4' },
+  '.cm-content .cm-heading.cm-h5': { fontSize: '0.95em', color: 'var(--reader-ink-2)', lineHeight: '1.4' },
+  '.cm-content .cm-heading.cm-h6': { fontSize: '0.875em', fontWeight: '600', letterSpacing: '0.04em', color: 'var(--reader-ink-3)', lineHeight: '1.4' },
 
   // ── Bold / italic (no transition — instant) ─────────────────────────
   '.cm-content .cm-strong': { fontWeight: '650', color: 'var(--mdb-text)' },
@@ -138,15 +155,14 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-bg-orange': { backgroundColor: 'rgba(227, 179, 65, 0.25)' },
   '.cm-content .cm-bg-purple': { backgroundColor: 'rgba(163, 113, 247, 0.25)' },
 
-  // ── Lists ─────────────────────────────────────────────────────────────
+  // ── Lists (values aligned to reader CSS) ──────────────────────────────
   '.cm-content .cm-line.cm-list': {
-    paddingInlineStart: '0.35em',
+    paddingInlineStart: '1.5em',
     lineHeight: '1.7em',
   },
   '.cm-content .cm-line.cm-list:not(.cm-list-ordered):not(.cm-task-done):not(.cm-task-pending)::before': {
     content: "'•  '",
-    color: 'var(--mdb-muted)',
-    // Fade in/out when toggling between active/inactive.
+    color: 'var(--reader-ink-3, var(--mdb-muted))',
     transition: 'opacity 100ms ease-out',
   },
   '.cm-content .cm-task-checkbox': {
@@ -191,13 +207,16 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     transition: 'opacity 100ms ease-out',
   },
 
-  // ── Blockquote ────────────────────────────────────────────────────────
+  // ── Blockquote (values aligned to reader CSS) ─────────────────────────
   '.cm-content .cm-line.cm-quote': {
-    borderInlineStart: '3px solid var(--mdb-primary-fg)',
-    paddingInlineStart: '0.6em',
-    color: 'var(--mdb-text-secondary)',
-    marginBlock: '0.15em 0',
+    borderInlineStart: '2px solid var(--reader-accent, var(--mdb-primary-fg))',
+    paddingInlineStart: '1em',
+    paddingBlock: '0.7em',
+    color: 'var(--reader-ink-2, var(--mdb-text-secondary))',
+    marginBlock: '0 0',
     lineHeight: '1.7em',
+    background: 'var(--reader-accent-soft, transparent)',
+    borderRadius: '0 var(--reader-radius, 6px) var(--reader-radius, 6px) 0',
     transition: 'border-color 100ms ease-out',
   },
 
@@ -211,16 +230,16 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     transition: 'opacity 100ms ease-out',
   },
 
-  // ── Inline code ───────────────────────────────────────────────────────
+  // ── Inline code (values aligned to reader CSS) ───────────────────────
   '.cm-content .cm-inline-code': {
     fontFamily:
-      'var(--mdb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
-    fontSize: '0.9em',
-    color: 'var(--mdb-primary-fg)',
-    backgroundColor: 'var(--mdb-code-bg)',
-    border: '1px solid var(--mdb-border)',
+      'var(--type-font-mono, var(--mdb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace))',
+    fontSize: '0.88em',
+    color: 'var(--reader-ink, var(--mdb-primary-fg))',
+    backgroundColor: 'var(--reader-sunken, var(--mdb-code-bg))',
+    border: '1px solid var(--reader-line, var(--mdb-border))',
     borderRadius: '4px',
-    padding: '0.1em 0.35em',
+    padding: '0.12em 0.35em',
     transition: 'background-color 100ms ease-out, border-color 100ms ease-out',
   },
 
@@ -233,17 +252,18 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     transition: 'opacity 100ms ease-out',
   },
 
-  // ── Fenced code block ─────────────────────────────────────────────────
+  // ── Fenced code block (values aligned to reader CSS) ──────────────────
+  // Reader CSS sets font-family/font-size on `pre`/`code` inside .code-block,
+  // not on .code-block itself — so the block element inherits sans/17px from
+  // the container. We match that here.
   '.cm-content .cm-fenced-code': {
-    fontFamily:
-      'var(--mdb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
-    fontSize: '0.9em',
-    backgroundColor: 'var(--mdb-code-bg)',
-    color: 'var(--mdb-code-fg, var(--mdb-text))',
+    backgroundColor: 'var(--reader-sunken, var(--mdb-code-bg))',
+    color: 'var(--reader-ink, var(--mdb-text))',
+    border: '1px solid var(--reader-line, var(--mdb-border))',
+    borderRadius: 'var(--reader-radius, 6px)',
   },
   '.cm-content .cm-fenced-code.cm-block-inactive': {
-    // Non-active: no fence markers visible (CM6 nested-language handles highlighting).
-    backgroundColor: 'var(--mdb-code-bg)',
+    backgroundColor: 'var(--reader-sunken, var(--mdb-code-bg))',
   },
   '.cm-content .cm-fenced-code.cm-block-active': {
     // Active: faint background so the user sees the code structure.
@@ -289,15 +309,15 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     borderColor: 'var(--mdb-border)',
   },
 
-  // ── Callout card ──────────────────────────────────────────────────────
+  // ── Callout card (values aligned to reader CSS) ───────────────────────
   '.cm-content .cm-callout': {
     display: 'block',
-    padding: '0.6em 0.8em',
+    padding: '0.75em 1em',
     marginBlock: '0.4em 0',
-    borderInlineStart: '3px solid var(--callout-color, var(--mdb-primary-fg))',
-    backgroundColor: 'var(--callout-soft, var(--mdb-selection))',
-    borderRadius: '6px',
-    color: 'var(--mdb-text)',
+    borderInlineStart: '3px solid var(--callout-color, var(--reader-accent, var(--mdb-primary-fg)))',
+    backgroundColor: 'var(--callout-soft, var(--reader-accent-soft, var(--mdb-selection)))',
+    borderRadius: 'var(--reader-radius, 6px)',
+    color: 'var(--reader-ink, var(--mdb-text))',
   },
   '.cm-content .cm-callout-header': {
     display: 'flex',
@@ -326,24 +346,31 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     marginTop: '0.35em',
   },
 
-  // ── Tables ────────────────────────────────────────────────────────────
+  // ── Tables (values aligned to reader CSS) ─────────────────────────────
   '.cm-content .cm-table': {
-    borderCollapse: 'collapse',
+    borderCollapse: 'separate',
+    borderSpacing: '0',
     margin: '0.35em 0',
     fontSize: '0.95em',
-  },
-  '.cm-content .cm-table th, .cm-content .cm-table td': {
-    border: '1px solid var(--mdb-border)',
-    padding: '4px 10px',
+    width: '100%',
+  },  '.cm-content .cm-table th, .cm-content .cm-table td': {
+    borderBottom: '1px solid var(--reader-line, var(--mdb-border))',
+    padding: '0.55em 0.8em',
     textAlign: 'left',
+    verticalAlign: 'top',
     cursor: 'text',
   },
   '.cm-content .cm-table th': {
-    background: 'var(--mdb-bg-secondary)',
+    background: 'var(--reader-sunken, var(--mdb-bg-secondary))',
     fontWeight: '600',
+    color: 'var(--reader-ink-2, var(--mdb-text-secondary))',
+    borderTop: '0',
   },
   '.cm-content .cm-table-wrap': {
-    display: 'inline-block',
+    display: 'block',
+    overflowX: 'auto',
+    border: '1px solid var(--reader-line, var(--mdb-border))',
+    borderRadius: 'var(--reader-radius-lg, 12px)',
   },
   '.cm-content .cm-table-col-hotzones': {
     display: 'flex',
@@ -384,6 +411,120 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     opacity: '0.8',
   },
 
+  // Block widgets (callout, table) live inside .cm-line elements that may
+  // carry per-type padding/border (.cm-line.cm-quote, etc.). Reset those so
+  // the widget fills the content width — matching preview where .callout /
+  // table are direct children of .preview-content.
+  '.cm-content .cm-line:has(.cm-callout), .cm-content .cm-line:has(.cm-table-wrap)': {
+    padding: '0',
+    border: 'none',
+    background: 'transparent',
+    borderRadius: '0',
+  },
+
   // Callout tone colouring (defined after the base card so they win).
   ...calloutToneSpecs(),
 });
+
+// D1 non-destructive parity: bridge reader CSS variables + container box onto
+// `.cm-content`. We do NOT add the `preview-content` class — that would
+// trigger `.preview-content > *` and break CM6's contiguous line layout.
+// Instead we re-define the reader token chain (`--reader-*`, `--type-*`) on
+// `.cm-content` itself so the per-type rules above can use the same variables
+// the reader uses, and apply the same inline container box (max-width +
+// centered measure + 2rem inline padding) so block widths match preview.
+const editorContentScope: Extension = EditorView.theme({
+  '.cm-content': {
+    maxWidth: '1200px',
+    marginLeft: 'auto',
+    marginRight: 'auto',
+    paddingLeft: '2rem',
+    paddingRight: '2rem',
+    paddingTop: '0',
+    paddingBottom: '0',
+    fontFamily: 'var(--type-font-sans)',
+    color: 'var(--reader-ink)',
+    lineHeight: 'var(--type-line)',
+  },
+});
+
+// CSS custom properties can't go through EditorView.theme reliably (CM6's
+// style serializer may skip keys starting with `--`). Inject them via a plain
+// <style> element so the decoration rules above can use var(--reader-*) etc.
+// Values mirror the reader CSS (readerCss.ts) exactly — not --mdb-* fallbacks —
+// so computed styles match between edit and preview.
+let scopeCssInjected = false;
+function ensureScopeCss(): Extension {
+  if (scopeCssInjected || typeof document === 'undefined') return [];
+  scopeCssInjected = true;
+  const style = document.createElement('style');
+  style.textContent = `
+[data-theme='light'] .cm-editor .cm-content {
+  --app-accent: #6366f1;
+  --app-surface: #fbfaf8;
+  --app-sunken: #f4f2ec;
+  --app-text: #24262b;
+  --app-text-strong: #16181c;
+  --app-text-2: #55595f;
+  --app-text-3: #8b8f96;
+  --app-border: #e7e3db;
+  --app-border-strong: #d8d3c8;
+  --reader-paper: var(--app-surface);
+  --reader-sunken: var(--app-sunken);
+  --reader-ink: var(--app-text);
+  --reader-ink-strong: var(--app-text-strong);
+  --reader-ink-2: var(--app-text-2);
+  --reader-ink-3: var(--app-text-3);
+  --reader-line: var(--app-border);
+  --reader-line-2: var(--app-border-strong);
+  --reader-accent: #3d5a8a;
+  --reader-accent-soft: rgba(61, 90, 138, 0.1);
+  --reader-radius: 6px;
+  --reader-radius-lg: 12px;
+  --type-font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  --type-font-mono: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, "PingFang SC", monospace;
+  --type-font-size: 17px;
+  --type-line: 1.78;
+  --type-measure: 1080px;
+  --type-measure-wide: 1200px;
+}
+[data-theme='dark'] .cm-editor .cm-content {
+  --app-accent: #818cf8;
+  --app-surface: #1a1b1e;
+  --app-sunken: #22242a;
+  --app-text: #d8dade;
+  --app-text-strong: #eceef1;
+  --app-text-2: #a7abb3;
+  --app-text-3: #75797f;
+  --app-border: #2e3138;
+  --app-border-strong: #3d4149;
+  --reader-paper: var(--app-surface);
+  --reader-sunken: var(--app-sunken);
+  --reader-ink: var(--app-text);
+  --reader-ink-strong: var(--app-text-strong);
+  --reader-ink-2: var(--app-text-2);
+  --reader-ink-3: var(--app-text-3);
+  --reader-line: var(--app-border);
+  --reader-line-2: var(--app-border-strong);
+  --reader-accent: #8ab4e8;
+  --reader-accent-soft: rgba(138, 180, 232, 0.14);
+  --reader-radius: 6px;
+  --reader-radius-lg: 12px;
+  --type-font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  --type-font-mono: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, "PingFang SC", monospace;
+  --type-font-size: 17px;
+  --type-line: 1.78;
+  --type-measure: 1080px;
+  --type-measure-wide: 1200px;
+}
+`;
+  document.head.appendChild(style);
+  return [];
+}
+
+/** Combined decorations theme: baseTheme rules + reader-CSS variable bridge. */
+export const editorDecorationsThemeExt: Extension = [
+  ensureScopeCss(),
+  editorDecorationsTheme,
+  editorContentScope,
+];

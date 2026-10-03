@@ -1,41 +1,41 @@
 ## ADDED Requirements
 
-### Requirement: Edit mode renders each block through the shared renderer
-
-The editor SHALL render each non-active block in edit mode by invoking the shared renderer on that block's Markdown source, producing the same HTML as preview/export, instead of an approximating editor decoration.
-
-#### Scenario: A heading block renders identically to preview
-- **WHEN** a document containing `## 标题` is shown in edit mode and the same source is rendered in preview
-- **THEN** the heading block's computed styles in edit mode equal those in preview
-
-#### Scenario: A table block never falls back to raw source
-- **WHEN** the caret is placed inside a table in edit mode
-- **THEN** the table remains rendered through the shared renderer and does not collapse to raw pipe source
-
 ### Requirement: Edit mode and preview share one style source
 
-The edit-mode content area SHALL apply the same style scope as preview, so a given block's computed style is identical in both modes (no second, divergent stylesheet).
+The edit-mode content area SHALL apply the same reader style scope and container box (inline padding, centered measure) as preview, so a given block's computed styles are equal in edit mode and preview — without replacing the editor's block DOM.
 
-#### Scenario: Table styles match across modes
-- **WHEN** a table block is shown in edit mode and in preview
-- **THEN** its computed border and cell styles are equal in both modes
+#### Scenario: Heading styles match across modes
+- **WHEN** a document containing `## 标题` is shown in edit mode and the same source in preview
+- **THEN** the heading's computed font-size, font-weight, color, line-height, margin and width are equal in both modes
 
-#### Scenario: Callout styles match across modes
-- **WHEN** a callout block is shown in edit mode and in preview
-- **THEN** its computed background and header styles are equal in both modes
+#### Scenario: Code block styles match across modes
+- **WHEN** a fenced code block is shown in edit mode and in preview
+- **THEN** its computed font-family, font-size, background-color, border-radius and width are equal in both modes
+
+#### Scenario: List and quote styles match across modes
+- **WHEN** a list and a blockquote are shown in edit mode and in preview
+- **THEN** their computed list/indent and border/padding styles are equal in both modes
+
+#### Scenario: Table and callout styles match across modes
+- **WHEN** a table and a callout are shown in edit mode and in preview
+- **THEN** their computed box and typography styles are equal in both modes while their interactive widgets remain available
 
 ### Requirement: The active block reveals source while others stay rendered
 
-The block containing the caret SHALL reveal its raw Markdown source for editing (the live-source bridge), and when the caret leaves that block it SHALL return to the rendered presentation, preserving live-source editability.
+The block containing the caret SHALL reveal its raw Markdown source for editing, and when the caret leaves that block it SHALL return to the rendered presentation.
 
 #### Scenario: Leaving a block returns it to rendered form
 - **WHEN** the caret leaves a block that was showing raw source
-- **THEN** that block renders again through the shared renderer and no longer shows its raw markers
+- **THEN** the block renders again and no raw marker text remains
 
-### Requirement: Block rendering is incremental and cached
+### Requirement: Existing decoration DOM contracts are preserved
 
-Only blocks whose source changed SHALL re-render; unchanged blocks SHALL reuse cached output. Math and diagram features SHALL hydrate lazily rather than on every keystroke.
+The parity change SHALL NOT replace editor block DOM wholesale; the existing decoration classes and line structure that block handling, the selection toolbar, and structure tooling depend on SHALL remain present, so block-level operations continue to work on non-active blocks.
 
-#### Scenario: Unchanged blocks are not re-rendered
-- **WHEN** the user edits one block in a multi-block document
-- **THEN** blocks whose source did not change reuse their previously rendered output
+#### Scenario: Block handle still works on a non-active block
+- **WHEN** the user hovers a non-active block
+- **THEN** the block handle appears and the block menu opens and works as before
+
+#### Scenario: Selection toolbar still opens and its controls work
+- **WHEN** the user selects text in a non-active block
+- **THEN** the floating toolbar opens and its controls (including the column picker) work as before
