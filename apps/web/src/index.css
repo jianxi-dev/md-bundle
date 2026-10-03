@@ -23,3 +23,11 @@
 .mdb-split-editor .cm-scroller {
   overflow: auto;
 }
+
+/* D1 编辑=预览（非破坏对齐）：编辑态与预览态滚动条均预留稳定 gutter，
+   避免有无滚动条导致的亚像素宽度差（QG-5 width-parity）。
+   不隐藏滚动条——隐藏会破坏可访问性与滚动可见性。 */
+.mdb-split-editor .cm-scroller,
+[data-testid='mode-pane-preview'] {
+  scrollbar-gutter: stable;
+}

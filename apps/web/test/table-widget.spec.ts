@@ -51,7 +51,7 @@ test('AC (A): 表格以带边框预览 widget 显示，而非原始 | 文本', a
   const border = await table
     .locator('td')
     .first()
-    .evaluate((el) => getComputedStyle(el).borderTopWidth)
+    .evaluate((el) => getComputedStyle(el).borderBottomWidth)
   expect(border).not.toBe('0px')
 
   // 非活动态：源码标记被替换，内容区不出现分隔行原始文本

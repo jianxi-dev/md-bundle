@@ -33,3 +33,7 @@ blob-report/
 
 # Agent 本地配置（机器级，不入库）
 /CLAUDE.md
+
+# Agent 工作区（本地产物，不入库）
+.artifacts/
+.lavish/
