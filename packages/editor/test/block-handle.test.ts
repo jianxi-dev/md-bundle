@@ -15,12 +15,14 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EditorState } from '@codemirror/state'
+import { undoDepth } from '@codemirror/commands'
 import { EditorView } from '@codemirror/view'
 import { markdown } from '@codemirror/lang-markdown'
 import { createMarkdownEditor } from '../src/editor'
 import { chapterReorgExtension } from '../src/chapter-reorg-extension'
 import {
   blockHandle,
+  selectedBlockField,
   findBlockAt,
   computeBlockMove,
   computeBlockConvert,
@@ -434,6 +436,16 @@ describe('blockHandle lifecycle', () => {
     item.dispatchEvent(mouse('click'))
   }
 
+  /** Pointer enters the visible handle (mouseenter does not bubble). */
+  function enterHandle(): void {
+    handleEl().dispatchEvent(mouse('mouseenter'))
+  }
+
+  /** Current selected-block range, or null when nothing is selected. */
+  function selectedRange(): { from: number; to: number } | null {
+    return view.state.field(selectedBlockField, false) ?? null
+  }
+
   function changeDispatchCount(spy: { mock: { calls: unknown[][] } }): number {
     const calls = spy.mock.calls as { changes?: unknown }[][]
     return calls.flat().filter((spec) => spec.changes !== undefined).length
@@ -633,6 +645,179 @@ describe('blockHandle lifecycle', () => {
 
     local.destroy()
     expect(handleElement?.isConnected).toBe(false)
+    localParent.remove()
+  })
+
+  it('selects the hovered block range', () => {
+    hover(PARAGRAPH_POS)
+    expect(selectedRange()).toEqual({ from: 6, to: 25 })
+  })
+
+  it('selects every line of a multiline block', () => {
+    const localParent = document.createElement('div')
+    document.body.appendChild(localParent)
+    const local = createMarkdownEditor(localParent, {
+      value: '# Alpha\n\n- one\n- two\n- three\n\nBeta paragraph.',
+      extensions: [chapterReorgExtension(), blockHandle()],
+    })
+    const localView = local.view
+    vi.spyOn(localView, 'posAtCoords').mockReturnValue(16)
+    vi.spyOn(localView, 'coordsAtPos').mockReturnValue(RECT)
+    localView.dom.dispatchEvent(mouse('mousemove', { clientX: 5, clientY: 25 }))
+
+    const selected = localView.state.field(selectedBlockField, false)
+    expect(selected).not.toBeNull()
+    if (!selected) throw new Error('expected a selected block range')
+    const numbers: number[] = []
+    for (let n = localView.state.doc.lineAt(selected.from).number; n <= localView.state.doc.lineAt(selected.to).number; n++) {
+      numbers.push(n)
+    }
+    expect(numbers).toEqual([3, 4, 5])
+
+    local.destroy()
+    localParent.remove()
+  })
+
+  it('opens the menu on handle hover without a click', () => {
+    hover(PARAGRAPH_POS)
+    expect(menuEl()?.style.display).not.toBe('block')
+    enterHandle()
+    expect(menuEl()?.style.display).toBe('block')
+  })
+
+  it('keeps the selection while the menu is open and clears it on Escape', () => {
+    hover(PARAGRAPH_POS)
+    enterHandle()
+    expect(selectedRange()).toEqual({ from: 6, to: 25 })
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(selectedRange()).toBeNull()
+  })
+
+  it('retargets an already-open menu when hovering another block handle', () => {
+    hover(PARAGRAPH_POS)
+    enterHandle()
+    expect(menuEl()?.style.display).toBe('block')
+    expect(selectedRange()).toEqual({ from: 6, to: 25 })
+
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(HEADING_POS)
+    vi.spyOn(view, 'coordsAtPos').mockReturnValue({ left: 10, right: 30, top: 0, bottom: 20 })
+    handleEl().dispatchEvent(mouse('mouseenter'))
+    expect(selectedRange()).toEqual({ from: 0, to: 4 })
+    expect(menuEl()?.style.display).toBe('block')
+  })
+
+  it('dims the handle while the pointer crosses the gap and un-dims on the menu', () => {
+    hover(PARAGRAPH_POS)
+    enterHandle()
+    const el = handleEl()
+    expect(el.classList.contains('mdb-block-handle-dimmed')).toBe(false)
+
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(null)
+    view.dom.dispatchEvent(mouse('mousemove', { clientX: 2, clientY: 25 }))
+    expect(menuEl()?.style.display).toBe('block')
+    expect(el.classList.contains('mdb-block-handle-dimmed')).toBe(true)
+
+    menuEl()?.dispatchEvent(mouse('mousemove', { clientX: 40, clientY: 25 }))
+    expect(el.classList.contains('mdb-block-handle-dimmed')).toBe(false)
+  })
+
+  it('clears the selection after a menu action', () => {
+    hover(PARAGRAPH_POS)
+    enterHandle()
+    clickMenuItem('复制块')
+    expect(selectedRange()).toBeNull()
+  })
+
+  it('does not add undo depth while hovering, selecting or opening the menu', () => {
+    const before = undoDepth(view.state)
+    hover(PARAGRAPH_POS)
+    enterHandle()
+    expect(undoDepth(view.state)).toBe(before)
+  })
+
+  it('fades the handle in on the hidden-to-visible edge only', () => {
+    const animate = vi.fn()
+    const original = Element.prototype.animate
+    Element.prototype.animate = animate as unknown as Element['animate']
+    try {
+      hover(PARAGRAPH_POS)
+      expect(animate).toHaveBeenCalledTimes(1)
+      expect(animate.mock.calls[0]?.[0]).toEqual([{ opacity: '0' }, { opacity: '1' }])
+
+      // Further mousemoves within the same block re-anchor without re-fading.
+      vi.spyOn(view, 'posAtCoords').mockReturnValue(PARAGRAPH_POS)
+      view.dom.dispatchEvent(mouse('mousemove', { clientX: 6, clientY: 25 }))
+      expect(animate).toHaveBeenCalledTimes(1)
+    } finally {
+      if (original === undefined) {
+        delete (Element.prototype as { animate?: Element['animate'] }).animate
+      } else {
+        Element.prototype.animate = original
+      }
+    }
+  })
+
+  it('leaves no handle, menu or selection residue on editor destroy', () => {
+    const localParent = document.createElement('div')
+    document.body.appendChild(localParent)
+    const local = createMarkdownEditor(localParent, {
+      value: DOC,
+      extensions: [chapterReorgExtension(), blockHandle()],
+    })
+    vi.spyOn(local.view, 'posAtCoords').mockReturnValue(PARAGRAPH_POS)
+    vi.spyOn(local.view, 'coordsAtPos').mockReturnValue(RECT)
+    local.view.dom.dispatchEvent(mouse('mousemove', { clientX: 5, clientY: 25 }))
+    const localHandle = local.view.dom.querySelector<HTMLElement>('.mdb-block-handle')
+    if (!localHandle) throw new Error('block handle not found')
+    localHandle.dispatchEvent(mouse('mouseenter'))
+    expect(local.view.dom.querySelector('[data-testid="block-handle-menu"]')).not.toBeNull()
+
+    local.destroy()
+    expect(localHandle.isConnected).toBe(false)
+    expect(localParent.querySelector('[data-testid="block-handle-menu"]')).toBeNull()
+    localParent.remove()
+  })
+
+  it('keeps the chrome alive when the same range is reclassified from list to task', () => {
+    const localParent = document.createElement('div')
+    document.body.appendChild(localParent)
+    const local = createMarkdownEditor(localParent, {
+      value: '- a\n- b',
+      extensions: [chapterReorgExtension(), blockHandle()],
+    })
+    const localView = local.view
+    vi.spyOn(localView, 'posAtCoords').mockReturnValue(3)
+    vi.spyOn(localView, 'coordsAtPos').mockReturnValue(RECT)
+    localView.dom.dispatchEvent(mouse('mousemove', { clientX: 5, clientY: 25 }))
+
+    const before = localView.state.field(selectedBlockField, false)
+    expect(before).not.toBeNull()
+    if (!before) throw new Error('expected a selected block range')
+    expect(findBlockAt(localView.state, before.from)?.type).toBe('list')
+
+    // The block keeps its identity across the reclassification, so the mapped
+    // range must stay pinned to the exact new boundaries: a stale range would
+    // resolve to no block and wrongly clear the chrome.
+    const reclassify = localView.state.update({
+      changes: { from: before.from, to: before.to, insert: '- [ ] a\n- [ ] b' },
+    })
+    const retagged = findBlockAt(reclassify.state, before.from)
+    expect(retagged?.type).toBe('task')
+    expect(reclassify.state.field(selectedBlockField, false)).toEqual({
+      from: retagged?.from,
+      to: retagged?.to,
+    })
+
+    localView.dispatch(reclassify)
+
+    const live = findBlockAt(localView.state, before.from)
+    expect(live?.type).toBe('task')
+    const handle = localView.dom.querySelector<HTMLElement>('.mdb-block-handle')
+    expect(handle?.style.display).not.toBe('none')
+    if (!live) throw new Error('expected the task block to survive the dispatch')
+    expect(handle?.getAttribute('data-icon')).toBe(blockHandleIcon(live))
+
+    local.destroy()
     localParent.remove()
   })
 })
