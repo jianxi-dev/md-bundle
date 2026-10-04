@@ -36,7 +36,10 @@ test('转换块类型后视口不跳动（#239）', async ({ page }) => {
   await page.mouse.move(box.x + 30, box.y + box.height / 2)
   await settle(page)
   await page.locator('.mdb-block-handle').click()
-  await page.locator('.mdb-block-handle-item').filter({ hasText: '一级标题' }).click()
+  await page
+    .getByTestId('block-handle-menu')
+    .getByRole('button', { name: '一级标题', exact: true })
+    .click()
   await settle(page)
 
   const after = await scroller.evaluate((el) => el.scrollTop)

@@ -25,7 +25,15 @@ import {
 import { Decoration, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view'
 import { getBlocks, type Block } from './block-model'
 import { currentDrag, setDragEffect } from './chapter-reorg-extension'
-import { HandleChrome, blockHandleTheme, ITEM_CLASS } from './block-handle-dom'
+import { commandRegistry, toggleBlockAlignment } from './commands'
+import {
+  HandleChrome,
+  blockHandleTheme,
+  ITEM_CLASS,
+  GRID_ITEM_CLASS,
+  FLYOUT_ITEM_CLASS,
+  FLYOUT_ACTION_ATTR,
+} from './block-handle-dom'
 import {
   findBlockAt,
   computeBlockMove,
@@ -33,6 +41,9 @@ import {
   computeBlockDuplicate,
   computeBlockDelete,
   computeMinimalChange,
+  computeBlockIndent,
+  computeCalloutType,
+  isCalloutBlock,
   isBlockInViewport,
   blockHandleIcon,
   type BlockConvertTarget,
@@ -45,6 +56,9 @@ export {
   computeBlockDuplicate,
   computeBlockDelete,
   computeMinimalChange,
+  computeBlockIndent,
+  computeCalloutType,
+  isCalloutBlock,
   blockStillExists,
   isBlockInViewport,
   blockHandleIcon,
@@ -301,6 +315,9 @@ class BlockHandlePlugin {
     const r = this.view.dom.getBoundingClientRect()
     this.chrome.menu.style.left = `${rect.right - r.left + 8}px`
     this.chrome.menu.style.top = `${rect.top - r.top}px`
+    const block = this.menuBlock ?? this.currentBlock
+    const text = block ? this.view.state.doc.sliceString(block.from, block.to) : ''
+    this.chrome.setCalloutContext(block !== null && isCalloutBlock(text))
     this.chrome.showMenu()
   }
 
@@ -533,10 +550,19 @@ class BlockHandlePlugin {
   private onMenuClick = (event: MouseEvent): void => {
     const from = event.target
     if (!(from instanceof Element) || !this.menuBlock) return
-    const item = from.closest(`.${ITEM_CLASS}`)
+    const item = from.closest(`.${ITEM_CLASS}, .${GRID_ITEM_CLASS}, .${FLYOUT_ITEM_CLASS}`)
     if (!item) return
 
     const block = this.menuBlock
+    const flyoutAction = item.getAttribute(FLYOUT_ACTION_ATTR)
+    if (flyoutAction !== null) {
+      this.applyFlyoutAction(block, flyoutAction)
+      this.chrome.hideMenu()
+      this.setSelected(null)
+      event.stopPropagation()
+      return
+    }
+
     const text = this.view.state.doc.toString()
     const convert = item.getAttribute('data-convert')
     const action = item.getAttribute('data-action')
@@ -558,6 +584,43 @@ class BlockHandlePlugin {
     // document the action produced.
     this.setSelected(null)
     event.stopPropagation()
+  }
+
+  /** Apply a flyout option (align / indent / color / callout type) to the block. */
+  private applyFlyoutAction(block: Block, action: string): void {
+    if (action.startsWith('align-')) {
+      const alignment = action.slice('align-'.length)
+      if (alignment === 'left' || alignment === 'center' || alignment === 'right') {
+        toggleBlockAlignment(this.view, alignment)
+      }
+      return
+    }
+    if (action === 'indent-increase' || action === 'indent-decrease') {
+      const text = this.view.state.doc.toString()
+      const next = computeBlockIndent(
+        text,
+        block.from,
+        block.to,
+        action === 'indent-increase' ? 'increase' : 'decrease',
+      )
+      if (next !== text) this.view.dispatch({ changes: computeMinimalChange(text, next) })
+      return
+    }
+    if (action.startsWith('color-')) {
+      // Color commands operate on the selection, so cover the whole block first.
+      this.view.dispatch({ selection: { anchor: block.from, head: block.to } })
+      commandRegistry.execute(action, this.view)
+      return
+    }
+    if (action.startsWith('callout-')) {
+      const type = action.slice('callout-'.length)
+      const text = this.view.state.doc.toString()
+      const blockText = text.slice(block.from, block.to)
+      const nextText = computeCalloutType(blockText, type)
+      if (nextText !== blockText) {
+        this.view.dispatch({ changes: { from: block.from, to: block.to, insert: nextText } })
+      }
+    }
   }
 }
 

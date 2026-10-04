@@ -30,6 +30,9 @@ import {
   computeBlockDuplicate,
   computeBlockDelete,
   computeMinimalChange,
+  computeBlockIndent,
+  computeCalloutType,
+  isCalloutBlock,
   blockHandleIcon,
 } from '../src/block-handle'
 import type { Block } from '../src/block-model'
@@ -379,6 +382,33 @@ describe('blockHandleIcon', () => {
   })
 })
 
+// --- #330 menu helpers --------------------------------------------------------
+
+describe('#330 block menu helpers', () => {
+  it('detects callout blocks and only them', () => {
+    expect(isCalloutBlock('> [!NOTE]\n> body')).toBe(true)
+    expect(isCalloutBlock('  > [!WARNING] title')).toBe(true)
+    expect(isCalloutBlock('> plain quote')).toBe(false)
+    expect(isCalloutBlock('paragraph [!NOTE]')).toBe(false)
+  })
+
+  it('rewrites the callout type marker', () => {
+    expect(computeCalloutType('> [!NOTE]\n> body', 'WARNING')).toBe('> [!WARNING]\n> body')
+  })
+
+  it('indents and outdents a block reversibly', () => {
+    const doc = 'a\nb'
+    const indented = computeBlockIndent(doc, 0, doc.length, 'increase')
+    expect(indented).toBe('  a\n  b')
+    expect(computeBlockIndent(indented, 0, indented.length, 'decrease')).toBe('a\nb')
+  })
+
+  it('leaves blank lines blank when indenting', () => {
+    const doc = 'a\n\nb'
+    expect(computeBlockIndent(doc, 0, doc.length, 'increase')).toBe('  a\n\n  b')
+  })
+})
+
 // --- Lifecycle through real DOM events ---------------------------------------
 
 describe('blockHandle lifecycle', () => {
@@ -429,9 +459,15 @@ describe('blockHandle lifecycle', () => {
   }
 
   function clickMenuItem(label: string): void {
-    const item = Array.from(
-      view.dom.querySelectorAll<HTMLButtonElement>('.mdb-block-handle-item'),
-    ).find((el) => el.querySelector('.mdb-block-handle-item-label')?.textContent === label)
+    // Footer rows carry a visible label span; 转为 rows are icon-only grid
+    // buttons identified by aria-label (#330).
+    const item =
+      Array.from(view.dom.querySelectorAll<HTMLButtonElement>('.mdb-block-handle-item')).find(
+        (el) => el.querySelector('.mdb-block-handle-item-label')?.textContent === label,
+      ) ??
+      Array.from(view.dom.querySelectorAll<HTMLButtonElement>('.mdb-block-handle-grid-item')).find(
+        (el) => el.getAttribute('aria-label') === label,
+      )
     if (!item) throw new Error(`menu item not found: ${label}`)
     item.dispatchEvent(mouse('click'))
   }
@@ -473,13 +509,32 @@ describe('blockHandle lifecycle', () => {
     const menu = menuEl()
     expect(menu).not.toBeNull()
     expect(menu?.textContent).toContain('转换为')
-    expect(menu?.textContent).toContain('一级标题')
-    expect(menu?.textContent).toContain('二级标题')
-    expect(menu?.textContent).toContain('三级标题')
-    expect(menu?.textContent).toContain('正文')
+    const gridLabels = Array.from(
+      menu?.querySelectorAll('.mdb-block-handle-grid-item') ?? [],
+    ).map((el) => el.getAttribute('aria-label'))
+    expect(gridLabels).toEqual([
+      '一级标题',
+      '二级标题',
+      '三级标题',
+      '四级标题',
+      '五级标题',
+      '六级标题',
+      '正文',
+    ])
     expect(menu?.textContent).toContain('复制块')
     expect(menu?.textContent).toContain('删除块')
     expect(menu?.style.display).toBe('block')
+  })
+
+  it('builds a convert grid plus indent/align and color flyout rows (#330)', () => {
+    hover(PARAGRAPH_POS)
+    openMenu()
+    const menu = menuEl()
+    expect(menu?.querySelectorAll('.mdb-block-handle-grid-item').length).toBe(7)
+    const flyouts = Array.from(menu?.querySelectorAll('[data-flyout]') ?? []).map((el) =>
+      el.getAttribute('data-flyout'),
+    )
+    expect(flyouts).toEqual(['indent-align', 'color', 'callout-type'])
   })
 
   it('转换为 二级标题 dispatches exactly one undoable transaction', () => {

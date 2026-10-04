@@ -45,7 +45,10 @@ async function hoverHeadingHandle(page: Page, text: string): Promise<void> {
 test('块手柄菜单切换标题级别到 H3（#253）', async ({ page }) => {
   await openEditor(page, '# Title\n\nA body\n')
   await hoverHeadingHandle(page, 'Title')
-  await page.locator('.mdb-block-handle-item').filter({ hasText: '三级标题' }).click()
+  await page
+    .getByTestId('block-handle-menu')
+    .getByRole('button', { name: '三级标题', exact: true })
+    .click()
   await settle(page)
 
   expect(await rawDoc(page)).toContain('### Title')
