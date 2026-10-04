@@ -358,7 +358,9 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     margin: '0.35em 0',
     fontSize: '0.95em',
     width: '100%',
-  },  '.cm-content .cm-table th, .cm-content .cm-table td': {
+  },
+  '.cm-content .cm-table th, .cm-content .cm-table td': {
+    position: 'relative',
     borderBottom: '1px solid var(--reader-line, var(--mdb-border))',
     padding: '0.55em 0.8em',
     textAlign: 'left',
@@ -373,6 +375,8 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   },
   '.cm-content .cm-table-wrap': {
     display: 'block',
+    // Positioning context for the absolutely positioned boundary overlay.
+    position: 'relative',
     overflowX: 'auto',
     border: '1px solid var(--reader-line, var(--mdb-border))',
     borderRadius: 'var(--reader-radius-lg, 12px)',
@@ -395,8 +399,67 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-table-wrap:hover .cm-table-add-col': {
     opacity: '0.6',
   },
-  '.cm-content .cm-table td:first-child': {
-    position: 'relative',
+  '.cm-content .cm-table-cell-text': {
+    // inline-block so min-width/min-height take effect — min-* is ignored on
+    // inline boxes, and an empty cell must still be a clickable caret target.
+    display: 'inline-block',
+    outline: 'none',
+    caretColor: 'var(--reader-ink-strong, var(--mdb-text))',
+    minWidth: '1em',
+    minHeight: '1em',
+    whiteSpace: 'pre-wrap',
+    cursor: 'text',
+  },
+  '.cm-content .cm-table-cell-text:focus': {
+    outline: 'none',
+  },
+  '.cm-content .cm-table-cell-active': {
+    boxShadow: 'inset 0 0 0 2px var(--reader-accent, var(--mdb-primary-fg))',
+  },
+  '.cm-content .cm-table-cell-handle': {
+    position: 'absolute',
+    top: '2px',
+    right: '2px',
+    width: '16px',
+    height: '16px',
+    borderRadius: 'var(--reader-radius, 4px)',
+    border: '1px solid var(--reader-line, var(--mdb-border))',
+    background: 'var(--reader-sunken, var(--mdb-bg-secondary))',
+    opacity: '0',
+    cursor: 'pointer',
+    pointerEvents: 'auto',
+    // Above .cm-table-boundary (z-index 5): the overlay spans the wrap, so a
+    // lower handle would be unpaintable and unclickable wherever they overlap.
+    zIndex: '6',
+  },
+  '.cm-content .cm-table-cell-handle::after': {
+    content: '"+"',
+    display: 'block',
+    textAlign: 'center',
+    fontSize: '11px',
+    lineHeight: '14px',
+    color: 'var(--reader-ink-2, var(--mdb-text-secondary))',
+  },
+  '.cm-content .cm-table th:hover .cm-table-cell-handle, .cm-content .cm-table td:hover .cm-table-cell-handle, .cm-content .cm-table-cell-handle-active': {
+    opacity: '1',
+  },
+  '.cm-content .cm-table-boundaries': {
+    position: 'absolute',
+    inset: '0',
+    pointerEvents: 'none',
+  },
+  '.cm-content .cm-table-boundary': {
+    background: 'transparent',
+    transition: 'background-color 120ms ease-out',
+  },
+  '.cm-content .cm-table-boundary-col': {
+    cursor: 'col-resize',
+  },
+  '.cm-content .cm-table-boundary-row': {
+    cursor: 'row-resize',
+  },
+  '.cm-content .cm-table-boundary-active': {
+    background: 'var(--reader-accent, var(--mdb-primary-fg))',
   },
   '.cm-content .cm-table-add-row': {
     position: 'absolute',
