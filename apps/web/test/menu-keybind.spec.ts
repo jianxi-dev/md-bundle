@@ -8,6 +8,11 @@ import { PALETTE_KEY } from './keys'
 
 const DOC = '# 标题\n\n正文段落 UNIQUEMARKER 这里。\n\n'
 
+// Expected formatted chord for the RUNNER platform (matches browser's real platform).
+// CM6 resolves Mod- from the browser platform; the runner platform is the same.
+const MOD = process.platform === 'darwin' ? '⌘' : 'Ctrl+'
+const BOLD_CHORD = `${MOD}B`
+
 test.use({ viewport: { width: 1440, height: 900 } })
 
 async function settle(page: Page): Promise<void> {
@@ -18,10 +23,6 @@ async function settle(page: Page): Promise<void> {
 }
 
 async function openEditor(page: Page): Promise<void> {
-  // Pin platform to Mac for deterministic kbd assertions (CI runs on Ubuntu)
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true });
-  });
   await page.goto('/')
   await page.getByTestId('file-input').setInputFiles({
     name: 'menu-keybind-test.md',
@@ -42,18 +43,18 @@ async function selectWord(page: Page, word: string): Promise<void> {
   await settle(page)
 }
 
-test('命令面板：加粗项显示格式化快捷键 ⌘B，复制代码项不显示 kbd', async ({ page }) => {
+test('命令面板：加粗项显示格式化快捷键，复制代码项不显示 kbd', async ({ page }) => {
   await openEditor(page)
   await page.keyboard.press(PALETTE_KEY)
 
   const palette = page.getByTestId('command-palette')
   await expect(palette).toBeVisible()
 
-  // 加粗项：有绑定，显示 ⌘B
+  // 加粗项：有绑定，显示平台格式化的快捷键
   const boldItem = page.locator('.mdb-palette-item').filter({ hasText: '加粗' }).first()
   await expect(boldItem).toBeVisible()
   await expect(boldItem.locator('kbd')).toBeVisible()
-  await expect(boldItem.locator('kbd')).toHaveText('⌘B')
+  await expect(boldItem.locator('kbd')).toHaveText(BOLD_CHORD)
 
   // 复制代码项：无绑定，不显示 kbd
   const copyCodeItem = page.locator('.mdb-palette-item').filter({ hasText: '复制代码' }).first()
