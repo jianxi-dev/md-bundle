@@ -356,3 +356,38 @@ export function blockHandleIcon(block: Block): string {
       return 'DragHandleOutlined'
   }
 }
+
+/** True when a block's text is a callout (a blockquote opening with `[!TYPE]`). */
+export function isCalloutBlock(blockText: string): boolean {
+  return /^[ \t]*>[ \t]*\[![A-Za-z]+\]/.test(blockText)
+}
+
+/** Rewrite a callout block's `[!TYPE]` marker to `type` (e.g. 'NOTE'). */
+export function computeCalloutType(blockText: string, type: string): string {
+  return blockText.replace(/\[![A-Za-z]+\]/, `[!${type}]`)
+}
+
+/**
+ * Add or remove a deterministic two-space indent on every non-empty line of a
+ * block range, returning the full next document. `increase` prepends two
+ * spaces; `decrease` strips up to two leading spaces. Empty lines are left
+ * alone so blank separators stay blank (ticket #330).
+ */
+export function computeBlockIndent(
+  docText: string,
+  from: number,
+  to: number,
+  delta: 'increase' | 'decrease',
+): string {
+  const blockText = docText.slice(from, to)
+  const next = blockText
+    .split('\n')
+    .map((line) => {
+      if (line.length === 0) return line
+      if (delta === 'increase') return `  ${line}`
+      const leading = line.match(/^ {1,2}/)
+      return leading ? line.slice(leading[0].length) : line
+    })
+    .join('\n')
+  return docText.slice(0, from) + next + docText.slice(to)
+}

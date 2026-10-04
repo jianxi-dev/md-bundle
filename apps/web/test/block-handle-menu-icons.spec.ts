@@ -43,8 +43,8 @@ async function openMenu(page: Page): Promise<void> {
   await expect(page.getByTestId('block-handle-menu')).toBeVisible()
 }
 
-/** 菜单行顺序与 MENU_ACTIONS 一致：转换为组 + 上移/下移/复制/删除。 */
-const MENU_ROWS: ReadonlyArray<readonly [label: string, icon: string]> = [
+/** 转为 图标网格：块型（标题/正文）→ data-icon。 */
+const CONVERT_GRID_ROWS: ReadonlyArray<readonly [label: string, icon: string]> = [
   ['一级标题', 'H1Outlined'],
   ['二级标题', 'H2Outlined'],
   ['三级标题', 'H3Outlined'],
@@ -52,37 +52,64 @@ const MENU_ROWS: ReadonlyArray<readonly [label: string, icon: string]> = [
   ['五级标题', 'H5Outlined'],
   ['六级标题', 'H6Outlined'],
   ['正文', 'FormatParagraphOutlined'],
+]
+
+/** 底部结构动作行：文案 + 图标。 */
+const ACTION_ROWS: ReadonlyArray<readonly [label: string, icon: string]> = [
   ['上移', 'ArrowUpwardOutlined'],
   ['下移', 'ArrowDownwardOutlined'],
   ['复制块', 'ContentCopyOutlined'],
   ['删除块', 'DeleteOutlined'],
 ]
 
-test('菜单每一项都显示图标 + 文案（#276）', async ({ page }) => {
+test('转为 图标网格每一项都显示对应图标（#276 / #330）', async ({ page }) => {
   await openEditor(page)
   await openMenu(page)
 
-  const items = page.locator('.mdb-block-handle-menu .mdb-block-handle-item')
-  await expect(items).toHaveCount(MENU_ROWS.length)
+  const gridItems = page.locator('.mdb-block-handle-menu .mdb-block-handle-grid-item')
+  await expect(gridItems).toHaveCount(CONVERT_GRID_ROWS.length)
 
-  for (let i = 0; i < MENU_ROWS.length; i += 1) {
-    const [label, icon] = MENU_ROWS[i]
+  for (let i = 0; i < CONVERT_GRID_ROWS.length; i += 1) {
+    const [label, icon] = CONVERT_GRID_ROWS[i]
+    const item = gridItems.nth(i)
+    await expect(item).toHaveAttribute('aria-label', label)
+    const svg = item.locator('svg')
+    await expect(svg).toHaveCount(1)
+    await expect(svg).toHaveAttribute('aria-hidden', 'true')
+    await expect(svg).toHaveAttribute('data-icon', icon)
+  }
+})
+
+test('底部动作行显示图标 + 文案（#276）', async ({ page }) => {
+  await openEditor(page)
+  await openMenu(page)
+
+  const items = page.locator('.mdb-block-handle-menu .mdb-block-handle-item[data-action]')
+  await expect(items).toHaveCount(ACTION_ROWS.length)
+
+  for (let i = 0; i < ACTION_ROWS.length; i += 1) {
+    const [label, icon] = ACTION_ROWS[i]
     const item = items.nth(i)
     await expect(item).toContainText(label)
     const iconEl = item.locator('.mdb-block-handle-item-icon')
     await expect(iconEl).toBeVisible()
     await expect(iconEl).toHaveAttribute('aria-hidden', 'true')
-    await expect(iconEl.locator('svg')).toHaveCount(1)
     await expect(iconEl.locator('svg')).toHaveAttribute('data-icon', icon)
   }
 })
 
-test('图标不污染按钮可访问名：每个动作仍按纯文案定位（#276）', async ({ page }) => {
+test('图标不污染按钮可访问名：每项仍按文案/aria-label 定位（#276 / #330）', async ({ page }) => {
   await openEditor(page)
   await openMenu(page)
 
   const menu = page.getByTestId('block-handle-menu')
-  for (const [label] of MENU_ROWS) {
+  for (const [label] of CONVERT_GRID_ROWS) {
+    await expect(menu.getByRole('button', { name: label, exact: true })).toHaveCount(1)
+  }
+  for (const [label] of ACTION_ROWS) {
+    await expect(menu.getByRole('button', { name: label, exact: true })).toHaveCount(1)
+  }
+  for (const label of ['缩进和对齐', '颜色']) {
     await expect(menu.getByRole('button', { name: label, exact: true })).toHaveCount(1)
   }
 })
