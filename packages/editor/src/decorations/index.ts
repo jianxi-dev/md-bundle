@@ -35,6 +35,7 @@ import { createCodeDecorations } from './code';
 import { createImageDecorations } from './image';
 import { createCalloutDecorations, scheduleCalloutFlush } from './callout';
 import { createTableDecorations, scheduleTableFlush } from './table';
+import { createColumnsDecorations } from './columns';
 import { editorDecorationsThemeExt } from './theme';
 import { getBlocks, getBlockAt } from '../block-model';
 import type { ImageResolver } from './image';
@@ -124,6 +125,7 @@ function buildDecorationSet(
     ),
     ...createCalloutDecorations(docText, activeFrom, activeTo),
     ...createTableDecorations(docText, activeFrom, activeTo),
+    ...createColumnsDecorations(docText),
   ];
 
   // Sort by from-position (required by CM6)

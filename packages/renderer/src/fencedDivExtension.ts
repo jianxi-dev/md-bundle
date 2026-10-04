@@ -57,6 +57,8 @@ function resolveWrapper(classes: string[], attrs: Record<string, string>): {
     case 'col-3':
     case 'col-4':
     case 'col-5':
+      // Per-column widths (#327) live in the editor only: the sanitizer strips
+      // `style` attributes, so the preview keeps its equal-split grid CSS.
       return { tag: 'div', className: allClasses, extraAttr: '' };
     case 'card-grid': {
       const cols = attrs.cards ?? '3';

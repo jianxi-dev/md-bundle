@@ -40,6 +40,12 @@ async function selectWord(page: Page, word: string): Promise<void> {
   await settle(page)
 }
 
+/** Select a wrapped column block by clicking its column cell (#327 rendering). */
+async function selectColumn(page: Page): Promise<void> {
+  await page.getByTestId('cm-columns').locator('.cm-column').first().click()
+  await settle(page)
+}
+
 /** Switch to source mode, read raw Markdown, switch back to edit mode. */
 async function rawDoc(page: Page): Promise<string> {
   await page.getByTestId('mode-source-btn').click()
@@ -454,7 +460,7 @@ test.describe('选区浮条：分栏可视化栏数选择器（1 栏 / 2 栏 / 3
 
     await pickColumnBar(page, 2)
 
-    await selectWord(page, 'UNIQUEMARKER')
+    await selectColumn(page)
     await pickColumnBar(page, 2)
 
     let raw = await rawDoc(page)
@@ -469,7 +475,7 @@ test.describe('选区浮条：分栏可视化栏数选择器（1 栏 / 2 栏 / 3
 
     await pickColumnBar(page, 2)
 
-    await selectWord(page, 'UNIQUEMARKER')
+    await selectColumn(page)
     await pickColumnBar(page, 3)
 
     let raw = await rawDoc(page)
@@ -484,7 +490,7 @@ test.describe('选区浮条：分栏可视化栏数选择器（1 栏 / 2 栏 / 3
 
     await pickColumnBar(page, 2)
 
-    await selectWord(page, 'UNIQUEMARKER')
+    await selectColumn(page)
     const colButton = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
     await colButton.click()
     await settle(page)

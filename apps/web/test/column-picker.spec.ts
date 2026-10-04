@@ -122,7 +122,9 @@ test.describe('分栏可视化栏数选择器（#290）', () => {
     await selectWord(page, 'UNIQUEMARKER')
 
     await pickColumnBar(page, 3)
-    await selectWord(page, 'UNIQUEMARKER')
+    // 包裹后内容由分栏 widget 渲染（不再是 .cm-line）；点列单元格选中该块源码范围。
+    await page.getByTestId('cm-columns').locator('.cm-column').first().click()
+    await settle(page)
 
     const colBtn = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="分栏"]')
     await colBtn.click()

@@ -350,6 +350,52 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     whiteSpace: 'pre-wrap',
     marginTop: '0.35em',
   },
+  '.cm-content .cm-columns': {
+    marginBlock: '0.4em',
+  },
+  '.cm-content .cm-column': {
+    position: 'relative',
+    minWidth: '0',
+    padding: '2px 6px',
+  },
+  '.cm-content .cm-column-body': {
+    whiteSpace: 'pre-wrap',
+    minHeight: '1.2em',
+  },
+  '.cm-content .cm-column-handle': {
+    position: 'absolute',
+    left: '0',
+    top: '0',
+    width: '14px',
+    height: '14px',
+    borderRadius: 'var(--reader-radius, 4px)',
+    border: '1px solid var(--reader-line, var(--mdb-border))',
+    background: 'var(--reader-sunken, var(--mdb-bg-secondary))',
+    opacity: '0',
+    cursor: 'pointer',
+    zIndex: '6',
+  },
+  '.cm-content .cm-column:hover .cm-column-handle': {
+    opacity: '1',
+  },
+  '.cm-content .cm-column-gutter': {
+    flex: '0 0 12px',
+    position: 'relative',
+    cursor: 'col-resize',
+  },
+  '.cm-content .cm-column-gutter-line': {
+    position: 'absolute',
+    left: '50%',
+    top: '0',
+    bottom: '0',
+    width: '2px',
+    transform: 'translateX(-50%)',
+    background: 'transparent',
+    borderRadius: '1px',
+  },
+  '.cm-content .cm-column-gutter:hover .cm-column-gutter-line': {
+    background: 'var(--reader-accent, var(--mdb-primary-fg))',
+  },
   '.cm-content .cm-callout-editor': {
     display: 'block',
     width: '100%',
