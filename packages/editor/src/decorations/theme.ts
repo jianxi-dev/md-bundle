@@ -314,6 +314,58 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     borderColor: 'var(--mdb-border)',
   },
 
+  // ── Media widgets (video player / file card) ──────────────────────────
+  '.cm-content .cm-media-widget': {
+    marginInline: '0.15em',
+    verticalAlign: 'middle',
+  },
+  '.cm-content .cm-media-widget video': {
+    display: 'block',
+    maxWidth: '100%',
+    borderRadius: 'var(--reader-radius, 6px)',
+  },
+  '.cm-content .cm-media-file': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    maxWidth: '100%',
+    padding: '0.35em 0.7em',
+    border: '1px solid var(--reader-line, var(--mdb-border))',
+    borderRadius: 'var(--reader-radius, 6px)',
+    backgroundColor: 'var(--reader-sunken, var(--mdb-code-bg))',
+  },
+  '.cm-content .cm-media-file a': {
+    color: 'var(--mdb-primary-fg)',
+    textDecoration: 'none',
+    overflowWrap: 'anywhere',
+  },
+
+  // ── Mermaid block (inactive block: fence replaced by the diagram) ─────
+  '.cm-content .cm-mermaid-block': {
+    display: 'block',
+    // Reserve height so the widget does not collapse before hydration swaps
+    // in the SVG, and so a failed render still leaves a visible source box.
+    minHeight: '80px',
+    marginBlock: '0.4em 0',
+    padding: '1em 1.1em',
+    backgroundColor: 'var(--reader-sunken, var(--mdb-code-bg))',
+    border: '1px solid var(--reader-line, var(--mdb-border))',
+    borderRadius: 'var(--reader-radius, 6px)',
+    overflowX: 'auto',
+  },
+  '.cm-content .cm-mermaid-block pre.mermaid': {
+    margin: '0',
+    color: 'var(--reader-ink-2, var(--mdb-text-secondary))',
+    fontFamily: 'var(--type-font-mono, var(--mdb-font-mono, ui-monospace, monospace))',
+    fontSize: '0.85em',
+    whiteSpace: 'pre-wrap',
+  },
+  '.cm-content .cm-mermaid-block .mermaid-view svg': {
+    display: 'block',
+    maxWidth: '100%',
+    height: 'auto',
+    marginInline: 'auto',
+  },
+
   // ── Callout card (values aligned to reader CSS) ───────────────────────
   '.cm-content .cm-callout': {
     display: 'block',

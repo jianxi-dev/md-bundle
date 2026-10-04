@@ -59,7 +59,7 @@ test('空行输入 `/` 时菜单贴合光标行，并列出中文命令项', asy
   const grid = page.locator('.mdb-slash-grid-menu')
   await expect(grid).toBeVisible()
   await expect(grid).toHaveCSS('display', 'grid')
-  await expect(grid.locator('.mdb-slash-item')).toHaveCount(11)
+  await expect(grid.locator('.mdb-slash-item')).toHaveCount(12)
 
   const lineBox = await boxOf(lines.last())
   const menuBox = await boxOf(menu)

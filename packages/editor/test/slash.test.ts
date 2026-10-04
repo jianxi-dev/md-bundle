@@ -81,7 +81,7 @@ describe('slash commands', () => {
     expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
     const grid = view.dom.querySelector('.mdb-slash-grid-menu');
     expect(grid).not.toBeNull();
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(11)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
   });
 
   it('positions the menu relative to the editor origin, not the viewport (issue #203)', () => {
@@ -113,7 +113,7 @@ describe('slash commands', () => {
     // flyout while the root grid stays rendered.
     expect(slashMenuApply(view)).toBe(true);
     expect(view.state.doc.toString()).toBe('/');
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(11)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
 
     const flyout = view.dom.querySelector('.mdb-slash-flyout');
     expect(flyout).not.toBeNull();
@@ -179,7 +179,7 @@ describe('slash commands', () => {
     for (let i = 0; i < tableIdx; i++) slashMenuSelectNext(view)
     slashMenuApply(view)
 
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(11)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
     const flyout = view.dom.querySelector('.mdb-slash-flyout')
     expect(flyout).not.toBeNull()
     expect(flyout!.querySelectorAll('.mdb-slash-grid-cell').length).toBe(100)
@@ -214,7 +214,7 @@ describe('slash commands', () => {
     slashMenuApply(view)
 
     expect(view.state.doc.toString()).toBe('/')
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(11)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
     const flyoutRows = view.dom.querySelectorAll('.mdb-slash-flyout-item')
     expect(flyoutRows.length).toBe(5)
 
@@ -378,7 +378,7 @@ describe('slash commands', () => {
     backspace(); // /b
     expect(cells().length).toBe(3);
     backspace(); // /
-    expect(cells().length).toBe(11)
+    expect(cells().length).toBe(12)
   });
 
   it('shows an empty state for a filter with no match, and a newline closes the menu', () => {
@@ -423,11 +423,11 @@ describe('slash commands', () => {
 
     expect(slashMenuSubmenuEnter(view)).toBe(true);
     expect(view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(6);
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(11)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
 
     expect(slashMenuSubmenuBack(view)).toBe(true);
     expect(view.dom.querySelector('.mdb-slash-flyout')).toBeNull();
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(11)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
     expect(view.state.doc.toString()).toBe('/');
   });
 

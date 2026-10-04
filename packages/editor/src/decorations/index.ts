@@ -36,6 +36,7 @@ import { createImageDecorations } from './image';
 import { createCalloutDecorations, scheduleCalloutFlush } from './callout';
 import { createTableDecorations, scheduleTableFlush } from './table';
 import { createColumnsDecorations } from './columns';
+import { createMermaidDecorations, type MermaidHydrator, type MermaidTheme } from './mermaid';
 import { editorDecorationsThemeExt } from './theme';
 import { getBlocks, getBlockAt } from '../block-model';
 import type { ImageResolver } from './image';
@@ -54,6 +55,14 @@ export interface EditorDecorationsOptions {
   onImageDelete?: (path: string) => void;
   /** Callback when user clicks "locate" on an image widget. */
   onImageLocate?: (path: string) => void;
+  /**
+   * Mermaid hydrator seam. Defaults to `@md-bundle/renderer`'s
+   * `hydrateLazyFeatures`; injected in tests (and by the app) to render
+   * diagrams from the decoration widget.
+   */
+  hydrateMermaid?: MermaidHydrator;
+  /** Theme handed to the mermaid hydrator. Defaults to the document `data-theme`. */
+  mermaidTheme?: MermaidTheme;
 }
 
 // --- IME composition guard ---------------------------------------------------
@@ -126,6 +135,13 @@ function buildDecorationSet(
     ...createCalloutDecorations(docText, activeFrom, activeTo),
     ...createTableDecorations(docText, activeFrom, activeTo),
     ...createColumnsDecorations(docText),
+    ...createMermaidDecorations(
+      docText,
+      activeFrom,
+      activeTo,
+      options?.hydrateMermaid,
+      options?.mermaidTheme,
+    ),
   ];
 
   // Sort by from-position (required by CM6)
