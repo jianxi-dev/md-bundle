@@ -10,6 +10,9 @@
  * - Matching + recency ordering live in `command-palette-search.ts`; element
  *   factories live in `command-palette-dom.ts`. This file owns only state,
  *   rendering orchestration, and keyboard handling.
+ * - The results list is a single vertical flex column (NOT a grid): every row
+ *   shares one column so ↑↓ navigation is a straight line, and the keyboard
+ *   shortcut sits flush right after a `flex: 1` description.
  * - Keyboard navigation: ArrowUp/Down, Enter, Escape — from the search input
  *   itself (CM6's keymap only fires when the contentDOM has focus).
  */
@@ -21,6 +24,9 @@ import { markUsed, searchCommands, type MatchEntry } from './command-palette-sea
 import {
   createGroupHeader,
   createPaletteBackdrop,
+  createPaletteChips,
+  createPaletteEmptyState,
+  createPaletteFooter,
   createPaletteRow,
 } from './command-palette-dom';
 
@@ -29,6 +35,8 @@ import {
 interface PaletteState {
   open: boolean;
   query: string;
+  /** Active category chip (null = 全部). Recent section only shows when null. */
+  activeGroup: string | null;
   selected: number;
   matches: MatchEntry[];
   dom: HTMLDivElement | null;
@@ -50,6 +58,7 @@ function renderPalette(view: EditorView, state: PaletteState): void {
     display: 'flex',
     alignItems: 'center',
     paddingRight: '8px',
+    flex: 'none',
   });
 
   const input = document.createElement('input');
@@ -71,7 +80,7 @@ function renderPalette(view: EditorView, state: PaletteState): void {
   });
   input.addEventListener('input', () => {
     state.query = input.value;
-    state.matches = searchCommands(state.query);
+    state.matches = searchCommands(state.query, state.activeGroup);
     state.selected = 0;
     renderPalette(view, state);
   });
@@ -121,43 +130,59 @@ function renderPalette(view: EditorView, state: PaletteState): void {
   header.appendChild(closeBtn);
   state.dom.appendChild(header);
 
-  // Results list, grouped by `cmd.group ?? '其他'`
+  // Category chips narrow the result set; activeGroup persists across typing.
+  state.dom.appendChild(
+    createPaletteChips(state.activeGroup, (group) => {
+      state.activeGroup = group;
+      state.matches = searchCommands(state.query, group);
+      state.selected = 0;
+      renderPalette(view, state);
+    }),
+  );
+
+  // Results list: a single vertical flex column grouped by `cmd.group ?? '其他'`.
   const list = document.createElement('div');
   list.className = 'mdb-palette-list';
   Object.assign(list.style, {
-    maxHeight: '320px',
+    flex: '1 1 auto',
+    minHeight: '0',
     overflowY: 'auto',
     borderTop: `1px solid var(--mdb-border)`,
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
-    alignContent: 'start',
-    gap: '4px',
-    padding: '4px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    padding: '6px 8px 8px',
   });
 
   if (state.matches.length === 0) {
-    const empty = document.createElement('div');
-    empty.textContent = '未找到匹配命令';
-    Object.assign(empty.style, {
-      padding: '12px',
-      color: 'var(--mdb-text-secondary)',
-      fontSize: '13px',
-      textAlign: 'center',
-      gridColumn: '1 / -1',
+    list.appendChild(
+      createPaletteEmptyState((text) => {
+        state.query = text;
+        state.matches = searchCommands(text, state.activeGroup);
+        state.selected = 0;
+        renderPalette(view, state);
+      }),
+    );
+  } else {
+    // Recent entries are hoisted to the front by searchCommands; emit a single
+    // 最近 header for that contiguous block, then normal group headers.
+    let renderedHeader: string | null = null;
+    state.matches.forEach((entry, i) => {
+      const header = entry.inRecentSection ? '最近' : entry.group;
+      if (header !== renderedHeader) {
+        renderedHeader = header;
+        list.appendChild(createGroupHeader(header));
+      }
+      list.appendChild(
+        createPaletteRow(entry, i === state.selected, () => executeEntry(view, entry)),
+      );
     });
-    list.appendChild(empty);
   }
 
-  let renderedGroup: string | null = null;
-  state.matches.forEach((entry, i) => {
-    if (entry.group !== renderedGroup) {
-      renderedGroup = entry.group;
-      list.appendChild(createGroupHeader(entry.group));
-    }
-    list.appendChild(createPaletteRow(entry, i === state.selected, () => executeEntry(view, entry)));
-  });
-
   state.dom.appendChild(list);
+
+  // Footer hint bar sits below the scrollable list, always visible.
+  state.dom.appendChild(createPaletteFooter());
 
   // Focus the input after render
   requestAnimationFrame(() => input.focus());
@@ -184,11 +209,14 @@ export function openCommandPalette(view: EditorView): boolean {
     left: '50%',
     top: '50%',
     transform: 'translate(-50%, -50%)',
-    width: '520px',
+    width: '640px',
     maxWidth: 'calc(100vw - 24px)',
+    maxHeight: '64vh',
+    display: 'flex',
+    flexDirection: 'column',
     background: 'var(--mdb-bg-secondary)',
     border: `1px solid var(--mdb-border)`,
-    borderRadius: '8px',
+    borderRadius: '14px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
     zIndex: '2001',
     overflow: 'hidden',
@@ -197,6 +225,7 @@ export function openCommandPalette(view: EditorView): boolean {
   const state: PaletteState = {
     open: true,
     query: '',
+    activeGroup: null,
     selected: 0,
     matches: searchCommands(''),
     dom: panel,
