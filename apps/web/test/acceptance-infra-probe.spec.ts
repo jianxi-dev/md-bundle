@@ -40,6 +40,20 @@ async function openEditor(page: Page): Promise<void> {
   await settle(page)
 }
 
+/**
+ * Move to the document end, open a fresh empty line and type `/`. #326 made
+ * cancel remove the `/query` (D6 fixed), so a plain "clear last line + retype"
+ * no longer lands on an empty line — this creates one explicitly.
+ */
+async function typeSlashOnFreshLine(page: Page): Promise<void> {
+  await page.locator('.cm-content').click()
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End')
+  await page.keyboard.press('Enter')
+  await settle(page)
+  await page.keyboard.type('/')
+  await settle(page)
+}
+
 async function boxOf(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
   const box = await locator.boundingBox()
   if (!box) throw new Error('element has no bounding box')
@@ -138,12 +152,8 @@ test.describe('Acceptance infra visual probe: slash menu lifecycle across ≥4 s
     await recordState(page, states, 'cancel', '03-cancel-insert.png', 'passed')
 
     // ===== 态 4: 重新打开 → 点击外部关闭 =====
-    // 清空当前行（含残留的 `/b`），再次触发菜单
-    await lines.last().click({ clickCount: 3 }) // 三击选中整行
-    await page.keyboard.press('Backspace')
-    await settle(page)
-    await page.keyboard.type('/')
-    await settle(page)
+    // 到文末新建空行再次触发菜单（#326 取消不再残留 `/`，无需清理）
+    await typeSlashOnFreshLine(page)
     await expect(menu).toBeVisible()
 await recordState(page, states, 'open', '04-reopen-menu.png', 'passed')
 
@@ -157,12 +167,8 @@ await recordState(page, states, 'open', '04-reopen-menu.png', 'passed')
     await recordState(page, states, 'click-outside', '05-click-outside.png', 'passed')
 
     // ===== 态 5: 空态（筛选无匹配）=====
-    // 清空当前行再次触发菜单
-    await lines.last().click({ clickCount: 3 })
-    await page.keyboard.press('Backspace')
-    await settle(page)
-    await page.keyboard.type('/')
-    await settle(page)
+    // 到文末新建空行再次触发菜单
+    await typeSlashOnFreshLine(page)
     await expect(menu).toBeVisible()
 
     await page.keyboard.type('xyz-nonexistent')
@@ -183,12 +189,8 @@ await recordState(page, states, 'open', '04-reopen-menu.png', 'passed')
     await expect(menu).toBeHidden()
 
     // ===== 态 6: 显式关闭（再次打开后点击菜单项关闭）=====
-    // 清空当前行再次触发菜单
-    await lines.last().click({ clickCount: 3 })
-    await page.keyboard.press('Backspace')
-    await settle(page)
-    await page.keyboard.type('/')
-    await settle(page)
+    // 到文末新建空行再次触发菜单
+    await typeSlashOnFreshLine(page)
     await expect(menu).toBeVisible()
 
     // 点击一个菜单项（如"段落"）执行插入 → 菜单关闭

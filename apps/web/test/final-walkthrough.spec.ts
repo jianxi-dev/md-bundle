@@ -127,11 +127,10 @@ test('F3 walkthrough: full user journey in real Chromium', async ({ page }) => {
     await page.keyboard.type('/');
     await page.screenshot({ path: join(RES, 'final-03-slash.png') });
     await expect(page.locator('.mdb-slash-menu')).toBeVisible();
-    // Esc 关闭菜单（不插入内容，`/` 保留）
+    // Esc 关闭菜单；#326 起取消会一并移除触发字符 `/query`（无残留）
     await page.keyboard.press('Escape');
     await expect(page.locator('.mdb-slash-menu')).toHaveCount(0);
-    // 删掉残留的 `/`，重新打开 → 选择 Callout
-    await page.keyboard.press('Backspace');
+    // 直接重新触发 → 选择 Callout（无残留，无需 Backspace 清理）
     await page.keyboard.type('/');
     await expect(page.locator('.mdb-slash-menu')).toBeVisible();
     // 菜单已分组（#250）：直接点「标注」行，不再假设 标题→标注 仅差一行。

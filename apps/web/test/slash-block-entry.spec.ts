@@ -43,13 +43,13 @@ test('斜杠菜单按分组渲染（#250）', async ({ page }) => {
   await openEditor(page, '# Title\n\n')
   await typeSlashAtDocEnd(page)
 
-  // #279：分组标题挂在图标网格内部，根命令仍是 8 个图标单元格。
+  // #279：分组标题挂在菜单内部，根命令挂在 `.mdb-slash-grid-menu` 内。
   await expect(page.locator('.mdb-slash-grid-menu')).toBeVisible()
   await expect(page.locator('.mdb-slash-grid-menu .mdb-slash-item')).toHaveCount(10)
   const groups = await page.locator('.mdb-slash-group').allInnerTexts()
   expect(groups).toContain('基础')
   expect(groups).toContain('常用')
-  expect(groups).toContain('小组件')
+  expect(groups).toContain('绘图')
 })
 
 test('「标题」打开 H1–H6 flyout 并插入所选级别（#279）', async ({ page }) => {
