@@ -4,6 +4,10 @@
 
 A rendered callout card SHALL be editable inline: the caret is placed inside the card and typing updates the callout source, without ever switching the whole block to raw `> [!TYPE]` source. The card form is preserved while editing.
 
+#### Scenario: Click to edit a callout
+- **WHEN** the user clicks a rendered callout card
+- **THEN** the raw callout source is revealed with the caret inside it and typing updates the source
+
 #### Scenario: Edit inside the card
 - **WHEN** the user clicks a rendered callout card and types
 - **THEN** the card stays rendered and the typed text updates the callout source
@@ -15,6 +19,10 @@ A rendered callout card SHALL be editable inline: the caret is placed inside the
 ### Requirement: Callout type is selectable
 
 The callout SHALL expose a type/style selector via a secondary submenu (in the callout block menu) so the user can pick among the supported callout types (e.g. note, info, tip, success, warning, danger, error, question), plus a color and an emoji option.
+
+#### Scenario: Choose a callout type
+- **WHEN** the user inserts a callout and picks the danger type
+- **THEN** the source uses the corresponding `> [!DANGER]`-style marker and the preview renders the danger style
 
 #### Scenario: Choose a callout type from the submenu
 - **WHEN** the user opens the callout block menu and picks the danger type from the type submenu

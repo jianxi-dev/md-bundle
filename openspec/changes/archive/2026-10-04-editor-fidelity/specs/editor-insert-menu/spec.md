@@ -4,17 +4,25 @@
 
 The slash insert menu SHALL render commands as a vertical list grouped under labelled category headings (基础 / 常用 / 绘图), where each row shows an icon and a label, instead of a flat ungrouped list.
 
+#### Scenario: Icon grid is shown
+- **WHEN** the user triggers the insert menu on an empty line in edit mode
+- **THEN** the menu shows group headings and each command as an icon + label grid item
+
 #### Scenario: Grouped list is shown
 - **WHEN** the user triggers the insert menu with `/` on an empty line in edit mode
 - **THEN** the menu shows category headings with each command as an icon + label list row
 
+### Requirement: Second-level options open as a flyout
+
+The insert menu SHALL open second-level options (e.g. 标题 → H1–H6, 标注 → 样式) as a flyout panel anchored to the parent item, without replacing the root list.
+
+#### Scenario: Open the heading flyout
+- **WHEN** the user selects 「标题」 in the insert menu
+- **THEN** a flyout listing H1–H6 appears next to the item and selecting a level inserts that heading
+
 ### Requirement: Insert menu supports typing to filter and hit codes
 
 After the insert menu is open, continuing to type SHALL filter the visible items by Chinese name, by pinyin initials/full pinyin, and by declared single-key or second-level codes. When the typed text matches a parent item that owns second-level options, the menu SHALL list those second-level options directly so the user does not need to hover. A non-code character (e.g. Chinese prose input) SHALL NOT close the menu.
-
-#### Scenario: Pinyin filters to a command
-- **WHEN** the menu is open and the user types `biao`
-- **THEN** the 表格 command is matched and highlighted
 
 #### Scenario: Single-key code selects a block type
 - **WHEN** the menu is open and the user types `r`
@@ -24,13 +32,29 @@ After the insert menu is open, continuing to type SHALL filter the visible items
 - **WHEN** the menu is open and the user types `nd`
 - **THEN** the danger callout style is inserted
 
+#### Scenario: IME composition does not close the menu
+- **WHEN** the user is composing Chinese text with an IME while the menu is open
+- **THEN** the menu stays open and does not select a command until composition ends
+
+#### Scenario: Pinyin filters to a command
+- **WHEN** the menu is open and the user types `biao`
+- **THEN** the 表格 command is matched and highlighted
+
 #### Scenario: Second-level options are surfaced directly while filtering
 - **WHEN** the menu is open and the user types a term that matches a parent owning second-level options
 - **THEN** the second-level options for that parent are listed directly, without requiring a hover
 
-#### Scenario: IME composition does not close the menu
-- **WHEN** the user is composing Chinese text with an IME while the menu is open
-- **THEN** the menu stays open and does not select a command until composition ends
+### Requirement: Insert menu declares single-key and second-level codes
+
+The insert menu SHALL declare a single-key code for the root items it exposes (`/1…/6` headings, `/q` quote, `/c` code block, `/t` table, `/n` callout, `/p` image with alias `/img`, `/m` HTML with alias `/css`, `/r` task, `/d` divider) and second-level codes (`/nn /ni /nt /ns /nw /nd /ne /nq` callout styles, `/t<cols><rows>` table size up to 9×9).
+
+#### Scenario: Table size code
+- **WHEN** the menu is open and the user types `t53`
+- **THEN** a table with 5 columns and 3 rows is inserted
+
+#### Scenario: Callout style code
+- **WHEN** the menu is open and the user types `nd`
+- **THEN** a callout with the danger style is inserted
 
 ### Requirement: Insert window is triggered by slash or Chinese comma
 
@@ -47,6 +71,10 @@ The insert window SHALL be triggerable by typing `/` or `、` at a valid start p
 ### Requirement: Command palette renders as a grid with shortcuts and previews
 
 The command palette (⌘/Ctrl+K) SHALL render commands as a single vertical list — not a grid — where each row shows an icon, the command name, a one-line description, and the keyboard shortcut right-aligned, with sticky group headings, a recent-commands section, fuzzy/pinyin matching with highlighted matches, single-column arrow navigation with a selected state, and a footer shortcut hint bar.
+
+#### Scenario: Palette shows shortcuts
+- **WHEN** the user opens the command palette
+- **THEN** each command item shows its shortcut keys and a one-line description or style preview
 
 #### Scenario: Palette uses a single column
 - **WHEN** the user opens the command palette

@@ -1,21 +1,25 @@
 # editor-columns Specification
 
 ## Purpose
-TBD - created by archiving change editor-doubao-parity. Update Purpose after archive.
+TBD - created by archiving change editor-fidelity. Update Purpose after archive.
 ## Requirements
-### Requirement: Columns support one to five columns
+### Requirement: Each column exposes its own block handle
 
-The editor SHALL support block column layouts from 1 to 5 columns, encoded as Pandoc fenced divs `::: {.col-N}` with N in 1–5; the renderer SHALL map them to `layout-col-*` wrappers and `readerCssText` SHALL provide grid styles for 2–5 columns.
+Hovering into any single column of a column layout SHALL reveal that column's block handle, so block-level operations apply to the content of that column.
 
-#### Scenario: Five-column layout renders
-- **WHEN** a block is wrapped in `::: {.col-5}` … `:::` and previewed
-- **THEN** the preview lays the content out in five columns
+#### Scenario: Handle appears per column
+- **WHEN** the pointer hovers the content of the second column
+- **THEN** a block handle appears for that column's content
 
-### Requirement: Column count is chosen visually
+### Requirement: The gutter between columns is draggable to resize
 
-The toolbar SHALL present a visual column-count selector (bars/glyphs) for 1–5 columns instead of text options.
+A draggable gutter SHALL exist between adjacent columns: hovering it SHALL highlight a vertical line and show a horizontal resize cursor, and dragging SHALL change the column widths and persist back to the source.
 
-#### Scenario: Pick columns visually
-- **WHEN** the user opens the 分栏 control and picks the 3-bar option
-- **THEN** the block is wrapped in `::: {.col-3}` … `:::`
+#### Scenario: Drag the gutter to resize
+- **WHEN** the user drags the gutter between two columns to the right
+- **THEN** the left column widens and the right narrows, and the change is written to the source
+
+#### Scenario: Gutter shows a resize cursor
+- **WHEN** the pointer is over the gutter between two columns
+- **THEN** the cursor becomes a horizontal resize (col-resize) cursor and the gutter line is highlighted
 

@@ -36,6 +36,14 @@ Hovering a boundary line between two cells SHALL reveal a 「＋」 on that inte
 - **WHEN** the user hovers an inter-cell boundary line
 - **THEN** a single boundary line is highlighted (with an insert bubble) rather than the entire column or row being filled
 
+#### Scenario: Add a column
+- **WHEN** the user hovers the hotzone above a column and clicks 「＋」
+- **THEN** a new column is inserted at that position and the source is updated
+
+#### Scenario: Add a row
+- **WHEN** the user hovers the hotzone left of a row and clicks 「＋」
+- **THEN** a new row is inserted at that position and the source is updated
+
 ## ADDED Requirements
 
 ### Requirement: An in-cell handle opens the insert menu
