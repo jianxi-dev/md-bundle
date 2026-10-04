@@ -29,6 +29,8 @@ export const FLYOUT_ITEM_CLASS = 'mdb-block-handle-flyout-item';
 export const FLYOUT_ATTR = 'data-flyout';
 export const FLYOUT_ACTION_ATTR = 'data-flyout-action';
 export const CALLOUT_ONLY_ATTR = 'data-callout-only';
+export const HANDLE_TYPE_ICON_CLASS = 'mdb-block-type-icon';
+export const HANDLE_DRAG_CLASS = 'mdb-drag-handle';
 
 /** Reveal duration (ms) for the handle fade-in. */
 const REVEAL_MS = 120;
@@ -187,8 +189,22 @@ export function createHandle(): HTMLElement {
   handle.setAttribute('data-testid', 'block-handle');
   handle.title = '拖拽重排 · 点击打开菜单';
   handle.setAttribute('data-icon', HANDLE_DEFAULT_ICON);
-  handle.replaceChildren(renderIcon(HANDLE_DEFAULT_ICON));
   handle.style.display = 'none';
+
+  // Left segment: block type icon (22x22)
+  const typeIcon = document.createElement('div');
+  typeIcon.className = HANDLE_TYPE_ICON_CLASS;
+  typeIcon.setAttribute('aria-hidden', 'true');
+  typeIcon.replaceChildren(renderIcon(HANDLE_DEFAULT_ICON));
+  handle.appendChild(typeIcon);
+
+  // Right segment: drag handle (16x22) with DragOutlined icon
+  const dragHandle = document.createElement('div');
+  dragHandle.className = HANDLE_DRAG_CLASS;
+  dragHandle.setAttribute('aria-hidden', 'true');
+  dragHandle.replaceChildren(renderIcon('DragOutlined'));
+  handle.appendChild(dragHandle);
+
   return handle;
 }
 
@@ -273,7 +289,10 @@ export class HandleChrome {
 
   setIcon(icon: string): void {
     this.handle.setAttribute('data-icon', icon);
-    this.handle.replaceChildren(renderIcon(icon));
+    const typeIcon = this.handle.querySelector(`.${HANDLE_TYPE_ICON_CLASS}`);
+    if (typeIcon) {
+      typeIcon.replaceChildren(renderIcon(icon));
+    }
   }
 
   showHandle(): void {
@@ -433,19 +452,54 @@ export const blockHandleTheme = EditorView.baseTheme({
     display: 'none',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '20px',
-    height: '20px',
+    width: '42px',
+    height: '26px',
+    padding: '0 3px',
+    border: '1px solid var(--mdb-border)',
+    borderRadius: '6px',
     cursor: 'grab',
     color: 'var(--mdb-text-secondary)',
     userSelect: 'none',
     zIndex: '5',
+    backgroundColor: 'var(--mdb-bg-secondary)',
+    boxSizing: 'border-box',
   },
   '.mdb-block-handle:hover': {
     backgroundColor: 'rgba(127, 127, 127, 0.18)',
-    borderRadius: '4px',
   },
   '.mdb-block-handle-dimmed': {
     opacity: '0.35',
+  },
+  '.mdb-block-type-icon': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '22px',
+    height: '22px',
+    flexShrink: '0',
+    fontSize: '18px',
+    lineHeight: '1',
+    color: 'var(--mdb-text-secondary)',
+  },
+  '.mdb-block-type-icon svg': {
+    width: '18px',
+    height: '18px',
+  },
+  '.mdb-drag-handle': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '16px',
+    height: '22px',
+    flexShrink: '0',
+    fontSize: '12px',
+    lineHeight: '1',
+    color: 'var(--mdb-text-secondary)',
+    opacity: '0.6',
+  },
+  '.mdb-drag-handle svg': {
+    width: '12px',
+    height: '12px',
   },
   '.cm-block-selected': {
     backgroundColor: 'rgba(127, 127, 127, 0.1)',

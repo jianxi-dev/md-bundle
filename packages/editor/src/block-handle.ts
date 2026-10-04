@@ -46,6 +46,7 @@ import {
   isCalloutBlock,
   isBlockInViewport,
   blockHandleIcon,
+  computeGutterLeft,
   type BlockConvertTarget,
 } from './block-handle-ops'
 
@@ -274,22 +275,19 @@ class BlockHandlePlugin {
   private showHandleAt(from: number): void {
     this.chrome.showHandle()
     const block = findBlockAt(this.view.state, from)
-    if (block) this.chrome.setIcon(blockHandleIcon(block))
+    if (block) {
+      const blockText = this.view.state.doc.sliceString(block.from, block.to)
+      // Get the line text at the handle position for table line detection
+      const line = this.view.state.doc.lineAt(from)
+      const lineText = line.text
+      this.chrome.setIcon(blockHandleIcon(block, blockText, lineText))
+    }
     try {
       const coords = this.view.coordsAtPos(from)
       if (coords) {
-        const r = this.view.dom.getBoundingClientRect()
-        // Fixed gutter column: block.from sits after the list marker, so
-        // anchoring x to it drifted the handle inward on lists (#237).
-        // Use the content area's left edge (after padding) so the handle
-        // stays at a fixed offset from the text regardless of .cm-content
-        // inline padding (D1 render-parity adds 2rem inline padding).
-        const contentDOM = this.view.contentDOM
-        const contentRect = contentDOM.getBoundingClientRect()
-        const paddingLeft = parseFloat(getComputedStyle(contentDOM).paddingLeft) || 0
-        const contentLeft = contentRect.left + paddingLeft
-        this.chrome.handle.style.left = `${contentLeft - r.left - 22}px`
-        this.chrome.handle.style.top = `${coords.top - r.top}px`
+        const gutterLeft = computeGutterLeft(this.view)
+        this.chrome.handle.style.left = `${gutterLeft}px`
+        this.chrome.handle.style.top = `${coords.top - this.view.dom.getBoundingClientRect().top}px`
       }
     } catch {
       // jsdom / unmeasured content — keep the default position.
