@@ -6,6 +6,7 @@
  */
 
 import type { MatchEntry } from './command-palette-search';
+import { formatKeyChord } from './keybindings';
 
 /** Full-viewport scrim. `onOutside` fires on mousedown anywhere on it. */
 export function createPaletteBackdrop(onOutside: () => void): HTMLDivElement {
@@ -81,7 +82,7 @@ export function createPaletteRow(
 
   if (entry.keyBinding) {
     const kb = document.createElement('kbd');
-    kb.textContent = entry.keyBinding;
+    kb.textContent = formatKeyChord(entry.keyBinding);
     Object.assign(kb.style, {
       fontSize: '11px',
       padding: '1px 6px',

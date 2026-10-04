@@ -2,6 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { EditorView } from '@codemirror/view';
 import { createMarkdownEditor } from '../src/editor';
 import { commandRegistry, type Command } from '../src/commands';
+import { formatKeyChord } from '../src/keybindings';
 import {
   closeCommandPalette,
   commandPaletteKeymap,
@@ -167,7 +168,8 @@ describe('command palette', () => {
 
     const boldRow = elements(ITEMS).find((el) => el.textContent?.includes('加粗'));
     expect(boldRow).toBeDefined();
-    expect(boldRow?.querySelector('kbd')?.textContent).toBe('Mod-b');
+    // jsdom has empty platform → non-mac formatting
+    expect(boldRow?.querySelector('kbd')?.textContent).toBe(formatKeyChord('Mod-b', false));
   });
 
   it('renders one header per group with its rows contiguous, in canonical order', () => {
