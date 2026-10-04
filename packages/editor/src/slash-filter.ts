@@ -44,6 +44,7 @@ const PINYIN: Record<string, string> = {
   码: 'ma',
   块: 'kuai',
   分: 'fen',
+  栏: 'lan',
   割: 'ge',
   线: 'xian',
   表: 'biao',

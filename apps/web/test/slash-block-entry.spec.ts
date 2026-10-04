@@ -45,7 +45,7 @@ test('斜杠菜单按分组渲染（#250）', async ({ page }) => {
 
   // #279：分组标题挂在菜单内部，根命令挂在 `.mdb-slash-grid-menu` 内。
   await expect(page.locator('.mdb-slash-grid-menu')).toBeVisible()
-  await expect(page.locator('.mdb-slash-grid-menu .mdb-slash-item')).toHaveCount(10)
+  await expect(page.locator('.mdb-slash-grid-menu .mdb-slash-item')).toHaveCount(11)
   const groups = await page.locator('.mdb-slash-group').allInnerTexts()
   expect(groups).toContain('基础')
   expect(groups).toContain('常用')
@@ -62,7 +62,7 @@ test('「标题」打开 H1–H6 flyout 并插入所选级别（#279）', async 
   const flyoutItems = flyout.locator('.mdb-slash-flyout-item')
   await expect(flyoutItems).toHaveCount(6)
   // 根网格未被替换（二级项以 flyout 展开，而不是就地替换根列表）。
-  await expect(page.locator('.mdb-slash-grid-menu .mdb-slash-item')).toHaveCount(10)
+  await expect(page.locator('.mdb-slash-grid-menu .mdb-slash-item')).toHaveCount(11)
 
   await flyoutItems.filter({ hasText: '2 级标题' }).first().click()
   await settle(page)
