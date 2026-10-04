@@ -65,6 +65,15 @@ describe('slash commands', () => {
     view.dispatch({ changes: { from: head - 1, to: head }, selection: { anchor: head - 1 } });
   }
 
+  /**
+   * Caret-driven dismissal is deferred to a microtask (CM6 forbids a dispatch
+   * from inside a plugin update), so tests must drain the queue before
+   * asserting on the document. Microtasks are FIFO, so one await is enough.
+   */
+  async function flushDismiss(): Promise<void> {
+    await Promise.resolve();
+  }
+
   it('typing "/" inserts the slash and opens the icon-grid menu', () => {
     const inserted = insertSlashChar(view);
     expect(inserted).toBe(true);
@@ -163,12 +172,73 @@ describe('slash commands', () => {
     expect(doc.split('\n').length).toBe(5); // header + separator + 3 body rows
   });
 
-  it('Escape closes the menu without inserting anything', () => {
+  it('Escape dismisses the menu and takes the trigger with it (no residue)', () => {
     insertSlashChar(view);
+    typeText('b');
     const closed = slashMenuClose(view);
     expect(closed).toBe(true);
     expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.state.selection.main.head).toBe(0);
+  });
+
+  it('Escape returns false and leaves the document alone when no menu is open', () => {
+    typeText('plain text');
+    expect(slashMenuClose(view)).toBe(false);
+    expect(view.state.doc.toString()).toBe('plain text');
+  });
+
+  it('a mousedown outside the menu dismisses it and removes the trigger text', () => {
+    insertSlashChar(view);
+    typeText('b');
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+    expect(view.state.doc.toString()).toBe('');
+  });
+
+  it('a mousedown on the menu itself keeps it open', () => {
+    insertSlashChar(view);
+    const item = view.dom.querySelector<HTMLElement>('.mdb-slash-item');
+    expect(item).not.toBeNull();
+    item!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
     expect(view.state.doc.toString()).toBe('/');
+  });
+
+  it('moving the caret away from the trigger dismisses the menu (no residue)', async () => {
+    typeText('before ');
+    insertSlashChar(view);
+    typeText('b');
+    // Assert the menu actually opened: a mid-word "/" would be refused by
+    // insertSlashChar, which would make every assertion below vacuous.
+    expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
+    view.dispatch({ selection: { anchor: 0 } });
+    await flushDismiss();
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+    expect(view.state.doc.toString()).toBe('before ');
+  });
+
+  it('moving the caret to another line takes the trigger but not the surrounding text', async () => {
+    typeText('first\n');
+    insertSlashChar(view);
+    typeText('b');
+    expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
+    view.dispatch({ selection: { anchor: 0 } });
+    await flushDismiss();
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+    expect(view.state.doc.toString()).toBe('first\n');
+  });
+
+  it('moving the caret past text that predates the trigger never deletes that text', async () => {
+    typeText('XY');
+    view.dispatch({ selection: { anchor: 0 } });
+    insertSlashChar(view);
+    typeText('b');
+    expect(view.state.doc.toString()).toBe('/bXY');
+    view.dispatch({ selection: { anchor: 3 } });
+    await flushDismiss();
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+    expect(view.state.doc.toString()).toBe('XY');
   });
 
   it('a second consecutive "/" while the menu is open does not double-insert', () => {

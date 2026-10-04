@@ -1,5 +1,5 @@
-// #279（change editor-doubao-parity 4.1）：斜杠菜单图标网格 + 二级 flyout + 打字筛选。
-// AC(A) 空行输入 / → 图标网格；AC(B) 输入筛选 → 「标题」flyout 旁展开 → 选 H2 插入。
+// #326（change editor-fidelity）：单列分组插入菜单 + 二级 flyout + 打字筛选。
+// AC(A) 空行输入 / → 单列分组列表；AC(B) 输入筛选 → 「标题」flyout 旁展开 → 选 H2 插入。
 // 运行：pnpm --filter @md-bundle/web exec playwright test test/slash-menu-grid.spec.ts
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
@@ -49,7 +49,25 @@ async function boxOf(
   return box
 }
 
-test('AC(A)：空行输入 / 后菜单以图标网格展示', async ({ page }) => {
+async function expectSingleColumnStack(cells: Locator, grid: Locator): Promise<void> {
+  const boxes = await cells.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const rect = node.getBoundingClientRect()
+      return { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width) }
+    }),
+  )
+  const gridWidth = (await boxOf(grid)).width
+  for (const box of boxes) {
+    expect(box.x).toBe(boxes[0].x)
+    expect(box.width).toBe(boxes[0].width)
+    expect(box.width).toBeGreaterThan(gridWidth / 2)
+  }
+  for (let i = 1; i < boxes.length; i++) {
+    expect(boxes[i].y).toBeGreaterThan(boxes[i - 1].y)
+  }
+}
+
+test('AC(A)：空行输入 / 后菜单以单列分组列表展示', async ({ page }) => {
   await openEditor(page, '# Title\n\n')
   await typeSlashAtDocEnd(page)
 
@@ -63,11 +81,11 @@ test('AC(A)：空行输入 / 后菜单以图标网格展示', async ({ page }) =
   await expect(grid).toContainText('标注')
   await expect(grid).toContainText('代码块')
 
+  await expectSingleColumnStack(cells, grid)
+
   // 分组标题仍在（#250 行为不回退）
   const groups = await page.locator('.mdb-slash-group').allInnerTexts()
-  expect(groups).toContain('基础')
-  expect(groups).toContain('常用')
-  expect(groups).toContain('小组件')
+  expect(groups).toEqual(['基础', '常用', '绘图'])
 })
 
 test('AC(B)：输入筛选列表 → 标题 flyout 旁展开 → 选 H2 插入 ## ', async ({ page }) => {

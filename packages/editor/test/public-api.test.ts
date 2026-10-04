@@ -316,12 +316,12 @@ describe('slash menu through the public API', () => {
     handle.destroy();
   });
 
-  it('slashMenuClose after opening removes the menu and leaves the doc unchanged', () => {
+  it('slashMenuClose after opening removes the menu and the trigger text', () => {
     const handle = makeView();
     insertSlashChar(handle.view);
     expect(slashMenuClose(handle.view)).toBe(true);
     expect(handle.view.dom.querySelector('.mdb-slash-menu')).toBeNull();
-    expect(handle.getValue()).toBe('/');
+    expect(handle.getValue()).toBe('');
     handle.destroy();
   });
 });

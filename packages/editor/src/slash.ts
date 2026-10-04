@@ -26,6 +26,7 @@
 import { EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/view';
 import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { calloutTypeMap } from '@md-bundle/renderer';
+import { TABLE_SIZE_QUERY, filterSlashCommands } from './slash-filter';
 
 export interface SlashCommand {
   id: string;
@@ -138,6 +139,18 @@ export const defaultCommands: SlashCommand[] = [
     },
   },
   {
+    id: 'divider',
+    label: '分割线',
+    hint: '---',
+    icon: '\u2014',
+    code: 'd',
+    group: '基础',
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: '---' };
+    },
+  },
+  {
     id: 'table',
     label: '表格',
     hint: 'N × M',
@@ -177,30 +190,6 @@ export const defaultCommands: SlashCommand[] = [
     },
   },
   {
-    id: 'insert-html',
-    label: '插入 HTML',
-    hint: '<div>',
-    icon: '</>',
-    code: 'm',
-    group: '小组件',
-    insert(state) {
-      const head = state.selection.main.head;
-      return { from: head - 1, to: head, text: '<div align="center">\n\n</div>' };
-    },
-  },
-  {
-    id: 'insert-css',
-    label: '插入 CSS',
-    hint: '<style>',
-    icon: '#',
-    aliases: ['css'],
-    group: '小组件',
-    insert(state) {
-      const head = state.selection.main.head;
-      return { from: head - 1, to: head, text: '<style>\n\n</style>' };
-    },
-  },
-  {
     id: 'task',
     label: '任务',
     hint: '- [ ]',
@@ -213,67 +202,30 @@ export const defaultCommands: SlashCommand[] = [
     },
   },
   {
-    id: 'divider',
-    label: '分割线',
-    hint: '---',
-    icon: '\u2014',
-    code: 'd',
-    group: '基础',
+    id: 'insert-html',
+    label: '插入 HTML',
+    hint: '<div>',
+    icon: '</>',
+    code: 'm',
+    group: '绘图',
     insert(state) {
       const head = state.selection.main.head;
-      return { from: head - 1, to: head, text: '---' };
+      return { from: head - 1, to: head, text: '<div align="center">\n\n</div>' };
+    },
+  },
+  {
+    id: 'insert-css',
+    label: '插入 CSS',
+    hint: '<style>',
+    icon: '#',
+    aliases: ['css'],
+    group: '绘图',
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: '<style>\n\n</style>' };
     },
   },
 ];
-
-/**
- * Pinyin initials for the CJK characters used by the root labels. Kept local
- * (the palette matcher is not exported) and intentionally small — extend when
- * root commands grow more labels.
- */
-const PINYIN_INITIALS: Record<string, string> = {
-  标: 'b',
-  题: 't',
-  引: 'y',
-  用: 'y',
-  代: 'd',
-  码: 'm',
-  块: 'k',
-  表: 'b',
-  格: 'g',
-  注: 'z',
-  图: 't',
-  片: 'p',
-  插: 'c',
-  入: 'r',
-};
-
-/** Case-insensitive subsequence test: are all `query` chars in `text`, in order? */
-function isSubsequence(query: string, text: string): boolean {
-  const lowerQuery = query.toLowerCase();
-  const lowerText = text.toLowerCase();
-  let qi = 0;
-  for (let ti = 0; ti < lowerText.length && qi < lowerQuery.length; ti++) {
-    if (lowerText[ti] === lowerQuery[qi]) qi++;
-  }
-  return qi === lowerQuery.length;
-}
-
-/** Pinyin first letters for a label; non-CJK characters keep their lowercase form. */
-function pinyinInitials(text: string): string {
-  return [...text].map((ch) => PINYIN_INITIALS[ch] ?? ch.toLowerCase()).join('');
-}
-
-/**
- * Root rows matching the typed filter, original order preserved. Matches the
- * label directly (ASCII case-insensitive subsequence) or through pinyin
- * initials, so `bt` finds 「标题」. Single-key codes (#280) slot in before this.
- */
-function matchesCode(cmd: SlashCommand, query: string): boolean {
-  const q = query.toLowerCase();
-  if (cmd.code !== undefined && cmd.code.toLowerCase() === q) return true;
-  return (cmd.aliases ?? []).some((alias) => alias.toLowerCase() === q);
-}
 
 /** First root or child command whose code/alias equals `query` (leaf-applyable). */
 function findCodeMatch(commands: SlashCommand[], query: string): SlashCommand | null {
@@ -289,17 +241,6 @@ function findCodeMatch(commands: SlashCommand[], query: string): SlashCommand | 
     }
   }
   return null;
-}
-
-function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
-  if (!query) return commands;
-  return commands.filter(
-    (cmd) =>
-      matchesCode(cmd, query) ||
-      (cmd.children ?? []).some((child) => matchesCode(child, query)) ||
-      isSubsequence(query, cmd.label) ||
-      isSubsequence(query, pinyinInitials(cmd.label)),
-  );
 }
 
 /** Active grid picker: bounds plus the hovered cell that will be inserted. */
@@ -351,6 +292,56 @@ function closeMenu(view: EditorView): void {
   menus.delete(view);
 }
 
+/**
+ * Cancel the menu the way a user expects when they abandon it — Escape, an
+ * outside click, or the caret leaving the trigger. The panel goes away AND the
+ * text the menu owns (`/` plus the typed query) is removed, so a cancel never
+ * leaves a stray `/` behind.
+ *
+ * The close runs BEFORE the dispatch so the doc-change sync plugin sees no open
+ * menu and never fights this transaction. The deleted range ends at the last
+ * character the menu absorbed, never at the caret: the caret can sit on another
+ * line or past text that predates the menu, and cutting up to head would eat
+ * content the menu never owned.
+ */
+function dismissMenu(view: EditorView): void {
+  const state = menus.get(view);
+  if (!state?.open) return;
+  const { slashPos } = state;
+  // Read the trigger before closing: after closeMenu the state is gone, and an
+  // out-of-range slashPos (doc replaced under us) makes sliceString return ''.
+  const hasTrigger = view.state.doc.sliceString(slashPos, slashPos + 1) === '/';
+  const to = Math.min(slashPos + 1 + state.query.length, view.state.doc.length);
+  closeMenu(view);
+  if (!hasTrigger) return;
+  view.dispatch({
+    changes: { from: slashPos, to },
+    selection: { anchor: slashPos },
+  });
+}
+
+/** Views with a dismissal already queued, so one caret move schedules one. */
+const pendingDismissals = new WeakSet<EditorView>();
+
+/**
+ * Caret-driven dismissal must leave the in-flight update before dispatching:
+ * CodeMirror rejects nested updates and swallows them as a plugin crash, which
+ * would tear the panel down and orphan the owned `/`. A microtask still lands
+ * before the next paint, so the delay is invisible. Escape and outside mousedown
+ * stay synchronous — those handlers run outside any update. The state is
+ * captured so a menu closed or reopened meanwhile is not dismissed by a stale call.
+ */
+function scheduleDismiss(view: EditorView): void {
+  const state = menus.get(view);
+  if (!state?.open || pendingDismissals.has(view)) return;
+  pendingDismissals.add(view);
+  queueMicrotask(() => {
+    pendingDismissals.delete(view);
+    if (menus.get(view) !== state) return;
+    dismissMenu(view);
+  });
+}
+
 function renderMenu(view: EditorView, state: SlashMenuState): void {
   if (!state.dom) return;
   if (state.grid) {
@@ -370,9 +361,9 @@ function isFlyoutOpen(state: SlashMenuState): boolean {
 }
 
 /**
- * Render the root rows as an icon grid: one cell per command (icon above
- * label), grouped by `cmd.group` with full-width group headings. `rows` is the
- * query-filtered list; `data-selected` tracks keyboard selection.
+ * Render root rows as a single-column list: one full-width row per command
+ * (icon + label), under full-width group headings. Single column because the
+ * list doubles as the filter result surface; `data-selected` tracks selection.
  */
 function renderRootGrid(view: EditorView, state: SlashMenuState): void {
   if (!state.dom) return;
@@ -382,14 +373,18 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
   const grid = document.createElement('div');
   grid.className = 'mdb-slash-grid-menu';
   grid.style.display = 'grid';
-  grid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
+  grid.style.gridTemplateColumns = 'minmax(0, 1fr)';
   grid.style.gap = '2px';
   grid.style.padding = '6px';
   state.dom.appendChild(grid);
 
+  // Group headings describe the browse layout; while filtering they only add
+  // noise between unrelated matches, so they are dropped.
+  const showGroups = state.query.trim() === '';
+
   let lastGroup: string | undefined;
   state.rows.forEach((cmd, i) => {
-    if (cmd.group && cmd.group !== lastGroup) {
+    if (showGroups && cmd.group && cmd.group !== lastGroup) {
       const header = document.createElement('div');
       header.className = 'mdb-slash-group';
       header.textContent = cmd.group;
@@ -398,6 +393,11 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
       header.style.fontSize = '11px';
       header.style.color = 'var(--mdb-text-secondary)';
       header.style.opacity = '0.8';
+      // Sticky against the scrollable menu so the current group stays visible.
+      header.style.position = 'sticky';
+      header.style.top = '0';
+      header.style.zIndex = '1';
+      header.style.background = 'var(--mdb-bg-secondary)';
       grid.appendChild(header);
       lastGroup = cmd.group;
     }
@@ -406,14 +406,14 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
     cell.className = 'mdb-slash-item';
     cell.dataset.cmd = cmd.id;
     cell.style.display = 'flex';
-    cell.style.flexDirection = 'column';
+    cell.style.flexDirection = 'row';
     cell.style.alignItems = 'center';
-    cell.style.gap = '3px';
-    cell.style.padding = '8px 6px';
+    cell.style.gap = '8px';
+    cell.style.padding = '6px 8px';
     cell.style.borderRadius = '6px';
     cell.style.cursor = 'pointer';
     cell.style.minWidth = '0';
-    cell.style.textAlign = 'center';
+    cell.style.textAlign = 'left';
     if (i === state.selected) {
       cell.setAttribute('data-selected', 'true');
       cell.style.background = 'rgb(22,93,255,0.18)';
@@ -422,14 +422,17 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
 
     const icon = document.createElement('span');
     icon.textContent = cmd.icon ?? '';
-    icon.style.height = '18px';
+    icon.style.width = '18px';
+    icon.style.flexShrink = '0';
+    icon.style.textAlign = 'center';
     icon.style.lineHeight = '18px';
     icon.style.color = 'var(--mdb-primary)';
     cell.appendChild(icon);
 
     const label = document.createElement('span');
     label.textContent = cmd.label;
-    label.style.maxWidth = '100%';
+    label.style.minWidth = '0';
+    label.style.flex = '1 1 auto';
     label.style.overflow = 'hidden';
     label.style.textOverflow = 'ellipsis';
     label.style.whiteSpace = 'nowrap';
@@ -440,6 +443,7 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
       hint.style.color = 'var(--mdb-text-secondary)';
       hint.style.fontSize = '10px';
       hint.style.opacity = '0.8';
+      hint.style.flexShrink = '0';
       hint.textContent = cmd.children?.length ? '\u25B8' : (cmd.hint ?? '');
       cell.appendChild(hint);
     }
@@ -803,7 +807,7 @@ function backToRoot(view: EditorView): void {
   const state = menus.get(view);
   if (!state?.open || !state.dom || !state.grid) return;
   state.grid = null;
-  state.rows = filterCommands(state.commands, state.query);
+  state.rows = filterSlashCommands(state.commands, state.query);
   state.selected = Math.min(state.selected, Math.max(0, state.rows.length - 1));
   renderMenu(view, state);
 }
@@ -912,7 +916,7 @@ function applyTableSize(
 export function slashMenuApply(view: EditorView): boolean {
   const state = menus.get(view);
   if (!state?.open || !state.dom || state.grid) return false;
-  const tableSize = /^t([1-9])([1-9])?$/.exec(state.query);
+  const tableSize = TABLE_SIZE_QUERY.exec(state.query);
   if (!isFlyoutOpen(state) && tableSize) {
     const rows = tableSize[2] !== undefined ? Number(tableSize[2]) : 1;
     applyTableSize(view, state, Number(tableSize[1]), rows);
@@ -962,11 +966,10 @@ export function slashMenuSubmenuBack(view: EditorView): boolean {
   return false;
 }
 
-/** Escape: close the menu without inserting anything (the `/` remains). */
+/** Escape: dismiss the menu and take the trigger text with it (no residue). */
 export function slashMenuClose(view: EditorView): boolean {
-  const state = menus.get(view);
-  if (!state?.open) return false;
-  closeMenu(view);
+  if (!menus.get(view)?.open) return false;
+  dismissMenu(view);
   return true;
 }
 
@@ -990,9 +993,14 @@ function readQuery(state: SlashMenuState, editorState: EditorState): string | nu
 function applyQuery(view: EditorView, state: SlashMenuState, query: string): void {
   closeFlyout(state);
   state.query = query;
-  state.rows = filterCommands(state.commands, query);
+  state.rows = filterSlashCommands(state.commands, query);
   state.selected = Math.min(state.selected, Math.max(0, state.rows.length - 1));
   renderMenu(view, state);
+}
+
+/** True while the caret still sits at the very end of `/${state.query}`. */
+function isCaretAtQueryEnd(state: SlashMenuState, editorState: EditorState): boolean {
+  return editorState.selection.main.head === state.slashPos + 1 + state.query.length;
 }
 
 /**
@@ -1001,21 +1009,29 @@ function applyQuery(view: EditorView, state: SlashMenuState, query: string): voi
  *   filter instead of closing the menu — those characters ARE the query
  *   buffer, so they must not trip the old "any doc change closes" rule.
  * - Any other doc change (newline, slash deleted, edit elsewhere) closes.
+ * - A caret that moves away from the trigger dismisses the menu with it, so
+ *   abandoning the trigger never strands a stray `/`.
  * - While an IME composition is active the menu is left untouched: composing
  *   must neither close the menu nor select a command.
  */
 const menuSyncPlugin = ViewPlugin.define((view) => ({
   update(u: ViewUpdate): void {
     const state = menus.get(u.view);
-    if (!state?.open || !u.docChanged || slashComposing) return;
-    if (!state.grid) {
-      const query = readQuery(state, u.state);
-      if (query !== null) {
-        applyQuery(u.view, state, query);
-        return;
+    if (!state?.open || slashComposing) return;
+    if (u.docChanged) {
+      if (!state.grid) {
+        const query = readQuery(state, u.state);
+        if (query !== null) {
+          applyQuery(u.view, state, query);
+          return;
+        }
       }
+      // Doc-driven invalidation: those keystrokes are the user's own text, not
+      // a cancel of ours, so the menu closes but the document is left alone.
+      closeMenu(u.view);
+      return;
     }
-    closeMenu(u.view);
+    if (u.selectionSet && !isCaretAtQueryEnd(state, u.state)) scheduleDismiss(u.view);
   },
   destroy(): void {
     closeMenu(view);
@@ -1036,6 +1052,32 @@ const slashCompositionGuard = ViewPlugin.define(() => ({}), {
       slashComposing = false;
     },
   },
+});
+
+/**
+ * A mousedown outside the menu dismisses it, trigger text included. Capture
+ * phase so the dismissal wins over CM6's own mousedown handling, and the
+ * containment guard keeps presses that land on the panel itself working.
+ */
+const outsideClickDismiss = ViewPlugin.define((view) => {
+  const onMouseDown = (event: MouseEvent): void => {
+    const state = menus.get(view);
+    if (!state?.open) return;
+    const target = event.target;
+    if (
+      target instanceof Node &&
+      (state.dom?.contains(target) || state.flyoutDom?.contains(target))
+    ) {
+      return;
+    }
+    dismissMenu(view);
+  };
+  document.addEventListener('mousedown', onMouseDown, true);
+  return {
+    destroy(): void {
+      document.removeEventListener('mousedown', onMouseDown, true);
+    },
+  };
 });
 
 const COMMA_TRIGGER = '\u3001';
@@ -1081,6 +1123,7 @@ export function slashKeymap(options: { commands?: SlashCommand[] } = {}): Extens
     ),
     menuSyncPlugin,
     slashCompositionGuard,
+    outsideClickDismiss,
     chineseCommaTrigger,
   ];
 }
