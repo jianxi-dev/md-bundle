@@ -56,10 +56,14 @@ function resolveWrapper(classes: string[], attrs: Record<string, string>): {
     case 'col-2':
     case 'col-3':
     case 'col-4':
-    case 'col-5':
-      // Per-column widths (#327) live in the editor only: the sanitizer strips
-      // `style` attributes, so the preview keeps its equal-split grid CSS.
-      return { tag: 'div', className: allClasses, extraAttr: '' };
+    case 'col-5': {
+      // Per-column widths (#327) written by the editor's gutter drag. Carried as
+      // a data attribute (the sanitizer strips `style`), then rebuilt into grid
+      // tracks by the post-sanitize hook in markdown.ts.
+      const widths = attrs.cols;
+      const extra = widths && /^[0-9]+(,[0-9]+)*$/.test(widths) ? `data-cols="${widths}"` : '';
+      return { tag: 'div', className: allClasses, extraAttr: extra };
+    }
     case 'card-grid': {
       const cols = attrs.cards ?? '3';
       return {

@@ -196,6 +196,33 @@ function registerCheckboxGuard(): void {
   });
 }
 
+// ── Column width reconstruction (#327) ───────────────────────────────────
+let columnWidthHookRegistered = false;
+
+/**
+ * The sanitizer strips `style`, so per-column widths from the editor arrive as
+ * a `data-cols="a,b"` attribute. Rebuild the grid tracks here — after attribute
+ * sanitization, from a validated numeric value — so preview, HTML export and
+ * PNG all honor the widths the editor wrote, without relaxing the sanitizer.
+ */
+function registerColumnWidthHook(): void {
+  if (columnWidthHookRegistered) return;
+  columnWidthHookRegistered = true;
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (!(node instanceof Element)) return;
+    const cols = node.getAttribute('data-cols');
+    if (!cols) return;
+    const count = Number(/layout-col-(\d)/.exec(node.getAttribute('class') ?? '')?.[1]);
+    const gapShare = { 2: '0.75em', 3: '0.8333em', 4: '0.9375em', 5: '0.8em' }[count];
+    if (!gapShare) return;
+    const widths = cols.split(',').slice(0, count).map(Number);
+    if (widths.length !== count || widths.some((w) => !Number.isFinite(w) || w <= 0)) return;
+    (node as HTMLElement).style.gridTemplateColumns = widths
+      .map((w) => `calc(${w}% - ${gapShare})`)
+      .join(' ');
+  });
+}
+
 // ── YAML frontmatter stripping ───────────────────────────────────────────
 // Obsidian hides leading YAML in reading view. Strip so `---` doesn't render
 // as <hr> and `tags:` as heading. \uFEFF? tolerates BOM prefix (Obsidian).
@@ -413,6 +440,7 @@ export function renderMarkdownCore(
   if (!content) return '';
 
   registerCheckboxGuard();
+  registerColumnWidthHook();
 
   const body = content.replace(FRONTMATTER_RE, '');
   const preprocessed = preprocessFencedDivs(body);
