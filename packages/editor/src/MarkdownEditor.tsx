@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createMarkdownEditor } from './editor';
 import { flushDirtyTables } from './decorations/table';
+import { flushCalloutEdits } from './decorations/callout';
 import type { MarkdownEditorHandle, MarkdownEditorOptions } from './editor';
 
 export interface MarkdownEditorComponentProps
@@ -74,6 +75,7 @@ export function MarkdownEditor({
     return () => {
       handleRef.current = null;
       flushDirtyTables(handle.view);
+      flushCalloutEdits(handle.view);
       handle.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once
@@ -104,7 +106,10 @@ export function MarkdownEditor({
   // the table widgets, and with them any unflushed cell editor.
   useEffect(() => {
     const handle = handleRef.current;
-    if (handle) flushDirtyTables(handle.view);
+    if (handle) {
+      flushDirtyTables(handle.view);
+      flushCalloutEdits(handle.view);
+    }
     handle?.setDecorationsEnabled(decorationsEnabled);
   }, [decorationsEnabled]);
 

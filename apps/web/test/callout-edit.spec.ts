@@ -1,4 +1,4 @@
-// #236：callout 卡片选中/点击后必须可进入并编辑（块级 replace 曾吞掉指针）。
+// #236 / #333：callout 卡片点击后可进入编辑。#333 起改为卡片内联编辑（不再坍缩为 `> [!NOTE]` 源码）。
 import { expect, test, type Page } from '@playwright/test'
 
 const DOC = `# Callout
@@ -20,7 +20,7 @@ async function settle(page: Page): Promise<void> {
   )
 }
 
-test('callout 卡片可点击进入并可编辑（#236）', async ({ page }) => {
+test('callout 卡片可点击并内联编辑（#236 / #333）', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('file-input').setInputFiles({
     name: 'callout.md',
@@ -34,11 +34,11 @@ test('callout 卡片可点击进入并可编辑（#236）', async ({ page }) => 
   // 非活动块：渲染 callout 卡片，隐藏源码
   await expect(page.locator('.cm-callout')).toBeVisible()
 
-  // 点击卡片进入块 → 卡片被抑制，露出可编辑源码
-  await page.locator('.cm-callout').first().click({ position: { x: 40, y: 20 } })
+  // 点击卡片 → 卡片保持渲染，出现内联编辑器并获得焦点（#333：不坍缩为源码）
+  await page.locator('.cm-callout').first().click()
   await settle(page)
-  await expect(page.locator('.cm-callout')).toHaveCount(0)
-  await expect(page.locator('.cm-content').first()).toContainText('[!NOTE]')
+  await expect(page.locator('.cm-callout')).toHaveCount(1)
+  await expect(page.getByTestId('cm-callout-editor')).toBeFocused()
 
   // 键入写入源码（锁行为，防回归）
   await page.keyboard.type('ZZZ')

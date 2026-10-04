@@ -1,30 +1,206 @@
 /**
- * Callout card decorations — Task 3.3.
+ * Callout card decorations.
  *
  * Parses markdown blockquote callout syntax (> [!TYPE][+-] title + subsequent
- * > lines) and renders them as styled callout card widgets. Card colors/labels
- * come from the renderer's calloutTypeMap (single source of truth).
+ * > lines) and renders them as styled callout cards. Colors/labels come from the
+ * renderer's calloutTypeMap (single source of truth). Invalid types ([!FOO]) fall
+ * back to regular blockquote display.
  *
- * Invalid callout types ([!FOO]) fall back to regular blockquote display.
- * Decorations are view-only: doc value must never change.
+ * How editing works (D5/D7: a callout must never collapse to `> [!TYPE]` source)
+ * ------------------------------------------------------------------------------
+ * The card stays rendered even while its block is active. A click opens a real
+ * `<textarea>` inside the card (a form control is never part of CM6's editable
+ * content, emits no DOM mutations its observer could act on, and has native
+ * focus, caret, IME and undo). CM6 rebuilds the widget DOM during the mousedown
+ * capture phase, so the editor is opened on the next frame against the live card.
  *
- * Uses Decoration.replace to swap the entire callout block for a styled card.
- * When the cursor is inside the callout (active block) the replacement is
- * skipped so the raw `> [!TYPE]` source stays editable, matching how heading
- * and list suppress their decorations in the active block.
+ * Typed text is staged in a per-view map (survives a widget rebuild) and written
+ * back with ONE transaction when the edit settles. The flush never dispatches
+ * inside a CM6 update — it defers to the next tick when it would.
  */
 import { Decoration, WidgetType, type EditorView } from '@codemirror/view';
 import type { Range } from '@codemirror/state';
 import { calloutTypeMap } from '@md-bundle/renderer';
 
-// --- Callout widget --------------------------------------------------------
+// --- Staging + flush --------------------------------------------------------
+
+/** Staged callout content, keyed by view then callout ordinal. */
+const dirtyCallouts = new WeakMap<EditorView, Map<number, string>>();
+
+const flushScheduled = new WeakSet<EditorView>();
+const flushingViews = new WeakSet<EditorView>();
+const externalFlushWired = new WeakSet<EditorView>();
 
 /**
- * Widget that renders a callout card with tone-colored border, icon and label.
- * Content is rendered as plain text (no HTML injection).
+ * Queue a flush for the next macrotask.
+ *
+ * Dispatching is illegal while CM6 is mid-update — and widget/plugin teardown
+ * runs exactly there — so a deferred flush is the only way to persist staged text
+ * from those paths instead of losing it to a swallowed error.
  */
+export function scheduleCalloutFlush(view: EditorView): void {
+  if (flushScheduled.has(view)) return;
+  flushScheduled.add(view);
+  setTimeout(() => {
+    flushScheduled.delete(view);
+    flushCalloutEdits(view);
+  }, 0);
+}
+
+function markCalloutDirty(view: EditorView, index: number, content: string): void {
+  let pending = dirtyCallouts.get(view);
+  if (!pending) {
+    pending = new Map<number, string>();
+    dirtyCallouts.set(view, pending);
+  }
+  pending.set(index, content);
+}
+
+function clearCalloutDirty(view: EditorView, index: number): void {
+  dirtyCallouts.get(view)?.delete(index);
+}
+
+/** Rebuild a callout block's markdown from its source block plus edited content. */
+function buildCalloutMarkdown(block: CalloutBlock, content: string): string {
+  const head = `> [!${block.type.toUpperCase()}]${block.fold}${block.title ? ` ${block.title}` : ''}`;
+  const lines = content === '' ? [] : content.split('\n').map((line) => (line ? `> ${line}` : '>'));
+  return [head, ...lines].join('\n');
+}
+
+/** Write every staged callout back to the document in a single transaction. */
+export function flushCalloutEdits(view: EditorView): boolean {
+  const pending = dirtyCallouts.get(view);
+  if (!pending || pending.size === 0 || flushingViews.has(view)) return false;
+
+  const docText = view.state.doc.toString();
+  const blocks = findCalloutBlocks(docText);
+  const changes: { from: number; to: number; insert: string }[] = [];
+  for (const [index, content] of pending) {
+    const block = blocks[index];
+    if (!block) continue;
+    const insert = buildCalloutMarkdown(block, content);
+    if (insert === docText.slice(block.from, block.to)) continue;
+    changes.push({ from: block.from, to: block.to, insert });
+  }
+
+  if (changes.length === 0) {
+    pending.clear();
+    return false;
+  }
+
+  changes.sort((a, b) => a.from - b.from);
+  flushingViews.add(view);
+  try {
+    view.dispatch({ changes });
+  } catch {
+    // Only reachable from inside an update cycle: keep the staged text and retry.
+    scheduleCalloutFlush(view);
+    return false;
+  } finally {
+    flushingViews.delete(view);
+  }
+  pending.clear();
+  return true;
+}
+
+/**
+ * Open the inline content editor for a callout card. Resolved through the live
+ * DOM by ordinal because CM6 may have rebuilt the widget since the click.
+ */
+function openCalloutEditor(view: EditorView, index: number): void {
+  // Commit any open callout first, and do it BEFORE resolving the DOM: a flush
+  // dispatch can rebuild this widget, which would detach a card resolved earlier.
+  flushCalloutEdits(view);
+
+  const card = view.dom.querySelectorAll('.cm-callout')[index];
+  if (!(card instanceof HTMLElement)) return;
+  const existing = card.querySelector('.cm-callout-editor') as HTMLTextAreaElement | null;
+  if (existing) {
+    existing.focus();
+    return;
+  }
+
+  const block = findCalloutBlocks(view.state.doc.toString())[index];
+  if (!block) return;
+
+  const contentEl = card.querySelector<HTMLElement>('.cm-callout-content');
+  const editor = document.createElement('textarea');
+  editor.className = 'cm-callout-editor';
+  editor.setAttribute('data-testid', 'cm-callout-editor');
+  editor.rows = 1;
+  editor.value = block.content;
+  contentEl?.setAttribute('hidden', '');
+  card.appendChild(editor);
+  autoGrow(editor);
+  editor.focus();
+  editor.setSelectionRange(editor.value.length, editor.value.length);
+
+  let composing = false;
+  const teardown = (): void => {
+    editor.remove();
+    contentEl?.removeAttribute('hidden');
+  };
+  const commit = (): void => {
+    if (!editor.isConnected) return;
+    markCalloutDirty(view, index, editor.value);
+    flushCalloutEdits(view);
+    teardown();
+  };
+
+  editor.addEventListener('input', () => {
+    autoGrow(editor);
+    markCalloutDirty(view, index, editor.value);
+  });
+  editor.addEventListener('compositionstart', () => {
+    composing = true;
+  });
+  editor.addEventListener('compositionend', () => {
+    composing = false;
+    markCalloutDirty(view, index, editor.value);
+  });
+  editor.addEventListener('keydown', (event) => {
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      clearCalloutDirty(view, index);
+      teardown();
+    }
+  });
+  editor.addEventListener('blur', () => {
+    if (!composing) commit();
+  });
+  editor.addEventListener('mousedown', (event) => event.stopPropagation());
+}
+
+/** Size the textarea to its content so the card grows instead of scrolling. */
+function autoGrow(editor: HTMLTextAreaElement): void {
+  editor.style.height = 'auto';
+  editor.style.height = `${editor.scrollHeight}px`;
+}
+
+/**
+ * Settle staged callouts when a pointer press lands outside every card.
+ * Capture phase so it still fires when a card's listener stops propagation.
+ */
+function wireExternalFlush(view: EditorView): void {
+  if (externalFlushWired.has(view)) return;
+  externalFlushWired.add(view);
+  view.dom.addEventListener(
+    'mousedown',
+    (event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.('.cm-callout')) return;
+      flushCalloutEdits(view);
+    },
+    true,
+  );
+}
+
+// --- Callout widget --------------------------------------------------------
+
 class CalloutWidget extends WidgetType {
   constructor(
+    readonly index: number,
     readonly type: string,
     readonly label: string,
     readonly tone: string,
@@ -32,7 +208,6 @@ class CalloutWidget extends WidgetType {
     readonly title: string,
     readonly content: string,
     readonly fold: '+' | '-' | '',
-    readonly from: number,
   ) {
     super();
   }
@@ -42,14 +217,22 @@ class CalloutWidget extends WidgetType {
     container.className = `cm-callout cm-callout-tone-${this.tone}`;
     if (this.fold) container.setAttribute('data-fold', this.fold);
 
-    // The card replaces the whole block; without this the widget swallows the
-    // pointer and the cursor can never enter the callout to edit it (#236).
-    container.addEventListener('mousedown', (event) => {
-      if (!view) return;
-      event.preventDefault();
-      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
-      view.focus();
-    });
+    if (view) {
+      wireExternalFlush(view);
+      const index = this.index;
+      // The card replaces the whole block, so it owns pointer events. Open the
+      // inline editor on the next frame: CM6 rebuilds this widget during the
+      // mousedown capture phase, detaching the event's target.
+      container.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => openCalloutEditor(view, index));
+        } else {
+          openCalloutEditor(view, index);
+        }
+      });
+    }
 
     const header = document.createElement('div');
     header.className = 'cm-callout-header';
@@ -59,13 +242,13 @@ class CalloutWidget extends WidgetType {
     iconEl.textContent = this.icon;
     header.appendChild(iconEl);
 
-    // Label badge
     const badge = document.createElement('span');
     badge.className = 'cm-callout-badge';
     badge.textContent = this.label;
     header.appendChild(badge);
 
-    // Title (if present)
+    // Title only when the source declares one — otherwise the badge is the whole
+    // header (D2: an untitled callout must not read "注释 注释").
     if (this.title) {
       const titleEl = document.createElement('span');
       titleEl.className = 'cm-callout-title';
@@ -75,7 +258,6 @@ class CalloutWidget extends WidgetType {
 
     container.appendChild(header);
 
-    // Content lines
     if (this.content) {
       const contentEl = document.createElement('div');
       contentEl.className = 'cm-callout-content';
@@ -88,6 +270,7 @@ class CalloutWidget extends WidgetType {
 
   eq(other: CalloutWidget): boolean {
     return (
+      this.index === other.index &&
       this.type === other.type &&
       this.label === other.label &&
       this.tone === other.tone &&
@@ -111,16 +294,9 @@ class CalloutWidget extends WidgetType {
  */
 const CALLOUT_OPEN_RE = /^>\s*\[!([A-Za-z]+)\]([+-]?)\s*(.*)$/;
 
-/**
- * Regex to match continuation line: > optional content
- * Captures: (1) content (may be empty)
- */
+/** Regex to match continuation line: > optional content. */
 const CALLOUT_LINE_RE = /^>\s?(.*)$/;
 
-/**
- * Find all callout blocks in the document text.
- * Returns an array of callout ranges with their parsed data.
- */
 interface CalloutBlock {
   from: number;
   to: number;
@@ -175,14 +351,7 @@ function findCalloutBlocks(docText: string): CalloutBlock[] {
         if (k < j - 1) to += 1;
       }
 
-      blocks.push({
-        from,
-        to,
-        type,
-        title,
-        content: contentLines.join('\n'),
-        fold,
-      });
+      blocks.push({ from, to, type, title, content: contentLines.join('\n'), fold });
 
       i = j;
     } else {
@@ -196,41 +365,37 @@ function findCalloutBlocks(docText: string): CalloutBlock[] {
 // --- Public API ------------------------------------------------------------
 
 /**
- * Create callout decorations for the given document text.
- * Callouts overlapping the active block are left undecorated so their source
- * stays editable. Returns an array of CM6 Range<Decoration> for callout widgets.
+ * Create callout decorations for the given document text. The card is rendered
+ * even for the active block — a callout never collapses to `> [!TYPE]` source
+ * (D5/D7); editing happens inline in the card.
  */
 export function createCalloutDecorations(
   docText: string,
-  activeFrom: number = -1,
-  activeTo: number = -1,
+  _activeFrom: number = -1,
+  _activeTo: number = -1,
 ): Range<Decoration>[] {
   const decorations: Range<Decoration>[] = [];
-  const blocks = findCalloutBlocks(docText);
 
-  for (const block of blocks) {
+  findCalloutBlocks(docText).forEach((block, index) => {
     const typeInfo = calloutTypeMap[block.type];
-    if (!typeInfo) continue;
-
-    const isActive = activeFrom >= 0 && block.from >= activeFrom && block.to <= activeTo;
-    if (isActive) continue;
+    if (!typeInfo) return;
 
     decorations.push(
       Decoration.replace({
         widget: new CalloutWidget(
+          index,
           block.type,
           typeInfo.label,
           typeInfo.tone,
           typeInfo.icon,
-          block.title || typeInfo.label,
+          block.title,
           block.content,
           block.fold,
-          block.from,
         ),
         inclusive: true,
       }).range(block.from, block.to),
     );
-  }
+  });
 
   return decorations;
 }

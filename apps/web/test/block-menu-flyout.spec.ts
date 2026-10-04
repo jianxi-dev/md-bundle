@@ -111,11 +111,25 @@ test('移出后 flyout 关闭且无残留节点', async ({ page }) => {
   await expect(page.locator('.mdb-block-handle-flyout')).toHaveCount(0)
 })
 
-test('高亮块菜单含 `类型` 二级入口', async ({ page }) => {
+test('高亮块菜单含 `类型` 二级入口并可切换类型（旧样式无残留）', async ({ page }) => {
   await openEditor(page)
   await openMenuOn(page, 'callout body text')
 
   const typeRow = flyoutRow(page, 'callout-type')
   await expect(typeRow).toBeVisible()
   await expect(typeRow).toContainText('类型')
+
+  // #333：类型二级同时承载 emoji（每型一个图标），即 W7 的「emoji 二级」。
+  await hoverFlyoutRow(page, 'callout-type')
+  const panel = page.getByTestId('block-handle-flyout')
+  await expect(panel).toBeVisible()
+  await expect(panel).toContainText('注释')
+  await expect(panel.locator('.mdb-block-handle-flyout-icon').first()).toBeVisible()
+
+  // #333：切换类型后旧 tone 类无残留（widget 重建，而非类名叠加）。
+  await panel.locator('[data-flyout-action="callout-tip"]').click()
+  await settle(page)
+  const card = page.locator('.cm-callout').first()
+  await expect(card).toHaveClass(/cm-callout-tone-green/)
+  await expect(card).not.toHaveClass(/cm-callout-tone-blue/)
 })

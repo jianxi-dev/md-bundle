@@ -350,6 +350,20 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     whiteSpace: 'pre-wrap',
     marginTop: '0.35em',
   },
+  '.cm-content .cm-callout-editor': {
+    display: 'block',
+    width: '100%',
+    boxSizing: 'border-box',
+    marginTop: '0.35em',
+    border: 'none',
+    outline: 'none',
+    background: 'transparent',
+    resize: 'none',
+    overflow: 'hidden',
+    font: 'inherit',
+    fontSize: '0.92em',
+    color: 'var(--mdb-text-secondary)',
+  },
 
   // ── Tables (values aligned to reader CSS) ─────────────────────────────
   '.cm-content .cm-table': {
