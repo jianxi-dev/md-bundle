@@ -26,6 +26,7 @@ describe('filterSlashCommands', () => {
       '标注',
       '图片引用',
       '任务',
+      '分栏',
       '插入 HTML',
       '插入 CSS',
     ]);
@@ -37,6 +38,7 @@ describe('filterSlashCommands', () => {
       '基础',
       '基础',
       '基础',
+      '常用',
       '常用',
       '常用',
       '常用',

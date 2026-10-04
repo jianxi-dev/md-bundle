@@ -105,6 +105,22 @@ function calloutType(type: string): SlashCommand {
   };
 }
 
+const COLUMN_COUNTS = [1, 2, 3, 4, 5] as const
+
+function columnCount(count: number): SlashCommand {
+  return {
+    id: `columns-${count}`,
+    label: `${count} 栏`,
+    hint: `col-${count}`,
+    icon: '\u25EB',
+    code: `fl${count}`,
+    insert(state) {
+      const head = state.selection.main.head
+      return { from: head - 1, to: head, text: `::: {.col-${count}}\n\n:::` }
+    },
+  }
+}
+
 export const defaultCommands: SlashCommand[] = [
   {
     id: 'heading',
@@ -200,6 +216,15 @@ export const defaultCommands: SlashCommand[] = [
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: '- [ ] ' };
     },
+  },
+  {
+    id: 'columns',
+    label: '分栏',
+    hint: '1–5 栏',
+    icon: '\u25EB',
+    code: 'fl',
+    group: '常用',
+    children: COLUMN_COUNTS.map(columnCount),
   },
   {
     id: 'insert-html',
@@ -342,13 +367,24 @@ function scheduleDismiss(view: EditorView): void {
   });
 }
 
+/**
+ * The root grid always renders: `state.grid` / `isFlyoutOpen` only pick which
+ * panel the flyout layer shows. Returning to the grid must not tear the root
+ * list down (#331).
+ */
 function renderMenu(view: EditorView, state: SlashMenuState): void {
   if (!state.dom) return;
+  renderRootGrid(view, state)
+  // #331: the root stays mounted under the second level, so this render rebuilt
+  // its cells — re-anchor first, or the layer hangs off a detached 0x0 node.
+  if (state.grid || isFlyoutOpen(state)) {
+    state.parentCell = state.cells[state.selected] ?? null
+  }
   if (state.grid) {
     renderGrid(view, state);
+    positionFlyout(view, state)
     return;
   }
-  renderRootGrid(view, state);
   if (isFlyoutOpen(state)) {
     renderFlyout(view, state);
     positionFlyout(view, state);
@@ -486,37 +522,26 @@ function buildTable(cols: number, rows: number): string {
   return `${header}\n${separator}\n${body}`;
 }
 
-/** Open the grid picker for a command carrying a `grid` spec. */
+/**
+ * Open the grid picker. Unlike `backToRoot`, `rows` is deliberately left alone —
+ * the root list stays browsable under the picker (#331).
+ */
 function openGrid(view: EditorView, cmd: SlashCommand): void {
   const state = menus.get(view);
   if (!state?.open || !state.dom || !cmd.grid) return;
   closeFlyout(state);
-  state.rows = [];
   state.grid = { rows: cmd.grid.rows, cols: cmd.grid.cols, hoverR: 1, hoverC: 1 };
+  state.submenuParent = cmd
   renderMenu(view, state);
-}
-
-/** Insert the hovered table size and close the menu. */
-function applyGrid(view: EditorView, r: number, c: number): void {
-  const state = menus.get(view);
-  if (!state?.open) return;
-  const slashPos = state.slashPos;
-  // Replace the `/` plus any typed filter — not just the single slash char.
-  const to = Math.max(view.state.selection.main.head, slashPos + 1);
-  closeMenu(view);
-  const text = buildTable(c, r);
-  view.dispatch({
-    changes: { from: slashPos, to, insert: text },
-    selection: { anchor: slashPos + text.length },
-    scrollIntoView: true,
-  });
 }
 
 /** Render the rows×cols grid picker with an N × M readout and hover preview. */
 function renderGrid(view: EditorView, state: SlashMenuState): void {
-  if (!state.dom || !state.grid) return;
+  if (!state.grid) return
   const grid = state.grid;
-  state.dom.textContent = '';
+  const flyout = ensureFlyoutDom(view, state)
+  flyout.textContent = ''
+  flyout.style.minWidth = '224px'
 
   const label = document.createElement('div');
   label.className = 'mdb-slash-grid-label';
@@ -524,7 +549,7 @@ function renderGrid(view: EditorView, state: SlashMenuState): void {
   label.style.padding = '4px 10px';
   label.style.fontSize = '11px';
   label.style.color = 'var(--mdb-text-secondary)';
-  state.dom.appendChild(label);
+  flyout.appendChild(label)
 
   const wrap = document.createElement('div');
   wrap.className = 'mdb-slash-grid';
@@ -559,12 +584,12 @@ function renderGrid(view: EditorView, state: SlashMenuState): void {
       });
       cell.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        applyGrid(view, r, c);
+        applyTableSize(view, state, c, r)
       });
       wrap.appendChild(cell);
     }
   }
-  state.dom.appendChild(wrap);
+  flyout.appendChild(wrap)
 }
 
 function openMenu(
@@ -688,6 +713,12 @@ function enterSubmenu(view: EditorView, cmd: SlashCommand): void {
   state.flyoutSelected = 0;
   state.parentCell = state.cells[state.selected] ?? null;
 
+  ensureFlyoutDom(view, state)
+  renderFlyout(view, state)
+  positionFlyout(view, state)
+}
+
+function ensureFlyoutDom(view: EditorView, state: SlashMenuState): HTMLDivElement {
   if (!state.flyoutDom) {
     const flyout = document.createElement('div');
     flyout.className = 'mdb-slash-flyout';
@@ -707,8 +738,7 @@ function enterSubmenu(view: EditorView, cmd: SlashCommand): void {
   if (state.flyoutDom.parentNode !== view.dom) {
     view.dom.appendChild(state.flyoutDom);
   }
-  renderFlyout(view, state);
-  positionFlyout(view, state);
+  return state.flyoutDom
 }
 
 /** Close the second-level flyout; the root grid and query stay as they are. */
@@ -726,6 +756,9 @@ function closeFlyout(state: SlashMenuState): void {
 function renderFlyout(view: EditorView, state: SlashMenuState): void {
   if (!state.flyoutDom) return;
   state.flyoutDom.textContent = '';
+  // `ensureFlyoutDom` sizes the layer only at creation; restore the row-flyout
+  // width after the grid picker widened it.
+  state.flyoutDom.style.minWidth = '150px'
   state.flyoutRows.forEach((cmd, i) => {
     const row = document.createElement('div');
     row.className = 'mdb-slash-flyout-item';
@@ -806,6 +839,7 @@ function positionFlyout(view: EditorView, state: SlashMenuState): void {
 function backToRoot(view: EditorView): void {
   const state = menus.get(view);
   if (!state?.open || !state.dom || !state.grid) return;
+  closeFlyout(state)
   state.grid = null;
   state.rows = filterSlashCommands(state.commands, state.query);
   state.selected = Math.min(state.selected, Math.max(0, state.rows.length - 1));
@@ -892,8 +926,9 @@ export function slashMenuSelectPrev(view: EditorView): boolean {
 }
 
 /**
- * Enter: activate the selected row — a flyout open means the selected child,
- * otherwise the selected root row (which may itself open a flyout or grid).
+ * Enter: insert the hovered size while the grid picker is open, otherwise
+ * activate the selected row — a flyout open means the selected child, else the
+ * selected root row (which may itself open a flyout or grid).
  */
 function applyTableSize(
   view: EditorView,
@@ -915,7 +950,11 @@ function applyTableSize(
 
 export function slashMenuApply(view: EditorView): boolean {
   const state = menus.get(view);
-  if (!state?.open || !state.dom || state.grid) return false;
+  if (!state?.open || !state.dom) return false
+  if (state.grid) {
+    applyTableSize(view, state, state.grid.hoverC, state.grid.hoverR)
+    return true
+  }
   const tableSize = TABLE_SIZE_QUERY.exec(state.query);
   if (!isFlyoutOpen(state) && tableSize) {
     const rows = tableSize[2] !== undefined ? Number(tableSize[2]) : 1;
