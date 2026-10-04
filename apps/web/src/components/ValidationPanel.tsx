@@ -11,6 +11,17 @@ interface ValidationPanelProps {
  * 状态机：null → 未校验（中性面板）；ok → 不渲染任何面板（正常打开静默，#82）；!ok → 校验未通过 + 错误列表。
  * 警告与外部链接引用为附加区块。
  */
+
+/** 由诊断文本派生稳定 key（重复文本追加出现序号，避免用循环 index 作 key）。 */
+function withStableKeys(items: string[]): { key: string; value: string }[] {
+  const seen = new Map<string, number>();
+  return items.map((value) => {
+    const n = seen.get(value) ?? 0;
+    seen.set(value, n + 1);
+    return { key: n === 0 ? value : `${value}#${n}`, value };
+  });
+}
+
 export function ValidationPanel({ validation, name }: ValidationPanelProps) {
   if (validation === null) {
     return (
@@ -38,15 +49,15 @@ export function ValidationPanel({ validation, name }: ValidationPanelProps) {
       <p className="font-medium">校验未通过</p>
       {errors.length > 0 ? (
         <ul data-testid="validation-errors" className="mt-2 list-disc space-y-1 pl-5">
-          {errors.map((error, i) => (
-            <li key={i}>{error}</li>
+          {withStableKeys(errors).map(({ key, value }) => (
+            <li key={key}>{value}</li>
           ))}
         </ul>
       ) : null}
       {warnings.length > 0 ? (
         <ul data-testid="validation-warnings" className="mt-2 list-disc space-y-1 pl-5 text-amber-600">
-          {warnings.map((warning, i) => (
-            <li key={i}>{warning}</li>
+          {withStableKeys(warnings).map(({ key, value }) => (
+            <li key={key}>{value}</li>
           ))}
         </ul>
       ) : null}

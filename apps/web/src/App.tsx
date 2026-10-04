@@ -334,7 +334,9 @@ export default function App() {
             source: outcome.content,
             diskHandle,
           })
-          return updateTab(r.state, r.tabId, { mode: 'preview' })
+          // D1（#336）：.md 打开默认进入编辑态（编辑保真：所见即所得源码）；
+          // .mdpkg / 精选示例 / 最近文档仍保持各自默认预览，窄屏由 activeTab effect 覆盖为 preview。
+          return updateTab(r.state, r.tabId, { mode: 'edit' })
         })
         break
       }
@@ -383,7 +385,7 @@ export default function App() {
       }
     }
 
-    // 打开文档默认预览态（README v1：新页签进入 preview）；窄屏由 activeTab effect 同样保持 preview。
+    // 打开文档默认模式：.md → 编辑态（D1）；.mdpkg → 预览态。窄屏由 activeTab effect 覆盖为 preview。
 
     // 平滑滚动到工作区
     const el = workspaceRef.current
@@ -1061,6 +1063,7 @@ export default function App() {
           onOpenExample={openFeaturedExample}
           recentDocs={recentDocsRef.current}
           onOpenRecentDoc={openRecentDoc}
+          onNewDocument={handleNewDocument}
         />
       )}
 

@@ -53,14 +53,11 @@ test('模式三图标存在（edit/source/preview）+ aria-label', async ({ page
   await expect(sourceBtn).toHaveAttribute('aria-label', '源码模式');
   await expect(previewBtn).toHaveAttribute('aria-label', '预览模式');
 
-  // 打开文档后默认预览模式（aria-pressed=true）
-  await expect(previewBtn).toHaveAttribute('aria-pressed', 'true');
-
-  // 切换到编辑模式以继续测试
-  await editBtn.click();
+  // D1（#336）：打开 .md 后默认进入编辑模式（aria-pressed=true），无需手动切换
   await expect(editBtn).toHaveAttribute('aria-pressed', 'true');
+  await expect(previewBtn).toHaveAttribute('aria-pressed', 'false');
 
-  // 现在编辑器可见
+  // 编辑器开箱可见
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
   evidence.modeIconsExist = true;
@@ -316,9 +313,14 @@ test('edit 模式含装饰：heading widget 可见', async ({ page }) => {
   await expect(marker).toContainText('# ');
 
   // 活动态：光标在标题块内（打开文档后光标默认落在文档起始处）。
-  const activeOpacity = Number(await marker.evaluate((el) => getComputedStyle(el).opacity));
-  expect(activeOpacity).toBeGreaterThan(0);
-  expect(activeOpacity).toBeLessThanOrEqual(0.5);
+  // 标题标记带 120ms opacity 过渡（decorations/theme.ts）——直接编辑态下首读会捕捉到
+  // 过渡中间值（可达 ~0.9），故轮询等待其稳定在活动态目标区间 (0, 0.5] 再断言。
+  await expect
+    .poll(async () => {
+      const o = Number(await marker.evaluate((el) => getComputedStyle(el).opacity));
+      return o > 0 && o <= 0.5;
+    })
+    .toBe(true);
 
   // 非活动态：点进正文段落，光标离开标题块 → 标记变为不可见。
   await cmContent.getByText('Body text').click();

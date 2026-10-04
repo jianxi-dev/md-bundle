@@ -203,14 +203,9 @@ test.describe('1280 桌面回归', () => {
     await page.reload();
     await page.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
 
-    // 桌面默认 preview 模式（打开文档后默认预览）
-    await expect(page.getByTestId('mode-preview-btn')).toHaveAttribute('aria-pressed', 'true');
-
-    // 切换到编辑模式以验证桌面布局
-    await page.getByTestId('mode-edit-btn').click();
+    // D1（#336）：桌面打开 .md 默认编辑态——编辑器开箱可见，无需点击 mode-edit-btn
     await expect(page.getByTestId('mode-edit-btn')).toHaveAttribute('aria-pressed', 'true');
-
-    // 现在编辑器可见
+    await expect(page.getByTestId('mode-preview-btn')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('.cm-editor').first()).toBeVisible();
 
     // 桌面左栏 toggle 可见
@@ -247,14 +242,11 @@ test.afterAll(async ({ browser }) => {
   await narrowPage.screenshot({ path: join(RES, 'v2-mobile-375.png'), fullPage: true });
   await narrowCtx.close();
 
-  // 1280 截图
+  // 1280 截图（D1 #336：桌面 .md 默认编辑态，直接等待编辑器，无需先过预览态）
   const wideCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const widePage = await wideCtx.newPage();
   await widePage.goto('http://localhost:4173/');
   await widePage.getByTestId('file-input').setInputFiles(join(FIX, 'hello.md'));
-  // 先等待预览面板（打开文档后默认预览模式），然后切换到编辑模式
-  await widePage.getByTestId('mode-pane-preview').waitFor({ state: 'visible' });
-  await widePage.getByTestId('mode-edit-btn').click();
   await widePage.locator('.cm-editor').first().waitFor();
   await widePage.screenshot({ path: join(RES, 'v2-mobile-1280.png'), fullPage: true });
   await wideCtx.close();
