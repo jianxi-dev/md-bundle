@@ -78,6 +78,8 @@ const MENU_ACTIONS: readonly MenuAction[] = [
 interface FlyoutOption {
   readonly label: string;
   readonly value: string;
+  /** Optional leading glyph (callout types show their emoji). */
+  readonly icon?: string;
 }
 
 /** 缩进和对齐 flyout — order is asserted verbatim by the #330 e2e. */
@@ -104,6 +106,7 @@ function calloutTypeOptions(): readonly FlyoutOption[] {
   return Object.entries(calloutTypeMap).map(([key, def]) => ({
     label: def.label,
     value: `callout-${key}`,
+    icon: def.icon,
   }));
 }
 
@@ -354,8 +357,15 @@ export class HandleChrome {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = FLYOUT_ITEM_CLASS;
-      btn.textContent = option.label;
       btn.setAttribute(FLYOUT_ACTION_ATTR, option.value);
+      if (option.icon) {
+        const iconEl = document.createElement('span');
+        iconEl.className = 'mdb-block-handle-flyout-icon';
+        iconEl.setAttribute('aria-hidden', 'true');
+        iconEl.textContent = option.icon;
+        btn.appendChild(iconEl);
+      }
+      btn.appendChild(document.createTextNode(option.label));
       panel.appendChild(btn);
     }
     panel.style.position = 'absolute';
@@ -538,6 +548,10 @@ export const blockHandleTheme = EditorView.baseTheme({
   },
   '.mdb-block-handle-flyout-item:hover': {
     backgroundColor: 'rgba(127, 127, 127, 0.18)',
+  },
+  '.mdb-block-handle-flyout-icon': {
+    display: 'inline-block',
+    marginRight: '6px',
   },
   '.block-insert-line': {
     position: 'absolute',

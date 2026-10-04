@@ -229,29 +229,30 @@ describe('editorDecorations with callout support', () => {
   // --- Selection reveal (cursor enters callout → show source) ---
 
   describe('semantic editing mode', () => {
-    it('suppresses the callout card when the cursor enters the block', () => {
+    it('keeps the callout card rendered when the cursor enters the block', () => {
       view = createMarkdownEditor(parent, {
         value: '> [!NOTE] 标题\n> 内容',
         extensions: [editorDecorations()],
       }).view;
 
-      // First, verify card is displayed when cursor is outside
+      // Card displayed when the cursor is outside.
       view.dispatch({ selection: { anchor: view.state.doc.length } });
       view.requestMeasure();
       expect(view.dom.querySelector('.cm-callout')).not.toBeNull();
 
-      // Move cursor INTO the callout block (position 1, inside "> [!NOTE]")
+      // Cursor INTO the callout block (position 1, inside "> [!NOTE]").
+      // #333: a callout must NOT collapse to source; the card stays rendered.
       view.dispatch({ selection: { anchor: 1 } });
       view.requestMeasure();
 
-      expect(view.dom.querySelector('.cm-callout')).toBeNull();
-      expect(view.dom.querySelector('.cm-content')?.textContent ?? '').toContain('[!NOTE]');
+      expect(view.dom.querySelector('.cm-callout')).not.toBeNull();
+      expect(view.dom.querySelector('.cm-content')?.textContent ?? '').not.toContain('[!NOTE]');
 
       evidence.selectionReveal = true;
       evidence.tests++;
     });
 
-    it('restores the callout card when the cursor leaves the block', () => {
+    it('keeps the callout card rendered after the cursor leaves the block', () => {
       view = createMarkdownEditor(parent, {
         value: '> [!NOTE] 标题\n> 内容',
         extensions: [editorDecorations()],
@@ -259,7 +260,7 @@ describe('editorDecorations with callout support', () => {
 
       view.dispatch({ selection: { anchor: 1 } });
       view.requestMeasure();
-      expect(view.dom.querySelector('.cm-callout')).toBeNull();
+      expect(view.dom.querySelector('.cm-callout')).not.toBeNull();
 
       view.dispatch({ selection: { anchor: view.state.doc.length } });
       view.requestMeasure();

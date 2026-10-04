@@ -33,7 +33,7 @@ import { createListDecorations } from './list';
 import { createQuoteDecorations } from './quote';
 import { createCodeDecorations } from './code';
 import { createImageDecorations } from './image';
-import { createCalloutDecorations } from './callout';
+import { createCalloutDecorations, scheduleCalloutFlush } from './callout';
 import { createTableDecorations, scheduleTableFlush } from './table';
 import { editorDecorationsThemeExt } from './theme';
 import { getBlocks, getBlockAt } from '../block-model';
@@ -222,6 +222,7 @@ class tableFlushGuard {
   destroy(): void {
     // Called inside a CM6 update, where a synchronous dispatch is illegal.
     scheduleTableFlush(this.view);
+    scheduleCalloutFlush(this.view);
   }
 }
 
