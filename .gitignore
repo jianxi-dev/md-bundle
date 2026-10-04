@@ -35,5 +35,7 @@ blob-report/
 /CLAUDE.md
 
 # Agent 工作区（本地产物，不入库）
-.artifacts/
+.artifacts/**
+!.artifacts/**/
+!.artifacts/**/state-coverage.json
 .lavish/
