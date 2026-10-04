@@ -8,6 +8,10 @@ const DOC = '# 标题\n\n正文段落。\n\n'
 test.use({ viewport: { width: 1440, height: 900 } })
 
 async function openEditor(page: Page): Promise<void> {
+  // Pin platform to Mac for deterministic kbd assertions (CI runs on Ubuntu)
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true });
+  });
   await page.goto('/')
   await page.getByTestId('file-input').setInputFiles({
     name: 'palette-grid-test.md',
@@ -38,19 +42,19 @@ test('命令面板以网格展示，且带快捷键的命令项显示快捷键',
   expect(gridInfo.display).toBe('grid')
   expect(gridInfo.columns.trim().split(/\s+/).length).toBeGreaterThan(1)
 
-  // 每项显示快捷键：至少一项含 kbd，且加粗项显示 Mod-b。
+  // 每项显示快捷键：至少一项含 kbd，且加粗项显示 ⌘B（Mac 格式化）。
   const items = page.locator('.mdb-palette-item')
   await expect(items.first()).toBeVisible()
   const kbdCount = await page.locator('.mdb-palette-item kbd').count()
   expect(kbdCount).toBeGreaterThan(0)
 
   const boldItem = items.filter({ hasText: '加粗' }).first()
-  await expect(boldItem.locator('kbd')).toHaveText('Mod-b')
+  await expect(boldItem.locator('kbd')).toHaveText('⌘B')
 })
 
 // #292（change editor-doubao-parity 8.2）AC A：命令面板显式展示 加粗 的绑定弦 Mod-b。
 // 与上面的 #281 网格测试同源，但独立成条，锁定本票「命令面板快捷键显示」不被回归。
-test('命令面板网格中 加粗 项显示快捷键 Mod-b（#292 AC A）', async ({ page }) => {
+test('命令面板网格中 加粗 项显示快捷键 ⌘B（#292 AC A）', async ({ page }) => {
   await openEditor(page)
   await page.keyboard.press(PALETTE_KEY)
 
@@ -60,5 +64,5 @@ test('命令面板网格中 加粗 项显示快捷键 Mod-b（#292 AC A）', asy
   const boldItem = page.locator('.mdb-palette-item').filter({ hasText: '加粗' }).first()
   await expect(boldItem).toBeVisible()
   await expect(boldItem.locator('kbd')).toBeVisible()
-  await expect(boldItem.locator('kbd')).toHaveText('Mod-b')
+  await expect(boldItem.locator('kbd')).toHaveText('⌘B')
 })

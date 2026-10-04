@@ -14,6 +14,54 @@ import { Prec, type Extension } from '@codemirror/state';
 import { commandRegistry } from './commands';
 
 /**
+ * Detect whether the current platform is macOS.
+ *
+ * Guards against non-browser environments (jsdom, Node) where
+ * `navigator.platform` may be empty or undefined. In those cases
+ * we default to non-mac so formatting is deterministic in tests.
+ */
+export function isMacPlatform(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const platform = navigator.platform ?? '';
+  const userAgent = navigator.userAgent ?? '';
+  return /Mac|iPhone|iPad|iPod/.test(platform) || /Mac OS X/.test(userAgent);
+}
+
+/**
+ * Format a CM6 key chord for display.
+ *
+ * Rules:
+ * - Tokens split on `-`.
+ * - `Mod` → mac `⌘` / non-mac `Ctrl`
+ * - `Shift` → mac `⇧` / non-mac `Shift`
+ * - `Alt` → mac `⌥` / non-mac `Alt`
+ * - Letter/number tokens → uppercased.
+ * - mac joins with NO separator: `⌘B`, `⌘⇧X`, `⌘⌥1`
+ * - non-mac joins with `+`: `Ctrl+B`, `Ctrl+Shift+X`, `Ctrl+Alt+1`
+ * - Empty/unknown tokens handled without throwing.
+ *
+ * The `isMac` parameter allows deterministic testing; when omitted,
+ * `isMacPlatform()` is used.
+ */
+export function formatKeyChord(chord: string, isMac?: boolean): string {
+  if (!chord) return '';
+  const mac = isMac ?? isMacPlatform();
+  const tokens = chord.split('-');
+  const formatted = tokens.map((token) => {
+    const t = token.trim();
+    if (!t) return '';
+    const lower = t.toLowerCase();
+    if (lower === 'mod') return mac ? '⌘' : 'Ctrl';
+    if (lower === 'shift') return mac ? '⇧' : 'Shift';
+    if (lower === 'alt') return mac ? '⌥' : 'Alt';
+    // Letter/number tokens: uppercase (e.g., 'b' → 'B', '1' → '1')
+    return t.toUpperCase();
+  });
+  const filtered = formatted.filter((t) => t !== '');
+  return mac ? filtered.join('') : filtered.join('+');
+}
+
+/**
  * Build a keymap `run` handler for a registry command id.
  *
  * Returns false when the id is not registered so the chord falls through to

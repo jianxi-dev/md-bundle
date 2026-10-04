@@ -3,7 +3,7 @@ import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { markdown } from '@codemirror/lang-markdown';
 import { createMarkdownEditor } from '../src/editor';
-import { editorKeybindings, runCommandById } from '../src/keybindings';
+import { editorKeybindings, runCommandById, formatKeyChord, isMacPlatform } from '../src/keybindings';
 import { commandRegistry } from '../src/commands';
 
 // CM6 resolves `Mod-` to Meta on macOS and Ctrl elsewhere (jsdom reports an
@@ -265,5 +265,200 @@ describe('editorKeybindings on real keydown events (ticket #193)', () => {
   it('an unbound chord leaves the document unchanged', () => {
     view.contentDOM.dispatchEvent(modKeyEvent('j'));
     expect(view.state.doc.toString()).toBe('hello world');
+  });
+});
+
+describe('formatKeyChord / isMacPlatform (ticket #335)', () => {
+  // All real chords from EDITOR_KEYBINDINGS + commands.ts
+  const chords = [
+    'Mod-b',
+    'Mod-i',
+    'Mod-Shift-x',
+    'Mod-e',
+    'Mod-l',
+    'Mod-Shift-7',
+    'Mod-Shift-8',
+    'Mod-Shift-9',
+    'Mod-Alt-1',
+    'Mod-Alt-2',
+    'Mod-Alt-3',
+    'Mod-Alt-4',
+    'Mod-Alt-5',
+    'Mod-Alt-6',
+  ] as const;
+
+  describe('isMacPlatform', () => {
+    it('returns false in jsdom (no navigator.platform)', () => {
+      // jsdom default: navigator.platform === ''
+      expect(isMacPlatform()).toBe(false);
+    });
+  });
+
+  describe('mac formatting (isMac=true)', () => {
+    it.each(chords)('formats %s correctly on mac', (chord) => {
+      const result = formatKeyChord(chord, true);
+      expect(result).toBeTruthy();
+      // Mac: no separator, Mod→⌘, Shift→⇧, Alt→⌥
+      expect(result).not.toContain('+');
+      expect(result).not.toContain('Mod');
+      expect(result).not.toContain('Shift');
+      expect(result).not.toContain('Alt');
+      expect(result).not.toContain('ctrl');
+      expect(result).not.toContain('CMD');
+    });
+
+    it('Mod-b → ⌘B', () => {
+      expect(formatKeyChord('Mod-b', true)).toBe('⌘B');
+    });
+
+    it('Mod-i → ⌘I', () => {
+      expect(formatKeyChord('Mod-i', true)).toBe('⌘I');
+    });
+
+    it('Mod-Shift-x → ⌘⇧X', () => {
+      expect(formatKeyChord('Mod-Shift-x', true)).toBe('⌘⇧X');
+    });
+
+    it('Mod-e → ⌘E', () => {
+      expect(formatKeyChord('Mod-e', true)).toBe('⌘E');
+    });
+
+    it('Mod-l → ⌘L', () => {
+      expect(formatKeyChord('Mod-l', true)).toBe('⌘L');
+    });
+
+    it('Mod-Shift-7 → ⌘⇧7', () => {
+      expect(formatKeyChord('Mod-Shift-7', true)).toBe('⌘⇧7');
+    });
+
+    it('Mod-Shift-8 → ⌘⇧8', () => {
+      expect(formatKeyChord('Mod-Shift-8', true)).toBe('⌘⇧8');
+    });
+
+    it('Mod-Shift-9 → ⌘⇧9', () => {
+      expect(formatKeyChord('Mod-Shift-9', true)).toBe('⌘⇧9');
+    });
+
+    it('Mod-Alt-1 → ⌘⌥1', () => {
+      expect(formatKeyChord('Mod-Alt-1', true)).toBe('⌘⌥1');
+    });
+
+    it('Mod-Alt-2 → ⌘⌥2', () => {
+      expect(formatKeyChord('Mod-Alt-2', true)).toBe('⌘⌥2');
+    });
+
+    it('Mod-Alt-3 → ⌘⌥3', () => {
+      expect(formatKeyChord('Mod-Alt-3', true)).toBe('⌘⌥3');
+    });
+
+    it('Mod-Alt-4 → ⌘⌥4', () => {
+      expect(formatKeyChord('Mod-Alt-4', true)).toBe('⌘⌥4');
+    });
+
+    it('Mod-Alt-5 → ⌘⌥5', () => {
+      expect(formatKeyChord('Mod-Alt-5', true)).toBe('⌘⌥5');
+    });
+
+    it('Mod-Alt-6 → ⌘⌥6', () => {
+      expect(formatKeyChord('Mod-Alt-6', true)).toBe('⌘⌥6');
+    });
+  });
+
+  describe('non-mac formatting (isMac=false)', () => {
+    it.each(chords)('formats %s correctly on non-mac', (chord) => {
+      const result = formatKeyChord(chord, false);
+      expect(result).toBeTruthy();
+      // Non-mac: + separator, Mod→Ctrl, Shift→Shift, Alt→Alt
+      expect(result).toContain('+');
+      expect(result).not.toContain('Mod');
+      expect(result).not.toContain('⌘');
+      expect(result).not.toContain('⇧');
+      expect(result).not.toContain('⌥');
+    });
+
+    it('Mod-b → Ctrl+B', () => {
+      expect(formatKeyChord('Mod-b', false)).toBe('Ctrl+B');
+    });
+
+    it('Mod-i → Ctrl+I', () => {
+      expect(formatKeyChord('Mod-i', false)).toBe('Ctrl+I');
+    });
+
+    it('Mod-Shift-x → Ctrl+Shift+X', () => {
+      expect(formatKeyChord('Mod-Shift-x', false)).toBe('Ctrl+Shift+X');
+    });
+
+    it('Mod-e → Ctrl+E', () => {
+      expect(formatKeyChord('Mod-e', false)).toBe('Ctrl+E');
+    });
+
+    it('Mod-l → Ctrl+L', () => {
+      expect(formatKeyChord('Mod-l', false)).toBe('Ctrl+L');
+    });
+
+    it('Mod-Shift-7 → Ctrl+Shift+7', () => {
+      expect(formatKeyChord('Mod-Shift-7', false)).toBe('Ctrl+Shift+7');
+    });
+
+    it('Mod-Shift-8 → Ctrl+Shift+8', () => {
+      expect(formatKeyChord('Mod-Shift-8', false)).toBe('Ctrl+Shift+8');
+    });
+
+    it('Mod-Shift-9 → Ctrl+Shift+9', () => {
+      expect(formatKeyChord('Mod-Shift-9', false)).toBe('Ctrl+Shift+9');
+    });
+
+    it('Mod-Alt-1 → Ctrl+Alt+1', () => {
+      expect(formatKeyChord('Mod-Alt-1', false)).toBe('Ctrl+Alt+1');
+    });
+
+    it('Mod-Alt-2 → Ctrl+Alt+2', () => {
+      expect(formatKeyChord('Mod-Alt-2', false)).toBe('Ctrl+Alt+2');
+    });
+
+    it('Mod-Alt-3 → Ctrl+Alt+3', () => {
+      expect(formatKeyChord('Mod-Alt-3', false)).toBe('Ctrl+Alt+3');
+    });
+
+    it('Mod-Alt-4 → Ctrl+Alt+4', () => {
+      expect(formatKeyChord('Mod-Alt-4', false)).toBe('Ctrl+Alt+4');
+    });
+
+    it('Mod-Alt-5 → Ctrl+Alt+5', () => {
+      expect(formatKeyChord('Mod-Alt-5', false)).toBe('Ctrl+Alt+5');
+    });
+
+    it('Mod-Alt-6 → Ctrl+Alt+6', () => {
+      expect(formatKeyChord('Mod-Alt-6', false)).toBe('Ctrl+Alt+6');
+    });
+  });
+
+  describe('edge cases', () => {
+    it('empty string returns empty', () => {
+      expect(formatKeyChord('', true)).toBe('');
+      expect(formatKeyChord('', false)).toBe('');
+    });
+
+    it('unknown tokens are uppercased and passed through', () => {
+      expect(formatKeyChord('Mod-Unknown', true)).toBe('⌘UNKNOWN');
+      expect(formatKeyChord('Mod-Unknown', false)).toBe('Ctrl+UNKNOWN');
+    });
+
+    it('extra hyphens produce empty tokens that are filtered', () => {
+      expect(formatKeyChord('Mod--b', true)).toBe('⌘B');
+      expect(formatKeyChord('Mod--b', false)).toBe('Ctrl+B');
+    });
+
+    it('whitespace around tokens is trimmed', () => {
+      expect(formatKeyChord(' Mod - b ', true)).toBe('⌘B');
+      expect(formatKeyChord(' Mod - b ', false)).toBe('Ctrl+B');
+    });
+
+    it('case-insensitive token matching', () => {
+      expect(formatKeyChord('mod-b', true)).toBe('⌘B');
+      expect(formatKeyChord('MOD-B', false)).toBe('Ctrl+B');
+      expect(formatKeyChord('mod-shift-x', true)).toBe('⌘⇧X');
+      expect(formatKeyChord('mod-alt-1', false)).toBe('Ctrl+Alt+1');
+    });
   });
 });
