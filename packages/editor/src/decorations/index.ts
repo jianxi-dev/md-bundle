@@ -34,7 +34,7 @@ import { createQuoteDecorations } from './quote';
 import { createCodeDecorations } from './code';
 import { createImageDecorations } from './image';
 import { createCalloutDecorations } from './callout';
-import { createTableDecorations } from './table';
+import { createTableDecorations, scheduleTableFlush } from './table';
 import { editorDecorationsThemeExt } from './theme';
 import { getBlocks, getBlockAt } from '../block-model';
 import type { ImageResolver } from './image';
@@ -210,6 +210,24 @@ const compositionGuard = ViewPlugin.define(() => ({}), {
 });
 
 /**
+ * Flushes staged table cell text when the plugin leaves the configuration —
+ * the mode switch and teardown paths that have no blur to settle on.
+ *
+ * `fromClass` is used because PluginSpec has no `destroy` hook; only a class
+ * plugin value receives one.
+ */
+class tableFlushGuard {
+  constructor(private readonly view: EditorView) {}
+
+  destroy(): void {
+    // Called inside a CM6 update, where a synchronous dispatch is illegal.
+    scheduleTableFlush(this.view);
+  }
+}
+
+const tableFlush = ViewPlugin.fromClass(tableFlushGuard);
+
+/**
  * The living-source decorations extension.
  * Pass as an optional extension to `createMarkdownEditor`.
  *
@@ -231,5 +249,10 @@ const compositionGuard = ViewPlugin.define(() => ({}), {
  * ```
  */
 export function editorDecorations(options?: EditorDecorationsOptions): Extension {
-  return [createDecorationField(options), compositionGuard.extension, editorDecorationsThemeExt];
+  return [
+    createDecorationField(options),
+    compositionGuard.extension,
+    tableFlush.extension,
+    editorDecorationsThemeExt,
+  ];
 }

@@ -27,6 +27,7 @@ import { EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/vie
 import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { calloutTypeMap } from '@md-bundle/renderer';
 import { TABLE_SIZE_QUERY, filterSlashCommands } from './slash-filter';
+import { sanitizeCellText } from './decorations/cell-text';
 
 export interface SlashCommand {
   id: string;
@@ -276,9 +277,23 @@ interface GridState {
   hoverC: number;
 }
 
+/** `slash`: the user typed `/` and the menu owns `[slashPos, head]`, so a cancel
+ * must delete that range. `anchor`: a cell handle asked for an insert menu at a
+ * zero-width position — there is no trigger text and no filter, so a cancel must
+ * not delete a character, and document churn elsewhere must not close it. The
+ * caret leaving the owning cell does close it (see `anchorRange`). */
+type SlashMenuTrigger = 'slash' | 'anchor';
+
 interface SlashMenuState {
   open: boolean;
   slashPos: number;
+  trigger: SlashMenuTrigger;
+  /**
+   * The cell range owning an anchored menu. Doc churn inside it (the widget
+   * rewrites cell markup on blur) must not close the menu; the caret stepping
+   * outside does. Null for slash menus, which key off the typed query instead.
+   */
+  anchorRange: { from: number; to: number } | null;
   /** Filter typed after the `/`, derived from the document. */
   query: string;
   selected: number;
@@ -305,7 +320,32 @@ interface SlashMenuState {
 const menus = new WeakMap<EditorView, SlashMenuState>();
 
 /** Closes the menu (root panel + flyout) for `view` without touching the document. */
+/** Pointer travel from the cell handle to the menu crosses the editor, so closing
+ * on `mouseleave` alone would tear the menu down before it can be clicked. */
+const ANCHOR_CLOSE_DELAY_MS = 150;
+const pendingAnchorCloses = new WeakMap<EditorView, ReturnType<typeof setTimeout>>();
+
+function cancelAnchorClose(view: EditorView): void {
+  const pending = pendingAnchorCloses.get(view);
+  if (pending === undefined) return;
+  clearTimeout(pending);
+  pendingAnchorCloses.delete(view);
+}
+
+function scheduleAnchorClose(view: EditorView): void {
+  cancelAnchorClose(view);
+  pendingAnchorCloses.set(
+    view,
+    setTimeout(() => {
+      pendingAnchorCloses.delete(view);
+      const state = menus.get(view);
+      if (state && state.open && state.trigger === 'anchor') closeMenu(view);
+    }, ANCHOR_CLOSE_DELAY_MS),
+  );
+}
+
 function closeMenu(view: EditorView): void {
+  cancelAnchorClose(view);
   const state = menus.get(view);
   if (!state) return;
   if (state.dom && state.dom.parentNode) {
@@ -332,6 +372,12 @@ function closeMenu(view: EditorView): void {
 function dismissMenu(view: EditorView): void {
   const state = menus.get(view);
   if (!state?.open) return;
+  if (state.trigger === 'anchor') {
+    // An anchored menu owns no text: its position is zero-width and may sit at
+    // the head of a cell whose content starts with `/`.
+    closeMenu(view);
+    return;
+  }
   const { slashPos } = state;
   // Read the trigger before closing: after closeMenu the state is gone, and an
   // out-of-range slashPos (doc replaced under us) makes sliceString return ''.
@@ -596,9 +642,16 @@ function openMenu(
   view: EditorView,
   slashPos: number,
   commands: SlashCommand[],
+  trigger: SlashMenuTrigger = 'slash',
+  anchorRange: { from: number; to: number } | null = null,
 ): void {
   const menu = document.createElement('div');
   menu.className = 'mdb-slash-menu';
+  menu.dataset.testid = 'slash-menu';
+  menu.addEventListener('mouseenter', () => cancelAnchorClose(view));
+  menu.addEventListener('mouseleave', () => {
+    if (menus.get(view)?.trigger === 'anchor') scheduleAnchorClose(view);
+  });
   menu.style.position = 'absolute';
   menu.style.background = 'var(--mdb-bg-secondary)';
   menu.style.border = `1px solid var(--mdb-border)`;
@@ -615,6 +668,8 @@ function openMenu(
   const state: SlashMenuState = {
     open: true,
     slashPos,
+    trigger,
+    anchorRange,
     query: '',
     selected: 0,
     commands,
@@ -635,7 +690,33 @@ function openMenu(
     view.dom.style.position = 'relative';
   }
   view.dom.appendChild(menu);
-  positionMenu(view, menu, slashPos);
+  positionMenu(view, menu, slashPos, trigger);
+}
+
+/**
+ * Anchored counterpart of `openMenu`, reached from `decorations/table.ts` over a
+ * relative import. Tears down any open menu first: the older panel would stay
+ * wired to this view while detached.
+ */
+export function openInsertMenu(
+  view: EditorView,
+  at: number,
+  commands: SlashCommand[],
+  anchorRange: { from: number; to: number },
+): void {
+  cancelAnchorClose(view);
+  closeMenu(view);
+  openMenu(view, at, commands, 'anchor', anchorRange);
+}
+
+/**
+ * Drop an anchored menu without touching the document. Used when the widget
+ * that opened it goes away (disposal, mode switch), where waiting out the
+ * hover grace period would leave an orphaned panel over another view.
+ */
+export function releaseInsertMenu(view: EditorView): void {
+  if (menus.get(view)?.trigger !== 'anchor') return;
+  closeMenu(view);
 }
 
 /**
@@ -645,9 +726,14 @@ function openMenu(
  * child of view.dom, so the editor origin is subtracted (issue #203). jsdom has
  * no layout; the try/catch leaves the menu at 0,0 there.
  */
-function positionMenu(view: EditorView, menu: HTMLDivElement, slashPos: number): void {
+function positionMenu(
+  view: EditorView,
+  menu: HTMLDivElement,
+  slashPos: number,
+  trigger: SlashMenuTrigger,
+): void {
   try {
-    const coords = view.coordsAtPos(slashPos + 1);
+    const coords = view.coordsAtPos(trigger === 'anchor' ? slashPos : slashPos + 1);
     if (!coords) return;
     const rect = view.dom.getBoundingClientRect();
     const menuRect = menu.getBoundingClientRect();
@@ -674,6 +760,7 @@ function positionMenu(view: EditorView, menu: HTMLDivElement, slashPos: number):
 function applyCommand(view: EditorView, cmd: SlashCommand): void {
   if (!cmd.insert) return;
   const state = menus.get(view);
+  const anchored = state?.trigger === 'anchor';
   const head = view.state.selection.main.head;
   // The `/` plus any typed filter is one replaceable range; command `insert`
   // implementations only supply the replacement text.
@@ -682,6 +769,18 @@ function applyCommand(view: EditorView, cmd: SlashCommand): void {
   // are about to dispatch.
   closeMenu(view);
   if (head < from) return;
+  if (anchored) {
+    // The anchor sits inside a table cell, so the inserted text must stay on one
+    // line: a multi-line command (code block, table, callout) would otherwise
+    // split the table row and corrupt the table.
+    const text = sanitizeCellText(cmd.insert(view.state).text);
+    view.dispatch({
+      changes: { from, to: from, insert: text },
+      selection: { anchor: from + text.length },
+      scrollIntoView: true,
+    });
+    return;
+  }
   const change = cmd.insert(view.state);
   // `text` is our interface field; CM6's ChangeSpec field is `insert`.
   view.dispatch({
@@ -733,6 +832,14 @@ function ensureFlyoutDom(view: EditorView, state: SlashMenuState): HTMLDivElemen
     flyout.style.padding = '4px 0';
     flyout.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.24)';
     flyout.style.overflowY = 'auto';
+    // The flyout is a sibling layer, not a child of the root grid, so the
+    // pointer genuinely leaves the root menu on the way in. Same
+    // mouseenter/mouseleave grace as the root menu keeps the panel alive for
+    // the whole root -> flyout -> row path.
+    flyout.addEventListener('mouseenter', () => cancelAnchorClose(view));
+    flyout.addEventListener('mouseleave', () => {
+      if (menus.get(view)?.trigger === 'anchor') scheduleAnchorClose(view);
+    });
     state.flyoutDom = flyout;
   }
   if (state.flyoutDom.parentNode !== view.dom) {
@@ -938,11 +1045,13 @@ function applyTableSize(
 ): void {
   const head = view.state.selection.main.head;
   const from = state.slashPos;
-  const text = buildTable(cols, rows);
+  const anchored = state.trigger === 'anchor';
+  // Anchored inside a cell: keep the table on one line so it cannot split the row.
+  const text = anchored ? sanitizeCellText(buildTable(cols, rows)) : buildTable(cols, rows);
   closeMenu(view);
   if (head < from) return;
   view.dispatch({
-    changes: { from, to: head, insert: text },
+    changes: { from, to: anchored ? from : head, insert: text },
     selection: { anchor: from + text.length },
     scrollIntoView: true,
   });
@@ -1057,6 +1166,20 @@ const menuSyncPlugin = ViewPlugin.define((view) => ({
   update(u: ViewUpdate): void {
     const state = menus.get(u.view);
     if (!state?.open || slashComposing) return;
+    // An anchored menu has no typed trigger and no filter: the table widget
+    // rewrites its own cell markup on blur, and a caret move inside a cell is
+    // not an abandonment of anything this menu owns. Doc changes are ignored
+    // outright — but a caret that leaves the owning cell does close the panel,
+    // so it cannot linger after focus moved elsewhere.
+    if (state.trigger === 'anchor') {
+      if (u.selectionSet && state.anchorRange) {
+        const caret = u.state.selection.main.head;
+        if (caret < state.anchorRange.from || caret > state.anchorRange.to) {
+          closeMenu(u.view);
+        }
+      }
+      return;
+    }
     if (u.docChanged) {
       if (!state.grid) {
         const query = readQuery(state, u.state);
@@ -1105,8 +1228,15 @@ const outsideClickDismiss = ViewPlugin.define((view) => {
     const target = event.target;
     if (
       target instanceof Node &&
-      (state.dom?.contains(target) || state.flyoutDom?.contains(target))
+      (state.dom?.contains(target) ||
+        state.flyoutDom?.contains(target) ||
+        target instanceof Element &&
+          target.closest('.cm-table-cell-handle') !== null)
     ) {
+      return;
+    }
+    if (state.trigger === 'anchor') {
+      closeMenu(view);
       return;
     }
     dismissMenu(view);

@@ -664,8 +664,8 @@ export function registerEditorCommands(): void {
     execute: (view) => {
       const { main } = view.state.selection;
       view.dispatch({
-        changes: { from: main.from, insert: '| A | B |\n| --- | --- |\n| 1 | 2 |' },
-        selection: { anchor: main.from + 3 },
+        changes: { from: main.from, insert: '|   |   |\n| --- | --- |\n|   |   |\n|   |   |' },
+        selection: { anchor: main.from + 2 },
       });
     },
   });
