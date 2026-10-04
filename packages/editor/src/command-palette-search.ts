@@ -65,22 +65,28 @@ const PINYIN_MAP: Record<string, string> = {
   方: 'f', 命: 'm', 令: 'l', 马: 'm', 齐: 'j',
 };
 
-/** Get pinyin first letters for a Chinese string. Falls back to lowercase. */
-function pinyinFirstLetters(text: string): string {
+interface PinyinExpansion {
+  /** Concatenated first letters (initials like `zh`/`sh` contribute two chars). */
+  readonly letters: string;
+  /** `letters[i]` came from label code point `charIndex[i]`; multi-letter initials repeat their char. */
+  readonly charIndex: readonly number[];
+}
+
+/** Expand a label into pinyin first letters plus a letters→label-index map. */
+function expandPinyin(text: string): PinyinExpansion {
   const chars = [...text];
   const letters: string[] = [];
-  for (const ch of chars) {
+  const charIndex: number[] = [];
+  chars.forEach((ch, index) => {
     const code = ch.codePointAt(0) ?? 0;
-    // CJK Unified Ideographs range
-    if (code >= 0x4e00 && code <= 0x9fff) {
-      // Try the map; if not found, use the char itself as fallback
-      const py = PINYIN_MAP[ch];
-      letters.push(py ?? ch.toLowerCase());
-    } else {
-      letters.push(ch.toLowerCase());
+    const isCjk = code >= 0x4e00 && code <= 0x9fff;
+    const seq = isCjk ? (PINYIN_MAP[ch] ?? ch.toLowerCase()) : ch.toLowerCase();
+    for (const letter of seq) {
+      letters.push(letter);
+      charIndex.push(index);
     }
-  }
-  return letters.join('');
+  });
+  return { letters: letters.join(''), charIndex };
 }
 
 // --- Fuzzy matching ------------------------------------------------------------
@@ -126,9 +132,9 @@ function fuzzyMatch(query: string, text: string): MatchResult | null {
  */
 function pinyinMatch(query: string, text: string): MatchResult | null {
   if (query.length === 0) return { score: 0, positions: [] };
-  const letters = pinyinFirstLetters(text);
+  const { letters, charIndex } = expandPinyin(text);
   const lowerQuery = query.toLowerCase();
-  const positions: number[] = [];
+  const letterPositions: number[] = [];
   let li = 0;
   let score = 0;
   for (let qi = 0; qi < lowerQuery.length; qi++) {
@@ -136,8 +142,8 @@ function pinyinMatch(query: string, text: string): MatchResult | null {
     let found = false;
     while (li < letters.length) {
       if (letters[li] === ch) {
-        positions.push(li);
-        score += qi > 0 ? li - positions[qi - 1] : li;
+        letterPositions.push(li);
+        score += qi > 0 ? li - letterPositions[qi - 1] : li;
         li++;
         found = true;
         break;
@@ -145,6 +151,13 @@ function pinyinMatch(query: string, text: string): MatchResult | null {
       li++;
     }
     if (!found) return null;
+  }
+  // Map letter offsets back to label code-point indices, collapsing the repeats
+  // produced by multi-letter initials so highlights land on whole characters.
+  const positions: number[] = [];
+  for (const letterPos of letterPositions) {
+    const charPos = charIndex[letterPos] ?? letterPos;
+    if (positions[positions.length - 1] !== charPos) positions.push(charPos);
   }
   return { score, positions };
 }
@@ -171,12 +184,23 @@ function isRecent(id: string): boolean {
 export interface MatchEntry {
   readonly id: string;
   readonly label: string;
+  readonly description?: string;
   readonly icon?: string;
   readonly keyBinding?: string | null;
   readonly group: string;
   readonly score: number;
   readonly recent: boolean;
+  /** Label code-point indices the query matched; the DOM builder wraps each in `<b>`. */
+  readonly matchPositions: readonly number[];
+  /** Recent command hoisted into the top 最近 section (only for an unfiltered browse). */
+  readonly inRecentSection: boolean;
 }
+
+/**
+ * Optional group filter for the palette chips. `null`/omitted = show every
+ * group; `'最近'` = only recently used; any group name = that group only.
+ */
+export type PaletteGroupFilter = string | null | undefined;
 
 // --- Search logic --------------------------------------------------------------
 
@@ -217,41 +241,49 @@ function orderByGroup(entries: MatchEntry[]): MatchEntry[] {
  * Match commands against `query`, sorted by recency then relevance score,
  * then partitioned into canonical group order. Every matching registered
  * command is returned — distinct commands that share a label are NOT collapsed.
+ *
+ * `activeGroup` narrows the result set: `'最近'` keeps only recent commands,
+ * any other string keeps only that group, and `null`/`undefined` keeps all.
+ * For an unfiltered browse (`query` empty, no group) recent commands are
+ * hoisted into a leading block so the palette can render a 最近 section at the
+ * top without breaking index→row mapping.
  */
-export function searchCommands(query: string): MatchEntry[] {
+export function searchCommands(
+  query: string,
+  activeGroup: PaletteGroupFilter = null,
+): MatchEntry[] {
+  const trimmed = query.trim();
   const entries: MatchEntry[] = [];
 
   for (const cmd of commandRegistry.all()) {
     const group = cmd.group ?? '其他';
+    if (activeGroup && activeGroup !== '最近' && group !== activeGroup) continue;
     const recent = isRecent(cmd.id);
+    if (activeGroup === '最近' && !recent) continue;
 
-    // Try direct fuzzy match on label
-    const direct = fuzzyMatch(query, cmd.label);
-    if (direct) {
-      entries.push({
-        id: cmd.id,
-        label: cmd.label,
-        icon: cmd.icon,
-        keyBinding: cmd.keyBinding,
-        group,
-        score: direct.score - (recent ? 1000 : 0),
-        recent,
-      });
-      continue;
-    }
-    // Try pinyin match
-    const py = pinyinMatch(query, cmd.label);
-    if (py) {
-      entries.push({
-        id: cmd.id,
-        label: cmd.label,
-        icon: cmd.icon,
-        keyBinding: cmd.keyBinding,
-        group,
-        score: py.score + 100 - (recent ? 500 : 0),
-        recent,
-      });
-    }
+    const direct = fuzzyMatch(trimmed, cmd.label);
+    const pinyin = direct ? null : pinyinMatch(trimmed, cmd.label);
+    const match = direct ?? pinyin;
+    if (!match) continue;
+
+    // Pinyin hits carry a +100 penalty so a direct substring hit always wins;
+    // the recency bonus mirrors the pre-redesign weights (1000 direct / 500 pinyin).
+    let score = match.score;
+    if (!direct) score += 100;
+    if (recent) score -= direct ? 1000 : 500;
+
+    entries.push({
+      id: cmd.id,
+      label: cmd.label,
+      description: cmd.description,
+      icon: cmd.icon,
+      keyBinding: cmd.keyBinding,
+      group,
+      score,
+      recent,
+      matchPositions: match.positions,
+      inRecentSection: trimmed.length === 0 && !activeGroup && recent,
+    });
   }
 
   // Sort: recency first, then score
@@ -259,5 +291,9 @@ export function searchCommands(query: string): MatchEntry[] {
     if (a.recent !== b.recent) return a.recent ? -1 : 1;
     return a.score - b.score;
   });
-  return orderByGroup(entries);
+
+  const hoisted = entries.filter((entry) => entry.inRecentSection);
+  if (hoisted.length === 0) return orderByGroup(entries);
+  const rest = entries.filter((entry) => !entry.inRecentSection);
+  return [...hoisted, ...orderByGroup(rest)];
 }

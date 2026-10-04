@@ -366,12 +366,88 @@ export interface Command {
   readonly id: string;
   readonly label: string;
   readonly icon?: string;
+  /** One-line Chinese description shown as the middle column of a palette row. */
+  readonly description?: string;
   readonly group?: '格式' | '块' | '视图' | '插入' | '体检';
   readonly execute: (view: EditorView) => void;
   readonly available?: (view: EditorView) => boolean;
   readonly keyBinding?: string;
   readonly contextRelevant?: (view: EditorView) => boolean;
 }
+
+// --- Command palette descriptions -------------------------------------------
+
+/**
+ * One-line Chinese descriptions for the palette's middle column. Keyed by id
+ * so the ~60 `register({...})` calls stay terse and a missing/updated wording
+ * is a single edit here instead of a scattered sweep. `register()` merges this
+ * in, so every built-in command exposes `description` at runtime.
+ */
+const COMMAND_DESCRIPTIONS: Record<string, string> = {
+  'toggle-bold': '将选中文本设为加粗',
+  'toggle-italic': '将选中文本设为斜体',
+  'toggle-strikethrough': '为选中文本添加删除线',
+  'toggle-underline': '为选中文本添加下划线',
+  'toggle-code': '将选中文本变成行内代码',
+  'toggle-link': '为选中文本插入链接',
+  'insert-unordered-list': '将当前块转为无序列表',
+  'insert-ordered-list': '将当前块转为有序列表',
+  'insert-task-list': '将当前块转为待办列表',
+  'insert-quote': '将当前块转为引用块',
+  'insert-code-block': '插入代码块',
+  'insert-table': '插入表格',
+  'insert-callout': '插入标注块',
+  'insert-html': '插入 HTML 片段',
+  'insert-css': '插入 CSS 样式块',
+  'code-copy': '复制当前代码块或选区',
+  'heading-1': '将当前块转为一级标题',
+  'heading-2': '将当前块转为二级标题',
+  'heading-3': '将当前块转为三级标题',
+  'heading-4': '将当前块转为四级标题',
+  'heading-5': '将当前块转为五级标题',
+  'heading-6': '将当前块转为六级标题',
+  'structure-check': '检查文档结构问题',
+  'font-serif': '将选中文本设为衬线字体',
+  'font-mono': '将选中文本设为等宽字体',
+  'font-sans': '将选中文本设为无衬线字体',
+  'font-clear': '清除选中文本的字体样式',
+  'color-red': '将文字颜色设为红色',
+  'color-blue': '将文字颜色设为蓝色',
+  'color-green': '将文字颜色设为绿色',
+  'color-orange': '将文字颜色设为橙色',
+  'color-purple': '将文字颜色设为紫色',
+  'color-clear': '清除文字颜色',
+  'bg-red': '将背景色设为红色',
+  'bg-blue': '将背景色设为蓝色',
+  'bg-green': '将背景色设为绿色',
+  'bg-orange': '将背景色设为橙色',
+  'bg-purple': '将背景色设为紫色',
+  'bg-clear': '清除背景色',
+  'color-reset': '颜色与背景恢复默认',
+  'align-left': '将当前块左对齐',
+  'align-center': '将当前块居中',
+  'align-right': '将当前块右对齐',
+  'align-clear': '清除当前块的对齐方式',
+  'col-1': '将当前块分为 1 栏',
+  'col-2': '将当前块分为 2 栏',
+  'col-3': '将当前块分为 3 栏',
+  'col-4': '将当前块分为 4 栏',
+  'col-5': '将当前块分为 5 栏',
+  'col-clear': '清除当前块的分栏',
+  'turn-into-h1': '将选中块转为一级标题',
+  'turn-into-h2': '将选中块转为二级标题',
+  'turn-into-h3': '将选中块转为三级标题',
+  'turn-into-h4': '将选中块转为四级标题',
+  'turn-into-h5': '将选中块转为五级标题',
+  'turn-into-h6': '将选中块转为六级标题',
+  'turn-into-paragraph': '将选中块转为正文段落',
+  'turn-into-list': '将选中块转为列表',
+  'turn-into-task': '将选中块转为任务列表',
+  'turn-into-quote': '将选中块转为引用',
+  'turn-into-code': '将选中块转为代码块',
+  'turn-into-callout': '将选中块转为高亮标注',
+  'turn-into-table': '将选中块转为表格',
+};
 
 // --- CommandRegistry class --------------------------------------------------
 
@@ -393,7 +469,8 @@ export class CommandRegistry {
    * registered, it is overwritten (last-write-wins).
    */
   register(cmd: Command): void {
-    this._commands.set(cmd.id, cmd);
+    const description = cmd.description ?? COMMAND_DESCRIPTIONS[cmd.id];
+    this._commands.set(cmd.id, description ? { ...cmd, description } : cmd);
   }
 
   /**

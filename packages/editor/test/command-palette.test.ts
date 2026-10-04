@@ -3,6 +3,7 @@ import type { EditorView } from '@codemirror/view';
 import { createMarkdownEditor } from '../src/editor';
 import { commandRegistry, type Command } from '../src/commands';
 import { formatKeyChord } from '../src/keybindings';
+import { markUsed } from '../src/command-palette-search';
 import {
   closeCommandPalette,
   commandPaletteKeymap,
@@ -35,6 +36,13 @@ const BACKDROP = '[data-testid="command-palette-backdrop"]';
 const INPUT = '[data-testid="command-palette-input"]';
 const CLOSE = '[data-testid="command-palette-close"]';
 const ITEMS = '[data-testid="command-palette-item"]';
+const GROUPS = '.mdb-palette-group';
+const CHIPS = '[data-testid="command-palette-chip"]';
+const FOOTER = '[data-testid="command-palette-footer"]';
+const EMPTY = '[data-testid="command-palette-empty"]';
+const SUGGESTION = '[data-testid="command-palette-suggestion"]';
+const ACCENT = '[data-testid="command-palette-accent"]';
+const DESC = '[data-testid="command-palette-desc"]';
 
 function mustEl(selector: string, root: ParentNode = document): HTMLElement {
   const el = root.querySelector(selector);
@@ -60,6 +68,13 @@ function key(k: string, extra: KeyboardEventInit = {}): KeyboardEvent {
 
 function mouse(kind: string): MouseEvent {
   return new MouseEvent(kind, { bubbles: true, cancelable: true });
+}
+
+/** Type into the palette search box and let the synchronous re-render settle. */
+function typeQuery(text: string): void {
+  const input = mustInput(INPUT);
+  input.value = text;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 let executed: string[] = [];
@@ -160,7 +175,7 @@ describe('command palette', () => {
   it('groups commands by group and shows a kbd chip when a key binding exists', () => {
     openCommandPalette(view);
 
-    const groupNames = elements('.mdb-palette-group').map((el) => el.textContent);
+    const groupNames = elements(GROUPS).map((el) => el.textContent);
     expect(groupNames).toContain('格式');
     expect(groupNames).toContain('块');
     expect(groupNames).toContain('视图');
@@ -190,10 +205,11 @@ describe('command palette', () => {
       }
     }
 
-    expect(blocks.map((b) => b.group)).toEqual(['格式', '块', '插入', '视图', '体检', '其他']);
+    // A leading 最近 section may exist if a prior test executed a command; the
+    // canonical group sequence must still follow in order.
+    const groupSequence = blocks.map((b) => b.group).filter((g) => g !== '最近');
+    expect(groupSequence).toEqual(['格式', '块', '插入', '视图', '体检', '其他']);
 
-    // Exactly one 插入 header, and its rows are exactly the 插入-group
-    // commands, in registry order.
     const insertBlocks = blocks.filter((b) => b.group === '插入');
     expect(insertBlocks).toHaveLength(1);
     expect(insertBlocks[0].labels).toEqual([
@@ -204,13 +220,90 @@ describe('command palette', () => {
       '插入 CSS',
     ]);
 
-    // No 插入-group row may leak under any other group's header.
     for (const block of blocks) {
       if (block.group === '插入') continue;
       for (const label of block.labels) {
         expect(label.startsWith('插入'), `${label} leaked under ${block.group}`).toBe(false);
       }
     }
+  });
+
+  it('renders the results list as a single vertical flex column, not a grid', () => {
+    openCommandPalette(view);
+    const list = mustEl('.mdb-palette-list');
+
+    expect(list.style.display).toBe('flex');
+    expect(list.style.flexDirection).toBe('column');
+    // The previous grid baked in `repeat(auto-fill, minmax(190px,1fr))` — it must be gone.
+    expect(list.style.gridTemplateColumns).toBe('');
+
+    const rows = elements(ITEMS);
+    expect(rows.length).toBeGreaterThan(1);
+    for (const row of rows) expect(row.parentElement).toBe(list);
+  });
+
+  it('renders sticky group headers', () => {
+    openCommandPalette(view);
+    const header = mustEl(GROUPS);
+    expect(header.style.position).toBe('sticky');
+    expect(header.style.top).toBe('0px');
+  });
+
+  it('renders a one-line description column for built-in commands', () => {
+    openCommandPalette(view);
+    const described = elements(ITEMS).find(
+      (el) => (el.querySelector(DESC)?.textContent ?? '').length > 0,
+    );
+    expect(described).toBeDefined();
+    expect(described?.textContent).toContain('加粗');
+    expect(described?.querySelector(DESC)?.textContent).toBe('将选中文本设为加粗');
+  });
+
+  it('wraps the matched characters of a pinyin hit in <b>', () => {
+    openCommandPalette(view);
+    typeQuery('jc'); // 加粗 -> jia cu
+
+    const row = elements(ITEMS).find((el) => el.textContent?.includes('加粗'));
+    expect(row).toBeDefined();
+    const marks = row?.querySelectorAll('.mdb-palette-label b');
+    expect(marks?.length).toBe(2);
+    expect(Array.from(marks ?? []).map((m) => m.textContent).join('')).toBe('加粗');
+  });
+
+  it('marks the selected row with a class, data attribute, and 2px accent bar', () => {
+    openCommandPalette(view);
+    const rows = elements(ITEMS);
+
+    expect(rows[0].classList.contains('mdb-palette-item--selected')).toBe(true);
+    expect(rows[0].getAttribute('data-selected')).toBe('true');
+    const accent = rows[0].querySelector(ACCENT);
+    expect(accent).not.toBeNull();
+    expect((accent as HTMLElement).style.width).toBe('2px');
+    expect((accent as HTMLElement).style.background).toContain('var(--mdb-primary)');
+    expect(rows[1].querySelector(ACCENT)).toBeNull();
+  });
+
+  it('shows a footer shortcut-hint bar', () => {
+    openCommandPalette(view);
+    const footer = mustEl(FOOTER);
+    expect(footer.textContent).toContain('选择');
+    expect(footer.textContent).toContain('执行');
+    expect(footer.textContent).toContain('关闭');
+  });
+
+  it('renders category chips and filters the list by group', () => {
+    openCommandPalette(view);
+    const chips = elements(CHIPS);
+    expect(chips.map((c) => c.textContent)).toEqual(['全部', '格式', '块', '插入', '视图', '体检']);
+
+    chips.find((c) => c.textContent === '体检')?.dispatchEvent(mouse('click'));
+
+    // Clicking re-renders the chip bar, so re-query rather than inspecting the
+    // now-detached original chip.
+    const activeChip = elements(CHIPS).find((c) => c.textContent === '体检');
+    expect(activeChip?.classList.contains('mdb-palette-chip--active')).toBe(true);
+    expect(elements(ITEMS).some((el) => el.textContent?.includes('结构体检'))).toBe(true);
+    expect(elements(ITEMS).some((el) => el.textContent?.includes('加粗'))).toBe(false);
   });
 
   it('Escape pressed in the search input closes the palette', () => {
@@ -251,9 +344,7 @@ describe('command palette', () => {
 
   it('filters with pinyin initials and applies the selection on Enter', () => {
     openCommandPalette(view);
-    const input = mustInput(INPUT);
-    input.value = 'jc'; // 加粗 -> jia cu
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    typeQuery('jc'); // 加粗 -> jia cu
 
     // Both the canonical 加粗 and the same-labelled fixture match: the palette
     // must return every match, not collapse them (no label-keyed de-dup).
@@ -270,14 +361,26 @@ describe('command palette', () => {
     expect(document.querySelector(PANEL)).toBeNull();
   });
 
-  it('renders the Chinese empty state when nothing matches', () => {
+  it('renders the Chinese empty state with dismissible suggestion chips', () => {
     openCommandPalette(view);
-    const input = mustInput(INPUT);
-    input.value = 'zzzzz';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    typeQuery('zzzzz');
 
     expect(elements(ITEMS)).toHaveLength(0);
-    expect(document.body.textContent).toContain('未找到匹配命令');
+    expect(mustEl(EMPTY).textContent).toContain('未找到匹配命令');
+
+    const suggestions = elements(SUGGESTION);
+    expect(suggestions.length).toBeGreaterThanOrEqual(3);
+    expect(suggestions.map((s) => s.textContent)).toEqual(['表格', 'jc', '标题']);
+
+    // Clicking a suggestion prefills the query and re-runs the search.
+    suggestions.find((s) => s.textContent === '表格')?.dispatchEvent(mouse('click'));
+    expect(mustInput(INPUT).value).toBe('表格');
+    expect(elements(ITEMS).some((el) => el.textContent?.includes('插入表格'))).toBe(true);
+
+    // A fresh nonsense query is dismissible via Escape.
+    typeQuery('zzzzz');
+    mustEl(INPUT).dispatchEvent(key('Escape'));
+    expect(document.querySelector(PANEL)).toBeNull();
   });
 
   it('auto-closes on doc change and removes both nodes on view destroy', () => {
@@ -329,12 +432,33 @@ describe('command palette', () => {
     });
 
     openCommandPalette(view);
-    const input = mustInput(INPUT);
-    input.value = '保留测试项';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    typeQuery('保留测试项');
 
     const rows = elements(ITEMS);
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => r.children[1]?.textContent === '保留测试项')).toBe(true);
+  });
+
+  it('hoists a 最近 section to the top for an unfiltered browse', () => {
+    markUsed('fmt-bold');
+    openCommandPalette(view);
+
+    const groupNames = elements(GROUPS).map((el) => el.textContent);
+    expect(groupNames[0]).toBe('最近');
+
+    const recentHeader = elements(GROUPS)[0];
+    const recentRow = recentHeader.nextElementSibling as HTMLElement | null;
+    expect(recentRow?.textContent).toContain('加粗');
+  });
+
+  it('every built-in command carries a one-line description', () => {
+    const described = commandRegistry.all().filter((c) => c.description);
+    expect(described.length).toBeGreaterThanOrEqual(50);
+    expect(commandRegistry.all().find((c) => c.id === 'toggle-bold')?.description).toBe(
+      '将选中文本设为加粗',
+    );
+    expect(commandRegistry.all().find((c) => c.id === 'insert-table')?.description).toBe(
+      '插入表格',
+    );
   });
 });
