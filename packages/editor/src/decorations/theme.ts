@@ -536,6 +536,19 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-table-cell-active': {
     boxShadow: 'inset 0 0 0 2px var(--reader-accent, var(--mdb-primary-fg))',
   },
+  // Cell range selection (ticket #328): outline only, so a background color
+  // applied by `.cm-table-cell-bg-*` below still shows through.
+  '.cm-content .cm-table-cell-selected': {
+    boxShadow: 'inset 0 0 0 2px var(--reader-accent, var(--mdb-primary-fg))',
+    backgroundColor: 'var(--mdb-selection)',
+  },
+  // Cell background span (`mdb-bg-*` wrapping the whole cell text) painted onto
+  // the `<td>`/`<th>` itself. Values mirror the `.cm-bg-*` inline marks.
+  '.cm-content .cm-table-cell-bg-red': { backgroundColor: 'rgba(248, 81, 73, 0.25)' },
+  '.cm-content .cm-table-cell-bg-blue': { backgroundColor: 'rgba(123, 134, 234, 0.25)' },
+  '.cm-content .cm-table-cell-bg-green': { backgroundColor: 'rgba(63, 185, 80, 0.25)' },
+  '.cm-content .cm-table-cell-bg-orange': { backgroundColor: 'rgba(227, 179, 65, 0.25)' },
+  '.cm-content .cm-table-cell-bg-purple': { backgroundColor: 'rgba(163, 113, 247, 0.25)' },
   '.cm-content .cm-table-cell-handle': {
     position: 'absolute',
     top: '2px',

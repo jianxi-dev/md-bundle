@@ -34,7 +34,8 @@ import { createQuoteDecorations } from './quote';
 import { createCodeDecorations } from './code';
 import { createImageDecorations } from './image';
 import { createCalloutDecorations, scheduleCalloutFlush } from './callout';
-import { createTableDecorations, scheduleTableFlush } from './table';
+import { createTableDecorations, scheduleTableFlush, tableCellSelectionPainter } from './table';
+import { cellToolbar } from './cell-toolbar';
 import { createColumnsDecorations } from './columns';
 import { createMermaidDecorations, type MermaidHydrator, type MermaidTheme } from './mermaid';
 import { editorDecorationsThemeExt } from './theme';
@@ -272,6 +273,10 @@ export function editorDecorations(options?: EditorDecorationsOptions): Extension
     createDecorationField(options),
     compositionGuard.extension,
     tableFlush.extension,
+    // Table-cell selection: the painter keeps `.cm-table-cell-selected` in sync
+    // with the view-level range; the toolbar exposes merge / cell background.
+    tableCellSelectionPainter(),
+    cellToolbar(),
     editorDecorationsThemeExt,
   ];
 }

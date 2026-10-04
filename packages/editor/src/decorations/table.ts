@@ -18,10 +18,19 @@
  * mousedown outside the table, or editor teardown (mode switch). The flush never
  * dispatches inside a CM6 update — it defers to the next tick when it would.
  */
-import type { Range } from '@codemirror/state';
-import { Decoration, WidgetType, type EditorView } from '@codemirror/view';
+import type { Extension, Range } from '@codemirror/state';
+import { Decoration, ViewPlugin, WidgetType, type EditorView } from '@codemirror/view';
 import { defaultCommands, openInsertMenu, releaseInsertMenu } from '../slash';
 import { sanitizeCellText } from './cell-text';
+import {
+  clearCellSelection,
+  getCellSelection,
+  isCellInSelection,
+  setCellSelection,
+  subscribeCellSelection,
+  type CellRect,
+  type CellSelection,
+} from './cell-selection';
 
 const TABLE_ROW_RE = /^\s*\|.*\|\s*$/;
 const TABLE_SEP_RE = /^\s*\|(\s*:?-+:?\s*\|)+\s*$/;
@@ -175,9 +184,65 @@ function buildTableMarkdown(header: string[], rows: string[][]): string {
 
 export { sanitizeCellText };
 
+/**
+ * Cell background convention (ticket #328).
+ *
+ * A cell background is stored in the markdown source as the cell's whole text
+ * wrapped in the SAME raw-HTML span the text-color system uses:
+ *
+ *   | <span class="mdb-bg-blue">hello</span> | ...
+ *
+ * This keeps the markdown a valid GFM pipe table (no column/row syntax is
+ * invented) and reuses the existing `mdb-bg-*` classes, so the background
+ * survives a reload and renders in preview. `buildCell` detects the exact
+ * shape and paints the `<td>`/`<th>` instead of showing the span markup.
+ */
+const BACKGROUND_SPAN_RE =
+  /^<span class="(mdb-bg-(?:red|blue|green|orange|purple))">([\s\S]*)<\/span>$/;
+
+interface ParsedCellBackground {
+  /** The `mdb-bg-*` span class. */
+  colorClass: string;
+  /** The visible text without the span wrapper. */
+  inner: string;
+}
+
+/** Parse a cell whose entire text is one background span; null otherwise. */
+function parseCellBackground(text: string): ParsedCellBackground | null {
+  const match = BACKGROUND_SPAN_RE.exec(text);
+  if (!match) return null;
+  return { colorClass: match[1], inner: match[2] };
+}
+
+/** Strip any background span wrapper, returning the bare cell text. */
+function stripCellBackground(text: string): string {
+  return parseCellBackground(text)?.inner ?? text;
+}
+
+/** Map a `mdb-bg-*` span class onto the `<td>` background class. */
+function cellBackgroundClass(colorClass: string): string {
+  return colorClass.replace('mdb-bg-', 'cm-table-cell-bg-');
+}
+
 function cellKey(row: number, col: number): string {
   return `${row}:${col}`;
 }
+
+/**
+ * In-flight pointer drag for a table cell selection.
+ *
+ * `moved` flips true as soon as the pointer reaches a different cell, which is
+ * what separates a drag (keep the range, no editor) from a plain click (open
+ * the cell editor on release).
+ */
+interface CellDragState {
+  readonly tableIndex: number;
+  readonly anchorRow: number;
+  readonly anchorCol: number;
+  moved: boolean;
+}
+
+const activeCellDrags = new Map<EditorView, CellDragState>();
 
 /**
  * Staged cell text, keyed by view then `tableIndex:row:col`.
@@ -280,6 +345,265 @@ function markDirty(
 
 function clearDirty(view: EditorView, tableIndex: number, row: number, col: number): void {
   dirtyCells.get(view)?.delete(`${tableIndex}:${row}:${col}`);
+}
+
+// --- Cell-level write-backs (merge / background) -----------------------------
+
+/** Read a cell's raw source text from a parsed block (`row === -1` = header). */
+function readCell(block: TableBlock, row: number, col: number): string {
+  if (row === -1) return block.header[col] ?? '';
+  return block.rows[row]?.[col] ?? '';
+}
+
+/**
+ * Merge the selected rectangle into its top-left cell.
+ *
+ * GFM pipe tables have no colspan, so "merge" is DEFINED as: concatenate the
+ * non-empty texts of the selected cells with a single space, write the joined
+ * text into the top-left cell, and empty every other cell in the region. The
+ * whole table block is replaced in ONE transaction. The selection then
+ * collapses to the top-left cell, so the merge action becomes disabled.
+ *
+ * Returns true when a transaction was dispatched.
+ */
+export function mergeTableCellSelection(
+  view: EditorView,
+  tableIndex: number,
+  rect: CellRect,
+): boolean {
+  flushDirtyTables(view);
+  const block = findTables(view.state.doc.toString())[tableIndex];
+  if (!block) return false;
+
+  const parts: string[] = [];
+  for (let row = rect.minRow; row <= rect.maxRow; row += 1) {
+    for (let col = rect.minCol; col <= rect.maxCol; col += 1) {
+      const text = readCell(block, row, col).trim();
+      if (text) parts.push(text);
+    }
+  }
+  const joined = parts.join(' ');
+
+  const header = [...block.header];
+  const rows = block.rows.map((row) => [...row]);
+  const writeCell = (row: number, col: number, value: string): void => {
+    if (row === -1) header[col] = value;
+    else rows[row][col] = value;
+  };
+  for (let row = rect.minRow; row <= rect.maxRow; row += 1) {
+    for (let col = rect.minCol; col <= rect.maxCol; col += 1) {
+      writeCell(row, col, '');
+    }
+  }
+  writeCell(rect.minRow, rect.minCol, joined);
+
+  view.dispatch({
+    changes: { from: block.from, to: block.to, insert: buildTableMarkdown(header, rows) },
+  });
+  setCellSelection(view, {
+    tableIndex,
+    anchorRow: rect.minRow,
+    anchorCol: rect.minCol,
+    headRow: rect.minRow,
+    headCol: rect.minCol,
+  });
+  return true;
+}
+
+/**
+ * Apply (or clear) a background on every cell of the selected rectangle.
+ *
+ * `colorClass` is an `mdb-bg-*` span class, or null to clear. Each cell's
+ * existing background wrapper is stripped first, so switching colors replaces
+ * rather than nests, and clearing leaves no residual class. ONE transaction.
+ *
+ * Returns true when a transaction was dispatched.
+ */
+export function setCellBackground(
+  view: EditorView,
+  tableIndex: number,
+  rect: CellRect,
+  colorClass: string | null,
+): boolean {
+  flushDirtyTables(view);
+  const block = findTables(view.state.doc.toString())[tableIndex];
+  if (!block) return false;
+
+  const header = [...block.header];
+  const rows = block.rows.map((row) => [...row]);
+  let changed = false;
+  for (let row = rect.minRow; row <= rect.maxRow; row += 1) {
+    for (let col = rect.minCol; col <= rect.maxCol; col += 1) {
+      const current = readCell(block, row, col);
+      const inner = stripCellBackground(current);
+      const next = colorClass ? `<span class="${colorClass}">${inner}</span>` : inner;
+      if (next === current) continue;
+      changed = true;
+      if (row === -1) header[col] = next;
+      else rows[row][col] = next;
+    }
+  }
+  if (!changed) return false;
+
+  view.dispatch({
+    changes: { from: block.from, to: block.to, insert: buildTableMarkdown(header, rows) },
+  });
+  return true;
+}
+
+/**
+ * Toggle `.cm-table-cell-selected` on every live cell from the stored
+ * selection. Called after a raw drag event (no CM6 transaction) so the range
+ * highlights immediately; `buildCell`/`updateDOM` re-apply it after a rebuild.
+ */
+export function paintCellSelection(view: EditorView): void {
+  const selection = getCellSelection(view);
+  const tables = view.dom.querySelectorAll<HTMLTableElement>('table.cm-table');
+  tables.forEach((table, tableIndex) => {
+    const cells = table.querySelectorAll<HTMLElement>('th[data-row], td[data-row]');
+    cells.forEach((cell) => {
+      const row = Number(cell.dataset.row);
+      const col = Number(cell.dataset.col);
+      const selected =
+        selection !== null &&
+        selection.tableIndex === tableIndex &&
+        isCellInSelection(selection, row, col);
+      cell.classList.toggle('cm-table-cell-selected', selected);
+    });
+  });
+}
+
+/**
+ * ViewPlugin that repaints selection classes whenever the view-level selection
+ * changes. Kept separate from the toolbar so the highlight works even if the
+ * toolbar is not mounted.
+ */
+export function tableCellSelectionPainter(): Extension {
+  return ViewPlugin.fromClass(
+    class {
+      private readonly unsubscribe: () => void;
+
+      constructor(private readonly view: EditorView) {
+        this.unsubscribe = subscribeCellSelection(view, () => paintCellSelection(view));
+      }
+
+      destroy(): void {
+        this.unsubscribe();
+        activeCellDrags.delete(this.view);
+      }
+    },
+  );
+}
+
+/**
+ * Open the inline `<input>` editor for one cell.
+ *
+ * Module scope (not a widget closure) because the click resolves on the
+ * DOCUMENT mouseup: the widget may have been rebuilt during mousedown capture,
+ * so the live cell is looked up by row/col rather than through a captured DOM
+ * node.
+ *
+ * The editor is a real `<input>`, not a nested `contenteditable`: a form
+ * control is never part of CM6's editable region, emits no DOM mutations its
+ * observer could act on, and has native focus, caret, IME and undo.
+ */
+function openCellEditor(
+  view: EditorView,
+  tableIndex: number,
+  row: number,
+  col: number,
+): void {
+  flushDirtyTables(view);
+  const table = view.dom.querySelectorAll('.cm-table')[tableIndex];
+  const host = table?.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+  if (!(host instanceof HTMLElement)) return;
+  const existing = host.querySelector('.cm-table-cell-input') as HTMLInputElement | null;
+  if (existing) {
+    existing.focus();
+    return;
+  }
+  // Preserve a cell background across an edit: the input shows the inner text,
+  // and staged text re-wraps it in the same span so the color is not lost.
+  const backgroundClass = host.dataset.cellBg ?? null;
+  const span = host.querySelector('.cm-table-cell-text');
+  const initial = span?.textContent ?? '';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'cm-table-cell-input';
+  input.setAttribute('data-testid', 'cm-table-cell-input');
+  input.value = initial;
+  host.classList.add('cm-table-cell-editing');
+  host.insertBefore(input, host.querySelector('.cm-table-cell-handle'));
+  input.focus();
+  input.setSelectionRange(initial.length, initial.length);
+
+  let composing = false;
+  const stage = (): void => {
+    const text = backgroundClass
+      ? `<span class="${backgroundClass}">${input.value}</span>`
+      : input.value;
+    markDirty(view, tableIndex, row, col, text);
+  };
+  const teardown = (): void => {
+    input.remove();
+    host.classList.remove('cm-table-cell-editing');
+  };
+  const commit = (): void => {
+    // A structural flush may have rebuilt the widget, taking this input with it
+    // — then the document already holds the text and there is nothing to do.
+    if (!input.isConnected) return;
+    flushDirtyTables(view);
+    clearDirty(view, tableIndex, row, col);
+    if (span) span.textContent = input.value;
+    teardown();
+  };
+
+  input.addEventListener('compositionstart', () => {
+    composing = true;
+  });
+  input.addEventListener('compositionend', () => {
+    composing = false;
+    stage();
+  });
+  input.addEventListener('input', stage);
+  input.addEventListener('keydown', (event) => {
+    event.stopPropagation();
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault();
+      commit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      clearDirty(view, tableIndex, row, col);
+      teardown();
+    }
+  });
+  input.addEventListener('blur', () => {
+    if (!composing) commit();
+  });
+  input.addEventListener('mousedown', (event) => event.stopPropagation());
+}
+
+/**
+ * Settle every in-flight cell drag on pointer release.
+ *
+ * A drag that never reached another cell is a plain click: the editor opens on
+ * the next frame, after the widget has settled. A drag that did move keeps the
+ * range selected and opens nothing.
+ */
+if (typeof document !== 'undefined') {
+  document.addEventListener('mouseup', () => {
+    for (const [view, drag] of [...activeCellDrags]) {
+      activeCellDrags.delete(view);
+      if (drag.moved) continue;
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() =>
+          openCellEditor(view, drag.tableIndex, drag.anchorRow, drag.anchorCol),
+        );
+      } else {
+        openCellEditor(view, drag.tableIndex, drag.anchorRow, drag.anchorCol);
+      }
+    }
+  });
 }
 
 // --- Widget ------------------------------------------------------------------
@@ -388,13 +712,30 @@ class TableWidget extends WidgetType {
       el.dataset.col = String(col);
       if (key === activeKey) el.classList.add('cm-table-cell-active');
 
+      // A cell whose whole text is an `mdb-bg-*` span paints the cell itself
+      // and shows only the inner text — the span markup never reaches the DOM.
+      const background = parseCellBackground(text);
+      if (background) {
+        el.dataset.cellBg = background.colorClass;
+        el.classList.add(cellBackgroundClass(background.colorClass));
+      }
+
       const body = document.createElement('span');
       body.className = 'cm-table-cell-text';
       body.setAttribute('data-testid', 'cm-table-cell-text');
       body.dataset.row = String(row);
       body.dataset.col = String(col);
-      body.textContent = text;
+      body.textContent = background ? background.inner : text;
       el.appendChild(body);
+
+      const selection = view ? getCellSelection(view) : null;
+      if (
+        selection &&
+        selection.tableIndex === this.tableIndex &&
+        isCellInSelection(selection, row, col)
+      ) {
+        el.classList.add('cm-table-cell-selected');
+      }
 
       const handle = document.createElement('div');
       handle.className = 'cm-table-cell-handle';
@@ -488,13 +829,13 @@ class TableWidget extends WidgetType {
   }
 
   /**
-   * Wire one cell: click to edit, dirty staging, settle-on-blur.
+   * Wire one cell: pointer selection (click = edit, drag/shift = range) plus the
+   * insert handle.
    *
-   * The editor is a real `<input>`, not a nested `contenteditable`: a form
-   * control is never part of CM6's editable region, emits no DOM mutations its
-   * observer could act on, and has native focus, caret, IME and undo. Building
-   * and focusing it in the same task avoids the DOM-generation race that made a
-   * `focus()` against a cached node silently no-op.
+   * The editor itself is built by `openCellEditor` on document mouseup; this
+   * wiring only tracks the selection rectangle, because a drag must not open an
+   * editor. Selection lives in view-level state (`cell-selection.ts`) so it
+   * survives the widget rebuild that happens during mousedown capture.
    */
   private wireCell(
     view: EditorView,
@@ -505,86 +846,49 @@ class TableWidget extends WidgetType {
   ): void {
     const tableIndex = this.tableIndex;
 
-    const openEditor = (): void => {
-      // Commit any open cell first: focusing the new input fires the old input's
-      // blur, whose flush would rebuild the table widget and detach the input we
-      // are about to place. Flushing up front keeps this open on live DOM.
-      flushDirtyTables(view);
-      const table = view.dom.querySelectorAll('.cm-table')[tableIndex];
-      const host = table?.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-      if (!(host instanceof HTMLElement)) return;
-      const existing = host.querySelector('.cm-table-cell-input') as HTMLInputElement | null;
-      if (existing) {
-        existing.focus();
-        return;
-      }
-      const span = host.querySelector('.cm-table-cell-text');
-      const initial = span?.textContent ?? '';
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'cm-table-cell-input';
-      input.setAttribute('data-testid', 'cm-table-cell-input');
-      input.value = initial;
-      host.classList.add('cm-table-cell-editing');
-      host.insertBefore(input, host.querySelector('.cm-table-cell-handle'));
-      input.focus();
-      input.setSelectionRange(initial.length, initial.length);
-
-      let composing = false;
-      const teardown = (): void => {
-        input.remove();
-        host.classList.remove('cm-table-cell-editing');
-      };
-      const commit = (): void => {
-        // A structural flush may have rebuilt the widget, taking this input with
-        // it — then the document already holds the text and there is nothing to do.
-        if (!input.isConnected) return;
-        flushDirtyTables(view);
-        clearDirty(view, tableIndex, row, col);
-        if (span) span.textContent = input.value;
-        teardown();
-      };
-
-      input.addEventListener('compositionstart', () => {
-        composing = true;
-      });
-      input.addEventListener('compositionend', () => {
-        composing = false;
-        markDirty(view, tableIndex, row, col, input.value);
-      });
-      input.addEventListener('input', () => {
-        markDirty(view, tableIndex, row, col, input.value);
-      });
-      input.addEventListener('keydown', (event) => {
-        event.stopPropagation();
-        if (event.key === 'Enter' || event.key === 'Tab') {
-          event.preventDefault();
-          commit();
-        } else if (event.key === 'Escape') {
-          event.preventDefault();
-          clearDirty(view, tableIndex, row, col);
-          teardown();
-        }
-      });
-      input.addEventListener('blur', () => {
-        if (!composing) commit();
-      });
-      input.addEventListener('mousedown', (event) => event.stopPropagation());
-    };
-
-    // Open on mousedown, but resolve the cell after a frame: CM6 may rebuild the
-    // widget DOM during this same mousedown, detaching the event's target. This
-    // cell's row/col are known from its own wiring, so the live replacement is
-    // looked up by identity instead of through the stale node.
     cellEl.addEventListener('mousedown', (event) => {
       if ((event.target as HTMLElement | null)?.closest('.cm-table-cell-handle')) return;
       event.preventDefault();
       event.stopPropagation();
-      if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(openEditor);
-      } else {
-        openEditor();
+
+      // Commit any editor still open on another cell NOW. The editor for this
+      // press opens on mouseup (so a drag can select instead), and until then
+      // the old input would otherwise keep focus and swallow the first keystroke.
+      view.dom.querySelector<HTMLInputElement>('.cm-table-cell-input')?.blur();
+
+      const existing = getCellSelection(view);
+      if (event.shiftKey && existing && existing.tableIndex === tableIndex) {
+        // Shift-click extends the current anchor to this cell; no editor opens.
+        setCellSelection(view, { ...existing, headRow: row, headCol: col });
+        return;
       }
+
+      // Record the anchor. `moved` flips on the first pointer move to another
+      // cell, which is what separates a drag (keep the range) from a click
+      // (open the editor) when the pointer is released.
+      activeCellDrags.set(view, { tableIndex, anchorRow: row, anchorCol: col, moved: false });
+      const selection: CellSelection = {
+        tableIndex,
+        anchorRow: row,
+        anchorCol: col,
+        headRow: row,
+        headCol: col,
+      };
+      setCellSelection(view, selection);
+    });
+
+    cellEl.addEventListener('mouseenter', () => {
+      const drag = activeCellDrags.get(view);
+      if (!drag || drag.tableIndex !== tableIndex) return;
+      if (row === drag.anchorRow && col === drag.anchorCol) return;
+      drag.moved = true;
+      setCellSelection(view, {
+        tableIndex,
+        anchorRow: drag.anchorRow,
+        anchorCol: drag.anchorCol,
+        headRow: row,
+        headCol: col,
+      });
     });
 
     // Handle: hover opens, press repositions. Leaving the handle must NOT close
@@ -617,7 +921,11 @@ class TableWidget extends WidgetType {
         const target = event.target as HTMLElement | null;
         if (target?.closest?.('.cm-table-wrap')) return;
         if (target?.closest?.('.mdb-slash-menu')) return;
+        // The cell toolbar lives outside the wrap; a press on it must keep the
+        // cell selection alive for the action it is about to run.
+        if (target?.closest?.('.mdb-cell-toolbar')) return;
         flushDirtyTables(view);
+        clearCellSelection(view);
       },
       true,
     );
@@ -767,6 +1075,7 @@ class TableWidget extends WidgetType {
     const boundaries = wrap.querySelector<HTMLElement>('.cm-table-boundaries');
     if (!table || !boundaries) return false;
 
+    const selection = getCellSelection(view);
     // Skip the cell that is being edited: its text lives in the input until the
     // edit settles, so refreshing it from the document here would clobber it.
     for (const cell of this.cells) {
@@ -775,11 +1084,29 @@ class TableWidget extends WidgetType {
       );
       if (!body) continue;
       const cellEl = body.parentElement;
-      if (!cellEl?.querySelector('.cm-table-cell-input')) {
-        const expected = this.cellText(cell.row, cell.col);
+      if (cellEl && !cellEl.querySelector('.cm-table-cell-input')) {
+        const raw = this.cellText(cell.row, cell.col);
+        const background = parseCellBackground(raw);
+        const expected = background ? background.inner : raw;
         if ((body.textContent ?? '') !== expected) body.textContent = expected;
+        if (background) {
+          cellEl.dataset.cellBg = background.colorClass;
+          cellEl.classList.add(cellBackgroundClass(background.colorClass));
+        } else {
+          delete cellEl.dataset.cellBg;
+          for (const cls of [...cellEl.classList]) {
+            if (cls.startsWith('cm-table-cell-bg-')) cellEl.classList.remove(cls);
+          }
+        }
       }
-      if (cellEl) cellEl.classList.toggle('cm-table-cell-active', cell.active);
+      if (cellEl) {
+        cellEl.classList.toggle('cm-table-cell-active', cell.active);
+        const selected =
+          selection !== null &&
+          selection.tableIndex === this.tableIndex &&
+          isCellInSelection(selection, cell.row, cell.col);
+        cellEl.classList.toggle('cm-table-cell-selected', selected);
+      }
     }
 
     if (typeof requestAnimationFrame === 'function') {
