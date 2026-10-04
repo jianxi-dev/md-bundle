@@ -288,6 +288,15 @@ describe('layout templates via fenced divs', () => {
     facts.col2 = true;
   });
 
+  it('rebuilds editor-written {.col-2 cols:40,60} into gap-adjusted grid tracks (#327)', () => {
+    const html = renderMarkdown(
+      ['::: {.col-2 cols:40,60}', '', 'Left', '', 'Right', '', ':::'].join('\n'),
+    );
+    expect(html).toContain('class="layout-col-2');
+    expect(html).toContain('data-cols="40,60"');
+    expect(html).toContain('grid-template-columns: calc(40% - 0.75em) calc(60% - 0.75em)');
+  });
+
   it('converts {.col-3} into a div with layout-col-3 class and renders inner markdown', () => {
     const html = renderMarkdown(
       [

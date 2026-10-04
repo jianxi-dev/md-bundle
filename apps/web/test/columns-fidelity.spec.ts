@@ -128,6 +128,18 @@ test('AC: 拖拽栏沟改变栏宽并回写源码 cols:', async ({ page }) => {
   const raw = await rawDoc(page)
   expect(raw).toMatch(/::: \{\.col-2 cols:\d+,\d+\}/)
   expect(raw).not.toMatch(/\.col-2cols/)
+
+  // 预览态尊重栏宽（data-cols → 消毒后注入 grid 轨道），不再等宽。
+  await page.getByTestId('mode-preview-btn').click()
+  await expect(page.locator('.preview-content').first()).toBeVisible()
+  await settle(page)
+  const previewBlock = page.locator('.preview-content .layout-col-2').first()
+  await expect(previewBlock).toBeVisible()
+  const tracks = await previewBlock.evaluate((el) =>
+    getComputedStyle(el).gridTemplateColumns.split(' ').map(parseFloat),
+  )
+  expect(tracks.length).toBe(2)
+  expect(Math.abs(tracks[0] - tracks[1])).toBeGreaterThan(1)
 })
 
 test('AC: 2→5 栏切换后各栏按当前栏重建、无残留', async ({ page }) => {
