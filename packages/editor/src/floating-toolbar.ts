@@ -387,6 +387,13 @@ function createDropdownItemDom(
   return container;
 }
 
+/**
+ * One color-panel option.
+ *
+ * The font-color row renders each option as a letter "A" tinted with its own
+ * color (spec §6): the glyph IS the label, so a color is identifiable without
+ * reading text. The background row keeps solid swatches.
+ */
 function createColorSwatchButton(
   view: EditorView,
   option: DropdownOption,
@@ -403,7 +410,24 @@ function createColorSwatchButton(
   swatch.style.border = '1px solid var(--mdb-border)';
   swatch.style.cursor = 'pointer';
   swatch.style.padding = '0';
-  swatch.style.background = option.swatch ?? 'transparent';
+
+  if (variant === 'text') {
+    // Font color: a tinted "A" glyph, not a filled swatch.
+    swatch.style.background = 'transparent';
+    swatch.style.display = 'flex';
+    swatch.style.alignItems = 'center';
+    swatch.style.justifyContent = 'center';
+    const glyph = document.createElement('span');
+    glyph.className = 'mdb-color-swatch-text-glyph';
+    glyph.textContent = 'A';
+    glyph.style.color = option.swatch ?? 'var(--mdb-text)';
+    glyph.style.fontSize = '14px';
+    glyph.style.fontWeight = '600';
+    glyph.style.lineHeight = '1';
+    swatch.appendChild(glyph);
+  } else {
+    swatch.style.background = option.swatch ?? 'transparent';
+  }
 
   swatch.addEventListener('mousedown', (e) => {
     e.preventDefault();

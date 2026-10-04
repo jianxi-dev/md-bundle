@@ -351,6 +351,30 @@ describe('floating toolbar: color popup (ticket #278)', () => {
     );
   });
 
+  it('字体色 options are letter "A" glyphs tinted with their own color', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '颜色');
+    const red = view.dom.querySelector<HTMLButtonElement>(
+      '.mdb-toolbar-color-menu .mdb-color-swatch-text[title="红色"]',
+    );
+    // The glyph is the label — no text, just a tinted "A".
+    const glyph = red?.querySelector('span');
+    expect(glyph?.textContent).toBe('A');
+    expect(glyph?.style.color).toMatch(/rgb\(207,\s*34,\s*46\)|#cf222e/i);
+    // The font row is not a solid swatch.
+    expect(red?.style.background).toBe('transparent');
+  });
+
+  it('背景色 options stay solid swatches (no glyph)', () => {
+    selectWord(view, 'Hello world', 'Hello');
+    clickBtn(view, '颜色');
+    const blue = view.dom.querySelector<HTMLButtonElement>(
+      '.mdb-toolbar-color-menu .mdb-color-swatch-bg[title="蓝色"]',
+    );
+    expect(blue?.querySelector('span')).toBeNull();
+    expect(blue?.style.background).toMatch(/rgb\(215,\s*220,\s*255\)|#d7dcff/i);
+  });
+
   it('字体色 swatch applies 红色 (mdb-color-red)', () => {
     selectWord(view, 'Hello world', 'Hello');
     clickColorSwatch(view, 'text', '红色');
