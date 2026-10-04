@@ -194,7 +194,12 @@ test('预览模式下点击大纲项 → 预览面板滚动到目标标题', asy
 
   await openDoc(page, 'preview-scroll.md', lines.join('\n') + '\n')
 
-  // 默认 preview 模式 → 钉住大纲
+  // D1（#336）：.md 打开默认编辑态——本用例专测「预览模式」大纲滚动，先显式切到预览并确认。
+  await page.getByTestId('mode-preview-btn').click()
+  await expect(page.getByTestId('mode-preview-btn')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('mode-pane-preview')).toBeVisible()
+
+  // 预览模式 → 钉住大纲
   await pinOutline(page)
 
   // 确认大纲有 2 个标题

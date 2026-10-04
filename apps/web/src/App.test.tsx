@@ -4,7 +4,7 @@ import App from './App';
 import { Toolbar } from './components/Toolbar';
 
 // jsdom 的 File 不实现 arrayBuffer()，openFile 的真实读取在 test/openFile.test.ts（node env）覆盖。
-// 这里 mock 掉 openFile 以确定性验证「打开 → 默认预览」的接线。
+// 这里 mock 掉 openFile 以确定性验证「打开 .md → 默认编辑态」的接线。
 vi.mock('./lib/openFile', () => ({
   openFile: vi.fn(async () => ({ kind: 'md', name: 'hello.md', content: '# Hello\n\n正文段落' })),
 }));
@@ -25,16 +25,16 @@ describe('App', () => {
     expect(screen.getByText('选择或拖入文件', { exact: true })).toBeInTheDocument();
   });
 
-  it('opens a .md document → new tab defaults to preview mode (preview pane visible) + copy-body button present', async () => {
+  it('opens a .md document → new tab defaults to edit mode (editor pane visible) + copy-body button present', async () => {
     render(<App />);
     const file = new File(['# Hello\n\n正文段落'], 'hello.md', { type: 'text/markdown' });
     fireEvent.change(screen.getByTestId('file-input'), { target: { files: [file] } });
 
-    // 打开后应出现页签条；预览 pane 默认可见（display: block），编辑器 pane 隐藏
+    // D1（#336）：打开 .md 默认编辑态；编辑器 pane 可见（display: block），预览 pane 隐藏
     await waitFor(() => expect(screen.getByTestId('tab-strip')).toBeInTheDocument());
     expect(screen.getByTestId('tab-strip').textContent).toContain('hello.md');
-    expect(screen.getByTestId('mode-pane-preview')).toHaveStyle({ display: 'block' });
-    expect(screen.getByTestId('mode-pane-editor')).toHaveStyle({ display: 'none' });
+    expect(screen.getByTestId('mode-pane-editor')).toHaveStyle({ display: 'block' });
+    expect(screen.getByTestId('mode-pane-preview')).toHaveStyle({ display: 'none' });
     // 复制正文为图片按钮存在
     expect(screen.getByTestId('copy-body-image-btn')).toBeInTheDocument();
   });

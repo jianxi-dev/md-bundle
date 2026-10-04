@@ -26,6 +26,8 @@ export interface LandingProps {
   recentDocs?: RecentDocItem[]
   /** 恢复最近文档。 */
   onOpenRecentDoc?: (doc: RecentDocItem) => void
+  /** 新建空白文档（D9 #336：空态直达空白可编辑页签）。 */
+  onNewDocument?: () => void
 }
 
 // ── 品牌 SVG 图标（无 emoji 即图标）────────────────────────────
@@ -374,7 +376,7 @@ function RecentDocsSection({
               if (!doc || typeof doc.name !== 'string' || !doc.kind || !doc.source) return null
               return (
                 <button
-                  key={`${doc.closedAt}-${i}`}
+                  key={`${doc.name}-${doc.kind}-${doc.closedAt}`}
                   type="button"
                   data-testid={`recent-doc-item-${i}`}
                   onClick={() => onOpenDoc(doc)}
@@ -412,6 +414,7 @@ export function Landing({
   onOpenExample,
   recentDocs = [],
   onOpenRecentDoc,
+  onNewDocument,
 }: LandingProps): JSX.Element {
   /** 触发文件选择器。 */
   const handleOpenClick = () => {
@@ -568,6 +571,15 @@ export function Landing({
               className="btn primary"
             >
               立即打开文档
+            </button>
+            {/* D9（#336）：空态直达空白文档入口 */}
+            <button
+              type="button"
+              data-testid="cta-new-blank"
+              onClick={onNewDocument}
+              className="btn ghost"
+            >
+              新建空白文档
             </button>
             <button
               type="button"

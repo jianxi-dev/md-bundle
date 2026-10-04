@@ -92,7 +92,7 @@ function StructurePanel({
       </h3>
       {diagnostics.map((d, i) => (
         <button
-          key={`${d.rule}-${d.from}-${i}`}
+          key={`${d.rule}-${d.from}-${d.to}`}
           type="button"
           data-testid={`structure-diagnostic-${i}`}
           onClick={() => onScrollToPosition?.(d.from)}
@@ -147,7 +147,7 @@ function RecentFilesSection({
             if (!doc || typeof doc.name !== 'string' || !doc.kind || !doc.source) return null
             return (
               <button
-                key={`${doc.closedAt}-${i}`}
+                key={`${doc.name}-${doc.kind}-${doc.closedAt}`}
                 type="button"
                 data-testid={`recent-file-item-${i}`}
                 onClick={() => onOpenDoc(doc)}

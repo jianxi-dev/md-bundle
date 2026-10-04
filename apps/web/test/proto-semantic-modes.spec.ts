@@ -1,6 +1,6 @@
 // 语义编辑态 × 三模式一致性探针（编辑器交互原型 §1/§7，真实鼠标路径）。
 // 锁定行为：
-//   ① 打开文档默认预览态（产品决策，覆盖旧规格「编辑为默认」文本；预览为默认不得判缺陷）；
+//   ① 打开 .md 默认编辑态（D1 #336，覆盖旧的「打开即预览」产品决策；.mdpkg/示例/最近文档仍预览）；
 //   ② 语义态只跟随被点击的块（原型 §1「点击任意一个块 → 只有被点击的块变化」）：
 //      点击 H2 → 仅 H2 的 .cm-heading-marker 以 ~0.4 透明度揭示，H3 保持 0；
 //      点击 H3 → 仅 H3 揭示、H2 回 0（同一时刻至多一个活动块）；
@@ -75,26 +75,26 @@ async function boxOf(
   return box
 }
 
-test('默认模式：打开文档即预览，无任何点击', async ({ page }) => {
+test('默认模式：打开 .md 即编辑态，无任何点击（D1 #336）', async ({ page }) => {
   const pageErrors: string[] = []
   page.on('pageerror', (e) => pageErrors.push(String(e)))
 
   await page.goto('/')
   await openDoc(page, 'proto-default.md')
 
-  // 产品决策：打开即预览（不是缺陷）。三个可观测面：预览面板可见、编辑面板隐藏、
-  // 预览图标 aria-pressed=true。
-  await expect(page.getByTestId('mode-pane-preview')).toBeVisible()
-  await expect(page.getByTestId('mode-pane-editor')).toBeHidden()
-  await expect(page.getByTestId('mode-preview-btn')).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByTestId('mode-edit-btn')).toHaveAttribute('aria-pressed', 'false')
+  // D1（#336）：打开 .md 默认进入编辑态。三个可观测面：编辑面板可见、预览面板隐藏、
+  // 编辑图标 aria-pressed=true。
+  await expect(page.getByTestId('mode-pane-editor')).toBeVisible()
+  await expect(page.getByTestId('mode-pane-preview')).toBeHidden()
+  await expect(page.getByTestId('mode-edit-btn')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('mode-preview-btn')).toHaveAttribute('aria-pressed', 'false')
 
   // QG-4：两面板同挂 DOM，仅 display 切换 —— 以 computed display 复核。
-  expect(await displayOf(page.getByTestId('mode-pane-preview'))).toBe('block')
-  expect(await displayOf(page.getByTestId('mode-pane-editor'))).toBe('none')
+  expect(await displayOf(page.getByTestId('mode-pane-editor'))).toBe('block')
+  expect(await displayOf(page.getByTestId('mode-pane-preview'))).toBe('none')
 
-  // 预览内容真渲染（非空白面板）
-  await expect(page.locator('.preview-content').first()).toContainText('二级标题')
+  // 编辑态内容真渲染（非空白面板）
+  await expect(page.getByTestId('mode-pane-editor').locator('.cm-content')).toContainText('二级标题')
 
   expect(pageErrors).toEqual([])
 })
@@ -198,10 +198,11 @@ test('三模式按页签持久：切走再切回仍为编辑态（spec:293）', 
   await openDoc(page, 'proto-tab-a.md')
   await enterEdit(page)
 
-  // 第二次上传 = 新页签（B），默认预览且成为 active。
+  // D1（#336）：第二次上传 = 新页签（B），默认编辑态且成为 active。
   await openDoc(page, 'proto-tab-b.md')
   await expect(page.getByTestId('tab-strip').locator('[role="tab"]')).toHaveCount(2)
-  await expect(page.getByTestId('mode-pane-preview')).toBeVisible()
+  await expect(page.getByTestId('mode-pane-editor')).toBeVisible()
+  await expect(page.getByTestId('mode-edit-btn')).toHaveAttribute('aria-pressed', 'true')
 
   // 切回 A：规格「SHALL persist per tab」→ 必须仍为编辑态。
   // 若应用把模式重置为 preview，此断言按探针约定保留失败（不弱化），作为产品缺陷证据上报。

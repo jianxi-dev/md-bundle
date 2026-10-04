@@ -75,7 +75,7 @@ test('non-ZIP bytes renamed .mdpkg → error alert (deterministic wrapper), no w
   await page.screenshot({ path: join(RES, 'open-fail-nonzip.png'), fullPage: false });
 });
 
-test('.md → editor + live preview split view', async ({ page }) => {
+test('.md → defaults to edit mode, editor visible without clicking', async ({ page }) => {
   await page.goto('/');
   await fileInput(page).setInputFiles({
     name: 'notes.md',
@@ -83,8 +83,8 @@ test('.md → editor + live preview split view', async ({ page }) => {
     buffer: Buffer.from('# Hello World\n\nBody text\n'),
   });
 
-  // Product defaults to preview mode; switch to edit mode to access editor
-  await page.getByTestId('mode-edit-btn').click();
+  // D1（#336）：.md 打开默认进入编辑态，无需点击 mode-edit-btn
+  await expect(page.getByTestId('mode-edit-btn')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.cm-editor').first()).toBeVisible();
   await expect(page.locator('.cm-content').first()).toContainText('Hello World');
 });
@@ -92,7 +92,7 @@ test('.md → editor + live preview split view', async ({ page }) => {
 test('opening a second file replaces the current document', async ({ page }) => {
   await page.goto('/');
   await fileInput(page).setInputFiles(join(FIX, 'valid.mdpkg'));
-  // Product defaults to preview mode; switch to edit mode to access editor
+  // .mdpkg 仍默认预览：点击编辑以访问编辑器
   await page.getByTestId('mode-edit-btn').click();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
 
@@ -101,8 +101,8 @@ test('opening a second file replaces the current document', async ({ page }) => 
     mimeType: 'text/markdown',
     buffer: Buffer.from('# Second\n'),
   });
-  // Product defaults to preview mode; switch to edit mode to access editor
-  await page.getByTestId('mode-edit-btn').click();
+  // D1（#336）：.md 默认编辑态，无需切换
+  await expect(page.getByTestId('mode-edit-btn')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.cm-editor').first()).toBeVisible();
   await expect(page.locator('.cm-content').first()).toContainText('Second');
 });
