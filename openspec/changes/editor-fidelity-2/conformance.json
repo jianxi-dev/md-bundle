@@ -1,0 +1,637 @@
+{
+  "requirements": [
+    {
+      "id": "R-01",
+      "key": "R-HANDLE-01",
+      "title": "块手柄几何：42×26 两段药丸",
+      "anchors": [
+        {
+          "id": "A-01.1",
+          "assert": "42",
+          "source": "prototype §2.2 / .lavish/doubao-editor-spec-v2.html .hnd L69-73",
+          "type": "exact"
+        },
+        {
+          "id": "A-01.2",
+          "assert": "26",
+          "source": "prototype §2.2 / .lavish/doubao-editor-spec-v2.html .hnd L69-73",
+          "type": "exact"
+        },
+        {
+          "id": "A-01.3",
+          "assert": "6",
+          "source": "prototype §2.2 / .lavish/doubao-editor-spec-v2.html .hnd L69-73",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-02",
+      "key": "R-HANDLE-02",
+      "title": "块手柄图标：data-icon 命中 ICON_MAP",
+      "anchors": [
+        {
+          "id": "A-02.1",
+          "assert": "data-icon=\"DataSheetOutlined\"",
+          "source": "functional-spec.md §3.2 表格块型图标映射表",
+          "type": "exact"
+        },
+        {
+          "id": "A-02.2",
+          "assert": "data-icon=\"DisorderListOutlined\"",
+          "source": "functional-spec.md §3.2 列表块型图标映射表",
+          "type": "exact"
+        },
+        {
+          "id": "A-02.3",
+          "assert": "data-icon=\"CalloutOutlined\"",
+          "source": "functional-spec.md §3.2 高亮块型图标映射表",
+          "type": "exact"
+        },
+        {
+          "id": "A-02.4",
+          "assert": "data-icon=\"DragOutlined\"",
+          "source": "functional-spec.md §3.3 拖拽把手统一图标",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-03",
+      "key": "R-ICON",
+      "title": "块型→图标映射表（ICON_MAP）完整性",
+      "anchors": [
+        {
+          "id": "A-03.1",
+          "assert": "data-icon=\"TextOutlined\"",
+          "source": "functional-spec.md §3.2 正文块型图标",
+          "type": "exact"
+        },
+        {
+          "id": "A-03.2",
+          "assert": "data-icon=\"DataSheetOutlined\"",
+          "source": "functional-spec.md §3.2 表格块型图标",
+          "type": "exact"
+        },
+        {
+          "id": "A-03.3",
+          "assert": "data-icon=\"DisorderListOutlined\"",
+          "source": "functional-spec.md §3.2 列表块型图标",
+          "type": "exact"
+        },
+        {
+          "id": "A-03.4",
+          "assert": "data-icon=\"CalloutOutlined\"",
+          "source": "functional-spec.md §3.2 高亮块型图标",
+          "type": "exact"
+        },
+        {
+          "id": "A-03.5",
+          "assert": "data-icon=\"ReferenceOutlined\"",
+          "source": "functional-spec.md §3.2 引用块型图标",
+          "type": "exact"
+        },
+        {
+          "id": "A-03.6",
+          "assert": "data-icon=\"CodeblockOutlined\"",
+          "source": "functional-spec.md §3.2 代码块型图标",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-04",
+      "key": "R-HANDLE-03",
+      "title": "块手柄悬停编排：文本不弹菜单、手柄延迟后弹",
+      "anchors": [
+        {
+          "id": "A-04.1",
+          "assert": "悬停文本 500ms → 菜单关闭",
+          "source": "cw-fidelity-verified-defects.md F-05 实测证据",
+          "type": "state-machine"
+        },
+        {
+          "id": "A-04.2",
+          "assert": "悬停手柄 ≥120ms → 菜单打开",
+          "source": "design.md D2 展开缓冲",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-05",
+      "key": "R-MENU-01",
+      "title": "块菜单宽度 236px",
+      "anchors": [
+        {
+          "id": "A-05.1",
+          "assert": "236",
+          "source": "prototype §2.3 / .lavish/doubao-editor-spec-v2.html .menu L76-79",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-06",
+      "key": "R-MENU-02",
+      "title": "块菜单项高 32px / 字号 12px",
+      "anchors": [
+        {
+          "id": "A-06.1",
+          "assert": "32",
+          "source": "prototype §2.3 / .lavish/doubao-editor-spec-v2.html .mi L76-79",
+          "type": "exact"
+        },
+        {
+          "id": "A-06.2",
+          "assert": "12",
+          "source": "prototype §2.3 / .lavish/doubao-editor-spec-v2.html .mi L76-79",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-07",
+      "key": "R-MENU-03",
+      "title": "块菜单转为网格 10 项 data-icon 精确",
+      "anchors": [
+        {
+          "id": "A-07.1",
+          "assert": "10",
+          "source": "functional-spec.md §4.3 转为网格两行 6+4 项",
+          "type": "exact"
+        },
+        {
+          "id": "A-07.2",
+          "assert": "TextOutlined H1Outlined H2Outlined H3Outlined OrderListOutlined DisorderListOutlined TodoOutlined CodeblockOutlined ReferenceOutlined CalloutOutlined",
+          "source": "functional-spec.md §4.3 网格项图标序",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-08",
+      "key": "R-MENU-04",
+      "title": "表格块菜单含三项开关",
+      "anchors": [
+        {
+          "id": "A-08.1",
+          "assert": "menu 文本含 \"标题行\" 且 data-icon=\"HeaderRowOutlined\"",
+          "source": "functional-spec.md §7.1 表格专属三项",
+          "type": "exact"
+        },
+        {
+          "id": "A-08.2",
+          "assert": "menu 文本含 \"标题列\" 且 data-icon=\"HeaderColumnOutlined\"",
+          "source": "functional-spec.md §7.1 表格专属三项",
+          "type": "exact"
+        },
+        {
+          "id": "A-08.3",
+          "assert": "menu 文本含 \"均分列宽\" 且 data-icon=\"DistributeColumnsOutlined\"",
+          "source": "functional-spec.md §7.1 表格专属三项",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-09",
+      "key": "R-MENU-05",
+      "title": "高亮块菜单无颜色/翻译、有同步块",
+      "anchors": [
+        {
+          "id": "A-09.1",
+          "assert": "高亮块菜单不含 \"颜色›\" 且不含 \"翻译\"",
+          "source": "functional-spec.md §4.6 高亮块菜单差异",
+          "type": "exact"
+        },
+        {
+          "id": "A-09.2",
+          "assert": "高亮块菜单含 \"同步块\" 且 data-icon=\"LinkRecordOutlined\"",
+          "source": "functional-spec.md §4.6 高亮块菜单差异",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-10",
+      "key": "R-MENU-06",
+      "title": "块菜单顶端对齐块顶",
+      "anchors": [
+        {
+          "id": "A-10.1",
+          "assert": "menu.y ≈ block.y ±2px",
+          "source": "cw-fidelity-verified-defects.md U-09 验收判据",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-11",
+      "key": "R-MENU-07",
+      "title": "块菜单动作项集含评论/剪切/复制/翻译/分享/复制链接/在下方添加",
+      "anchors": [
+        {
+          "id": "A-11.1",
+          "assert": "动作项集含 \"评论\" \"剪切\" \"复制\" \"翻译\" \"分享\" \"复制链接\" \"在下方添加›\"",
+          "source": "functional-spec.md §4.3 面板项列表",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-12",
+      "key": "R-INSERT-01",
+      "title": "插入菜单三入口共用同一实例",
+      "anchors": [
+        {
+          "id": "A-12.1",
+          "assert": "空行\"+\" → 块菜单\"在下方添加›\" → 斜杠 均打开同一 \".mdb-slash-menu\"",
+          "source": "functional-spec.md §5.4 三入口共用",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-13",
+      "key": "R-INSERT-02",
+      "title": "插入菜单分类列表形态（非网格）",
+      "anchors": [
+        {
+          "id": "A-13.1",
+          "assert": "分类列表含 \"基础\" \"常用\" \"数据\" \"绘图\" \"团队协作\" \"进阶\" \"更多小组件\"",
+          "source": "functional-spec.md §5.2 七大分类",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-14",
+      "key": "R-INSERT-03",
+      "title": "插入菜单表格›/分栏›悬停即展开二级",
+      "anchors": [
+        {
+          "id": "A-14.1",
+          "assert": "悬停 表格› → 10×10 尺寸选择器 标题 插入支持富文本的表格",
+          "source": "functional-spec.md §5.3 表格尺寸选择器",
+          "type": "state-machine"
+        },
+        {
+          "id": "A-14.2",
+          "assert": "悬停 分栏› → 栏数选择器",
+          "source": "functional-spec.md §5.3 分栏栏数选择器",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-15",
+      "key": "R-INSERT-04",
+      "title": "斜杠 code 语义 /fN（非 /flN）",
+      "anchors": [
+        {
+          "id": "A-15.1",
+          "assert": "/f3 命中 3栏",
+          "source": "cw-fidelity-verified-defects.md U-10 验收判据",
+          "type": "exact"
+        },
+        {
+          "id": "A-15.2",
+          "assert": "/fl3 无匹配",
+          "source": "cw-fidelity-verified-defects.md U-10 根因 columnCount code:'fl'+count",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-16",
+      "key": "R-INSERT-05",
+      "title": "插入菜单取消无残留",
+      "anchors": [
+        {
+          "id": "A-16.1",
+          "assert": "Esc/外部点击 → 文档无 / 、 残留",
+          "source": "cw-fidelity-verified-defects.md F-02 验收判据",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-17",
+      "key": "R-INSERT-06",
+      "title": "空行 + 与手柄同 gutter",
+      "anchors": [
+        {
+          "id": "A-17.1",
+          "assert": "空行+ 与块手柄 x 差 < 2px",
+          "source": "cw-fidelity-verified-defects.md F-06 验收判据",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-18",
+      "key": "R-TABLE-01",
+      "title": "表格行列热点 hover 门控",
+      "anchors": [
+        {
+          "id": "A-18.1",
+          "assert": "非 hover 时热点 display=\"none\"",
+          "source": "cw-fidelity-verified-defects.md F-03 验收判据",
+          "type": "state-machine"
+        },
+        {
+          "id": "A-18.2",
+          "assert": "hover 单元格才现蓝色 \"+\" 气泡 \"插入行\"/\"插入列\"",
+          "source": "functional-spec.md §7.2 行列插入热点",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-19",
+      "key": "R-TABLE-02",
+      "title": "表格热点贴边界 ±2px",
+      "anchors": [
+        {
+          "id": "A-19.1",
+          "assert": "行+ y ≈ 行边界 ±2px",
+          "source": "cw-fidelity-verified-defects.md F-03 验收判据",
+          "type": "exact"
+        },
+        {
+          "id": "A-19.2",
+          "assert": "列+ x ≈ 列边界 ±2px",
+          "source": "cw-fidelity-verified-defects.md F-03 验收判据",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-20",
+      "key": "R-TABLE-03",
+      "title": "点击单元格中心落光标不插行",
+      "anchors": [
+        {
+          "id": "A-20.1",
+          "assert": "elementFromPoint(cell center) = 该单元格（不含 \"cm-table-boundary\"）",
+          "source": "cw-fidelity-verified-defects.md F-04 验收判据",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-21",
+      "key": "R-TABLE-04",
+      "title": "格内手柄悬停 → 插入菜单",
+      "anchors": [
+        {
+          "id": "A-21.1",
+          "assert": "悬停 .mdb-table-cell-handle → 插入菜单打开",
+          "source": "functional-spec.md §7.3 格内手柄→插入菜单",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-22",
+      "key": "R-TABLE-05",
+      "title": "表格块菜单含三项开关",
+      "anchors": [
+        {
+          "id": "A-22.1",
+          "assert": "块菜单含 \"标题行\" \"标题列\" \"均分列宽\"",
+          "source": "functional-spec.md §7.1 表格块菜单",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-23",
+      "key": "R-COLOR-01",
+      "title": "字体色 A×8（默认 + 7 色，原型机读值）",
+      "note": "冲突 C-2：docs/doubao-editor-study/ui-gap-and-target.md §2.6 与 cw-fidelity-verified-defects.md U-06 记「默认+8」/A×9，与原型 8 项不符；以原型机读值为准。",
+      "anchors": [
+        {
+          "id": "A-23.1",
+          "assert": "8",
+          "source": "prototype §2.6 / .lavish/doubao-editor-spec-v2.html fontColors L456-457",
+          "type": "exact"
+        },
+        {
+          "id": "A-23.2",
+          "assert": "#ebebeb #f0000e #f2962c #f0b622 #419e34 #20b2aa #4c88ff #8a5cf6",
+          "source": "prototype §2.6 / .lavish/doubao-editor-spec-v2.html fontColors L456-457",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-24",
+      "key": "R-COLOR-02",
+      "title": "背景色 16 格色值精确",
+      "anchors": [
+        {
+          "id": "A-24.1",
+          "assert": "16",
+          "source": "prototype §2.6 / .lavish/doubao-editor-spec-v2.html bgColors L460",
+          "type": "exact"
+        },
+        {
+          "id": "A-24.2",
+          "assert": "#f0000e #f2962c #f0b622 #419e34 #20b2aa #4c88ff #8a5cf6 #ebebeb #b34444 #845117 #877b10 #296b22 #203e78 #4d2691 #5f5f5f",
+          "source": "prototype §2.6 / .lavish/doubao-editor-spec-v2.html bgColors L460",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-25",
+      "key": "R-COLOR-03",
+      "title": "块菜单与工具条共用颜色子菜单组件",
+      "anchors": [
+        {
+          "id": "A-25.1",
+          "assert": "块菜单与工具条渲染\"同一组件实例\"",
+          "source": "design.md D6 统一实现",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-26",
+      "key": "R-CALLOUT-01",
+      "title": "Callout 类型 flyout label 去重",
+      "anchors": [
+        {
+          "id": "A-26.1",
+          "assert": "13 项 label 唯一：注释 信息 摘要 待办 提示 成功 问题 警告 失败 危险 Bug 示例 引用",
+          "source": "design.md D7 CALLOUT_EDIT_TYPES 去重集合",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-27",
+      "key": "R-CALLOUT-02",
+      "title": "Callout emoji 选择器可打开并选中",
+      "anchors": [
+        {
+          "id": "A-27.1",
+          "assert": "点击 header emoji → emoji-mart 打开 → 选中更新 data-callout-emoji",
+          "source": "functional-spec.md §8.1 emoji 选择器",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-28",
+      "key": "R-PALETTE-01",
+      "title": "命令面板项高 32px",
+      "anchors": [
+        {
+          "id": "A-28.1",
+          "assert": "32",
+          "source": "functional-spec.md §2 菜单行高 32px",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-29",
+      "key": "R-PALETTE-02",
+      "title": "命令面板 gap 4 的倍数",
+      "anchors": [
+        {
+          "id": "A-29.1",
+          "assert": "gap % 4 === 0",
+          "source": "design.md D8 间距阶梯全为 4 倍数",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-30",
+      "key": "R-PALETTE-03",
+      "title": "命令面板字号 12px",
+      "anchors": [
+        {
+          "id": "A-30.1",
+          "assert": "12",
+          "source": "functional-spec.md §2 菜单字号 12px",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-31",
+      "key": "R-CHOREO-01",
+      "title": "离栈即收：指针离开手柄+菜单+flyout 合并区 → 全部消失",
+      "anchors": [
+        {
+          "id": "A-31.1",
+          "assert": "指针移出菜单栈 → 菜单与 flyout 均 display:none",
+          "source": "cw-fidelity-verified-defects.md U-07 验收判据",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-32",
+      "key": "R-CHOREO-02",
+      "title": "视口夹取/翻转：近底部菜单完整落在视口内",
+      "anchors": [
+        {
+          "id": "A-32.1",
+          "assert": "打开近底部块菜单 → menu.bottom ≤ innerHeight",
+          "source": "cw-fidelity-verified-defects.md U-03 验收判据",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-33",
+      "key": "R-CHOREO-03",
+      "title": "滚动消退：滚动 → 手柄/菜单消失",
+      "anchors": [
+        {
+          "id": "A-33.1",
+          "assert": "scroll 事件 → 手柄/菜单 display:none",
+          "source": "cw-fidelity-verified-defects.md F-07 验收判据",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-34",
+      "key": "R-CHOREO-04",
+      "title": "展开缓冲：悬停文本不弹菜单、悬停手柄延迟后弹",
+      "anchors": [
+        {
+          "id": "A-34.1",
+          "assert": "悬停文本 500ms → 菜单关闭",
+          "source": "cw-fidelity-verified-defects.md F-05 实测证据",
+          "type": "state-machine"
+        },
+        {
+          "id": "A-34.2",
+          "assert": "悬停手柄 ≥120ms → 菜单打开",
+          "source": "design.md D9 展开缓冲",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-35",
+      "key": "R-BASE-01",
+      "title": "编辑背景色 === 预览背景色",
+      "anchors": [
+        {
+          "id": "A-35.1",
+          "assert": "getComputedStyle(\".cm-editor\").backgroundColor === getComputedStyle(\".preview-content\").backgroundColor",
+          "source": "cw-fidelity-verified-defects.md U-01 验收判据",
+          "type": "state-machine"
+        }
+      ]
+    },
+    {
+      "id": "R-36",
+      "key": "R-CONF-01",
+      "title": "conformance.json 通过 cw-tickets-check.sh 机检",
+      "anchors": [
+        {
+          "id": "A-36.1",
+          "assert": "requirements 数组非空；每 requirement ≥1 anchor；每 anchor assert 含具体 token、source 非空、type ∈ {exact,state-machine,perceptual}",
+          "source": "input-package.md §二 契约 5 验收锚点",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-37",
+      "key": "R-CONF-02",
+      "title": "baseline 截图哈希锁定",
+      "anchors": [
+        {
+          "id": "A-37.1",
+          "assert": "baseline/manifest.json 含 file sha256 sourceUrl timestamp",
+          "source": "input-package.md §四 新 CW 门禁验证靶场 M0'",
+          "type": "exact"
+        }
+      ]
+    },
+    {
+      "id": "R-38",
+      "key": "R-CONF-03",
+      "title": "e2e 断言骨架存在且覆盖所有锚点",
+      "anchors": [
+        {
+          "id": "A-38.1",
+          "assert": "apps/web/test/fidelity/ 含 \"handle\" \"block-menu\" \"insert-menu\" \"table\" \"color\" \"callout\" \"palette\" \"choreography\" \"base-bg\" spec 文件",
+          "source": "design.md D11 e2e 断言骨架",
+          "type": "exact"
+        }
+      ]
+    }
+  ]
+}
