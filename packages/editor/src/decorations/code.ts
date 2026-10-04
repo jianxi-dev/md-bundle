@@ -103,6 +103,9 @@ export function createCodeDecorations(
   while ((fenceMatch = fencedCodeRegex.exec(text)) !== null) {
     const language = fenceMatch[2];
     if (language.length === 0) continue; // No language → no label.
+    // Mermaid blocks are replaced wholesale by the mermaid decoration, so a
+    // language label and line class here would conflict with that replace.
+    if (language === 'mermaid') continue;
 
     const lineStart = fenceMatch.index;
     // Find end of this line (or end of document).

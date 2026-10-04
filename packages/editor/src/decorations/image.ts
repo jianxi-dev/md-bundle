@@ -29,6 +29,38 @@ export interface ImageCallbacks {
   onImageLocate?: (path: string) => void;
 }
 
+// --- Media classification ----------------------------------------------------
+
+/**
+ * The three renderings a `![alt](path)` reference can take. Mirrors the
+ * shared renderer's `image()` rules (packages/renderer/src/markdown.ts) so
+ * edit and preview agree on which extension is a video, an image, or a file.
+ */
+export type MediaKind = 'image' | 'video' | 'file';
+
+const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'ogv', 'mov', 'm4v']);
+const IMAGE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'bmp', 'ico',
+]);
+
+/** Lowercased extension without query/hash, or '' when the path has none. */
+function extensionOf(path: string): string {
+  const clean = path.split(/[?#]/)[0];
+  const dot = clean.lastIndexOf('.');
+  return dot >= 0 ? clean.slice(dot + 1).toLowerCase() : '';
+}
+
+/**
+ * Classify a media path by extension. No extension (or an image extension)
+ * is an image; a known video extension is a video; anything else is a file.
+ */
+export function classifyMedia(path: string): MediaKind {
+  const ext = extensionOf(path);
+  if (ext !== '' && VIDEO_EXTENSIONS.has(ext)) return 'video';
+  if (ext !== '' && !IMAGE_EXTENSIONS.has(ext)) return 'file';
+  return 'image';
+}
+
 // --- Image widget ------------------------------------------------------------
 
 /**
@@ -194,6 +226,74 @@ class ImageWidget extends WidgetType {
   }
 }
 
+// --- Media widget (video / file) ---------------------------------------------
+
+/**
+ * Widget for the non-image media kinds. A video reference becomes a
+ * `<video controls preload="metadata">` player; anything else becomes a file
+ * link card. `kind` is part of `eq()` so a path edit that flips a reference
+ * between video and file forces CM6 to rebuild the widget.
+ */
+class MediaWidget extends WidgetType {
+  constructor(
+    private readonly _kind: 'video' | 'file',
+    private readonly _alt: string,
+    private readonly _path: string,
+    private readonly _src: string | null,
+  ) {
+    super();
+  }
+
+  eq(other: MediaWidget): boolean {
+    return (
+      other._kind === this._kind &&
+      other._alt === this._alt &&
+      other._path === this._path &&
+      other._src === this._src
+    );
+  }
+
+  toDOM(): HTMLElement {
+    const container = document.createElement('span');
+    container.className = `cm-media-widget cm-media-${this._kind}`;
+    container.style.display = 'inline-block';
+    container.style.maxWidth = '100%';
+    container.style.verticalAlign = 'middle';
+    container.style.backgroundColor = 'var(--mdb-surface)';
+
+    if (this._kind === 'video') {
+      const video = document.createElement('video');
+      video.controls = true;
+      video.preload = 'metadata';
+      // setAttribute (not .src) keeps a relative path relative: the property
+      // getter resolves against the document base URL, which would make the
+      // rendered attribute differ from the source path.
+      video.setAttribute('src', this._src ?? this._path);
+      video.style.maxWidth = '100%';
+      video.style.display = 'block';
+      container.appendChild(video);
+    } else {
+      const link = document.createElement('a');
+      link.setAttribute('href', this._path);
+      link.textContent = this._alt !== '' ? this._alt : this._path;
+      container.appendChild(link);
+    }
+
+    return container;
+  }
+
+  /**
+   * The player and the link keep their native behaviour (a click must reach
+   * the control); a click on the card body is handed back to CM6. CM6 treats
+   * an event as the editor's only when `ignoreEvent` returns false, so the
+   * body returns false and the click places the cursor in the block.
+   */
+  ignoreEvent(event: Event): boolean {
+    const target = event.target as Node | null;
+    return target instanceof Element && target.closest('video, a') !== null;
+  }
+}
+
 // --- Decoration creator ------------------------------------------------------
 
 /**
@@ -296,16 +396,30 @@ export function createImageDecorations(
 
     const alt = match[1];
     const path = match[2];
+    const kind = classifyMedia(path);
+    const from = matchStart;
+    const to = matchStart + match[0].length;
 
-    // Resolve the image path
-    const src = resolveFn(path);
+    if (kind === 'image') {
+      // Resolve the image path (unchanged image behaviour: null → fallback text).
+      const src = resolveFn(path);
+      decorations.push(
+        Decoration.replace({
+          widget: new ImageWidget(alt, path, src, callbacksFn),
+          inclusive: false,
+        }).range(from, to),
+      );
+      continue;
+    }
 
-    // Create decoration replacing the entire match
+    // Video URL resolution reuses the image resolver seam; unresolved video
+    // paths fall back to the raw path so the player still gets a src.
+    const src = kind === 'video' ? (resolveFn(path) ?? path) : null;
     decorations.push(
       Decoration.replace({
-        widget: new ImageWidget(alt, path, src, callbacksFn),
+        widget: new MediaWidget(kind, alt, path, src),
         inclusive: false,
-      }).range(matchStart, matchStart + match[0].length),
+      }).range(from, to),
     );
   }
 

@@ -207,6 +207,19 @@ export const defaultCommands: SlashCommand[] = [
     },
   },
   {
+    id: 'media-ref',
+    label: '视频/文件',
+    hint: '![](file.ext)',
+    icon: '\u25B6',
+    code: 'v',
+    aliases: ['media'],
+    group: '常用',
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: '![文件](文件.pdf)' };
+    },
+  },
+  {
     id: 'task',
     label: '任务',
     hint: '- [ ]',
