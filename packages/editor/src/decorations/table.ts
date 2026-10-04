@@ -2,29 +2,26 @@
  * Table widget — renders a GFM pipe table as a real `<table>` while the
  * markdown source stays the single source of truth.
  *
- * Why the cells are nested contenteditable spans
- * ----------------------------------------------
- * Every cell body is a `.cm-table-cell-text` span carrying its own
- * `contenteditable="true"`. That makes it a NESTED editing host inside CM6's
- * `.cm-content`, so the browser — not CodeMirror — owns the caret while the
- * user types. This is the whole point: routing cell edits through CM6's own
- * input pipeline made each character dispatch against CM6's *stale* selection,
- * so typing `A1` landed `1` on row 0 and a stray `A` on the last row.
+ * How editing works
+ * -----------------
+ * The widget root is `contenteditable="false"`, taking the table out of CM6's
+ * editable region. A cell click opens a real `<input>` inside that cell: a form
+ * control is never part of CM6's editable content, emits no DOM mutations its
+ * observer could act on, and has native focus, caret, IME and undo.
  *
- * Because the nested host is invisible to CM6, typed text is staged in
- * `dirtyCells` and written back with ONE transaction when the edit settles:
- * blur / focusout, a mousedown outside any cell, or editor teardown (mode
- * switch). Writing per keystroke would fight the widget's own re-render.
+ * CM6 rebuilds the widget DOM during the mousedown capture phase, so the click's
+ * event target is detached by the time a handler runs. The editor is therefore
+ * opened on the next frame, looking the live cell up by its own row/col.
  *
- * Event discipline: nothing in here calls `preventDefault()` on mousedown or
- * keydown — the default action is exactly what places the native caret and
- * inserts the character. `stopPropagation()` is used only to keep CM6 out of
- * the nested host's events (capture-phase `focusin` on the wrapper stops CM6
- * from ever learning that focus moved into the cell).
+ * Typed text is staged in a per-view map (so it survives a widget rebuild) and
+ * written back with ONE transaction when the edit settles: blur, Enter/Tab, a
+ * mousedown outside the table, or editor teardown (mode switch). The flush never
+ * dispatches inside a CM6 update — it defers to the next tick when it would.
  */
 import type { Range } from '@codemirror/state';
 import { Decoration, WidgetType, type EditorView } from '@codemirror/view';
 import { defaultCommands, openInsertMenu, releaseInsertMenu } from '../slash';
+import { sanitizeCellText } from './cell-text';
 
 const TABLE_ROW_RE = /^\s*\|.*\|\s*$/;
 const TABLE_SEP_RE = /^\s*\|(\s*:?-+:?\s*\|)+\s*$/;
@@ -176,75 +173,113 @@ function buildTableMarkdown(header: string[], rows: string[][]): string {
   return [headerLine, sepLine, ...bodyLines].join('\n');
 }
 
-/**
- * Make arbitrary typed text safe to store inside a pipe-table cell.
- *
- * A newline would start a new block and a raw `|` would add a column, either
- * of which silently corrupts the table structure on the next parse. Both are
- * flattened to spaces: losing a character beats corrupting the document.
- */
-export function sanitizeCellText(text: string): string {
-  return text.replace(/\r?\n/g, ' ').replace(/\|/g, ' ');
-}
+export { sanitizeCellText };
 
 function cellKey(row: number, col: number): string {
   return `${row}:${col}`;
 }
 
-function parseCellKey(key: string): { row: number; col: number } {
-  const [row, col] = key.split(':');
-  return { row: Number(row), col: Number(col) };
+/**
+ * Staged cell text, keyed by view then `tableIndex:row:col`.
+ *
+ * Kept on the view rather than the widget because CM6 rebuilds widget DOM — and
+ * widget instances — on updates; staging that survives a rebuild must not.
+ */
+interface PendingCell {
+  tableIndex: number;
+  row: number;
+  col: number;
+  text: string;
 }
 
-/** Every widget with staged, not-yet-written cell text, keyed by view. */
-const dirtyTables = new WeakMap<EditorView, Set<TableWidget>>();
+const dirtyCells = new WeakMap<EditorView, Map<string, PendingCell>>();
 
 const externalFlushWired = new WeakSet<EditorView>();
+
+/** Views with a flush already queued — stops settle points stacking timers. */
+const flushScheduled = new WeakSet<EditorView>();
+
+/** Views mid-dispatch — makes a re-entrant flush during the update a no-op. */
+const flushingViews = new WeakSet<EditorView>();
+
+/**
+ * Queue a flush for the next macrotask.
+ *
+ * Dispatching is illegal while CM6 is mid-update — it throws "Calls to
+ * EditorView.update are not allowed while an update is in progress" — and the
+ * widget/plugin teardown hooks run exactly there. Deferring lets the staged
+ * text go out on the next tick instead of being swallowed by a catch.
+ */
+export function scheduleTableFlush(view: EditorView): void {
+  if (flushScheduled.has(view)) return;
+  flushScheduled.add(view);
+  setTimeout(() => {
+    flushScheduled.delete(view);
+    flushDirtyTables(view);
+  }, 0);
+}
 
 /**
  * Write every staged cell back to the document in a single transaction.
  *
- * Returns true when a transaction was dispatched. Safe to call from any of the
- * settle points (and safe to call when nothing is dirty — it no-ops), which is
- * what lets several listeners race without double-writing.
+ * Returns true when a transaction was dispatched. Safe to call from any settle
+ * point (and safe when nothing is dirty — it no-ops), which is what lets
+ * several listeners race without double-writing.
  */
 export function flushDirtyTables(view: EditorView): boolean {
-  const pending = dirtyTables.get(view);
-  if (!pending || pending.size === 0) return false;
+  const pending = dirtyCells.get(view);
+  if (!pending || pending.size === 0 || flushingViews.has(view)) return false;
 
   const docText = view.state.doc.toString();
   const changes: { from: number; to: number; insert: string }[] = [];
-  for (const widget of pending) {
-    for (const [key, text] of widget.dirtyCells) {
-      const { row, col } = parseCellKey(key);
-      const range = tableCellRange(docText, widget.tableIndex, row, col);
-      if (!range) continue;
-      const insert = sanitizeCellText(text);
-      if (range.from === range.to && insert === '') continue;
-      changes.push({ from: range.from, to: range.to, insert });
-    }
+  for (const cell of pending.values()) {
+    const range = tableCellRange(docText, cell.tableIndex, cell.row, cell.col);
+    if (!range) continue;
+    const insert = sanitizeCellText(cell.text);
+    if (insert === docText.slice(range.from, range.to)) continue;
+    changes.push({ from: range.from, to: range.to, insert });
   }
 
-  // Clear BEFORE dispatch: the dispatch rebuilds decorations, which can call
-  // flush again. Clearing first makes the re-entrant call a no-op.
-  pending.clear();
-  if (changes.length === 0) return false;
+  if (changes.length === 0) {
+    pending.clear();
+    return false;
+  }
 
   // CM6 requires ascending, non-overlapping changes. Cells never overlap, so
   // sorting by start position is sufficient.
   changes.sort((a, b) => a.from - b.from);
-  view.dispatch({ changes });
+  flushingViews.add(view);
+  try {
+    view.dispatch({ changes });
+  } catch {
+    // Only reachable from inside an update cycle: keep the staged text and let
+    // the deferred flush retry once CM6 is idle again.
+    scheduleTableFlush(view);
+    return false;
+  } finally {
+    flushingViews.delete(view);
+  }
+  pending.clear();
   return true;
 }
 
-function markDirty(view: EditorView, widget: TableWidget, key: string, text: string): void {
-  let pending = dirtyTables.get(view);
+function markDirty(
+  view: EditorView,
+  tableIndex: number,
+  row: number,
+  col: number,
+  text: string,
+): void {
+  let pending = dirtyCells.get(view);
   if (!pending) {
-    pending = new Set<TableWidget>();
-    dirtyTables.set(view, pending);
+    pending = new Map<string, PendingCell>();
+    dirtyCells.set(view, pending);
   }
-  widget.dirtyCells.set(key, text);
-  pending.add(widget);
+  pending.set(`${tableIndex}:${row}:${col}`, { tableIndex, row, col, text });
+}
+
+function clearDirty(view: EditorView, tableIndex: number, row: number, col: number): void {
+  dirtyCells.get(view)?.delete(`${tableIndex}:${row}:${col}`);
 }
 
 // --- Widget ------------------------------------------------------------------
@@ -256,8 +291,6 @@ class TableWidget extends WidgetType {
   from: number;
   to: number;
   readonly tableIndex: number;
-  /** Cell text typed into the nested editing host, not yet in the document. */
-  readonly dirtyCells = new Map<string, string>();
   private view: EditorView | null = null;
 
   constructor(block: TableBlock) {
@@ -328,6 +361,10 @@ class TableWidget extends WidgetType {
     this.view = view ?? null;
     const wrap = document.createElement('div');
     wrap.className = 'cm-table-wrap';
+    // Take the table out of CM6's editable region: without this the browser
+    // places a native caret into the enclosing contenteditable when a cell gap
+    // is clicked, and the keystrokes land in CM6's discarded DOM.
+    wrap.setAttribute('contenteditable', 'false');
 
     const table = document.createElement('table');
     table.className = 'cm-table';
@@ -338,10 +375,7 @@ class TableWidget extends WidgetType {
       return active ? cellKey(active.row, active.col) : null;
     })();
 
-    const cellNodes = new Map<string, HTMLElement>();
-    const textNodes = new Map<string, HTMLElement>();
-
-    /** Build one `th`/`td` with a nested contenteditable body plus its handle. */
+    /** Build one `th`/`td` with its text span and insert handle. */
     const buildCell = (
       tag: 'th' | 'td',
       row: number,
@@ -357,14 +391,10 @@ class TableWidget extends WidgetType {
       const body = document.createElement('span');
       body.className = 'cm-table-cell-text';
       body.setAttribute('data-testid', 'cm-table-cell-text');
-      body.setAttribute('contenteditable', 'true');
-      body.setAttribute('role', 'textbox');
-      body.setAttribute('tabindex', '0');
       body.dataset.row = String(row);
       body.dataset.col = String(col);
       body.textContent = text;
       el.appendChild(body);
-      textNodes.set(key, body);
 
       const handle = document.createElement('div');
       handle.className = 'cm-table-cell-handle';
@@ -373,9 +403,8 @@ class TableWidget extends WidgetType {
       handle.dataset.col = String(col);
       handle.title = '插入内容';
       el.appendChild(handle);
-      cellNodes.set(key, el);
 
-      if (view) this.wireCell(view, el, body, handle, row, col);
+      if (view) this.wireCell(view, el, handle, row, col);
       return el;
     };
 
@@ -458,63 +487,105 @@ class TableWidget extends WidgetType {
     return wrap;
   }
 
-  /** Wire one cell: focus handoff, dirty staging, and settle-on-blur. */
+  /**
+   * Wire one cell: click to edit, dirty staging, settle-on-blur.
+   *
+   * The editor is a real `<input>`, not a nested `contenteditable`: a form
+   * control is never part of CM6's editable region, emits no DOM mutations its
+   * observer could act on, and has native focus, caret, IME and undo. Building
+   * and focusing it in the same task avoids the DOM-generation race that made a
+   * `focus()` against a cached node silently no-op.
+   */
   private wireCell(
     view: EditorView,
     cellEl: HTMLElement,
-    body: HTMLElement,
     handle: HTMLElement,
     row: number,
     col: number,
   ): void {
-    const key = cellKey(row, col);
+    const tableIndex = this.tableIndex;
 
-    // Clicking the cell focuses its nested host and lets the browser place the
-    // caret. No preventDefault (that would suppress caret placement) and no
-    // CM6 selection dispatch (that is what corrupted input positions).
+    const openEditor = (): void => {
+      // Commit any open cell first: focusing the new input fires the old input's
+      // blur, whose flush would rebuild the table widget and detach the input we
+      // are about to place. Flushing up front keeps this open on live DOM.
+      flushDirtyTables(view);
+      const table = view.dom.querySelectorAll('.cm-table')[tableIndex];
+      const host = table?.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+      if (!(host instanceof HTMLElement)) return;
+      const existing = host.querySelector('.cm-table-cell-input') as HTMLInputElement | null;
+      if (existing) {
+        existing.focus();
+        return;
+      }
+      const span = host.querySelector('.cm-table-cell-text');
+      const initial = span?.textContent ?? '';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'cm-table-cell-input';
+      input.setAttribute('data-testid', 'cm-table-cell-input');
+      input.value = initial;
+      host.classList.add('cm-table-cell-editing');
+      host.insertBefore(input, host.querySelector('.cm-table-cell-handle'));
+      input.focus();
+      input.setSelectionRange(initial.length, initial.length);
+
+      let composing = false;
+      const teardown = (): void => {
+        input.remove();
+        host.classList.remove('cm-table-cell-editing');
+      };
+      const commit = (): void => {
+        // A structural flush may have rebuilt the widget, taking this input with
+        // it — then the document already holds the text and there is nothing to do.
+        if (!input.isConnected) return;
+        flushDirtyTables(view);
+        clearDirty(view, tableIndex, row, col);
+        if (span) span.textContent = input.value;
+        teardown();
+      };
+
+      input.addEventListener('compositionstart', () => {
+        composing = true;
+      });
+      input.addEventListener('compositionend', () => {
+        composing = false;
+        markDirty(view, tableIndex, row, col, input.value);
+      });
+      input.addEventListener('input', () => {
+        markDirty(view, tableIndex, row, col, input.value);
+      });
+      input.addEventListener('keydown', (event) => {
+        event.stopPropagation();
+        if (event.key === 'Enter' || event.key === 'Tab') {
+          event.preventDefault();
+          commit();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          clearDirty(view, tableIndex, row, col);
+          teardown();
+        }
+      });
+      input.addEventListener('blur', () => {
+        if (!composing) commit();
+      });
+      input.addEventListener('mousedown', (event) => event.stopPropagation());
+    };
+
+    // Open on mousedown, but resolve the cell after a frame: CM6 may rebuild the
+    // widget DOM during this same mousedown, detaching the event's target. This
+    // cell's row/col are known from its own wiring, so the live replacement is
+    // looked up by identity instead of through the stale node.
     cellEl.addEventListener('mousedown', (event) => {
       if ((event.target as HTMLElement | null)?.closest('.cm-table-cell-handle')) return;
+      event.preventDefault();
       event.stopPropagation();
-      body.focus();
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(openEditor);
+      } else {
+        openEditor();
+      }
     });
-
-    // Keep CM6 out of the nested host entirely: caret, keys, IME and input all
-    // belong to the browser here. stopPropagation leaves the default action
-    // (character insertion, caret movement, composition) intact.
-    for (const type of [
-      'keydown',
-      'keypress',
-      'beforeinput',
-      'input',
-      'compositionstart',
-      'compositionupdate',
-      'compositionend',
-      'focusin',
-      'focusout',
-    ]) {
-      body.addEventListener(type, (event) => event.stopPropagation());
-    }
-
-    // Stage the typed text. The document is untouched until a settle point.
-    body.addEventListener('input', () => {
-      markDirty(view, this, key, body.textContent ?? '');
-    });
-
-    // Enter/Tab leave the cell rather than inserting a newline (a newline would
-    // break the table block). Blur is synchronous with the keypress, so the
-    // staged text is written before any default action can land elsewhere.
-    body.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' && event.key !== 'Tab') return;
-      flushDirtyTables(view);
-      body.blur();
-    });
-
-    // Settle points: leaving the cell, or focusing another cell.
-    const settle = (): void => {
-      flushDirtyTables(view);
-    };
-    body.addEventListener('focusout', settle);
-    body.addEventListener('blur', settle);
 
     // Handle: hover opens, press repositions. Leaving the handle must NOT close
     // — the pointer is usually on its way to the menu, which has its own grace.
@@ -544,7 +615,7 @@ class TableWidget extends WidgetType {
       'mousedown',
       (event) => {
         const target = event.target as HTMLElement | null;
-        if (target?.closest?.('.cm-table-cell-text')) return;
+        if (target?.closest?.('.cm-table-wrap')) return;
         if (target?.closest?.('.mdb-slash-menu')) return;
         flushDirtyTables(view);
       },
@@ -696,19 +767,18 @@ class TableWidget extends WidgetType {
     const boundaries = wrap.querySelector<HTMLElement>('.cm-table-boundaries');
     if (!table || !boundaries) return false;
 
-    // Refresh cells that are NOT staged: a dirty cell holds user input that has
-    // not reached the document yet, so overwriting it here would lose keystrokes.
+    // Skip the cell that is being edited: its text lives in the input until the
+    // edit settles, so refreshing it from the document here would clobber it.
     for (const cell of this.cells) {
-      const key = cellKey(cell.row, cell.col);
       const body = wrap.querySelector<HTMLElement>(
         `.cm-table-cell-text[data-row="${cell.row}"][data-col="${cell.col}"]`,
       );
       if (!body) continue;
-      if (!this.dirtyCells.has(key)) {
+      const cellEl = body.parentElement;
+      if (!cellEl?.querySelector('.cm-table-cell-input')) {
         const expected = this.cellText(cell.row, cell.col);
         if ((body.textContent ?? '') !== expected) body.textContent = expected;
       }
-      const cellEl = body.parentElement;
       if (cellEl) cellEl.classList.toggle('cm-table-cell-active', cell.active);
     }
 
@@ -726,7 +796,19 @@ class TableWidget extends WidgetType {
    * panel floating over another view.
    */
   destroy(): void {
-    if (this.view) releaseInsertMenu(this.view);
+    if (!this.view) return;
+    releaseInsertMenu(this.view);
+    // Teardown runs inside a CM6 update, so a synchronous flush would throw and
+    // lose staged text. Defer it instead (a no-op when nothing is staged).
+    scheduleTableFlush(this.view);
+  }
+
+  /**
+   * Keep CM6's own handlers out of the widget DOM. This matches the default and
+   * is stated explicitly so the isolation the cells rely on is not silent.
+   */
+  ignoreEvent(): boolean {
+    return true;
   }
 }
 

@@ -27,6 +27,7 @@ import { EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/vie
 import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { calloutTypeMap } from '@md-bundle/renderer';
 import { TABLE_SIZE_QUERY, filterSlashCommands } from './slash-filter';
+import { sanitizeCellText } from './decorations/cell-text';
 
 export interface SlashCommand {
   id: string;
@@ -769,7 +770,10 @@ function applyCommand(view: EditorView, cmd: SlashCommand): void {
   closeMenu(view);
   if (head < from) return;
   if (anchored) {
-    const text = cmd.insert(view.state).text;
+    // The anchor sits inside a table cell, so the inserted text must stay on one
+    // line: a multi-line command (code block, table, callout) would otherwise
+    // split the table row and corrupt the table.
+    const text = sanitizeCellText(cmd.insert(view.state).text);
     view.dispatch({
       changes: { from, to: from, insert: text },
       selection: { anchor: from + text.length },
@@ -1042,7 +1046,8 @@ function applyTableSize(
   const head = view.state.selection.main.head;
   const from = state.slashPos;
   const anchored = state.trigger === 'anchor';
-  const text = buildTable(cols, rows);
+  // Anchored inside a cell: keep the table on one line so it cannot split the row.
+  const text = anchored ? sanitizeCellText(buildTable(cols, rows)) : buildTable(cols, rows);
   closeMenu(view);
   if (head < from) return;
   view.dispatch({

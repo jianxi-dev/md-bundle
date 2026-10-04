@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createMarkdownEditor } from './editor';
+import { flushDirtyTables } from './decorations/table';
 import type { MarkdownEditorHandle, MarkdownEditorOptions } from './editor';
 
 export interface MarkdownEditorComponentProps
@@ -72,6 +73,7 @@ export function MarkdownEditor({
 
     return () => {
       handleRef.current = null;
+      flushDirtyTables(handle.view);
       handle.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once
@@ -98,8 +100,12 @@ export function MarkdownEditor({
   }, [theme]);
 
   // Reconfigure the decorations compartment when decorationsEnabled changes.
+  // Commit staged cell text first: dropping the decorations extension destroys
+  // the table widgets, and with them any unflushed cell editor.
   useEffect(() => {
-    handleRef.current?.setDecorationsEnabled(decorationsEnabled);
+    const handle = handleRef.current;
+    if (handle) flushDirtyTables(handle.view);
+    handle?.setDecorationsEnabled(decorationsEnabled);
   }, [decorationsEnabled]);
 
   return <div ref={hostRef} />;

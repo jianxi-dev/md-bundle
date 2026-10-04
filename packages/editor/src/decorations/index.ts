@@ -34,7 +34,7 @@ import { createQuoteDecorations } from './quote';
 import { createCodeDecorations } from './code';
 import { createImageDecorations } from './image';
 import { createCalloutDecorations } from './callout';
-import { createTableDecorations, flushDirtyTables } from './table';
+import { createTableDecorations, scheduleTableFlush } from './table';
 import { editorDecorationsThemeExt } from './theme';
 import { getBlocks, getBlockAt } from '../block-model';
 import type { ImageResolver } from './image';
@@ -220,12 +220,8 @@ class tableFlushGuard {
   constructor(private readonly view: EditorView) {}
 
   destroy(): void {
-    try {
-      flushDirtyTables(this.view);
-    } catch {
-      // Teardown can reach us after the view is no longer dispatchable. Losing
-      // staged text is recoverable; throwing here would unmount the editor.
-    }
+    // Called inside a CM6 update, where a synchronous dispatch is illegal.
+    scheduleTableFlush(this.view);
   }
 }
 

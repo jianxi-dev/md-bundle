@@ -401,17 +401,25 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   },
   '.cm-content .cm-table-cell-text': {
     // inline-block so min-width/min-height take effect — min-* is ignored on
-    // inline boxes, and an empty cell must still be a clickable caret target.
+    // inline boxes, and an empty cell must still be a clickable target.
     display: 'inline-block',
-    outline: 'none',
-    caretColor: 'var(--reader-ink-strong, var(--mdb-text))',
     minWidth: '1em',
     minHeight: '1em',
     whiteSpace: 'pre-wrap',
     cursor: 'text',
   },
-  '.cm-content .cm-table-cell-text:focus': {
+  '.cm-content .cm-table-cell-editing .cm-table-cell-text': {
+    display: 'none',
+  },
+  '.cm-content .cm-table-cell-input': {
+    width: '100%',
+    boxSizing: 'border-box',
+    border: 'none',
     outline: 'none',
+    background: 'transparent',
+    font: 'inherit',
+    color: 'inherit',
+    padding: '0',
   },
   '.cm-content .cm-table-cell-active': {
     boxShadow: 'inset 0 0 0 2px var(--reader-accent, var(--mdb-primary-fg))',
