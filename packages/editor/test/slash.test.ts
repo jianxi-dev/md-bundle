@@ -12,6 +12,7 @@ import {
   slashMenuSubmenuEnter,
 } from '../src/slash';
 import { commandRegistry } from '../src/commands';
+import { filterSlashCommands } from '../src/slash-filter';
 
 // jsdom lacks requestAnimationFrame/ResizeObserver; CodeMirror 6 uses both.
 function installPolyfills(): void {
@@ -81,7 +82,7 @@ describe('slash commands', () => {
     expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
     const grid = view.dom.querySelector('.mdb-slash-grid-menu');
     expect(grid).not.toBeNull();
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(17)
   });
 
   it('positions the menu relative to the editor origin, not the viewport (issue #203)', () => {
@@ -113,7 +114,7 @@ describe('slash commands', () => {
     // flyout while the root grid stays rendered.
     expect(slashMenuApply(view)).toBe(true);
     expect(view.state.doc.toString()).toBe('/');
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(17)
 
     const flyout = view.dom.querySelector('.mdb-slash-flyout');
     expect(flyout).not.toBeNull();
@@ -146,10 +147,11 @@ describe('slash commands', () => {
     expect(doc).toMatch(/^> \[!NOTE\]\n> $/);
   });
 
-  it('labels the callout slash command in Chinese', () => {
+  it('labels the callout slash command in Chinese without a markdown hint', () => {
     const callout = defaultCommands.find((c) => c.id === 'callout');
     expect(callout?.label).toBe('标注');
-    expect(callout?.hint).toBe('> [!NOTE]');
+    // #358: hints no longer echo markdown source symbols.
+    expect(callout?.hint).toBeUndefined();
   });
 
   it('the table row opens an N × M grid and inserts a GFM table on pick', () => {
@@ -179,7 +181,7 @@ describe('slash commands', () => {
     for (let i = 0; i < tableIdx; i++) slashMenuSelectNext(view)
     slashMenuApply(view)
 
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(17)
     const flyout = view.dom.querySelector('.mdb-slash-flyout')
     expect(flyout).not.toBeNull()
     expect(flyout!.querySelectorAll('.mdb-slash-grid-cell').length).toBe(100)
@@ -214,7 +216,7 @@ describe('slash commands', () => {
     slashMenuApply(view)
 
     expect(view.state.doc.toString()).toBe('/')
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(17)
     const flyoutRows = view.dom.querySelectorAll('.mdb-slash-flyout-item')
     expect(flyoutRows.length).toBe(5)
 
@@ -378,7 +380,7 @@ describe('slash commands', () => {
     backspace(); // /b
     expect(cells().length).toBe(3);
     backspace(); // /
-    expect(cells().length).toBe(12)
+    expect(cells().length).toBe(17)
   });
 
   it('shows an empty state for a filter with no match, and a newline closes the menu', () => {
@@ -423,11 +425,11 @@ describe('slash commands', () => {
 
     expect(slashMenuSubmenuEnter(view)).toBe(true);
     expect(view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(6);
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(17)
 
     expect(slashMenuSubmenuBack(view)).toBe(true);
     expect(view.dom.querySelector('.mdb-slash-flyout')).toBeNull();
-    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(17)
     expect(view.state.doc.toString()).toBe('/');
   });
 
@@ -521,6 +523,23 @@ describe('slash commands', () => {
     const result = insertSlashChar(view);
     expect(result).toBe(false);
     expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+  });
+});
+
+describe('insert menu catalog', () => {
+  it('groups the 17 root rows into the seven categories, in order', () => {
+    expect(defaultCommands).toHaveLength(17);
+    const seen: string[] = [];
+    for (const cmd of defaultCommands) {
+      if (cmd.group && !seen.includes(cmd.group)) seen.push(cmd.group);
+    }
+    expect(seen).toEqual(['基础', '常用', '数据', '绘图', '团队协作', '进阶', '更多小组件']);
+  });
+
+  it('filters /f3 to the 3-column row and /fl3 to nothing', () => {
+    const three = filterSlashCommands(defaultCommands, 'f3');
+    expect(three.map((row) => row.id)).toEqual(['columns-3']);
+    expect(filterSlashCommands(defaultCommands, 'fl3')).toEqual([]);
   });
 });
 

@@ -540,7 +540,9 @@ describe('blockHandle lifecycle', () => {
     const flyouts = Array.from(menu?.querySelectorAll('[data-flyout]') ?? []).map((el) =>
       el.getAttribute('data-flyout'),
     )
-    expect(flyouts).toEqual(['indent-align', 'color', 'callout-type'])
+    // #358: 在下方添加› carries data-flyout="insert-menu" for its chevron; the
+    // panel itself is opened by block-handle.ts, not this flyout map.
+    expect(flyouts).toEqual(['indent-align', 'color', 'callout-type', 'insert-menu'])
   })
 
   it('转换为 二级标题 dispatches exactly one undoable transaction', () => {

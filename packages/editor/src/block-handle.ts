@@ -33,7 +33,9 @@ import {
   GRID_ITEM_CLASS,
   FLYOUT_ITEM_CLASS,
   FLYOUT_ACTION_ATTR,
+  FLYOUT_ATTR,
 } from './block-handle-dom'
+import { defaultCommands, openInsertMenu } from './slash'
 import {
   findBlockAt,
   computeBlockMove,
@@ -230,6 +232,7 @@ class BlockHandlePlugin {
     this.chrome.handle.addEventListener('mouseenter', this.onHandleMouseEnter)
     this.chrome.handle.addEventListener('mouseleave', this.onHandleMouseLeave)
     this.chrome.menu.addEventListener('click', this.onMenuClick)
+    this.chrome.menu.addEventListener('mouseover', this.onMenuHoverInsert)
     // The menu has no mouseleave listener on purpose: sliding off the menu onto
     // editor content is a retarget, not a dismissal. `onMouseMove` resolves the
     // block under the pointer and re-anchors the open menu, while `view.dom`'s
@@ -279,6 +282,7 @@ class BlockHandlePlugin {
     this.chrome.handle.removeEventListener('mouseenter', this.onHandleMouseEnter)
     this.chrome.handle.removeEventListener('mouseleave', this.onHandleMouseLeave)
     this.chrome.menu.removeEventListener('click', this.onMenuClick)
+    this.chrome.menu.removeEventListener('mouseover', this.onMenuHoverInsert)
     this.removeDocumentListeners()
     this.setSelected(null)
     this.chrome.unmount()
@@ -571,6 +575,24 @@ class BlockHandlePlugin {
     if (idx >= blocks.length - 1) return text
     const next = blocks[idx + 1]
     return computeBlockMove(text, next.from, next.to, doc.lineAt(block.from).number)
+  }
+
+  /**
+   * Hovering 在下方添加› opens the shared insert menu anchored at the block's
+   * end. Delegated from the menu root: the row is a button, so a direct
+   * listener would not survive the flyout rebuild. The `.mdb-slash-menu`
+   * guard stops the delegated mouseover (which also fires for child nodes)
+   * from reopening the panel on every event.
+   */
+  private onMenuHoverInsert = (event: MouseEvent): void => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    const row = target.closest<HTMLElement>(`[${FLYOUT_ATTR}="insert-menu"]`)
+    if (!row || !this.chrome.menu.contains(row)) return
+    const block = this.menuBlock ?? this.currentBlock
+    if (!block) return
+    if (this.view.dom.querySelector('.mdb-slash-menu')) return
+    openInsertMenu(this.view, block.to, defaultCommands, { from: block.to, to: block.to })
   }
 
   private onMenuClick = (event: MouseEvent): void => {

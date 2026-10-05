@@ -76,16 +76,16 @@ test('AC(A)：空行输入 / 后菜单以单列分组列表展示', async ({ pag
   await expect(grid).toHaveCSS('display', 'grid')
 
   const cells = grid.locator('.mdb-slash-item')
-  await expect(cells).toHaveCount(12)
+  await expect(cells).toHaveCount(17)
   await expect(grid).toContainText('标题')
   await expect(grid).toContainText('标注')
   await expect(grid).toContainText('代码块')
 
   await expectSingleColumnStack(cells, grid)
 
-  // 分组标题仍在（#250 行为不回退）
+  // 分组标题仍在（#250 行为不回退）；#358 扩为七大分类
   const groups = await page.locator('.mdb-slash-group').allInnerTexts()
-  expect(groups).toEqual(['基础', '常用', '绘图'])
+  expect(groups).toEqual(['基础', '常用', '数据', '绘图', '团队协作', '进阶', '更多小组件'])
 })
 
 test('AC(B)：输入筛选列表 → 标题 flyout 旁展开 → 选 H2 插入 ## ', async ({ page }) => {
@@ -93,7 +93,7 @@ test('AC(B)：输入筛选列表 → 标题 flyout 旁展开 → 选 H2 插入 #
   await typeSlashAtDocEnd(page)
 
   const cells = page.locator('.mdb-slash-grid-menu .mdb-slash-item')
-  await expect(cells).toHaveCount(12)
+  await expect(cells).toHaveCount(17)
 
   // 真实键盘输入筛选：'b' 命中 标题/表格/标注，'bt' 收窄到 标题
   await page.keyboard.type('b')

@@ -298,7 +298,7 @@ describe('slash menu through the public API', () => {
     // the root grid and the document stay in place.
     expect(slashMenuApply(handle.view)).toBe(true);
     expect(handle.getValue()).toBe('/');
-    expect(handle.view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(12)
+    expect(handle.view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(17)
     expect(handle.view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(6);
 
     slashMenuSelectNext(handle.view);
