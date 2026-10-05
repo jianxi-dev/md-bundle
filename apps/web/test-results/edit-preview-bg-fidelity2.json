@@ -1,0 +1,8 @@
+{
+  "editLightBg": "rgb(251, 250, 248)",
+  "previewLightBg": "rgb(251, 250, 248)",
+  "editDarkBg": "rgb(26, 27, 30)",
+  "previewDarkBg": "rgb(26, 27, 30)",
+  "lightMatch": true,
+  "darkMatch": true
+}

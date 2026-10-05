@@ -18,6 +18,7 @@
   --mdb-focus-ring: rgba(123, 134, 234, 0.4);
   --mdb-shadow: rgba(0, 0, 0, 0.5);
   --mdb-surface: #1a1b20;
+  --mdb-editor-canvas: #1a1b1e;
   --mdb-muted: #5d626b;
   --mdb-font-serif: Georgia, serif;
   --mdb-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -43,6 +44,7 @@
   --mdb-focus-ring: rgba(79, 90, 209, 0.4);
   --mdb-shadow: rgba(24, 26, 40, 0.12);
   --mdb-surface: #e9e9ee;
+  --mdb-editor-canvas: #fbfaf8;
   --mdb-muted: #8b8f99;
   --mdb-font-serif: Georgia, serif;
   --mdb-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
