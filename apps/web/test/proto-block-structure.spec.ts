@@ -157,7 +157,7 @@ test.describe('块手柄：拖拽重排与菜单操作', () => {
     expect(text).toContain('段落C')
   })
 
-  test('菜单「复制块」在原块后插入副本', async ({ page }) => {
+  test('菜单「复制」在原块后插入副本', async ({ page }) => {
     await openEditor(page, DRAG_DOC, 'drag-copy.md')
 
     await hoverParagraph(page, '段落B')
@@ -167,7 +167,7 @@ test.describe('块手柄：拖拽重排与菜单操作', () => {
 
     const menu = page.getByTestId('block-handle-menu')
     await expect(menu).toBeVisible()
-    await menu.getByRole('button', { name: '复制块' }).click()
+    await menu.getByRole('button', { name: '复制', exact: true }).click()
     await expect(menu).toBeHidden()
 
     const text = await rawDocText(page)

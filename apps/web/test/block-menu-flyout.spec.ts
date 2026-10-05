@@ -69,7 +69,7 @@ test('段落菜单含「转为」图标网格与 `缩进和对齐`/`颜色` 项'
 
   const grid = page.getByTestId('block-handle-convert-grid')
   await expect(grid).toBeVisible()
-  await expect(grid.locator('.mdb-block-handle-grid-item')).toHaveCount(7)
+  await expect(grid.locator('.mdb-block-handle-grid-item')).toHaveCount(10)
 
   await expect(flyoutRow(page, 'indent-align')).toContainText('缩进和对齐')
   await expect(flyoutRow(page, 'color')).toContainText('颜色')

@@ -133,7 +133,7 @@ test('行 → 手柄 → 菜单跨沟槽移动全程可用且菜单不闪断', a
   await expect(page.getByTestId('block-handle')).toBeVisible()
 
   // 菜单仍可操作（而不是仅仅 DOM 存在）。
-  await menu.getByRole('button', { name: '删除块' }).click()
+  await menu.getByRole('button', { name: '删除' }).click()
   await expect(page.locator('.cm-content')).not.toContainText('Beta paragraph.')
   await expect(menu).toBeHidden()
 })
@@ -175,7 +175,7 @@ test('菜单已开时移到另一个块的手柄会改指向该块', async ({ pa
   await page.mouse.move(handleCenter.x, handleCenter.y)
   await expect(page.getByTestId('block-handle-menu')).toBeVisible()
 
-  await page.getByTestId('block-handle-menu').getByRole('button', { name: '删除块' }).click()
+  await page.getByTestId('block-handle-menu').getByRole('button', { name: '删除' }).click()
   await expect(page.locator('.cm-content')).not.toContainText('Gamma paragraph.')
   await expect(page.locator('.cm-content')).toContainText('Beta paragraph.')
 })
@@ -200,7 +200,7 @@ test('菜单动作用完后清掉选中态', async ({ page }) => {
 
   const menu = page.getByTestId('block-handle-menu')
   await expect(menu).toBeVisible()
-  await menu.getByRole('button', { name: '复制块' }).click()
+  await menu.getByRole('button', { name: '复制', exact: true }).click()
 
   await expect(page.locator('.cm-content')).toContainText('Beta paragraph.', { useInnerText: true })
   const selected = page.locator('.cm-content .cm-line.cm-block-selected')
