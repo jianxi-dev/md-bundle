@@ -7,8 +7,8 @@
  * `block-handle.ts` is the single import surface.
  */
 import { EditorView } from '@codemirror/view';
-import { calloutTypeMap } from '@md-bundle/renderer';
 import type { BlockConvertTarget } from './block-handle-ops';
+import { CALLOUT_EDIT_TYPES } from './callout-types';
 import { commandRegistry } from './commands';
 import { createColorPalette } from './color-palette';
 import {
@@ -132,12 +132,16 @@ const INDENT_ALIGN_OPTIONS: readonly FlyoutOption[] = [
   { label: '减少缩进', value: 'indent-decrease' },
 ];
 
-/** 类型 flyout — labels sourced from the renderer's shared callout type map. */
+/**
+ * 类型 flyout — rendered from the deduped editor set (#361, R-CALLOUT-01), not
+ * the renderer map: the renderer keeps alias duplicates (`tip`/`hint` both
+ * 「提示」) for parsing, which must never reach the flyout as two identical rows.
+ */
 function calloutTypeOptions(): readonly FlyoutOption[] {
-  return Object.entries(calloutTypeMap).map(([key, def]) => ({
-    label: def.label,
-    value: `callout-${key}`,
-    icon: def.icon,
+  return CALLOUT_EDIT_TYPES.map((entry) => ({
+    label: entry.label,
+    value: `callout-${entry.key}`,
+    icon: entry.emoji,
   }));
 }
 
