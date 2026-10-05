@@ -35,7 +35,7 @@ import {
   FLYOUT_ACTION_ATTR,
   FLYOUT_ATTR,
 } from './block-handle-dom'
-import { defaultCommands, openInsertMenu } from './slash'
+import { defaultCommands, openInsertMenu, releaseInsertMenu } from './slash'
 import {
   findBlockAt,
   computeBlockMove,
@@ -233,6 +233,7 @@ class BlockHandlePlugin {
     this.chrome.handle.addEventListener('mouseleave', this.onHandleMouseLeave)
     this.chrome.menu.addEventListener('click', this.onMenuClick)
     this.chrome.menu.addEventListener('mouseover', this.onMenuHoverInsert)
+    this.chrome.menu.addEventListener('mouseleave', this.onMenuLeaveInsert)
     // The menu has no mouseleave listener on purpose: sliding off the menu onto
     // editor content is a retarget, not a dismissal. `onMouseMove` resolves the
     // block under the pointer and re-anchors the open menu, while `view.dom`'s
@@ -283,6 +284,7 @@ class BlockHandlePlugin {
     this.chrome.handle.removeEventListener('mouseleave', this.onHandleMouseLeave)
     this.chrome.menu.removeEventListener('click', this.onMenuClick)
     this.chrome.menu.removeEventListener('mouseover', this.onMenuHoverInsert)
+    this.chrome.menu.removeEventListener('mouseleave', this.onMenuLeaveInsert)
     this.removeDocumentListeners()
     this.setSelected(null)
     this.chrome.unmount()
@@ -592,7 +594,25 @@ class BlockHandlePlugin {
     const block = this.menuBlock ?? this.currentBlock
     if (!block) return
     if (this.view.dom.querySelector('.mdb-slash-menu')) return
-    openInsertMenu(this.view, block.to, defaultCommands, { from: block.to, to: block.to })
+    openInsertMenu(this.view, block.to, defaultCommands, { from: block.to, to: block.to }, 'below')
+  }
+
+  /**
+   * The below menu is opened by hovering a block-handle row, so it has no
+   * pointer of its own until the user moves onto it. Releasing it when the
+   * pointer leaves the block-handle chrome (and did not transfer onto the menu)
+   * closes the panel the hover opened, which the menu's own mouseleave cannot
+   * do because it never fired.
+   */
+  private readonly onMenuLeaveInsert = (event: MouseEvent): void => {
+    const to = event.relatedTarget
+    if (
+      to instanceof Element &&
+      (this.chrome.menu.contains(to) || to.closest('.mdb-slash-menu') !== null)
+    ) {
+      return
+    }
+    releaseInsertMenu(this.view)
   }
 
   private onMenuClick = (event: MouseEvent): void => {

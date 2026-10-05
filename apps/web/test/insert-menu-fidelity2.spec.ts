@@ -86,6 +86,18 @@ async function revealHandleOnLine(page: Page, text: string): Promise<void> {
   await expect(page.locator('.mdb-block-handle')).toBeVisible()
 }
 
+/**
+ * Hover 在下方添加› with a single real pointer move. `.hover()` retries until
+ * the element receives pointer events, but the insert menu it opens covers the
+ * row, so the actionability check can never settle. The move still fires the
+ * same mouseover the handler listens for.
+ */
+async function hoverInsertMenuRow(page: Page): Promise<void> {
+  const box = await boxOf(page.locator('.mdb-block-handle-item', { hasText: '在下方添加' }))
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await settle(page)
+}
+
 // A-12.1：三入口共用同一 `.mdb-slash-menu`。
 test('A-12.1a 入口一：空行「+」点击打开 .mdb-slash-menu', async ({ page }) => {
   await openEditor(page, EMPTY_DOC)
@@ -101,7 +113,7 @@ test('A-12.1b 入口二：块菜单「在下方添加›」悬停打开 .mdb-sla
   await page.locator('.mdb-block-handle').hover()
   await expect(page.locator('.mdb-block-handle-menu')).toBeVisible()
 
-  await page.locator('.mdb-block-handle-item', { hasText: '在下方添加' }).hover()
+  await hoverInsertMenuRow(page)
   await expect(page.locator('.mdb-slash-menu')).toBeVisible()
   // 与 `/` 入口同一根实例：分类标题同样存在。
   await expect(page.locator('.mdb-slash-group').first()).toBeVisible()
@@ -219,6 +231,47 @@ test('A-16.1c caret 离开后无 / 残留', async ({ page }) => {
 
   const raw = await rawDoc(page)
   expect(raw).not.toContain('/')
+})
+
+async function openBelowMenu(page: Page): Promise<void> {
+  await revealHandleOnLine(page, 'Body paragraph.')
+  await page.locator('.mdb-block-handle').hover()
+  await expect(page.locator('.mdb-block-handle-menu')).toBeVisible()
+  await hoverInsertMenuRow(page)
+  await expect(page.locator('.mdb-slash-menu')).toBeVisible()
+}
+
+test('below: 在下方添加› → 代码块插入独立围栏块（新行，不压扁）', async ({ page }) => {
+  await openEditor(page)
+  await openBelowMenu(page)
+  await page.screenshot({ path: '../../.artifacts/358/05-below-menu.png' })
+
+  await page.locator('.mdb-slash-grid-menu .mdb-slash-item', { hasText: '代码块' }).click()
+  await settle(page)
+  await expect(page.locator('.mdb-slash-menu')).toHaveCount(0)
+
+  const raw = await rawDoc(page)
+  const fenceLines = raw.split('\n').filter((line) => line.trim() === '```')
+  expect(fenceLines.length).toBe(2)
+  expect(raw.indexOf('Body paragraph.')).toBeLessThan(raw.indexOf('```'))
+  expect(raw).not.toContain('Body paragraph. ```')
+})
+
+test('below: 在下方添加› → 表格插入真实 GFM 表格（含管道符）', async ({ page }) => {
+  await openEditor(page)
+  await openBelowMenu(page)
+
+  await page.locator('.mdb-slash-grid-menu .mdb-slash-item', { hasText: '表格' }).hover()
+  await expect(page.locator('.mdb-slash-grid-cell')).toHaveCount(100)
+  await page.locator('.mdb-slash-grid-cell[data-r="2"][data-c="3"]').click()
+  await settle(page)
+  await expect(page.locator('.mdb-slash-menu')).toHaveCount(0)
+
+  const raw = await rawDoc(page)
+  const tableLines = raw.split('\n').filter((line) => line.includes('|'))
+  expect(tableLines).toHaveLength(4)
+  expect(tableLines[0]).toContain('| A | B | C |')
+  expect(raw.indexOf('Body paragraph.')).toBeLessThan(raw.indexOf('| A | B | C |'))
 })
 
 // A-17.1：空行「+」与块手柄同 gutter x 差 < 2px。

@@ -320,8 +320,11 @@ interface GridState {
  * must delete that range. `anchor`: a cell handle asked for an insert menu at a
  * zero-width position — there is no trigger text and no filter, so a cancel must
  * not delete a character, and document churn elsewhere must not close it. The
- * caret leaving the owning cell does close it (see `anchorRange`). */
-type SlashMenuTrigger = 'slash' | 'anchor';
+ * caret leaving the owning cell does close it (see `anchorRange`). `below`: the
+ * block handle's 在下方添加 row asked for the same menu at a zero-width position
+ * after the block; like `anchor` it owns no text, but its inserts go on a new
+ * line below the block instead of inline, so they are never cell-sanitized. */
+type SlashMenuTrigger = 'slash' | 'anchor' | 'below';
 
 interface SlashMenuState {
   open: boolean;
@@ -378,7 +381,7 @@ function scheduleAnchorClose(view: EditorView): void {
     setTimeout(() => {
       pendingAnchorCloses.delete(view);
       const state = menus.get(view);
-      if (state && state.open && state.trigger === 'anchor') closeMenu(view);
+      if (state && state.open && state.trigger !== 'slash') closeMenu(view);
     }, ANCHOR_CLOSE_DELAY_MS),
   );
 }
@@ -411,9 +414,10 @@ function closeMenu(view: EditorView): void {
 function dismissMenu(view: EditorView): void {
   const state = menus.get(view);
   if (!state?.open) return;
-  if (state.trigger === 'anchor') {
-    // An anchored menu owns no text: its position is zero-width and may sit at
-    // the head of a cell whose content starts with `/`.
+  if (state.trigger !== 'slash') {
+    // Anchored and below menus own no text: their position is zero-width and
+    // may sit at the head of a cell whose content starts with `/`, or at a
+    // block boundary. Cancel must not delete a character.
     closeMenu(view);
     return;
   }
@@ -724,7 +728,8 @@ function openMenu(
   menu.dataset.testid = 'slash-menu';
   menu.addEventListener('mouseenter', () => cancelAnchorClose(view));
   menu.addEventListener('mouseleave', () => {
-    if (menus.get(view)?.trigger === 'anchor') scheduleAnchorClose(view);
+    const current = menus.get(view);
+    if (current && current.trigger !== 'slash') scheduleAnchorClose(view);
   });
   menu.style.position = 'absolute';
   menu.style.background = 'var(--mdb-bg-secondary)';
@@ -768,28 +773,32 @@ function openMenu(
 }
 
 /**
- * Anchored counterpart of `openMenu`, reached from `decorations/table.ts` over a
- * relative import. Tears down any open menu first: the older panel would stay
- * wired to this view while detached.
+ * Anchored counterpart of `openMenu`, reached from `decorations/table.ts` and
+ * the block handle's 在下方添加 row. Tears down any open menu first: the older
+ * panel would stay wired to this view while detached. `trigger` defaults to
+ * `anchor` (the table-cell path is unchanged); the block handle passes `below`.
  */
 export function openInsertMenu(
   view: EditorView,
   at: number,
   commands: SlashCommand[],
   anchorRange: { from: number; to: number },
+  trigger: SlashMenuTrigger = 'anchor',
 ): void {
   cancelAnchorClose(view);
   closeMenu(view);
-  openMenu(view, at, commands, 'anchor', anchorRange);
+  openMenu(view, at, commands, trigger, anchorRange);
 }
 
 /**
- * Drop an anchored menu without touching the document. Used when the widget
- * that opened it goes away (disposal, mode switch), where waiting out the
- * hover grace period would leave an orphaned panel over another view.
+ * Drop an anchored/below menu without touching the document. Used when the
+ * widget that opened it goes away (disposal, mode switch) or the pointer leaves
+ * the trigger without entering the menu, where waiting out the hover grace
+ * period would leave an orphaned panel over another view.
  */
 export function releaseInsertMenu(view: EditorView): void {
-  if (menus.get(view)?.trigger !== 'anchor') return;
+  const trigger = menus.get(view)?.trigger;
+  if (trigger !== 'anchor' && trigger !== 'below') return;
   closeMenu(view);
 }
 
@@ -837,13 +846,16 @@ function positionMenu(
 }
 
 function applyCommand(view: EditorView, cmd: SlashCommand): void {
-  // Fidelity-only rows have no insert; clicking one must still dismiss the menu.
+  const state = menus.get(view);
+  const trigger = state?.trigger ?? 'slash';
+  // Fidelity-only rows have no insert; dismiss without leaking the `/query`.
   if (!cmd.insert) {
-    closeMenu(view);
+    if (trigger === 'slash') dismissMenu(view);
+    else closeMenu(view);
     return;
   }
-  const state = menus.get(view);
-  const anchored = state?.trigger === 'anchor';
+  const anchored = trigger === 'anchor';
+  const below = trigger === 'below';
   const head = view.state.selection.main.head;
   // The `/` plus any typed filter is one replaceable range; command `insert`
   // implementations only supply the replacement text.
@@ -851,12 +863,24 @@ function applyCommand(view: EditorView, cmd: SlashCommand): void {
   // Close FIRST so the doc-change sync plugin never fights the transaction we
   // are about to dispatch.
   closeMenu(view);
-  if (head < from) return;
+  if (head < from && !below) return;
   if (anchored) {
     // The anchor sits inside a table cell, so the inserted text must stay on one
     // line: a multi-line command (code block, table, callout) would otherwise
     // split the table row and corrupt the table.
     const text = sanitizeCellText(cmd.insert(view.state).text);
+    view.dispatch({
+      changes: { from, to: from, insert: text },
+      selection: { anchor: from + text.length },
+      scrollIntoView: true,
+    });
+    return;
+  }
+  if (below) {
+    // The insert menu was opened from 在下方添加: start a new line after the
+    // block and keep the template intact (no cell sanitizing, which would strip
+    // the newlines and pipes a table or callout needs).
+    const text = `\n${cmd.insert(view.state).text}`;
     view.dispatch({
       changes: { from, to: from, insert: text },
       selection: { anchor: from + text.length },
@@ -1155,12 +1179,15 @@ function applyTableSize(
   const head = view.state.selection.main.head;
   const from = state.slashPos;
   const anchored = state.trigger === 'anchor';
-  // Anchored inside a cell: keep the table on one line so it cannot split the row.
-  const text = anchored ? sanitizeCellText(buildTable(cols, rows)) : buildTable(cols, rows);
+  const below = state.trigger === 'below';
+  const table = buildTable(cols, rows);
+  // Anchored inside a cell: keep the table on one line so it cannot split the
+  // row. Below the block: keep it intact on its own new line.
+  const text = anchored ? sanitizeCellText(table) : below ? `\n${table}` : table;
   closeMenu(view);
-  if (head < from) return;
+  if (head < from && !below) return;
   view.dispatch({
-    changes: { from, to: anchored ? from : head, insert: text },
+    changes: { from, to: anchored || below ? from : head, insert: text },
     selection: { anchor: from + text.length },
     scrollIntoView: true,
   });
@@ -1275,12 +1302,12 @@ const menuSyncPlugin = ViewPlugin.define((view) => ({
   update(u: ViewUpdate): void {
     const state = menus.get(u.view);
     if (!state?.open || slashComposing) return;
-    // An anchored menu has no typed trigger and no filter: the table widget
-    // rewrites its own cell markup on blur, and a caret move inside a cell is
-    // not an abandonment of anything this menu owns. Doc changes are ignored
-    // outright — but a caret that leaves the owning cell does close the panel,
-    // so it cannot linger after focus moved elsewhere.
-    if (state.trigger === 'anchor') {
+    // Anchored and below menus have no typed trigger and no filter. The table
+    // widget rewrites its own cell markup on blur, and the block-handle menu
+    // drives the below menu from outside the document, so doc changes are
+    // ignored outright. A caret that leaves the owning range does close the
+    // panel, so it cannot linger after focus moved elsewhere.
+    if (state.trigger !== 'slash') {
       if (u.selectionSet && state.anchorRange) {
         const caret = u.state.selection.main.head;
         if (caret < state.anchorRange.from || caret > state.anchorRange.to) {
@@ -1335,16 +1362,16 @@ const outsideClickDismiss = ViewPlugin.define((view) => {
     const state = menus.get(view);
     if (!state?.open) return;
     const target = event.target;
+    const inTriggerChrome =
+      target instanceof Element &&
+      target.closest('.cm-table-cell-handle, .mdb-block-handle-menu, .mdb-block-handle') !== null;
     if (
       target instanceof Node &&
-      (state.dom?.contains(target) ||
-        state.flyoutDom?.contains(target) ||
-        target instanceof Element &&
-          target.closest('.cm-table-cell-handle') !== null)
+      (state.dom?.contains(target) || state.flyoutDom?.contains(target) || inTriggerChrome)
     ) {
       return;
     }
-    if (state.trigger === 'anchor') {
+    if (state.trigger !== 'slash') {
       closeMenu(view);
       return;
     }
