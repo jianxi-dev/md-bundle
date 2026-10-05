@@ -738,7 +738,10 @@ class TableWidget extends WidgetType {
       }
 
       const handle = document.createElement('div');
-      handle.className = 'cm-table-cell-handle';
+      // Two class aliases: `.cm-table-cell-handle` is the wiring/outside-click
+      // guard (`slash.ts`), `.mdb-table-cell-handle` is the public conformance
+      // anchor (R-TABLE-04). Both name the same node.
+      handle.className = 'cm-table-cell-handle mdb-table-cell-handle';
       handle.setAttribute('data-testid', 'cm-table-cell-handle');
       handle.dataset.row = String(row);
       handle.dataset.col = String(col);
@@ -763,51 +766,12 @@ class TableWidget extends WidgetType {
     this.rows.forEach((row, r) => {
       const tr = document.createElement('tr');
       row.forEach((text, col) => {
-        const td = buildCell('td', r, col, text);
-        if (col === 0) {
-          const add = document.createElement('button');
-          add.type = 'button';
-          add.className = 'cm-table-add-row';
-          add.setAttribute('data-testid', 'cm-table-add-row');
-          add.setAttribute('data-row', String(r));
-          add.title = '在此行上方插入一行';
-          add.textContent = '＋';
-          add.addEventListener('mousedown', (event) => {
-            if (!view) return;
-            // A control click must not blur the cell and lose staged text.
-            event.preventDefault();
-            event.stopPropagation();
-            this.addRow(view, r);
-          });
-          td.appendChild(add);
-        }
-        tr.appendChild(td);
+        tr.appendChild(buildCell('td', r, col, text));
       });
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
 
-    // ── Column add hotzones ───────────────────────────────────────────────
-    const colBar = document.createElement('div');
-    colBar.className = 'cm-table-col-hotzones';
-    this.header.forEach((_, col) => {
-      const add = document.createElement('button');
-      add.type = 'button';
-      add.className = 'cm-table-add-col';
-      add.setAttribute('data-testid', 'cm-table-add-col');
-      add.setAttribute('data-col', String(col));
-      add.title = '在此列左侧插入一列';
-      add.textContent = '＋';
-      add.addEventListener('mousedown', (event) => {
-        if (!view) return;
-        event.preventDefault();
-        event.stopPropagation();
-        this.addColumn(view, col);
-      });
-      colBar.appendChild(add);
-    });
-
-    wrap.appendChild(colBar);
     wrap.appendChild(table);
 
     const boundaries = document.createElement('div');
@@ -816,6 +780,9 @@ class TableWidget extends WidgetType {
 
     if (view) {
       this.wireExternalFlush(view);
+      // Hotspots are revealed by a CELL enter (see `wireCell`), then survive
+      // the trip onto a dot; leaving the whole widget clears the reveal.
+      wrap.addEventListener('mouseleave', () => wrap.classList.remove('cm-table-hovering'));
       // Layout is not available synchronously inside toDOM, so measure on the
       // next frame. rAF may be absent (node-env unit tests).
       if (typeof requestAnimationFrame === 'function') {
@@ -878,6 +845,7 @@ class TableWidget extends WidgetType {
     });
 
     cellEl.addEventListener('mouseenter', () => {
+      cellEl.closest('.cm-table-wrap')?.classList.add('cm-table-hovering');
       const drag = activeCellDrags.get(view);
       if (!drag || drag.tableIndex !== tableIndex) return;
       if (row === drag.anchorRow && col === drag.anchorCol) return;
@@ -932,11 +900,18 @@ class TableWidget extends WidgetType {
   }
 
   /**
-   * Position the insertion boundaries over the measured table.
+   * Build the insertion-boundary layer over the measured table.
    *
-   * Column boundaries come first in DOM order so the leading boundary is the
-   * column one. Falls back to `evenColumnWidths` when the table has not been
-   * laid out, so the overlays always carry a non-zero hit area.
+   * One `.cm-table-boundary` strip sits exactly ON each boundary: a vertical
+   * strip on every interior column boundary and a horizontal strip on every
+   * body row's top edge (F-03 geometry). The strip itself is `pointer-events: none`
+   * so the 6px layer can never swallow a click meant for a cell interior; only
+   * the small hotspot dot inside it takes the pointer, and only while the
+   * table is hovered (F-04 / R-TABLE-03). Each hotspot inserts before its own
+   * ordinal: `data-col` → addColumn(index), `data-row` → addRow(index).
+   *
+   * Falls back to `evenColumnWidths` when the table has not been laid out, so
+   * the layer still carries the correct ordinal geometry in jsdom.
    */
   private renderBoundaries(
     container: HTMLElement,
@@ -974,74 +949,79 @@ class TableWidget extends WidgetType {
       boundary.style.top = `${top}px`;
       boundary.style.width = `${width}px`;
       boundary.style.height = `${height}px`;
-      boundary.style.pointerEvents = 'auto';
+      boundary.style.pointerEvents = 'none';
       boundary.style.zIndex = '5';
-      boundary.addEventListener('mouseenter', () =>
-        boundary.classList.add('cm-table-boundary-active'),
-      );
-      boundary.addEventListener('mouseleave', () =>
-        boundary.classList.remove('cm-table-boundary-active'),
-      );
-      boundary.addEventListener('mousedown', (event) => {
+
+      // A 2px rule along the boundary, revealed on hover (this is the
+      // "boundary highlight line" — never a full row/column background fill).
+      const line = document.createElement('div');
+      line.className = 'cm-table-boundary-line';
+      boundary.appendChild(line);
+
+      const hotspot = document.createElement('div');
+      hotspot.className = `cm-table-hotspot cm-table-hotspot-${kind}`;
+      hotspot.setAttribute('data-testid', 'cm-table-hotspot');
+      hotspot.dataset.type = kind;
+      if (kind === 'col') hotspot.dataset.col = String(index);
+      else hotspot.dataset.row = String(index);
+      hotspot.title = kind === 'col' ? '插入列' : '插入行';
+
+      const dot = document.createElement('span');
+      dot.className = 'cm-table-hotspot-dot';
+      dot.textContent = '＋';
+      hotspot.appendChild(dot);
+
+      const bubble = document.createElement('span');
+      bubble.className = 'cm-table-hotspot-bubble';
+      bubble.textContent = kind === 'col' ? '插入列' : '插入行';
+      hotspot.appendChild(bubble);
+
+      hotspot.addEventListener('mouseenter', () => {
+        boundary.classList.add('cm-table-boundary-active');
+        hotspot.classList.add('cm-table-hotspot-active');
+        // Engage the strip only while the pointer is on the dot (within ~8px
+        // of the boundary), so cell interiors keep the pointer everywhere else.
+        boundary.style.pointerEvents = 'auto';
+      });
+      hotspot.addEventListener('mouseleave', () => {
+        boundary.classList.remove('cm-table-boundary-active');
+        hotspot.classList.remove('cm-table-hotspot-active');
+        boundary.style.pointerEvents = 'none';
+      });
+      hotspot.addEventListener('mousedown', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (kind === 'col') this.addColumn(view, index + 1);
+        if (kind === 'col') this.addColumn(view, index);
         else this.addRow(view, index);
       });
+      boundary.appendChild(hotspot);
       container.appendChild(boundary);
     };
 
     const half = BOUNDARY_THICKNESS / 2;
-    const colEdges: number[] = [];
-    if (measured) {
-      const head = table.rows[0];
-      const fallbackWidths = evenColumnWidths(this.header.length, totalWidth);
-      for (let col = 0; col < this.header.length - 1; col += 1) {
-        const cell = head?.cells[col];
-        // A merged or unrendered cell has no rect; keep the boundary on the
-        // even-division position instead of collapsing it onto the leading edge.
-        colEdges.push(
-          cell
-            ? cell.getBoundingClientRect().right - tableRect.left
-            : fallbackWidths[col] ?? 0,
-        );
-      }
-    } else {
-      let edge = 0;
-      for (const width of evenColumnWidths(this.header.length, totalWidth).slice(0, -1)) {
-        edge += width;
-        colEdges.push(edge);
-      }
-    }
-    for (let col = 0; col < colEdges.length; col += 1) {
-      addBoundary(
-        'col',
-        col,
-        originX + colEdges[col] - half,
-        originY,
-        BOUNDARY_THICKNESS,
-        totalHeight,
-      );
+    const fallbackWidths = evenColumnWidths(this.header.length, totalWidth);
+    const head = table.rows[0];
+
+    // ── Column boundaries: interior only (between two columns) ────────────
+    // Starting at col 1 keeps the hotspot inside the table, so its dot and
+    // bubble are never clipped by the wrap's edge (§7.4 "两列之间").
+    for (let col = 1; col < this.header.length; col += 1) {
+      const fallbackLeft = fallbackWidths.slice(0, col).reduce((a, b) => a + b, 0);
+      const cell = measured && head ? head.cells[col] : undefined;
+      // A merged or unrendered cell has no rect; keep the boundary on the
+      // even-division position instead of collapsing it onto the leading edge.
+      const x = cell ? cell.getBoundingClientRect().left - tableRect.left : fallbackLeft;
+      addBoundary('col', col, originX + x - half, originY, BOUNDARY_THICKNESS, totalHeight);
     }
 
-    const rowEdges: number[] = [];
+    // ── Row boundaries: the top edge of every body row ────────────────────
     for (let r = 0; r < this.rows.length; r += 1) {
       const tr = table.rows[r + 1];
-      rowEdges.push(
+      const y =
         measured && tr
-          ? tr.getBoundingClientRect().bottom - tableRect.top
-          : ((r + 1) / (this.rows.length + 1)) * totalHeight,
-      );
-    }
-    for (let r = 0; r < rowEdges.length; r += 1) {
-      addBoundary(
-        'row',
-        r,
-        originX,
-        originY + rowEdges[r] - half,
-        totalWidth,
-        BOUNDARY_THICKNESS,
-      );
+          ? tr.getBoundingClientRect().top - tableRect.top
+          : ((r + 1) / (this.rows.length + 1)) * totalHeight;
+      addBoundary('row', r, originX, originY + y - half, totalWidth, BOUNDARY_THICKNESS);
     }
   }
 

@@ -43,29 +43,32 @@ function sepCellCount(source: string): number {
   return sep.split('|').filter((c) => c.trim().length > 0).length
 }
 
-test('AC: 悬停列上方点「＋」后新增一列（源码列数 +1）', async ({ page }) => {
+test('AC: 悬停列边界点「＋」后新增一列（源码列数 +1）', async ({ page }) => {
   await openEditor(page)
 
   expect(sepCellCount(await rawDoc(page))).toBe(2)
 
-  const addCol = page.getByTestId('cm-table-add-col').first()
-  await expect(addCol).toHaveCount(1)
-  await addCol.click({ force: true })
+  // Hotspots are hover-gated: reveal them by hovering a cell first.
+  await page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]').hover()
+  const addCol = page.locator('[data-testid="cm-table-hotspot"][data-type="col"]')
+  await expect(addCol).toHaveCount(1) // one interior boundary between the two columns
+  await addCol.first().click()
   await settle(page)
 
   expect(sepCellCount(await rawDoc(page))).toBe(3)
 })
 
-test('AC: 悬停行左侧点「＋」后新增一行（源码行数 +1）', async ({ page }) => {
+test('AC: 悬停行边界点「＋」后新增一行（源码行数 +1）', async ({ page }) => {
   await openEditor(page)
 
   const rowLines = (source: string): number =>
     source.split('\n').filter((l) => l.trim().startsWith('|')).length
   expect(rowLines(await rawDoc(page))).toBe(3) // header + separator + 1 body row
 
-  const addRow = page.getByTestId('cm-table-add-row').first()
-  await expect(addRow).toHaveCount(1)
-  await addRow.dispatchEvent('mousedown')
+  await page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]').hover()
+  const addRow = page.locator('[data-testid="cm-table-hotspot"][data-type="row"]')
+  await expect(addRow).toHaveCount(1) // one top-boundary hotspot for the single body row
+  await addRow.first().click()
   await settle(page)
 
   expect(rowLines(await rawDoc(page))).toBe(4)
