@@ -2,7 +2,7 @@
 54fd315f550414c153f56b5a08bf9e904de28a3714a278cafb712d55e52b5d41  .opencode/skills/change-workflow/agents-quick-reference.md
 8d556a7f53b2a18bd519570364375c81184f37f3bdbcbf6debddcaf1268f4887  scripts/pr-automation.sh
 86fa9d89189e1c8d2a7dc8939950ef66ba954a2a477e5038ba402f119aca9e23  scripts/cw-update.sh
-LOCAL  .github/workflows/change-closure-signal.yml
+038d909cd51ad27a040bdc12688a9b52f1ef63dd866be00dbf2f2f9f1c8d3df4  .github/workflows/change-closure-signal.yml
 217dea4e74582ada4af22e34593cec747da717e873778bfb7d3bd2ecf2f4eb2d  .github/workflows/evidence-check.yml
 96c9747f80abacedf6aae9c6ecce73965d652a558f7ba5c0815bdbb7582466bd  scripts/cw-evidence.sh
 1845bf8abb261ef68f10296a9607ac8afac69df7e65cbb18c46e8ab89af699c7  scripts/cw-greploop.sh
@@ -19,6 +19,6 @@ LOCAL  docs/agents/incident-merge-local-workspace.md
 6e889c3387a48ddc456b6e42f88c71d9464c49d22546d05d6caeb36808204e39  docs/agents/issue-tracker.md
 bc7027265b054dc78330607814e28bc2ec5f47eaaa741a0d90c84a2114d5a173  docs/agents/pr-writing.md
 1d2b26931008e89945a84aafbc671eafb1f2db6c8f57a324a80b6f6f258d8b10  docs/agents/project-board.md
-LOCAL  docs/agents/quality-gates.md
+ed0c10625df37bf8cd45bf7bd06fd7eb51ffed61824baf617430c2bd0c30dbd5  docs/agents/quality-gates.md
 af3b3f1f1b2957f84f8c37f9db38a0b81fa1554158176eea43b05f748904556b  docs/agents/task-tracking.md
 99366787b19982a53a07b92c22b18da0629c804839b25e628ae50df1f742136a  docs/agents/triage-labels.md
