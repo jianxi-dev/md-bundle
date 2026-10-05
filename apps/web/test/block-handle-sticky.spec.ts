@@ -227,7 +227,7 @@ test.describe('Re-anchor on document change: handle repositions after edit/reord
     await handle.click()
     const menu = page.getByTestId('block-handle-menu')
     await expect(menu).toBeVisible()
-    await menu.getByRole('button', { name: '删除块' }).click()
+    await menu.getByRole('button', { name: '删除' }).click()
     await expect(menu).toBeHidden()
 
     // 现在重新悬停 Gamma paragraph，手柄应该出现在正确位置
