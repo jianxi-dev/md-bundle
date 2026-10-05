@@ -72,6 +72,8 @@ interface MenuAction {
     | 'copy-link'
     | 'add-below';
   readonly nonCalloutOnly?: boolean;
+  /** Second-level panel id. `insert-menu` is owned by block-handle.ts, not the flyout map. */
+  readonly flyout?: string;
 }
 
 const MENU_CONVERT: readonly MenuConvert[] = [
@@ -110,7 +112,7 @@ const COMMON_ACTIONS: readonly MenuAction[] = [
   { label: '翻译', icon: 'TranslateOutlined', action: 'translate', nonCalloutOnly: true },
   { label: '分享', icon: 'SharewordsOutlined', action: 'share' },
   { label: '复制链接', icon: 'BlocklinkOutlined', action: 'copy-link' },
-  { label: '在下方添加', icon: 'NewJoinMeetingOutlined', action: 'add-below' },
+  { label: '在下方添加', icon: 'NewJoinMeetingOutlined', action: 'add-below', flyout: 'insert-menu' },
 ];
 
 interface FlyoutOption {
@@ -290,7 +292,13 @@ export function createMenu(): HTMLElement {
   }
 
   for (const entry of COMMON_ACTIONS) {
-    menu.appendChild(createMenuItem(entry.label, entry.icon, { action: entry.action, nonCalloutOnly: entry.nonCalloutOnly }));
+    menu.appendChild(
+      createMenuItem(entry.label, entry.icon, {
+        action: entry.action,
+        nonCalloutOnly: entry.nonCalloutOnly,
+        flyout: entry.flyout,
+      }),
+    );
   }
 
   for (const entry of MENU_ACTIONS) {

@@ -4,9 +4,10 @@
  * - Module-level `WeakMap<EditorView, SlashMenuState>` holds the open-menu state
  *   per view, so tests can drive the menu by calling the exported functions
  *   directly with a view (no DOM event simulation needed).
- * - Root rows render as an icon grid; a row with children opens a flyout panel
- *   beside its cell (the root grid stays visible) instead of replacing the
- *   root list in place. The table size picker keeps its own grid panel.
+ * - Root rows render as a categorized vertical list; a row with children or a
+ *   grid opens a flyout panel beside its row (the root list stays visible) on
+ *   hover or click instead of replacing it. The table size picker keeps its own
+ *   grid panel.
  * - Typing after the `/` filters the root grid. The typed characters are real
  *   document text: `readQuery` derives the filter from `[slashPos + 1, head]`
  *   on every doc change, so filtering never fights the doc-change closer and
@@ -28,11 +29,17 @@ import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { calloutTypeMap } from '@md-bundle/renderer';
 import { TABLE_SIZE_QUERY, filterSlashCommands } from './slash-filter';
 import { sanitizeCellText } from './decorations/cell-text';
+import { renderIcon } from './icons';
 
 export interface SlashCommand {
   id: string;
   label: string;
   hint?: string;
+  /**
+   * Icon registry name (see `ICON_REGISTRY` in `icons.ts`). Rendered as an SVG
+   * via `renderIcon`, never as a text glyph: the raw name must not reach the
+   * DOM as visible text.
+   */
   icon?: string;
   /** Single-key code typed after `/` (e.g. `r` task, `t` table, `q` quote). */
   code?: string;
@@ -59,8 +66,7 @@ function headingLevel(level: 1 | 2 | 3 | 4 | 5 | 6): SlashCommand {
   return {
     id: `heading-${level}`,
     label: `${level} 级标题`,
-    hint: prefix.trimEnd(),
-    icon: `H${level}`,
+    icon: `H${level}Outlined`,
     code: String(level),
     insert(state) {
       const head = state.selection.main.head;
@@ -96,8 +102,7 @@ function calloutType(type: string): SlashCommand {
   return {
     id: `callout-${type}`,
     label: calloutTypeMap[type]?.label ?? type,
-    hint: `> [!${marker}]`,
-    icon: '\u275D',
+    icon: 'CalloutOutlined',
     code: CALLOUT_CODES[type],
     insert(state) {
       const head = state.selection.main.head;
@@ -112,9 +117,8 @@ function columnCount(count: number): SlashCommand {
   return {
     id: `columns-${count}`,
     label: `${count} 栏`,
-    hint: `col-${count}`,
-    icon: '\u25EB',
-    code: `fl${count}`,
+    icon: 'TextOutlined',
+    code: `f${count}`,
     insert(state) {
       const head = state.selection.main.head
       return { from: head - 1, to: head, text: `::: {.col-${count}}\n\n:::` }
@@ -126,16 +130,14 @@ export const defaultCommands: SlashCommand[] = [
   {
     id: 'heading',
     label: '标题',
-    hint: 'H1–H6',
-    icon: '#',
+    icon: 'H1Outlined',
     group: '基础',
     children: ([1, 2, 3, 4, 5, 6] as const).map(headingLevel),
   },
   {
     id: 'quote',
     label: '引用',
-    hint: '> ',
-    icon: '\u00BB',
+    icon: 'FormatQuoteOutlined',
     code: 'q',
     group: '基础',
     insert(state) {
@@ -146,8 +148,7 @@ export const defaultCommands: SlashCommand[] = [
   {
     id: 'code-block',
     label: '代码块',
-    hint: '```',
-    icon: '{ }',
+    icon: 'CodeblockOutlined',
     code: 'c',
     group: '基础',
     insert(state) {
@@ -158,8 +159,7 @@ export const defaultCommands: SlashCommand[] = [
   {
     id: 'divider',
     label: '分割线',
-    hint: '---',
-    icon: '\u2014',
+    icon: 'HorizontalRuleOutlined',
     code: 'd',
     group: '基础',
     insert(state) {
@@ -168,32 +168,20 @@ export const defaultCommands: SlashCommand[] = [
     },
   },
   {
-    id: 'table',
-    label: '表格',
-    hint: 'N × M',
-    icon: '\u25A6',
-    code: 't',
+    id: 'task',
+    label: '任务',
+    icon: 'TodoOutlined',
+    code: 'r',
     group: '常用',
-    grid: { rows: 10, cols: 10 },
-  },
-  {
-    id: 'callout',
-    label: '标注',
-    hint: '> [!NOTE]',
-    icon: '\u275D',
-    code: 'n',
-    group: '常用',
-    children: CALLOUT_TYPES.map(calloutType),
     insert(state) {
       const head = state.selection.main.head;
-      return { from: head - 1, to: head, text: '> [!NOTE]\n> ' };
+      return { from: head - 1, to: head, text: '- [ ] ' };
     },
   },
   {
     id: 'image-ref',
     label: '图片引用',
-    hint: '![](...)',
-    icon: '\u25A3',
+    icon: 'ImageOutlined',
     code: 'p',
     aliases: ['img'],
     group: '常用',
@@ -209,8 +197,7 @@ export const defaultCommands: SlashCommand[] = [
   {
     id: 'media-ref',
     label: '视频/文件',
-    hint: '![](file.ext)',
-    icon: '\u25B6',
+    icon: 'ImageOutlined',
     code: 'v',
     aliases: ['media'],
     group: '常用',
@@ -220,31 +207,43 @@ export const defaultCommands: SlashCommand[] = [
     },
   },
   {
-    id: 'task',
-    label: '任务',
-    hint: '- [ ]',
-    icon: '\u2610',
-    code: 'r',
+    id: 'table',
+    label: '表格',
+    icon: 'TableChartOutlined',
+    code: 't',
     group: '常用',
-    insert(state) {
-      const head = state.selection.main.head;
-      return { from: head - 1, to: head, text: '- [ ] ' };
-    },
+    grid: { rows: 10, cols: 10 },
   },
   {
     id: 'columns',
     label: '分栏',
-    hint: '1–5 栏',
-    icon: '\u25EB',
-    code: 'fl',
+    icon: 'TextOutlined',
+    code: 'f',
     group: '常用',
     children: COLUMN_COUNTS.map(columnCount),
   },
   {
+    id: 'callout',
+    label: '标注',
+    icon: 'CalloutOutlined',
+    code: 'n',
+    group: '常用',
+    children: CALLOUT_TYPES.map(calloutType),
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: '> [!NOTE]\n> ' };
+    },
+  },
+  {
+    id: 'data-kanban',
+    label: '数据看板',
+    icon: 'TableChartOutlined',
+    group: '数据',
+  },
+  {
     id: 'insert-html',
     label: '插入 HTML',
-    hint: '<div>',
-    icon: '</>',
+    icon: 'CodeOutlined',
     code: 'm',
     group: '绘图',
     insert(state) {
@@ -255,14 +254,41 @@ export const defaultCommands: SlashCommand[] = [
   {
     id: 'insert-css',
     label: '插入 CSS',
-    hint: '<style>',
-    icon: '#',
+    icon: 'CodeOutlined',
     aliases: ['css'],
     group: '绘图',
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: '<style>\n\n</style>' };
     },
+  },
+  {
+    id: 'flowchart',
+    label: '流程图',
+    icon: 'CodeOffOutlined',
+    group: '绘图',
+  },
+  {
+    id: 'task-list',
+    label: '任务清单',
+    icon: 'TodoOutlined',
+    group: '团队协作',
+    insert(state) {
+      const head = state.selection.main.head;
+      return { from: head - 1, to: head, text: '- [ ] ' };
+    },
+  },
+  {
+    id: 'toc',
+    label: '目录导航',
+    icon: 'ListOutlined',
+    group: '进阶',
+  },
+  {
+    id: 'embed-web',
+    label: '内嵌网页',
+    icon: 'ImageOutlined',
+    group: '更多小组件',
   },
 ];
 
@@ -294,8 +320,11 @@ interface GridState {
  * must delete that range. `anchor`: a cell handle asked for an insert menu at a
  * zero-width position — there is no trigger text and no filter, so a cancel must
  * not delete a character, and document churn elsewhere must not close it. The
- * caret leaving the owning cell does close it (see `anchorRange`). */
-type SlashMenuTrigger = 'slash' | 'anchor';
+ * caret leaving the owning cell does close it (see `anchorRange`). `below`: the
+ * block handle's 在下方添加 row asked for the same menu at a zero-width position
+ * after the block; like `anchor` it owns no text, but its inserts go on a new
+ * line below the block instead of inline, so they are never cell-sanitized. */
+type SlashMenuTrigger = 'slash' | 'anchor' | 'below';
 
 interface SlashMenuState {
   open: boolean;
@@ -352,7 +381,7 @@ function scheduleAnchorClose(view: EditorView): void {
     setTimeout(() => {
       pendingAnchorCloses.delete(view);
       const state = menus.get(view);
-      if (state && state.open && state.trigger === 'anchor') closeMenu(view);
+      if (state && state.open && state.trigger !== 'slash') closeMenu(view);
     }, ANCHOR_CLOSE_DELAY_MS),
   );
 }
@@ -385,9 +414,10 @@ function closeMenu(view: EditorView): void {
 function dismissMenu(view: EditorView): void {
   const state = menus.get(view);
   if (!state?.open) return;
-  if (state.trigger === 'anchor') {
-    // An anchored menu owns no text: its position is zero-width and may sit at
-    // the head of a cell whose content starts with `/`.
+  if (state.trigger !== 'slash') {
+    // Anchored and below menus own no text: their position is zero-width and
+    // may sit at the head of a cell whose content starts with `/`, or at a
+    // block boundary. Cancel must not delete a character.
     closeMenu(view);
     return;
   }
@@ -516,12 +546,16 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
     }
 
     const icon = document.createElement('span');
-    icon.textContent = cmd.icon ?? '';
+    icon.className = 'mdb-slash-item-icon';
+    icon.setAttribute('aria-hidden', 'true');
     icon.style.width = '18px';
     icon.style.flexShrink = '0';
-    icon.style.textAlign = 'center';
-    icon.style.lineHeight = '18px';
+    icon.style.display = 'inline-flex';
+    icon.style.alignItems = 'center';
+    icon.style.justifyContent = 'center';
+    icon.style.lineHeight = '1';
     icon.style.color = 'var(--mdb-primary)';
+    if (cmd.icon) icon.appendChild(renderIcon(cmd.icon));
     cell.appendChild(icon);
 
     const label = document.createElement('span');
@@ -533,20 +567,27 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
     label.style.whiteSpace = 'nowrap';
     cell.appendChild(label);
 
-    if (cmd.children?.length || cmd.hint) {
+    const hasSecondLevel = Boolean(cmd.children?.length) || cmd.grid !== undefined;
+    if (hasSecondLevel || cmd.hint) {
       const hint = document.createElement('span');
       hint.style.color = 'var(--mdb-text-secondary)';
       hint.style.fontSize = '10px';
       hint.style.opacity = '0.8';
       hint.style.flexShrink = '0';
-      hint.textContent = cmd.children?.length ? '\u25B8' : (cmd.hint ?? '');
+      hint.textContent = hasSecondLevel ? '\u25B8' : (cmd.hint ?? '');
       cell.appendChild(hint);
     }
 
+    // Hovering a row with a second level opens it immediately. Grid rows go
+    // through `enterGrid` (no root rebuild) so replacing DOM under a parked
+    // pointer cannot retrigger the handler into a render loop.
     cell.addEventListener('mouseenter', () => {
-      if (!cmd.children?.length) return;
       state.selected = i;
-      enterSubmenu(view, cmd);
+      if (cmd.grid) {
+        enterGrid(view, cmd, cell);
+        return;
+      }
+      if (cmd.children?.length) enterSubmenu(view, cmd);
     });
 
     cell.addEventListener('mousedown', (e) => {
@@ -588,10 +629,26 @@ function buildTable(cols: number, rows: number): string {
 function openGrid(view: EditorView, cmd: SlashCommand): void {
   const state = menus.get(view);
   if (!state?.open || !state.dom || !cmd.grid) return;
+  enterGrid(view, cmd, state.cells[state.selected] ?? null);
+}
+
+/**
+ * Show a row's grid picker in the flyout layer without rebuilding the root
+ * list. Hover and click both land here: a rebuild would replace the cell under
+ * a parked pointer and could retrigger the hover handler in a loop. Callers
+ * pass the owning cell so the picker anchors beside the right row whether the
+ * row was clicked or hovered.
+ */
+function enterGrid(view: EditorView, cmd: SlashCommand, parentCell: HTMLElement | null): void {
+  const state = menus.get(view);
+  if (!state?.open || !state.dom || !cmd.grid) return;
   closeFlyout(state);
   state.grid = { rows: cmd.grid.rows, cols: cmd.grid.cols, hoverR: 1, hoverC: 1 };
-  state.submenuParent = cmd
-  renderMenu(view, state);
+  state.submenuParent = cmd;
+  state.parentCell = parentCell ?? state.cells[state.selected] ?? null;
+  ensureFlyoutDom(view, state);
+  renderGrid(view, state);
+  positionFlyout(view, state);
 }
 
 /** Render the rows×cols grid picker with an N × M readout and hover preview. */
@@ -601,6 +658,14 @@ function renderGrid(view: EditorView, state: SlashMenuState): void {
   const flyout = ensureFlyoutDom(view, state)
   flyout.textContent = ''
   flyout.style.minWidth = '224px'
+
+  const title = document.createElement('div')
+  title.className = 'mdb-slash-grid-title'
+  title.textContent = '插入支持富文本的表格'
+  title.style.padding = '6px 10px 2px'
+  title.style.fontSize = '12px'
+  title.style.color = 'var(--mdb-text)'
+  flyout.appendChild(title)
 
   const label = document.createElement('div');
   label.className = 'mdb-slash-grid-label';
@@ -663,7 +728,8 @@ function openMenu(
   menu.dataset.testid = 'slash-menu';
   menu.addEventListener('mouseenter', () => cancelAnchorClose(view));
   menu.addEventListener('mouseleave', () => {
-    if (menus.get(view)?.trigger === 'anchor') scheduleAnchorClose(view);
+    const current = menus.get(view);
+    if (current && current.trigger !== 'slash') scheduleAnchorClose(view);
   });
   menu.style.position = 'absolute';
   menu.style.background = 'var(--mdb-bg-secondary)';
@@ -707,28 +773,32 @@ function openMenu(
 }
 
 /**
- * Anchored counterpart of `openMenu`, reached from `decorations/table.ts` over a
- * relative import. Tears down any open menu first: the older panel would stay
- * wired to this view while detached.
+ * Anchored counterpart of `openMenu`, reached from `decorations/table.ts` and
+ * the block handle's 在下方添加 row. Tears down any open menu first: the older
+ * panel would stay wired to this view while detached. `trigger` defaults to
+ * `anchor` (the table-cell path is unchanged); the block handle passes `below`.
  */
 export function openInsertMenu(
   view: EditorView,
   at: number,
   commands: SlashCommand[],
   anchorRange: { from: number; to: number },
+  trigger: SlashMenuTrigger = 'anchor',
 ): void {
   cancelAnchorClose(view);
   closeMenu(view);
-  openMenu(view, at, commands, 'anchor', anchorRange);
+  openMenu(view, at, commands, trigger, anchorRange);
 }
 
 /**
- * Drop an anchored menu without touching the document. Used when the widget
- * that opened it goes away (disposal, mode switch), where waiting out the
- * hover grace period would leave an orphaned panel over another view.
+ * Drop an anchored/below menu without touching the document. Used when the
+ * widget that opened it goes away (disposal, mode switch) or the pointer leaves
+ * the trigger without entering the menu, where waiting out the hover grace
+ * period would leave an orphaned panel over another view.
  */
 export function releaseInsertMenu(view: EditorView): void {
-  if (menus.get(view)?.trigger !== 'anchor') return;
+  const trigger = menus.get(view)?.trigger;
+  if (trigger !== 'anchor' && trigger !== 'below') return;
   closeMenu(view);
 }
 
@@ -758,8 +828,13 @@ function positionMenu(
     if (leftV + menuRect.width > viewportW - 8) {
       leftV = Math.max(8, viewportW - 8 - menuRect.width);
     }
-    if (topV + menuRect.height > viewportH - 8) {
-      topV = Math.max(8, viewportH - 8 - menuRect.height);
+    // Prefer opening under the cursor and scrolling when the list is tall;
+    // only flip above the cursor when there is no usable room below. A flip is
+    // clamped to the editor origin (never the viewport top) so the rows cannot
+    // park under the app header where they are unclickable.
+    const MIN_SPACE_BELOW = 180;
+    if (viewportH - 8 - topV < MIN_SPACE_BELOW) {
+      topV = Math.max(rect.top, viewportH - 8 - menuRect.height);
     }
 
     menu.style.left = `${leftV - rect.left}px`;
@@ -771,9 +846,16 @@ function positionMenu(
 }
 
 function applyCommand(view: EditorView, cmd: SlashCommand): void {
-  if (!cmd.insert) return;
   const state = menus.get(view);
-  const anchored = state?.trigger === 'anchor';
+  const trigger = state?.trigger ?? 'slash';
+  // Fidelity-only rows have no insert; dismiss without leaking the `/query`.
+  if (!cmd.insert) {
+    if (trigger === 'slash') dismissMenu(view);
+    else closeMenu(view);
+    return;
+  }
+  const anchored = trigger === 'anchor';
+  const below = trigger === 'below';
   const head = view.state.selection.main.head;
   // The `/` plus any typed filter is one replaceable range; command `insert`
   // implementations only supply the replacement text.
@@ -781,12 +863,24 @@ function applyCommand(view: EditorView, cmd: SlashCommand): void {
   // Close FIRST so the doc-change sync plugin never fights the transaction we
   // are about to dispatch.
   closeMenu(view);
-  if (head < from) return;
+  if (head < from && !below) return;
   if (anchored) {
     // The anchor sits inside a table cell, so the inserted text must stay on one
     // line: a multi-line command (code block, table, callout) would otherwise
     // split the table row and corrupt the table.
     const text = sanitizeCellText(cmd.insert(view.state).text);
+    view.dispatch({
+      changes: { from, to: from, insert: text },
+      selection: { anchor: from + text.length },
+      scrollIntoView: true,
+    });
+    return;
+  }
+  if (below) {
+    // The insert menu was opened from 在下方添加: start a new line after the
+    // block and keep the template intact (no cell sanitizing, which would strip
+    // the newlines and pipes a table or callout needs).
+    const text = `\n${cmd.insert(view.state).text}`;
     view.dispatch({
       changes: { from, to: from, insert: text },
       selection: { anchor: from + text.length },
@@ -895,9 +989,14 @@ function renderFlyout(view: EditorView, state: SlashMenuState): void {
     }
 
     const icon = document.createElement('span');
-    icon.textContent = cmd.icon ?? '';
+    icon.className = 'mdb-slash-flyout-icon';
+    icon.setAttribute('aria-hidden', 'true');
     icon.style.width = '18px';
+    icon.style.display = 'inline-flex';
+    icon.style.alignItems = 'center';
+    icon.style.justifyContent = 'center';
     icon.style.color = 'var(--mdb-primary)';
+    if (cmd.icon) icon.appendChild(renderIcon(cmd.icon));
     row.appendChild(icon);
 
     const label = document.createElement('span');
@@ -912,6 +1011,12 @@ function renderFlyout(view: EditorView, state: SlashMenuState): void {
     hint.textContent = cmd.hint ?? '';
     row.appendChild(hint);
 
+    row.addEventListener('mouseenter', () => {
+      if (state.flyoutSelected === i) return;
+      state.flyoutSelected = i;
+      highlightFlyout(state);
+    });
+
     row.addEventListener('mousedown', (e) => {
       e.preventDefault();
       state.flyoutSelected = i;
@@ -919,6 +1024,19 @@ function renderFlyout(view: EditorView, state: SlashMenuState): void {
     });
 
     state.flyoutDom!.appendChild(row);
+  });
+}
+
+/** Move the flyout highlight in place; rebuilding rows on hover would thrash. */
+function highlightFlyout(state: SlashMenuState): void {
+  if (!state.flyoutDom) return;
+  const rows = state.flyoutDom.querySelectorAll<HTMLElement>('.mdb-slash-flyout-item');
+  rows.forEach((row, index) => {
+    const active = index === state.flyoutSelected;
+    if (active) row.setAttribute('data-selected', 'true');
+    else row.removeAttribute('data-selected');
+    row.style.background = active ? 'rgb(22,93,255,0.18)' : '';
+    row.style.fontWeight = active ? '600' : '';
   });
 }
 
@@ -955,15 +1073,17 @@ function positionFlyout(view: EditorView, state: SlashMenuState): void {
   }
 }
 
-/** Leave the grid picker and restore the (filtered) root row list. */
+/**
+ * Leave the grid picker. The root list stayed mounted underneath (#331), so
+ * this only tears the flyout layer down. Rebuilding the root here would replace
+ * the row under a parked pointer and fire a synthetic re-hover that immediately
+ * reopened the grid.
+ */
 function backToRoot(view: EditorView): void {
   const state = menus.get(view);
   if (!state?.open || !state.dom || !state.grid) return;
-  closeFlyout(state)
+  closeFlyout(state);
   state.grid = null;
-  state.rows = filterSlashCommands(state.commands, state.query);
-  state.selected = Math.min(state.selected, Math.max(0, state.rows.length - 1));
-  renderMenu(view, state);
 }
 
 /**
@@ -1059,12 +1179,15 @@ function applyTableSize(
   const head = view.state.selection.main.head;
   const from = state.slashPos;
   const anchored = state.trigger === 'anchor';
-  // Anchored inside a cell: keep the table on one line so it cannot split the row.
-  const text = anchored ? sanitizeCellText(buildTable(cols, rows)) : buildTable(cols, rows);
+  const below = state.trigger === 'below';
+  const table = buildTable(cols, rows);
+  // Anchored inside a cell: keep the table on one line so it cannot split the
+  // row. Below the block: keep it intact on its own new line.
+  const text = anchored ? sanitizeCellText(table) : below ? `\n${table}` : table;
   closeMenu(view);
-  if (head < from) return;
+  if (head < from && !below) return;
   view.dispatch({
-    changes: { from, to: anchored ? from : head, insert: text },
+    changes: { from, to: anchored || below ? from : head, insert: text },
     selection: { anchor: from + text.length },
     scrollIntoView: true,
   });
@@ -1179,12 +1302,12 @@ const menuSyncPlugin = ViewPlugin.define((view) => ({
   update(u: ViewUpdate): void {
     const state = menus.get(u.view);
     if (!state?.open || slashComposing) return;
-    // An anchored menu has no typed trigger and no filter: the table widget
-    // rewrites its own cell markup on blur, and a caret move inside a cell is
-    // not an abandonment of anything this menu owns. Doc changes are ignored
-    // outright — but a caret that leaves the owning cell does close the panel,
-    // so it cannot linger after focus moved elsewhere.
-    if (state.trigger === 'anchor') {
+    // Anchored and below menus have no typed trigger and no filter. The table
+    // widget rewrites its own cell markup on blur, and the block-handle menu
+    // drives the below menu from outside the document, so doc changes are
+    // ignored outright. A caret that leaves the owning range does close the
+    // panel, so it cannot linger after focus moved elsewhere.
+    if (state.trigger !== 'slash') {
       if (u.selectionSet && state.anchorRange) {
         const caret = u.state.selection.main.head;
         if (caret < state.anchorRange.from || caret > state.anchorRange.to) {
@@ -1239,16 +1362,16 @@ const outsideClickDismiss = ViewPlugin.define((view) => {
     const state = menus.get(view);
     if (!state?.open) return;
     const target = event.target;
+    const inTriggerChrome =
+      target instanceof Element &&
+      target.closest('.cm-table-cell-handle, .mdb-block-handle-menu, .mdb-block-handle') !== null;
     if (
       target instanceof Node &&
-      (state.dom?.contains(target) ||
-        state.flyoutDom?.contains(target) ||
-        target instanceof Element &&
-          target.closest('.cm-table-cell-handle') !== null)
+      (state.dom?.contains(target) || state.flyoutDom?.contains(target) || inTriggerChrome)
     ) {
       return;
     }
-    if (state.trigger === 'anchor') {
+    if (state.trigger !== 'slash') {
       closeMenu(view);
       return;
     }

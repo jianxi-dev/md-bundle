@@ -96,7 +96,7 @@ test('表格网格展开时根列表保持挂载且单元格完整', async ({ pa
   await expect(cells).toHaveCount(100)
   // #331：网格在共享 flyout 层里，根列表不卸载
   await expect(page.locator('.mdb-slash-grid-menu')).toHaveCount(1)
-  await expect(rootRows(page)).toHaveCount(12)
+  await expect(rootRows(page)).toHaveCount(17)
 })
 
 test('取消：flyout 展开时 Escape 清掉根+二级+query', async ({ page }) => {
@@ -179,7 +179,7 @@ test('ArrowLeft 从网格回根：只收网格、根列表仍在', async ({ page
   await settle(page)
   await expect(page.locator('.mdb-slash-flyout')).toHaveCount(0)
   await expect(page.locator('.mdb-slash-grid-menu')).toHaveCount(1)
-  await expect(rootRows(page)).toHaveCount(12)
+  await expect(rootRows(page)).toHaveCount(17)
 
   await page.keyboard.press('ArrowLeft')
   await settle(page)
@@ -201,7 +201,7 @@ test('二级返回根：Esc 后再输入 `/` 重新展开且无残留', async ({
   await focusEditorEnd(page)
   await page.keyboard.type('/')
   await expect(page.locator('.mdb-slash-menu')).toBeVisible()
-  await expect(rootRows(page)).toHaveCount(12)
+  await expect(rootRows(page)).toHaveCount(17)
   await expect(page.locator('.mdb-slash-flyout')).toHaveCount(0)
 })
 
