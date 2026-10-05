@@ -612,14 +612,16 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
   }
 }
 
-/** Build a GFM pipe table with `cols` columns and `rows` body rows. */
+/**
+ * Build a GFM pipe table with `cols` columns and `rows` body rows.
+ * Cells start empty — placeholder text (A/B/C, 1/2/3/4) would be written
+ * into the document and force the user to clear every cell by hand (#386).
+ */
 function buildTable(cols: number, rows: number): string {
-  const header = `| ${Array.from({ length: cols }, (_, c) => String.fromCharCode(65 + c)).join(' | ')} |`;
+  const line = `| ${Array.from({ length: cols }, () => '').join(' | ')} |`;
   const separator = `| ${Array.from({ length: cols }, () => '---').join(' | ')} |`;
-  const body = Array.from({ length: rows }, (_, r) =>
-    `| ${Array.from({ length: cols }, (_, c) => String(r * cols + c + 1)).join(' | ')} |`,
-  ).join('\n');
-  return `${header}\n${separator}\n${body}`;
+  const body = Array.from({ length: rows }, () => line).join('\n');
+  return `${line}\n${separator}\n${body}`;
 }
 
 /**
