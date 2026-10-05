@@ -69,9 +69,11 @@ export function createPaletteRow(
   Object.assign(row.style, {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
-    height: '42px',
-    padding: '0 10px',
+    gap: '8px',
+    height: '32px',
+    minHeight: '32px',
+    maxHeight: '32px',
+    padding: '0 8px',
     borderRadius: '9px',
     cursor: 'pointer',
     position: 'relative',
@@ -109,7 +111,7 @@ export function createPaletteRow(
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    fontSize: '14px',
+    fontSize: '12px',
     color: 'var(--mdb-text)',
   });
   const marked = new Set(entry.matchPositions);
@@ -167,8 +169,8 @@ export function createPaletteRow(
     Object.assign(accent.style, {
       position: 'absolute',
       left: '0',
-      top: '9px',
-      bottom: '9px',
+      top: '4px',
+      bottom: '4px',
       width: '2px',
       borderRadius: '2px',
       background: 'var(--mdb-primary)',
