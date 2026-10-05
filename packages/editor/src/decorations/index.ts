@@ -1,6 +1,6 @@
 /**
- * Living-source decorations — combines the seven decoration modules
- * (heading, bold/italic, list, quote, inline code, image, callout) into a
+ * Living-source decorations — combines the nine decoration modules
+ * (heading, bold/italic, list, quote, inline code, image, callout, link, hr) into a
  * single CM6 Extension via a StateField.
  *
  * Semantic editing mode: decorations have two visual states per block:
@@ -38,6 +38,8 @@ import { createTableDecorations, scheduleTableFlush, tableCellSelectionPainter }
 import { cellToolbar } from './cell-toolbar';
 import { createColumnsDecorations } from './columns';
 import { createMermaidDecorations, type MermaidHydrator, type MermaidTheme } from './mermaid';
+import { createLinkDecorations } from './link';
+import { createHrDecorations } from './hr';
 import { editorDecorationsThemeExt } from './theme';
 import { getBlocks, getBlockAt } from '../block-model';
 import type { ImageResolver } from './image';
@@ -143,6 +145,8 @@ function buildDecorationSet(
       options?.hydrateMermaid,
       options?.mermaidTheme,
     ),
+    ...createLinkDecorations(docText, activeFrom, activeTo),
+    ...createHrDecorations(docText, activeFrom, activeTo),
   ];
 
   // Sort by from-position (required by CM6)
