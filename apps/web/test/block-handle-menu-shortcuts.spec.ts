@@ -44,18 +44,17 @@ async function openMenu(page: Page): Promise<void> {
   await expect(page.getByTestId('block-handle-menu')).toBeVisible()
 }
 
-/**
- * 转为 改为图标网格后（#330），标题项是纯图标项 —— 按设计「快捷键仅图标项除外」
- * （#335 的方向），它们不再显示 chord。
- */
 const GRID_LABELS: readonly string[] = [
+  '正文',
   '一级标题',
   '二级标题',
   '三级标题',
-  '四级标题',
-  '五级标题',
-  '六级标题',
-  '正文',
+  '有序',
+  '无序',
+  '待办',
+  '代码',
+  '引用',
+  '高亮',
 ]
 
 test('转为 图标网格为纯图标项，不显示快捷键（#330 / #292）', async ({ page }) => {
@@ -75,7 +74,7 @@ test('块手柄菜单无绑定的项不显示快捷键（#292）', async ({ page
   await openMenu(page)
 
   const menu = page.getByTestId('block-handle-menu')
-  for (const label of ['缩进和对齐', '颜色', '上移', '下移', '复制块', '删除块']) {
+  for (const label of ['缩进和对齐', '颜色', '上移', '下移', '复制', '删除']) {
     const item = menu.getByRole('button', { name: label, exact: true })
     await expect(item).toHaveCount(1)
     await expect(item.locator('kbd')).toHaveCount(0)

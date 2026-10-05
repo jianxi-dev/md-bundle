@@ -190,8 +190,63 @@ const ICON_REGISTRY: Record<string, IconDef> = {
     ],
   },
 
-  // Font colour — a bold "A" the selection toolbar tints per swatch (W5 / #328).
+// Font colour — a bold "A" the selection toolbar tints per swatch (W5 / #328).
   FormatColorTextOutlined: { kind: 'text', label: 'A', weight: 700 },
+
+  HeaderRowOutlined: {
+    kind: 'paths',
+    paths: ['M4 5h16a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm0 4h16a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm0 4h16a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z'],
+  },
+
+  HeaderColumnOutlined: {
+    kind: 'paths',
+    paths: ['M5 4v16a1 1 0 0 1-1 1h2a1 1 0 0 1 1-1V4a1 1 0 0 1-1-1H5zm4 0v16a1 1 0 0 1-1 1h2a1 1 0 0 1 1-1V4a1 1 0 0 1-1-1h-2zm4 0v16a1 1 0 0 1-1 1h2a1 1 0 0 1 1-1V4a1 1 0 0 1-1-1h-2z'],
+  },
+
+  DistributeColumnsOutlined: {
+    kind: 'paths',
+    paths: ['M3 3h18v2H3zm0 4h18v2H3zm0 4h18v2H3zm0 4h18v2H3zM5 5v2h2V5zm4 0v2h2V5zm4 0v2h2V5zm4 0v2h2V5zM5 9v2h2V9zm4 0v2h2V9zm4 0v2h2V9zm4 0v2h2V9zM5 13v2h2v-2zm4 0v2h2v-2zm4 0v2h2v-2zm4 0v2h2v-2zM5 17v2h2v-2zm4 0v2h2v-2zm4 0v2h2v-2zm4 0v2h2v-2z'],
+  },
+
+  LinkRecordOutlined: {
+    kind: 'paths',
+    paths: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 7.5V14h2v-4.5a2.5 2.5 0 0 1 5 0V14h2v-4.5a4.5 4.5 0 0 0-9 0z'],
+  },
+
+  NewJoinMeetingOutlined: {
+    kind: 'paths',
+    paths: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 7.5V14h2v-4.5a2.5 2.5 0 0 1 5 0V14h2v-4.5a4.5 4.5 0 0 0-9 0zM12 6a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4z'],
+  },
+
+  FeishuclipOutlined: {
+    kind: 'paths',
+    paths: ['M7 4h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm0 2v14h10V6H7zm5-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V3z'],
+  },
+
+  CopyOutlined: {
+    kind: 'paths',
+    paths: ['M8 2h12a1 1 0 0 1 1 1v14h-2V4H8V2zM4 6h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1 2v12h10V8H5z'],
+  },
+
+  TranslateOutlined: {
+    kind: 'paths',
+    paths: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-4.5 7.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zm9 0a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zM7.5 15a3.5 3.5 0 1 0 7 0 3.5 3.5 0 0 0-7 0z'],
+  },
+
+  SharewordsOutlined: {
+    kind: 'paths',
+    paths: ['M18 6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h12m0-2H6a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h12a4 4 0 0 0 4-4V8a4 4 0 0 0-4-4zM8 10h8v4H8zm0 6h5v2H8z'],
+  },
+
+  BlocklinkOutlined: {
+    kind: 'paths',
+    paths: ['M15.5 5.5a3.5 3.5 0 1 1-4.95 4.95 3.5 3.5 0 0 1 4.95-4.95zM10 15.5a3.5 3.5 0 1 1-4.95-4.95 3.5 3.5 0 0 1 4.95 4.95zM15.5 10.5a2 2 0 1 0-2.83 2.83 2 2 0 0 0 2.83-2.83zM10 10.5a2 2 0 1 0-2.83-2.83 2 2 0 0 0 2.83 2.83z'],
+  },
+
+  AddCommentOutlined: {
+    kind: 'paths',
+    paths: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 7.5V14h2v-4.5a2.5 2.5 0 0 1 5 0V14h2v-4.5a4.5 4.5 0 0 0-9 0zM12 6a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4z'],
+  },
 };
 
 /** Known icon names — used as a fallback for unmapped names. */
@@ -256,6 +311,12 @@ export const CONVERT_ICON_NAME: Record<string, string> = {
   h5: 'H5Outlined',
   h6: 'H6Outlined',
   paragraph: 'FormatParagraphOutlined',
+  ordered: 'OrderListOutlined',
+  bullet: 'DisorderListOutlined',
+  todo: 'TodoOutlined',
+  code: 'CodeblockOutlined',
+  quote: 'ReferenceOutlined',
+  callout: 'CalloutOutlined',
 };
 
 /** Icon name for a structural action (move/duplicate/delete). */

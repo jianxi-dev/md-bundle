@@ -205,8 +205,8 @@ describe('computeBlockTurnInto', () => {
     expect(computeBlockTurnInto('### Title', 0, 9, 'paragraph')).toBe('Title')
   })
 
-  it('turns a paragraph into list', () => {
-    expect(computeBlockTurnInto('Hello', 0, 5, 'list')).toBe('- Hello')
+  it('turns a paragraph into bullet list', () => {
+    expect(computeBlockTurnInto('Hello', 0, 5, 'bullet')).toBe('- Hello')
   })
 
   it('turns a paragraph into task', () => {
@@ -237,8 +237,8 @@ describe('computeBlockTurnInto', () => {
     expect(computeBlockTurnInto('one\ntwo\nthree', 0, 13, 'h2')).toBe('## one\n## two\n## three')
   })
 
-  it('turns multi-line block into list (per line)', () => {
-    expect(computeBlockTurnInto('one\ntwo\nthree', 0, 13, 'list')).toBe('- one\n- two\n- three')
+  it('turns multi-line block into bullet list (per line)', () => {
+    expect(computeBlockTurnInto('one\ntwo\nthree', 0, 13, 'bullet')).toBe('- one\n- two\n- three')
   })
 
   it('turns multi-line block into task (per line)', () => {
@@ -277,11 +277,11 @@ describe('computeBlockTurnInto', () => {
   })
 
   it('strips existing task markers before converting to list', () => {
-    expect(computeBlockTurnInto('- [ ] Task', 0, 10, 'list')).toBe('- Task')
+    expect(computeBlockTurnInto('- [ ] Task', 0, 10, 'bullet')).toBe('- Task')
   })
 
   it('strips existing quote markers before converting to list', () => {
-    expect(computeBlockTurnInto('> Quote', 0, 7, 'list')).toBe('- Quote')
+    expect(computeBlockTurnInto('> Quote', 0, 7, 'bullet')).toBe('- Quote')
   })
 
   it('strips existing callout markers before converting to quote', () => {
@@ -289,7 +289,7 @@ describe('computeBlockTurnInto', () => {
   })
 
   it('strips ordered list markers before converting to list', () => {
-    expect(computeBlockTurnInto('1. First', 0, 8, 'list')).toBe('- First')
+    expect(computeBlockTurnInto('1. First', 0, 8, 'bullet')).toBe('- First')
   })
 
   // Blank line preservation
@@ -516,16 +516,19 @@ describe('blockHandle lifecycle', () => {
       menu?.querySelectorAll('.mdb-block-handle-grid-item') ?? [],
     ).map((el) => el.getAttribute('aria-label'))
     expect(gridLabels).toEqual([
+      '正文',
       '一级标题',
       '二级标题',
       '三级标题',
-      '四级标题',
-      '五级标题',
-      '六级标题',
-      '正文',
+      '有序',
+      '无序',
+      '待办',
+      '代码',
+      '引用',
+      '高亮',
     ])
-    expect(menu?.textContent).toContain('复制块')
-    expect(menu?.textContent).toContain('删除块')
+    expect(menu?.textContent).toContain('复制')
+    expect(menu?.textContent).toContain('删除')
     expect(menu?.style.display).toBe('block')
   })
 
@@ -533,7 +536,7 @@ describe('blockHandle lifecycle', () => {
     hover(PARAGRAPH_POS)
     openMenu()
     const menu = menuEl()
-    expect(menu?.querySelectorAll('.mdb-block-handle-grid-item').length).toBe(7)
+    expect(menu?.querySelectorAll('.mdb-block-handle-grid-item').length).toBe(10)
     const flyouts = Array.from(menu?.querySelectorAll('[data-flyout]') ?? []).map((el) =>
       el.getAttribute('data-flyout'),
     )
@@ -556,20 +559,20 @@ describe('blockHandle lifecycle', () => {
     expect(view.state.doc.toString()).toBe('H1\n\nParagraph one here.')
   })
 
-  it('复制块 duplicates the block in one transaction', () => {
+  it('复制 duplicates the block in one transaction', () => {
     hover(PARAGRAPH_POS)
     openMenu()
     const dispatchSpy = vi.spyOn(view, 'dispatch')
-    clickMenuItem('复制块')
+    clickMenuItem('复制')
     expect(view.state.doc.toString()).toBe('# H1\n\nParagraph one here.\n\nParagraph one here.')
     expect(changeDispatchCount(dispatchSpy)).toBe(1)
   })
 
-  it('删除块 removes the block in one transaction', () => {
+  it('删除 removes the block in one transaction', () => {
     hover(PARAGRAPH_POS)
     openMenu()
     const dispatchSpy = vi.spyOn(view, 'dispatch')
-    clickMenuItem('删除块')
+    clickMenuItem('删除')
     expect(view.state.doc.toString()).toBe('# H1')
     expect(changeDispatchCount(dispatchSpy)).toBe(1)
   })
@@ -607,13 +610,13 @@ describe('blockHandle lifecycle', () => {
     expect(menu?.style.display).toBe('block')
   })
 
-  it('删除块 works after the pointer crossed from the gutter onto the menu', () => {
+  it('删除 works after the pointer crossed from the gutter onto the menu', () => {
     hover(PARAGRAPH_POS)
     openMenu()
     vi.spyOn(view, 'posAtCoords').mockReturnValue(null)
     menuEl()?.dispatchEvent(mouse('mousemove', { clientX: 40, clientY: 25 }))
     const dispatchSpy = vi.spyOn(view, 'dispatch')
-    clickMenuItem('删除块')
+    clickMenuItem('删除')
     expect(view.state.doc.toString()).toBe('# H1')
     expect(changeDispatchCount(dispatchSpy)).toBe(1)
   })
@@ -668,7 +671,7 @@ describe('blockHandle lifecycle', () => {
     openMenu()
 
     expect(menuEl()?.style.left).toBe('328px')
-    expect(menuEl()?.style.top).toBe('50px')
+    expect(menuEl()?.style.top).toBe('-30px')
   })
 
   it('positions the insertion line relative to the editor origin during a drag', () => {
@@ -782,7 +785,7 @@ describe('blockHandle lifecycle', () => {
   it('clears the selection after a menu action', () => {
     hover(PARAGRAPH_POS)
     enterHandle()
-    clickMenuItem('复制块')
+    clickMenuItem('复制')
     expect(selectedRange()).toBeNull()
   })
 

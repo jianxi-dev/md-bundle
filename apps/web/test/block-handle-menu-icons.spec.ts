@@ -43,23 +43,30 @@ async function openMenu(page: Page): Promise<void> {
   await expect(page.getByTestId('block-handle-menu')).toBeVisible()
 }
 
-/** 转为 图标网格：块型（标题/正文）→ data-icon。 */
 const CONVERT_GRID_ROWS: ReadonlyArray<readonly [label: string, icon: string]> = [
+  ['正文', 'TextOutlined'],
   ['一级标题', 'H1Outlined'],
   ['二级标题', 'H2Outlined'],
   ['三级标题', 'H3Outlined'],
-  ['四级标题', 'H4Outlined'],
-  ['五级标题', 'H5Outlined'],
-  ['六级标题', 'H6Outlined'],
-  ['正文', 'FormatParagraphOutlined'],
+  ['有序', 'OrderListOutlined'],
+  ['无序', 'DisorderListOutlined'],
+  ['待办', 'TodoOutlined'],
+  ['代码', 'CodeblockOutlined'],
+  ['引用', 'ReferenceOutlined'],
+  ['高亮', 'CalloutOutlined'],
 ]
 
-/** 底部结构动作行：文案 + 图标。 */
 const ACTION_ROWS: ReadonlyArray<readonly [label: string, icon: string]> = [
   ['上移', 'ArrowUpwardOutlined'],
   ['下移', 'ArrowDownwardOutlined'],
-  ['复制块', 'ContentCopyOutlined'],
-  ['删除块', 'DeleteOutlined'],
+  ['复制', 'CopyOutlined'],
+  ['删除', 'DeleteOutlined'],
+  ['评论', 'AddCommentOutlined'],
+  ['剪切', 'FeishuclipOutlined'],
+  ['翻译', 'TranslateOutlined'],
+  ['分享', 'SharewordsOutlined'],
+  ['复制链接', 'BlocklinkOutlined'],
+  ['在下方添加', 'NewJoinMeetingOutlined'],
 ]
 
 test('转为 图标网格每一项都显示对应图标（#276 / #330）', async ({ page }) => {
@@ -84,12 +91,10 @@ test('底部动作行显示图标 + 文案（#276）', async ({ page }) => {
   await openEditor(page)
   await openMenu(page)
 
-  const items = page.locator('.mdb-block-handle-menu .mdb-block-handle-item[data-action]')
-  await expect(items).toHaveCount(ACTION_ROWS.length)
-
-  for (let i = 0; i < ACTION_ROWS.length; i += 1) {
-    const [label, icon] = ACTION_ROWS[i]
-    const item = items.nth(i)
+  const menu = page.getByTestId('block-handle-menu')
+  for (const [label, icon] of ACTION_ROWS) {
+    const item = menu.getByRole('button', { name: label, exact: true })
+    await expect(item).toHaveCount(1)
     await expect(item).toContainText(label)
     const iconEl = item.locator('.mdb-block-handle-item-icon')
     await expect(iconEl).toBeVisible()
