@@ -1,0 +1,60 @@
+{
+  "states": [
+    {
+      "state": "non-hover-hidden",
+      "screenshot": ".artifacts/359/01-non-hover-hidden.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T09:24:27Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "hover-hotspots",
+      "screenshot": ".artifacts/359/02-hover-hotspots.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T09:24:27Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "boundary-move-away",
+      "screenshot": ".artifacts/359/08-boundary-move-away.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T09:24:28Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "row-geometry",
+      "screenshot": ".artifacts/359/03-row-geometry.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T09:24:28Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "col-geometry",
+      "screenshot": ".artifacts/359/04-col-geometry.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T09:24:28Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "click-cell-center",
+      "screenshot": ".artifacts/359/05-click-cell-center.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T09:24:28Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "cell-handle-insert-menu",
+      "screenshot": ".artifacts/359/06-cell-handle-insert-menu.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T09:24:28Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "block-menu-table-items",
+      "screenshot": ".artifacts/359/07-block-menu-table-items.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T09:24:28Z",
+      "runner": "mason@MMBP"
+    }
+  ]
+}

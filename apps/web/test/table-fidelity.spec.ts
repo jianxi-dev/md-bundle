@@ -94,15 +94,17 @@ test('AC: 格内手柄悬停打开插入菜单（基础图标组）', async ({ p
   await expect(slashMenu.locator('.mdb-slash-item').first()).toBeVisible()
 })
 
-test('AC: 格间线锚点悬停高亮单一边界线', async ({ page }) => {
+test('AC: 格间线热点悬停高亮单一边界线', async ({ page }) => {
   await openEditor(page)
 
-  const boundary = page.getByTestId('cm-table-boundary').first()
-  await expect(boundary).toBeVisible()
-  await boundary.hover()
+  // 先悬停单元格浮现热点，再悬停热点 → 仅对应边界进入 active（边界层自身不接管指针）。
+  await page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]').hover()
+  const hotspot = page.getByTestId('cm-table-hotspot').first()
+  await expect(hotspot).toBeVisible()
+  await hotspot.hover()
   await settle(page)
 
-  await expect(boundary).toHaveClass(/cm-table-boundary-active/)
+  await expect(page.locator('.cm-table-boundary-active')).toHaveCount(1)
 })
 
 test('AC: 直接插入表格默认 2×3 且单元格为空', async ({ page }) => {

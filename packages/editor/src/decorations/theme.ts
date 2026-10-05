@@ -577,24 +577,6 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     border: '1px solid var(--reader-line, var(--mdb-border))',
     borderRadius: 'var(--reader-radius-lg, 12px)',
   },
-  '.cm-content .cm-table-col-hotzones': {
-    display: 'flex',
-    height: '12px',
-  },
-  '.cm-content .cm-table-add-col': {
-    flex: '1',
-    opacity: '0',
-    padding: '0',
-    border: 'none',
-    background: 'transparent',
-    color: 'var(--mdb-text-secondary)',
-    cursor: 'pointer',
-    fontSize: '10px',
-    lineHeight: '1',
-  },
-  '.cm-content .cm-table-wrap:hover .cm-table-add-col': {
-    opacity: '0.6',
-  },
   '.cm-content .cm-table-cell-text': {
     // inline-block so min-width/min-height take effect — min-* is ignored on
     // inline boxes, and an empty cell must still be a clickable target.
@@ -645,8 +627,8 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     opacity: '0',
     cursor: 'pointer',
     pointerEvents: 'auto',
-    // Above .cm-table-boundary (z-index 5): the overlay spans the wrap, so a
-    // lower handle would be unpaintable and unclickable wherever they overlap.
+    // Above .cm-table-boundary (z-index 5): the boundary layer spans the wrap,
+    // so a lower handle would be unpaintable and unclickable where they overlap.
     zIndex: '6',
   },
   '.cm-content .cm-table-cell-handle::after': {
@@ -660,6 +642,10 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-table th:hover .cm-table-cell-handle, .cm-content .cm-table td:hover .cm-table-cell-handle, .cm-content .cm-table-cell-handle-active': {
     opacity: '1',
   },
+  // ── Insertion boundaries (F-03/F-04) ─────────────────────────────────
+  // The 6px strip sits ON the boundary and is inert: only the hotspot dot
+  // inside it takes the pointer, and only while the table is hovered, so a
+  // cell interior can never be swallowed by the layer.
   '.cm-content .cm-table-boundaries': {
     position: 'absolute',
     inset: '0',
@@ -667,33 +653,105 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   },
   '.cm-content .cm-table-boundary': {
     background: 'transparent',
+    pointerEvents: 'none',
+  },
+  '.cm-content .cm-table-boundary-line': {
+    position: 'absolute',
+    background: 'transparent',
+    borderRadius: '1px',
     transition: 'background-color 120ms ease-out',
   },
-  '.cm-content .cm-table-boundary-col': {
-    cursor: 'col-resize',
+  '.cm-content .cm-table-boundary-col .cm-table-boundary-line': {
+    left: '50%',
+    top: '0',
+    bottom: '0',
+    width: '2px',
+    transform: 'translateX(-50%)',
   },
-  '.cm-content .cm-table-boundary-row': {
-    cursor: 'row-resize',
+  '.cm-content .cm-table-boundary-row .cm-table-boundary-line': {
+    top: '50%',
+    left: '0',
+    right: '0',
+    height: '2px',
+    transform: 'translateY(-50%)',
   },
-  '.cm-content .cm-table-boundary-active': {
+  '.cm-content .cm-table-boundary-active .cm-table-boundary-line': {
     background: 'var(--reader-accent, var(--mdb-primary-fg))',
   },
-  '.cm-content .cm-table-add-row': {
+  // Hotspots: hidden by default; a table hover reveals every dot, and the
+  // hovered dot turns brand-blue with its bubble + boundary line.
+  '.cm-content .cm-table-hotspot': {
+    display: 'none',
     position: 'absolute',
-    left: '-15px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    opacity: '0',
-    padding: '0',
-    border: 'none',
-    background: 'transparent',
-    color: 'var(--mdb-text-secondary)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'auto',
     cursor: 'pointer',
-    fontSize: '10px',
-    lineHeight: '1',
+    zIndex: '6',
   },
-  '.cm-content .cm-table tr:hover .cm-table-add-row': {
-    opacity: '0.8',
+  // `cm-table-hovering` is set when a CELL is entered (not the wrap), so the
+  // dots appear only after hovering a cell (R-TABLE-01/A-18.2). It is cleared
+  // on wrap mouseleave, which keeps the dots usable while the pointer travels
+  // from the cell onto a dot.
+  '.cm-content .cm-table-wrap.cm-table-hovering .cm-table-hotspot': {
+    display: 'flex',
+  },
+  '.cm-content .cm-table-hotspot-col': {
+    left: '50%',
+    top: '6px',
+    transform: 'translateX(-50%)',
+  },
+  '.cm-content .cm-table-hotspot-row': {
+    top: '50%',
+    left: '8px',
+    transform: 'translateY(-50%)',
+  },
+  '.cm-content .cm-table-hotspot-dot': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '16px',
+    height: '16px',
+    boxSizing: 'border-box',
+    borderRadius: '50%',
+    border: '1px solid var(--reader-line, var(--mdb-border))',
+    background: 'var(--reader-sunken, var(--mdb-bg-secondary))',
+    color: 'var(--reader-ink-2, var(--mdb-text-secondary))',
+    fontSize: '12px',
+    lineHeight: '1',
+    pointerEvents: 'auto',
+  },
+  '.cm-content .cm-table-hotspot-active .cm-table-hotspot-dot': {
+    background: 'var(--reader-accent, var(--mdb-primary-fg))',
+    borderColor: 'var(--reader-accent, var(--mdb-primary-fg))',
+    color: '#ffffff',
+  },
+  '.cm-content .cm-table-hotspot-bubble': {
+    position: 'absolute',
+    display: 'none',
+    whiteSpace: 'nowrap',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    border: '1px solid var(--reader-line, var(--mdb-border))',
+    background: 'var(--reader-sunken, var(--mdb-bg-secondary))',
+    color: 'var(--reader-ink, var(--mdb-text))',
+    fontSize: '12px',
+    lineHeight: '1.4',
+    pointerEvents: 'none',
+    zIndex: '7',
+  },
+  '.cm-content .cm-table-hotspot-active .cm-table-hotspot-bubble': {
+    display: 'block',
+  },
+  '.cm-content .cm-table-hotspot-col .cm-table-hotspot-bubble': {
+    left: '50%',
+    top: '20px',
+    transform: 'translateX(-50%)',
+  },
+  '.cm-content .cm-table-hotspot-row .cm-table-hotspot-bubble': {
+    top: '50%',
+    left: '22px',
+    transform: 'translateY(-50%)',
   },
 
   // Block widgets (callout, table) live inside .cm-line elements that may
