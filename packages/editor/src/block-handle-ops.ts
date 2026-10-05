@@ -74,6 +74,7 @@ export type BlockTurnIntoTarget =
   | 'paragraph'
   | 'ordered'
   | 'bullet'
+  | 'list'
   | 'task'
   | 'todo'
   | 'quote'
@@ -205,6 +206,12 @@ export function computeBlockConvert(
   const blockText = docText.slice(blockFrom, blockTo)
   if (blockText.length === 0) return docText
 
+  // The 10-item convert grid includes whole-block targets (ordered/bullet/todo/
+  // code/quote/callout); only the heading + paragraph targets convert first-line.
+  if (target !== 'paragraph' && !(target in HEADING_LEVEL)) {
+    return computeBlockTurnInto(docText, blockFrom, blockTo, target as BlockTurnIntoTarget)
+  }
+
   const newline = blockText.indexOf('\n')
   const firstLine = newline === -1 ? blockText : blockText.slice(0, newline)
   const remainder = newline === -1 ? '' : blockText.slice(newline)
@@ -301,6 +308,7 @@ export function computeBlockTurnInto(
         prefix = '1. '
         break
       case 'bullet':
+      case 'list':
         prefix = '- '
         break
       case 'task':
