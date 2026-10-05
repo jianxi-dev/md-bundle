@@ -100,7 +100,7 @@ test.describe('选区浮条：颜色弹出面板（字体色 + 背景色 + 恢�
     await expect(menu.locator('.mdb-color-row-label', { hasText: '背景色' })).toBeVisible()
 
     // Pick 背景色 → 蓝色.
-    const bgBlue = menu.locator('.mdb-color-swatch-bg[title="蓝色"]')
+    const bgBlue = menu.locator('.mdb-color-bg-swatch[title="蓝色"]')
     await expect(bgBlue).toBeVisible()
     await bgBlue.click()
     await settle(page)
@@ -147,14 +147,14 @@ test.describe('选区浮条：颜色弹出面板（字体色 + 背景色 + 恢�
 
     // Text color via the 字体色 row.
     let menu = await openColorPopup(page)
-    const textRed = menu.locator('.mdb-color-swatch-text[title="红色"]')
+    const textRed = menu.locator('.mdb-color-font-swatch[title="红色"]')
     await expect(textRed).toBeVisible()
     await textRed.click()
     await settle(page)
 
     // Background via the 背景色 row (selection persists across swatch clicks).
     menu = await openColorPopup(page)
-    const bgBlue = menu.locator('.mdb-color-swatch-bg[title="蓝色"]')
+    const bgBlue = menu.locator('.mdb-color-bg-swatch[title="蓝色"]')
     await expect(bgBlue).toBeVisible()
     await bgBlue.click()
     await settle(page)
@@ -185,7 +185,7 @@ test.describe('选区浮条：颜色弹出面板（字体色 + 背景色 + 恢�
     await selectWord(page, 'UNIQUEMARKER')
 
     let menu = await openColorPopup(page)
-    await menu.locator('.mdb-color-swatch-bg[title="绿色"]').click()
+    await menu.locator('.mdb-color-bg-swatch[title="绿色"]').click()
     await settle(page)
 
     let raw = await rawDoc(page)
@@ -193,7 +193,7 @@ test.describe('选区浮条：颜色弹出面板（字体色 + 背景色 + 恢�
 
     await selectWord(page, 'UNIQUEMARKER')
     menu = await openColorPopup(page)
-    await menu.locator('.mdb-color-swatch-bg[title="绿色"]').click()
+    await menu.locator('.mdb-color-bg-swatch[title="绿色"]').click()
     await settle(page)
 
     raw = await rawDoc(page)

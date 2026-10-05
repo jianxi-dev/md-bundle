@@ -217,12 +217,24 @@ class BlockHandlePlugin {
   /** Escape must close the widget no matter where focus currently is. */
   private readonly onEscape = (): void => this.dismiss()
 
+  /**
+   * A shared-palette swatch was pressed (#360). The block handle edits the
+   * whole block, so cover it with a selection before running the color
+   * command, then close the chrome exactly as a flyout-row click does.
+   */
+  private readonly onColorPick = (commandId: string): void => {
+    const block = this.menuBlock ?? this.currentBlock
+    if (block) this.applyFlyoutAction(block, commandId)
+    this.chrome.hideMenu()
+    this.setSelected(null)
+  }
+
   constructor(view: EditorView) {
     this.view = view
     if (view.dom.style.position === '' || view.dom.style.position === 'static') {
       view.dom.style.position = 'relative'
     }
-    this.chrome = new HandleChrome(this.onEscape)
+    this.chrome = new HandleChrome(this.onEscape, this.onColorPick)
     this.chrome.mount(view.dom)
 
     view.dom.addEventListener('mousemove', this.onMouseMove)
@@ -734,7 +746,7 @@ class BlockHandlePlugin {
       if (next !== text) this.view.dispatch({ changes: computeMinimalChange(text, next) })
       return
     }
-    if (action.startsWith('color-')) {
+    if (action.startsWith('color-') || action.startsWith('bg-')) {
       // Color commands operate on the selection, so cover the whole block first.
       this.view.dispatch({ selection: { anchor: block.from, head: block.to } })
       commandRegistry.execute(action, this.view)

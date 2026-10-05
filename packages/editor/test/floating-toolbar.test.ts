@@ -82,8 +82,9 @@ function clickColorSwatch(
   variant: 'text' | 'bg',
   title: string,
 ): void {
+  const cls = variant === 'text' ? 'mdb-color-font-swatch' : 'mdb-color-bg-swatch';
   const swatch = view.dom.querySelector<HTMLButtonElement>(
-    `.mdb-floating-toolbar .mdb-color-swatch-${variant}[title="${title}"]`,
+    `.mdb-floating-toolbar .${cls}[title="${title}"]`,
   );
   if (!swatch) throw new Error(`color swatch ${variant} title="${title}" not found`);
   swatch.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
@@ -344,8 +345,8 @@ describe('floating toolbar: color popup (ticket #278)', () => {
       view.dom.querySelectorAll('.mdb-toolbar-color-menu .mdb-color-row-label'),
     ).map((el) => el.textContent);
     expect(labels).toEqual(['字体色', '背景色']);
-    expect(view.dom.querySelectorAll('.mdb-toolbar-color-menu .mdb-color-swatch-text')).toHaveLength(5);
-    expect(view.dom.querySelectorAll('.mdb-toolbar-color-menu .mdb-color-swatch-bg')).toHaveLength(5);
+    expect(view.dom.querySelectorAll('.mdb-toolbar-color-menu .mdb-color-font-swatch')).toHaveLength(8);
+    expect(view.dom.querySelectorAll('.mdb-toolbar-color-menu .mdb-color-bg-swatch')).toHaveLength(16);
     expect(view.dom.querySelector('.mdb-toolbar-color-menu .mdb-color-reset')?.textContent).toBe(
       '恢复默认',
     );
@@ -355,12 +356,12 @@ describe('floating toolbar: color popup (ticket #278)', () => {
     selectWord(view, 'Hello world', 'Hello');
     clickBtn(view, '颜色');
     const red = view.dom.querySelector<HTMLButtonElement>(
-      '.mdb-toolbar-color-menu .mdb-color-swatch-text[title="红色"]',
+      '.mdb-toolbar-color-menu .mdb-color-font-swatch[title="红色"]',
     );
     // The glyph is the label — no text, just a tinted "A".
     const glyph = red?.querySelector('span');
     expect(glyph?.textContent).toBe('A');
-    expect(glyph?.style.color).toMatch(/rgb\(207,\s*34,\s*46\)|#cf222e/i);
+    expect(glyph?.style.color).toMatch(/rgb\(240,\s*0,\s*14\)|#f0000e/i);
     // The font row is not a solid swatch.
     expect(red?.style.background).toBe('transparent');
   });
@@ -369,10 +370,10 @@ describe('floating toolbar: color popup (ticket #278)', () => {
     selectWord(view, 'Hello world', 'Hello');
     clickBtn(view, '颜色');
     const blue = view.dom.querySelector<HTMLButtonElement>(
-      '.mdb-toolbar-color-menu .mdb-color-swatch-bg[title="蓝色"]',
+      '.mdb-toolbar-color-menu .mdb-color-bg-swatch[title="蓝色"]',
     );
     expect(blue?.querySelector('span')).toBeNull();
-    expect(blue?.style.background).toMatch(/rgb\(215,\s*220,\s*255\)|#d7dcff/i);
+    expect(blue?.style.background).toMatch(/rgb\(76,\s*136,\s*255\)|#4c88ff/i);
   });
 
   it('字体色 swatch applies 红色 (mdb-color-red)', () => {

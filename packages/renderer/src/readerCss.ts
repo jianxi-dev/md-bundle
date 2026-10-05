@@ -215,6 +215,12 @@ export const READER_CSS: string = `
 [data-theme='light'] .preview-content .mdb-color-purple {
   color: #7a4f9d;
 }
+[data-theme='light'] .preview-content .mdb-color-yellow {
+  color: #f0b622;
+}
+[data-theme='light'] .preview-content .mdb-color-cyan {
+  color: #20b2aa;
+}
 
 [data-theme='light'] .preview-content .mdb-bg-red {
   background-color: #ffd8d3;
@@ -230,6 +236,36 @@ export const READER_CSS: string = `
 }
 [data-theme='light'] .preview-content .mdb-bg-purple {
   background-color: #e8d7ff;
+}
+[data-theme='light'] .preview-content .mdb-bg-yellow {
+  background-color: rgba(240, 182, 34, 0.28);
+}
+[data-theme='light'] .preview-content .mdb-bg-cyan {
+  background-color: rgba(32, 178, 170, 0.28);
+}
+[data-theme='light'] .preview-content .mdb-bg-gray {
+  background-color: rgba(120, 120, 120, 0.18);
+}
+[data-theme='light'] .preview-content .mdb-bg-darkred {
+  background-color: rgba(179, 68, 68, 0.24);
+}
+[data-theme='light'] .preview-content .mdb-bg-brown {
+  background-color: rgba(132, 81, 23, 0.24);
+}
+[data-theme='light'] .preview-content .mdb-bg-olive {
+  background-color: rgba(135, 123, 16, 0.24);
+}
+[data-theme='light'] .preview-content .mdb-bg-darkgreen {
+  background-color: rgba(41, 107, 34, 0.24);
+}
+[data-theme='light'] .preview-content .mdb-bg-navy {
+  background-color: rgba(32, 62, 120, 0.24);
+}
+[data-theme='light'] .preview-content .mdb-bg-indigo {
+  background-color: rgba(77, 38, 145, 0.24);
+}
+[data-theme='light'] .preview-content .mdb-bg-slate {
+  background-color: rgba(95, 95, 95, 0.24);
 }
 
 .cjk-pad {
@@ -958,6 +994,12 @@ export const READER_CSS: string = `
 [data-theme='dark'] .preview-content .mdb-color-purple {
   color: #a371f7;
 }
+[data-theme='dark'] .preview-content .mdb-color-yellow {
+  color: #f0b622;
+}
+[data-theme='dark'] .preview-content .mdb-color-cyan {
+  color: #20b2aa;
+}
 
 [data-theme='dark'] .preview-content .mdb-bg-red {
   background-color: rgba(248, 81, 73, 0.25);
@@ -973,6 +1015,36 @@ export const READER_CSS: string = `
 }
 [data-theme='dark'] .preview-content .mdb-bg-purple {
   background-color: rgba(163, 113, 247, 0.25);
+}
+[data-theme='dark'] .preview-content .mdb-bg-yellow {
+  background-color: rgba(240, 182, 34, 0.25);
+}
+[data-theme='dark'] .preview-content .mdb-bg-cyan {
+  background-color: rgba(32, 178, 170, 0.25);
+}
+[data-theme='dark'] .preview-content .mdb-bg-gray {
+  background-color: rgba(235, 235, 235, 0.22);
+}
+[data-theme='dark'] .preview-content .mdb-bg-darkred {
+  background-color: rgba(179, 68, 68, 0.30);
+}
+[data-theme='dark'] .preview-content .mdb-bg-brown {
+  background-color: rgba(132, 81, 23, 0.30);
+}
+[data-theme='dark'] .preview-content .mdb-bg-olive {
+  background-color: rgba(135, 123, 16, 0.30);
+}
+[data-theme='dark'] .preview-content .mdb-bg-darkgreen {
+  background-color: rgba(41, 107, 34, 0.30);
+}
+[data-theme='dark'] .preview-content .mdb-bg-navy {
+  background-color: rgba(32, 62, 120, 0.30);
+}
+[data-theme='dark'] .preview-content .mdb-bg-indigo {
+  background-color: rgba(77, 38, 145, 0.30);
+}
+[data-theme='dark'] .preview-content .mdb-bg-slate {
+  background-color: rgba(95, 95, 95, 0.30);
 }
 
 /* ── Lists ─── */
