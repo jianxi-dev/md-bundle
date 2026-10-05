@@ -1,8 +1,30 @@
 ## MODIFIED Requirements
 
+### Requirement: Shortcuts are discoverable in the command palette
+
+Every bound shortcut SHALL be listed in the command palette and SHALL be shown next to the corresponding menu item, except for icon-only menu items (which have no text label to attach a keybind to). The command palette SHALL retain its single-column layout with right-aligned keybindings, a recent-commands section, fuzzy/pinyin matching with highlighted matches, and a footer shortcut hint bar.
+
+#### Scenario: Shortcut is visible in the palette
+- **WHEN** the user opens the command palette and looks at 加粗
+- **THEN** the item shows `⌘/Ctrl+B`
+
+#### Scenario: Shortcut is visible next to a menu item
+- **WHEN** the user opens a menu containing 复制, which has a shortcut
+- **THEN** the 复制 row shows its keybind next to the label
+
+#### Scenario: Icon-only items omit the keybind
+- **WHEN** a menu item is icon-only (no text label)
+- **THEN** no keybind text is rendered for it
+
+#### Scenario: Block menu copy item shows ⌘C
+- **WHEN** the block menu opens on a paragraph block
+- **THEN** the `复制` item shows `⌘C` (or platform equivalent) right-aligned
+
+## ADDED Requirements
+
 ### Requirement: Command palette item height 32px, font 12px, spacing multiples of 4
 
-The command palette (⌘/Ctrl+K) SHALL render each command row with `height: 32px`, label `font-size: 12px`, description `font-size: 11px`, icon `18px`, horizontal padding `0 8px`, gap `8px` (all multiples of 4). Group headings SHALL be sticky. The palette SHALL retain single-column layout with right-aligned keybindings, recent-commands section, fuzzy/pinyin matching with highlighted matches, and footer shortcut hint bar.
+The command palette (⌘/Ctrl+K) SHALL render each command row with `height: 32px`, label `font-size: 12px`, description `font-size: 11px`, icon `18px`, horizontal padding `0 8px`, gap `8px` (all multiples of 4). Group headings SHALL be sticky.
 
 #### Scenario: Palette item height is 32px
 - **WHEN** the user opens the command palette
@@ -23,24 +45,6 @@ The command palette (⌘/Ctrl+K) SHALL render each command row with `height: 32p
 #### Scenario: Palette shows recent section and sticky group headings
 - **WHEN** the user opens the command palette after using some commands
 - **THEN** a "最近使用" section appears at the top; group headings stick while scrolling
-
-### Requirement: Block menu action items show product keybindings (non-icon items)
-
-Non-icon panel items in the block menu SHALL display their keybinding from `keybindings.ts` (e.g., `复制 ⌘C`, `删除 ⌘⌫`) right-aligned. Icon-grid items (Convert grid) show no keybinding.
-
-#### Scenario: Block menu copy item shows ⌘C
-- **WHEN** the block menu opens on a paragraph block
-- **THEN** the `复制` item shows `⌘C` (or platform equivalent) right-aligned
-
-#### Scenario: Block menu delete item shows keybinding
-- **WHEN** the block menu opens
-- **THEN** the `删除` item shows its keybinding (e.g., `⌘⌫` or `Backspace`) right-aligned
-
-#### Scenario: Convert grid items show no keybinding
-- **WHEN** the block menu convert grid is visible
-- **THEN** the 10 icon items have no keybinding text
-
-## ADDED Requirements
 
 ### Requirement: Slash menu items show product keybindings (not markdown trigger chars)
 

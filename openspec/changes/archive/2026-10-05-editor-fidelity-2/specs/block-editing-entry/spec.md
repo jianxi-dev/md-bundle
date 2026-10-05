@@ -1,43 +1,4 @@
-# block-editing-entry Specification
-
-## Purpose
-TBD - created by archiving change editor-block-entry. Update Purpose after archive.
-## Requirements
-### Requirement: Block handle menu moves a block up or down
-
-The block handle menu SHALL offer 「上移」 and 「下移」 actions that swap the current block with its previous/next sibling in a single minimal-change transaction.
-
-#### Scenario: Move a block down
-- **WHEN** the user opens the block handle menu on a block and selects 「下移」
-- **THEN** that block swaps position with the block below it and the viewport does not jump
-
-### Requirement: Heading level is controllable and demotable
-
-A heading block SHALL be switchable between H1–H6 from the block handle menu, and pressing Backspace at the start of a heading line SHALL demote it one level (H1 becomes a paragraph).
-
-#### Scenario: Switch a heading via the block handle menu
-- **WHEN** the cursor is on a heading and the user picks H3 from the block handle menu
-- **THEN** the line becomes an H3 heading
-
-#### Scenario: Backspace demotes a heading
-- **WHEN** the cursor is at the start of an H2 line and the user presses Backspace
-- **THEN** the line becomes an H1 heading; pressing Backspace again on an H1 makes it a paragraph
-
-### Requirement: Heading markers are editable in the active block
-
-When the cursor is inside a heading block, the `# ` marker SHALL NOT be replaced by a non-editable widget, so the heading can be edited/demoted from the source.
-
-#### Scenario: Heading source is reachable
-- **WHEN** the cursor enters a heading line
-- **THEN** the raw `# ` marker is reachable and Backspace can change the level
-
-### Requirement: Block handle hit area is enlarged and bridged
-
-The block handle SHALL have an enlarged interactive hit area with an invisible bridge between the text and the handle, so moving toward it does not lose the handle.
-
-#### Scenario: Enlarged hit area
-- **WHEN** the pointer is near but not exactly on the handle glyph
-- **THEN** the handle is still treated as hovered
+## MODIFIED Requirements
 
 ### Requirement: Block handle shows the block type icon
 
@@ -58,30 +19,6 @@ The block handle SHALL render as a 42px wide × 26px high rounded pill (radius 6
 #### Scenario: Drag handle always shows DragOutlined
 - **WHEN** the handle appears on any block
 - **THEN** the right segment shows `data-icon = DragOutlined`
-
-### Requirement: Empty lines expose an insert affordance
-
-An empty line/blank area SHALL show a 「＋」 affordance in the gutter on hover; clicking it SHALL open the insert menu. The insertion button SHALL render at the same gutter X coordinate as the block handle (difference < 2px), using `AddOutlined` icon, 20×20 size.
-
-#### Scenario: Empty line shows plus
-- **WHEN** the pointer is over an empty line
-- **THEN** a 「＋」 appears in the gutter and clicking it opens the insert menu
-
-#### Scenario: Empty line "+" X matches handle X
-- **WHEN** the user hovers an empty line
-- **THEN** the "+" button appears and its `left` coordinate differs from the block handle's `left` by < 2px
-
-### Requirement: Block handle menu and toolbar controls are iconified
-
-The block handle menu SHALL render each entry with an icon and label. The "转为" section SHALL render a 2-row icon grid (6 + 4 items) with no labels, using SVG icons from ICON_MAP; the current block type SHALL have a `var(--brand-soft)` background highlight.
-
-#### Scenario: Menu shows icons
-- **WHEN** the user opens the block handle menu
-- **THEN** each entry shows an icon alongside its label
-
-#### Scenario: Convert grid shows 10 items with correct icons
-- **WHEN** the block menu opens on a paragraph block
-- **THEN** the grid shows exactly 10 items in order: `TextOutlined` `H1Outlined` `H2Outlined` `H3Outlined` `OrderListOutlined` `DisorderListOutlined` / `TodoOutlined` `CodeblockOutlined` `ReferenceOutlined` `CalloutOutlined`; the `TextOutlined` item has blue background
 
 ### Requirement: The block menu opens on hover over the handle
 
@@ -106,6 +43,30 @@ The block handle SHALL fade in when the pointer hovers the block row, but SHALL 
 #### Scenario: Scrolling dismisses the handle and menu
 - **WHEN** the user scrolls the editor while a block is hovered
 - **THEN** the handle and menu are dismissed immediately
+
+### Requirement: Empty lines expose an insert affordance
+
+An empty line/blank area SHALL show a 「＋」 affordance in the gutter on hover; clicking it SHALL open the insert menu. The insertion button SHALL render at the same gutter X coordinate as the block handle (difference < 2px), using `AddOutlined` icon, 20×20 size.
+
+#### Scenario: Empty line shows plus
+- **WHEN** the pointer is over an empty line
+- **THEN** a 「＋」 appears in the gutter and clicking it opens the insert menu
+
+#### Scenario: Empty line "+" X matches handle X
+- **WHEN** the user hovers an empty line
+- **THEN** the "+" button appears and its `left` coordinate differs from the block handle's `left` by < 2px
+
+### Requirement: Block handle menu and toolbar controls are iconified
+
+The block handle menu SHALL render each entry with an icon and label. The "转为" section SHALL render a 2-row icon grid (6 + 4 items) with no labels, using SVG icons from ICON_MAP; the current block type SHALL have a `var(--brand-soft)` background highlight.
+
+#### Scenario: Menu shows icons
+- **WHEN** the user opens the block handle menu
+- **THEN** each entry shows an icon alongside its label
+
+#### Scenario: Convert grid shows 10 items with correct icons
+- **WHEN** the block menu opens on a paragraph block
+- **THEN** the grid shows exactly 10 items in order: `TextOutlined` `H1Outlined` `H2Outlined` `H3Outlined` `OrderListOutlined` `DisorderListOutlined` / `TodoOutlined` `CodeblockOutlined` `ReferenceOutlined` `CalloutOutlined`; the `TextOutlined` item has blue background
 
 ### Requirement: The block menu is contextual and exposes secondary submenus
 
@@ -138,6 +99,12 @@ The block menu SHALL vary its actions by block type while sharing common chrome 
 #### Scenario: Hover "颜色›" opens unified color submenu
 - **WHEN** the pointer hovers the `颜色›` item
 - **THEN** a flyout appears with font-color A×8（默认 + 7 色，原型机读值） swatches, bg-color 16 swatches, and "恢复默认" button (per D6)
+
+## REMOVED Requirements
+
+### Requirement: Block handle stays visible while the pointer is on the block or handle
+
+## ADDED Requirements
 
 ### Requirement: Block menu renders at 236px width, 32px item height, 12px font, top-aligned with block
 
@@ -174,4 +141,3 @@ The `在下方添加›` item SHALL open the same insert menu used by slash and 
 #### Scenario: "在下方添加›" hover opens insert menu
 - **WHEN** the pointer hovers `在下方添加›` in the block menu
 - **THEN** the insert menu (categorized list) appears as a flyout
-

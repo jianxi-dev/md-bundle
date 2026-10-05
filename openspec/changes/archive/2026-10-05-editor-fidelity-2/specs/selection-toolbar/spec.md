@@ -1,43 +1,4 @@
-# selection-toolbar Specification
-
-## Purpose
-TBD - created by archiving change selection-toolbar. Update Purpose after archive.
-## Requirements
-### Requirement: Selection toolbar exposes the full inline format set
-
-The text-selection floating toolbar SHALL render its controls from the command registry (data-driven) and SHALL offer 加粗, 斜体, 删除线, 下划线, 行内代码, 链接, and 复制. Clicking a format control SHALL apply it to the selection in a single undoable change, and clicking it again on already-formatted text SHALL remove the formatting (toggle).
-
-#### Scenario: Apply underline to a selection
-- **WHEN** the user selects text and clicks 下划线
-- **THEN** the underlying source wraps the selection in `<u>…</u>` and the toolbar reflects the active state
-
-#### Scenario: Toggle a format off
-- **WHEN** the user selects text already wrapped in `~~…~~` and clicks 删除线
-- **THEN** the `~~` delimiters are removed
-
-### Requirement: Block alignment uses a fenced div
-
-The toolbar SHALL offer a 对齐 control (左 / 中 / 右) that wraps the current block in a Pandoc fenced div `::: {.align-left|center|right}`. The renderer SHALL map these to `layout-align-*` and `readerCssText` SHALL provide the alignment styles.
-
-#### Scenario: Center a paragraph
-- **WHEN** the cursor is in a paragraph and the user picks 居中
-- **THEN** the block is wrapped in `::: {.align-center}` … `:::` and the preview renders it centred
-
-### Requirement: Columns use a fenced div and render with layout styles
-
-The toolbar SHALL offer a 分栏 control (2 / 3 columns) that inserts `::: {.col-2}` / `::: {.col-3}`. `readerCssText` SHALL provide layout styles for `.layout-col-2`, `.layout-col-3`, and `.layout-card-grid[data-columns]` (currently absent).
-
-#### Scenario: Two-column layout renders
-- **WHEN** a block is wrapped in `::: {.col-2}` … `:::` and previewed
-- **THEN** the preview lays the content out in two columns
-
-### Requirement: Editing model stays live Markdown source
-
-Style controls SHALL encode only into HTML passthrough or Pandoc fenced divs — never a private Markdown syntax — and the document source SHALL remain editable, with the active block revealing the raw tags.
-
-#### Scenario: Raw tags are reachable in the active block
-- **WHEN** the cursor enters a region styled via the toolbar
-- **THEN** the raw `<span class="mdb-*">…</span>` or `::: {.align-center}` … `:::` source is visible and editable
+## MODIFIED Requirements
 
 ### Requirement: Inline color uses a popup dual palette and class-based HTML
 
@@ -70,18 +31,6 @@ The toolbar SHALL offer a 颜色 control that opens a popup dual palette (font c
 #### Scenario: Selecting a block applies that background color
 - **WHEN** the background color submenu is open and the user clicks block 3 (`#f0b622`)
 - **THEN** the selected cells/text receive `background-color: #f0b622`
-
-### Requirement: Toolbar offers whole-paragraph turn-into
-
-The selection toolbar SHALL offer a 转换 (turn-into) control that converts the entire block to a chosen type (paragraph, H1–H6, bullet, ordered, task, quote, code block, callout, table), applying to the whole block when only part of the text is selected and to multi-line blocks.
-
-#### Scenario: Convert a paragraph to a task from the toolbar
-- **WHEN** part of a paragraph's text is selected and the user picks 任务 in the 转换 control
-- **THEN** the whole paragraph's source becomes a task block `- [ ] …`
-
-#### Scenario: Convert a multi-line block
-- **WHEN** the user picks a heading level for a multi-line paragraph
-- **THEN** the whole block is converted (not only the first line)
 
 ### Requirement: Font color is chosen from a row of colored "A" swatches
 
@@ -131,6 +80,8 @@ When a table cell selection is active, the selection toolbar SHALL expose a merg
 - **WHEN** the user opens `单元格背景颜色›`
 - **THEN** the submenu shows the same 16 blocks + "恢复默认" as the main background color submenu
 
+## ADDED Requirements
+
 ### Requirement: Both submenus have a full-width "恢复默认" button (height 30px)
 
 Both the font color and background color submenus SHALL include a full-width "恢复默认" button at the bottom, height 30px, which clears the respective color style.
@@ -150,4 +101,3 @@ The block menu's `颜色›` flyout SHALL render the **exact same** font-color +
 #### Scenario: Block menu color flyout matches toolbar
 - **WHEN** the user hovers `颜色›` in the block menu (on a paragraph block)
 - **THEN** the flyout shows the same 8 "A" swatches（默认 + 7 色，原型机读值）, 16 bg blocks, and "恢复默认" as the floating toolbar
-

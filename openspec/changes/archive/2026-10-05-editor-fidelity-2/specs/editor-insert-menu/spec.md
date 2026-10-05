@@ -1,8 +1,5 @@
-# editor-insert-menu Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change editor-doubao-parity. Update Purpose after archive.
-## Requirements
 ### Requirement: Insert menu renders as a grouped icon grid
 
 The insert menu SHALL render commands as a vertical list grouped under labelled category headings (基础 / 常用 / 数据 / 绘图 / 团队协作 / 进阶 / 更多小组件), where each row shows an SVG icon (`data-icon` from ICON_MAP) and a label, instead of a flat ungrouped icon grid.
@@ -118,6 +115,12 @@ When filtering yields no matches, the insert menu SHALL show a "无匹配项" me
 - **WHEN** the menu is open and the typed query matches nothing
 - **THEN** a "无匹配项" message is shown and pressing Escape dismisses the menu with no leftover box
 
+## REMOVED Requirements
+
+### Requirement: Command palette renders as a grid with shortcuts and previews
+
+## ADDED Requirements
+
 ### Requirement: Three entry points share the same insert menu instance
 
 The empty-line "+" hover, the block menu `在下方添加›` hover, and the `/` / `、` keystroke SHALL all open the **same** insert menu component (same DOM, same state, same filtering).
@@ -153,4 +156,3 @@ The command palette (⌘/Ctrl+K) SHALL render commands as a single vertical list
 #### Scenario: Outside click closes the palette
 - **WHEN** the user clicks outside the command palette
 - **THEN** the palette closes
-

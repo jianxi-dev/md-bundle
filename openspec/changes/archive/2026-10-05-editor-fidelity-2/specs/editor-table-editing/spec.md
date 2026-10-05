@@ -1,35 +1,4 @@
-# editor-table-editing Specification
-
-## Purpose
-TBD - created by archiving change editor-doubao-parity. Update Purpose after archive.
-## Requirements
-### Requirement: Tables render as a preview-state widget in edit mode
-
-A GFM pipe table block SHALL render in edit mode as a preview-state table (bordered cells, aligned columns) rather than raw pipe source, while the Markdown source remains the single source of truth. The table SHALL NOT collapse into raw Markdown in any interaction — including clicking a cell or editing its content.
-
-#### Scenario: Edit mode shows a rendered table
-- **WHEN** a document containing a GFM pipe table is opened in edit mode
-- **THEN** the table is displayed as a bordered preview table, not as raw `|` text
-
-#### Scenario: Clicking a cell does not collapse the table
-- **WHEN** the user clicks a table cell in edit mode
-- **THEN** the table stays rendered as a table and does not become raw pipe source
-
-### Requirement: Clicking a cell edits its source content
-
-Clicking a table cell SHALL place an editable cursor for that cell and allow editing, synchronizing back to the Markdown source cell, while the table stays rendered. The 6px boundary overlay layer SHALL have `pointer-events: none` over cell interiors; it SHALL only receive pointer events within 8px of a boundary line and while the pointer is hovering a cell, so clicking a cell center places the caret rather than triggering row/column insertion.
-
-#### Scenario: Edit a cell
-- **WHEN** the user clicks a cell and types `A1`
-- **THEN** the corresponding source cell becomes `A1`
-
-#### Scenario: Click cell center places caret, does not insert row
-- **WHEN** the user clicks the geometric center of a table cell
-- **THEN** the caret appears in that cell; no row/column is inserted; `document.elementFromPoint(centerX, centerY)` returns the cell element
-
-#### Scenario: Click near boundary on hotspot inserts row/column
-- **WHEN** the user clicks the blue `+` hotspot on a row/column boundary
-- **THEN** a new row/column is inserted at that boundary
+## MODIFIED Requirements
 
 ### Requirement: Hover reveals add-row and add-column affordances
 
@@ -71,13 +40,21 @@ Row and column insertion hotspots SHALL appear only on hover of a cell, position
 - **WHEN** the pointer leaves the table area
 - **THEN** all row/column hotspots are hidden (`display: none`)
 
-### Requirement: Cells allow inserting blocks
+### Requirement: Clicking a cell edits its source content
 
-A table cell SHALL allow invoking the insert menu to insert block content into that cell.
+Clicking a table cell SHALL place an editable cursor for that cell and allow editing, synchronizing back to the Markdown source cell, while the table stays rendered. The 6px boundary overlay layer SHALL have `pointer-events: none` over cell interiors; it SHALL only receive pointer events within 8px of a boundary line and while the pointer is hovering a cell, so clicking a cell center places the caret rather than triggering row/column insertion.
 
-#### Scenario: Insert a block inside a cell
-- **WHEN** the cursor is in a table cell and the user triggers the insert menu and picks a block type
-- **THEN** that block content is inserted into the cell in the source
+#### Scenario: Edit a cell
+- **WHEN** the user clicks a cell and types `A1`
+- **THEN** the corresponding source cell becomes `A1`
+
+#### Scenario: Click cell center places caret, does not insert row
+- **WHEN** the user clicks the geometric center of a table cell
+- **THEN** the caret appears in that cell; no row/column is inserted; `document.elementFromPoint(centerX, centerY)` returns the cell element
+
+#### Scenario: Click near boundary on hotspot inserts row/column
+- **WHEN** the user clicks the blue `+` hotspot on a row/column boundary
+- **THEN** a new row/column is inserted at that boundary
 
 ### Requirement: An in-cell handle opens the insert menu
 
@@ -126,4 +103,3 @@ An inserted table SHALL have a real size chosen by the size selector (grid of ro
 #### Scenario: Inserted table has correct rows and columns
 - **WHEN** the user inserts a 5×3 table via the size grid
 - **THEN** the rendered table has 5 columns and 3 rows with empty cells
-
