@@ -501,7 +501,16 @@ export class HandleChrome {
 
   private readonly onDocMouseDown = (event: MouseEvent): void => {
     const target = event.target;
-    if (target instanceof Node && (this.handle.contains(target) || this.menu.contains(target))) {
+    if (
+      target instanceof Node &&
+      (this.handle.contains(target) ||
+        this.menu.contains(target) ||
+        // The shared insert panel lives on view.dom, not in this.menu, but it is
+        // part of the same stack: a mousedown on it must reach the panel's own
+        // handler instead of tearing the stack down first.
+        (target instanceof Element &&
+          target.closest('.mdb-slash-menu, .mdb-slash-flyout') !== null))
+    ) {
       return;
     }
     this.onEscape(event);

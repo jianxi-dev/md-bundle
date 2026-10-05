@@ -132,11 +132,14 @@ test('悬停文本不开菜单；悬停手柄开菜单（hover-intent 140ms）',
   await expect(menu).toBeVisible()
   await expect(menu).toContainText('转换为')
 
-  // 3. 从手柄移入文本 — 菜单保持开启（不瞬间关闭）
-  await hoverLine(page, 'Paragraph for hover test')
-  await expect(menu).toBeVisible()
+  // 3. 离开「手柄+菜单+flyout」合并栈进入文本 — 菜单关闭（D9 离栈即收 / U-07）
+  // 菜单覆盖了块本身的文本区，因此移到菜单右侧的可见文本才算真正离栈。
+  const menuBox = await boxOf(menu)
+  await page.mouse.move(menuBox.x + menuBox.width + 60, menuBox.y + 40)
+  await settle(page)
+  await expect(menu).toBeHidden()
 
-  // 4. 离开编辑器区域 — 菜单关闭
+  // 4. 离开编辑器区域 — 菜单保持关闭
   await page.mouse.move(100, 100) // 移到编辑器外
   await settle(page)
   await expect(menu).toBeHidden()

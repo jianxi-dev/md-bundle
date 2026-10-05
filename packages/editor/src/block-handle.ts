@@ -47,7 +47,6 @@ import {
   computeBlockIndent,
   computeCalloutType,
   isCalloutBlock,
-  isBlockInViewport,
   blockHandleIcon,
   computeGutterLeft,
   type BlockConvertTarget,
@@ -82,6 +81,12 @@ const DRAG_THRESHOLD_SQ = 16
 
 /** Width (px) of the gutter corridor between the handle and its menu (#325). */
 const GUTTER_GAP = 8
+
+/** Hover-intent delay (ms) before entering the handle opens the menu (D9). */
+const HANDLE_HOVER_DELAY_MS = 120
+
+/** Minimum gap (px) the menu keeps from the viewport edges (R-CHOREO-02). */
+const MENU_VIEWPORT_MARGIN = 8
 
 /** Selected-block range effect — issue #325. */
 export const setSelectedBlockEffect = StateEffect.define<{ from: number; to: number } | null>()
@@ -173,6 +178,7 @@ class BlockHandlePlugin {
   private justDragged = false
   private listening = false
   private dragOrigin = { x: 0, y: 0 }
+  private hoverTimer: number | null = null
 
   /**
    * Publish or clear the hover-driven selection. `addToHistory: false` keeps
@@ -210,8 +216,25 @@ class BlockHandlePlugin {
    * transaction.
    */
   private dismiss(): void {
+    // The insert panel is part of the same reachable stack but lives on
+    // `view.dom`, so a full teardown must release it too or it would outlive the
+    // chrome (Escape / scroll / leaving the editor / leaving the stack).
+    releaseInsertMenu(this.view)
     this.clearChrome()
     this.setSelected(null)
+  }
+
+  /**
+   * The shared insert panel (`.mdb-slash-menu`) and its second-level flyout
+   * (`.mdb-slash-flyout`) are appended to `view.dom`, not `chrome.menu`, yet
+   * belong to the same merged stack: the pointer may travel between them and the
+   * block chrome without either side dismissing (#358 / R-CHOREO-01).
+   */
+  private isInsertPanelTarget(node: EventTarget | null): boolean {
+    return (
+      node instanceof Element &&
+      (node.closest('.mdb-slash-menu') !== null || node.closest('.mdb-slash-flyout') !== null)
+    )
   }
 
   /** Escape must close the widget no matter where focus currently is. */
@@ -239,6 +262,10 @@ class BlockHandlePlugin {
 
     view.dom.addEventListener('mousemove', this.onMouseMove)
     view.dom.addEventListener('mouseleave', this.onMouseLeave)
+    // CM6 scrolls `.cm-scroller`, not the editor root, so a native listener is
+    // the only reliable hook. Scrolling dismisses the widget so it can never
+    // float detached from its block (R-CHOREO-03 / F-07).
+    view.scrollDOM.addEventListener('scroll', this.onScroll, { passive: true })
     this.chrome.handle.addEventListener('mousedown', this.onHandleMouseDown)
     this.chrome.handle.addEventListener('click', this.onHandleClick)
     this.chrome.handle.addEventListener('mouseenter', this.onHandleMouseEnter)
@@ -246,24 +273,17 @@ class BlockHandlePlugin {
     this.chrome.menu.addEventListener('click', this.onMenuClick)
     this.chrome.menu.addEventListener('mouseover', this.onMenuHoverInsert)
     this.chrome.menu.addEventListener('mouseleave', this.onMenuLeaveInsert)
-    // The menu has no mouseleave listener on purpose: sliding off the menu onto
-    // editor content is a retarget, not a dismissal. `onMouseMove` resolves the
-    // block under the pointer and re-anchors the open menu, while `view.dom`'s
-    // mouseleave listener dismisses once the pointer leaves the editor entirely.
-    // A menu that tore itself down here would drop the retarget selection the
-    // pointer had just made (#325).
+    // The menu has no mouseleave listener: the merged handle+menu+flyout stack is
+    // the dismissal boundary, resolved by `onMouseMove` (R-CHOREO-01), and
+    // `view.dom`'s mouseleave dismisses once the pointer leaves the editor.
   }
 
-  // Called by ViewPlugin after each scroll — viewport is guaranteed updated.
-  scroll(): void {
-    if (!this.currentBlock) return
-    if (isBlockInViewport(this.view, this.currentBlock)) {
-      this.showHandleAt(this.currentBlock.from)
-    } else {
-      // Scrolled out of view: the handle cannot stay anchored to a block the
-      // user can no longer see, so the selection goes with it (#325).
-      this.dismiss()
-    }
+  // A scroll moves the block out from under a pinned widget, so the widget is
+  // torn down rather than left floating at stale coordinates (R-CHOREO-03).
+  // Drag reorder owns the pointer and relies on auto-scroll, so it is exempt.
+  private readonly onScroll = (): void => {
+    if (currentDrag(this.view.state)) return
+    this.dismiss()
   }
 
   update(update: ViewUpdate): void {
@@ -290,6 +310,8 @@ class BlockHandlePlugin {
   destroy(): void {
     this.view.dom.removeEventListener('mousemove', this.onMouseMove)
     this.view.dom.removeEventListener('mouseleave', this.onMouseLeave)
+    this.view.scrollDOM.removeEventListener('scroll', this.onScroll)
+    this.clearHoverTimer()
     this.chrome.handle.removeEventListener('mousedown', this.onHandleMouseDown)
     this.chrome.handle.removeEventListener('click', this.onHandleClick)
     this.chrome.handle.removeEventListener('mouseenter', this.onHandleMouseEnter)
@@ -341,28 +363,58 @@ class BlockHandlePlugin {
   }
 
   private openMenu(): void {
-    const rect = this.chrome.handle.getBoundingClientRect()
-    const r = this.view.dom.getBoundingClientRect()
-    this.chrome.menu.style.left = `${rect.right - r.left + 8}px`
     const block = this.menuBlock ?? this.currentBlock
-    if (block) {
-      try {
-        const coords = this.view.coordsAtPos(block.from)
-        if (coords) {
-          this.chrome.menu.style.top = `${coords.top - r.top}px`
-        } else {
-          this.chrome.menu.style.top = `${rect.top - r.top}px`
-        }
-      } catch {
-        this.chrome.menu.style.top = `${rect.top - r.top}px`
-      }
-    } else {
-      this.chrome.menu.style.top = `${rect.top - r.top}px`
-    }
     const text = block ? this.view.state.doc.sliceString(block.from, block.to) : ''
     this.chrome.setCalloutContext(block !== null && isCalloutBlock(text))
     this.chrome.setTableContext(block !== null && block.type === 'table')
+    // Show before measuring: a `display:none` element has no layout box, so the
+    // size needed for viewport clamping is only real once it is displayed.
     this.chrome.showMenu()
+    this.positionMenu(block)
+  }
+
+  /**
+   * Anchor the menu beside the handle (top ≈ block top, which the #357 e2e
+   * pins), then clamp/flip it into the viewport so a near-bottom or near-right
+   * block still gets a fully visible menu (R-CHOREO-02).
+   */
+  private positionMenu(block: Block | null): void {
+    const r = this.view.dom.getBoundingClientRect()
+    const handleRect = this.chrome.handle.getBoundingClientRect()
+    const menuEl = this.chrome.menu
+    const box = menuEl.getBoundingClientRect()
+    const menuWidth = box.width || menuEl.offsetWidth
+    const menuHeight = box.height || menuEl.offsetHeight
+
+    let left = handleRect.right - r.left + GUTTER_GAP
+    let topLocal = handleRect.top - r.top
+    if (block) {
+      try {
+        const coords = this.view.coordsAtPos(block.from)
+        if (coords) topLocal = coords.top - r.top
+      } catch {
+        // jsdom / unmeasured content — keep the handle-anchored fallback.
+      }
+    }
+
+    // Horizontal flip: prefer the right of the handle, mirror to its left when
+    // the menu would cross the viewport's right edge.
+    if (r.left + left + menuWidth > window.innerWidth - MENU_VIEWPORT_MARGIN) {
+      left = handleRect.left - r.left - GUTTER_GAP - menuWidth
+    }
+
+    // Vertical clamp/flip: keep menu.bottom inside the viewport. A block too low
+    // flips the menu above the anchor, then clamps against the top edge.
+    const anchorClientTop = r.top + topLocal
+    if (anchorClientTop + menuHeight > window.innerHeight - MENU_VIEWPORT_MARGIN) {
+      topLocal = anchorClientTop - menuHeight - GUTTER_GAP - r.top
+    }
+    if (r.top + topLocal < MENU_VIEWPORT_MARGIN) {
+      topLocal = MENU_VIEWPORT_MARGIN - r.top
+    }
+
+    menuEl.style.left = `${left}px`
+    menuEl.style.top = `${topLocal}px`
   }
 
   // --- Hover -----------------------------------------------------------------
@@ -374,7 +426,12 @@ class BlockHandlePlugin {
     // resolve a block — there is no content under the chrome — but they are
     // proof the pointer is on our UI, so the dimmed state is always lifted.
     const target = event.target
-    if (target instanceof Node && (this.chrome.handle.contains(target) || this.chrome.menu.contains(target))) {
+    if (
+      target instanceof Node &&
+      (this.chrome.handle.contains(target) ||
+        this.chrome.menu.contains(target) ||
+        this.isInsertPanelTarget(target))
+    ) {
       this.chrome.setDimmed(false)
       return
     }
@@ -389,21 +446,18 @@ class BlockHandlePlugin {
         this.chrome.setDimmed(true)
         return
       }
+      // Anywhere else the pointer has left the merged handle+menu+flyout stack:
+      // dismiss the whole widget instead of retargeting it (U-07 / R-CHOREO-01).
+      this.dismiss()
+      return
     }
 
     const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY })
     const block = pos === null ? null : findBlockAt(this.view.state, pos)
     if (pos === null || !block) {
-      // Off-content while the menu is open: the pointer can still be inside the
-      // editor (gutter corridor, padding below the last line), so dim instead of
-      // tearing the menu down. Reaching the app toolbar means leaving.
-      if (menuOpen && this.isPointerInsideEditor(event)) {
-        this.chrome.setDimmed(true)
-        return
-      }
       // With no menu, the handle survives travel through the editor's own
       // vertical space — the "sticky bridge" across blank lines.
-      if (!menuOpen && this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) return
+      if (this.currentBlock && this.isPointerInEditorHorizontally(event.clientX)) return
       this.dismiss()
       return
     }
@@ -412,10 +466,6 @@ class BlockHandlePlugin {
     this.currentBlock = block
     this.setSelected({ from: block.from, to: block.to })
     this.showHandleAt(block.from)
-    if (menuOpen && this.menuBlock?.from !== block.from) {
-      this.menuBlock = block
-      this.openMenu()
-    }
   }
 
   private isPointerInEditorHorizontally(clientX: number): boolean {
@@ -432,7 +482,12 @@ class BlockHandlePlugin {
     // editor must not tear the chrome down; the mousemove handler picks the new
     // target up on the next event.
     const to = event.relatedTarget
-    if (to instanceof Node && (this.chrome.handle.contains(to) || this.chrome.menu.contains(to))) {
+    if (
+      to instanceof Node &&
+      (this.chrome.handle.contains(to) ||
+        this.chrome.menu.contains(to) ||
+        this.isInsertPanelTarget(to))
+    ) {
       return
     }
 
@@ -458,30 +513,30 @@ class BlockHandlePlugin {
     )
   }
 
-  // Hovering the handle opens the menu; arriving while it is already open
-  // retargets the menu to that block rather than closing and reopening it.
-  private onHandleMouseEnter = (): void => {
-    if (!this.chrome.isMenuOpen()) {
-      if (this.currentBlock) {
-        this.menuBlock = this.currentBlock
-        this.openMenu()
-      }
-      return
-    }
-    const rect = this.chrome.handle.getBoundingClientRect()
-    const pos = this.view.posAtCoords({ x: rect.left + 2, y: rect.top + 2 })
-    const block = pos === null ? null : findBlockAt(this.view.state, pos)
-    if (!block) return
-    this.currentBlock = block
-    this.menuBlock = block
-    this.setSelected({ from: block.from, to: block.to })
-    this.showHandleAt(block.from)
-    this.openMenu()
+  // Hovering the handle opens the menu after a short intent delay; leaving
+  // before it elapses cancels (D9 展开缓冲, R-CHOREO-04). Re-entering while the
+  // menu is already open is a no-op: the menu is dismissed the moment the
+  // pointer leaves the stack, so there is no open menu to retarget.
+  private readonly onHandleMouseEnter = (): void => {
+    this.clearHoverTimer()
+    this.hoverTimer = window.setTimeout(() => {
+      this.hoverTimer = null
+      if (currentDrag(this.view.state) || this.chrome.isMenuOpen() || !this.currentBlock) return
+      this.menuBlock = this.currentBlock
+      this.openMenu()
+    }, HANDLE_HOVER_DELAY_MS)
   }
 
-  private onHandleMouseLeave = (): void => {
+  private readonly onHandleMouseLeave = (): void => {
+    this.clearHoverTimer()
     if (this.chrome.isMenuOpen()) return
     this.dismiss()
+  }
+
+  private clearHoverTimer(): void {
+    if (this.hoverTimer === null) return
+    window.clearTimeout(this.hoverTimer)
+    this.hoverTimer = null
   }
 
   // --- Drag ------------------------------------------------------------------

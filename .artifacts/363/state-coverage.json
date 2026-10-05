@@ -1,0 +1,39 @@
+{
+  "states": [
+    {
+      "state": "R-CHOREO-01 leave-stack",
+      "screenshot": ".artifacts/363/state1-leave-stack.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T08:22:46Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "R-CHOREO-01b insert-panel-stack",
+      "screenshot": ".artifacts/363/state5-insert-stack.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T08:22:46Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "R-CHOREO-02 viewport-clamp",
+      "screenshot": ".artifacts/363/state2-clamp-bottom.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T08:22:46Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "R-CHOREO-03 scroll-dismiss",
+      "screenshot": ".artifacts/363/state3-scroll-dismiss.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T08:22:46Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "R-CHOREO-04 hover-intent",
+      "screenshot": ".artifacts/363/state4-hover-intent.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T08:22:46Z",
+      "runner": "mason@MMBP"
+    }
+  ]
+}

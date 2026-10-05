@@ -45,20 +45,6 @@ async function hoverLine(page: Page, text: string): Promise<void> {
   await settle(page)
 }
 
-/**
- * 把鼠标移到某一行的手柄列（与当前手柄同一条固定竖列），而不是行内文字。
- * 菜单展开时占据 x>=菜单左缘，落在行内文字上的落点会被菜单挡住，
- * 事件根本到不了内容块，测的就不是「从菜单移到另一个块」而是「停在菜单上」。
- */
-async function hoverHandleColumn(page: Page, text: string): Promise<void> {
-  const line = page.locator('.cm-content .cm-line').filter({ hasText: text })
-  await expect(line).toBeVisible()
-  const lineBox = await boxOf(line)
-  const handleBox = await boxOf(page.getByTestId('block-handle'))
-  await page.mouse.move(handleBox.x + handleBox.width / 2, lineBox.y + lineBox.height / 2)
-  await settle(page)
-}
-
 async function centerOf(
   page: Page,
   locator: Locator,
@@ -159,25 +145,24 @@ test('经过间隙时手柄变暗，进入菜单后恢复', async ({ page }) => 
   await expect(handle).not.toHaveClass(/mdb-block-handle-dimmed/)
 })
 
-test('菜单已开时移到另一个块的手柄会改指向该块', async ({ page }) => {
+test('菜单已开时离开「手柄+菜单」合并栈即关闭（不再随指针 retarget）', async ({ page }) => {
   await openEditor(page)
   await hoverLine(page, 'Beta paragraph.')
-  let handleCenter = await centerOf(page, page.getByTestId('block-handle'))
+  const handleCenter = await centerOf(page, page.getByTestId('block-handle'))
   await page.mouse.move(handleCenter.x, handleCenter.y)
-  await expect(page.getByTestId('block-handle-menu')).toBeVisible()
 
-  await hoverHandleColumn(page, 'Gamma paragraph.')
-  const selected = page.locator('.cm-content .cm-line.cm-block-selected')
-  await expect(selected.filter({ hasText: 'Gamma paragraph.' })).toHaveCount(1)
-  await expect(selected.filter({ hasText: 'Beta paragraph.' })).toHaveCount(0)
+  const menu = page.getByTestId('block-handle-menu')
+  await expect(menu).toBeVisible()
 
-  handleCenter = await centerOf(page, page.getByTestId('block-handle'))
-  await page.mouse.move(handleCenter.x, handleCenter.y)
-  await expect(page.getByTestId('block-handle-menu')).toBeVisible()
+  // 菜单自身覆盖了块文本区，所以「离栈」要移到菜单右侧的可见文本上（U-07）：
+  // 指针一离开合并栈，菜单与选中态一并消失，而不是把菜单改指向 Gamma。
+  const menuBox = await boxOf(menu)
+  await page.mouse.move(menuBox.x + menuBox.width + 60, menuBox.y + 40)
+  await settle(page)
 
-  await page.getByTestId('block-handle-menu').getByRole('button', { name: '删除' }).click()
-  await expect(page.locator('.cm-content')).not.toContainText('Gamma paragraph.')
-  await expect(page.locator('.cm-content')).toContainText('Beta paragraph.')
+  await expect(menu).toBeHidden()
+  await expect(page.getByTestId('block-handle')).toBeHidden()
+  await expect(page.locator('.cm-content .cm-line.cm-block-selected')).toHaveCount(0)
 })
 
 test('Escape 关闭菜单并清掉选中态', async ({ page }) => {
