@@ -1,0 +1,39 @@
+{
+  "states": [
+    {
+      "state": "palette-open",
+      "screenshot": ".artifacts/362/state1-palette-open.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T00:37:03Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "selected-item",
+      "screenshot": ".artifacts/362/state2-selected-item.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T00:37:10Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "search-results",
+      "screenshot": ".artifacts/362/state3-search-results.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T00:37:15Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "keyboard-nav",
+      "screenshot": ".artifacts/362/state4-keyboard-nav.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T00:37:25Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "header-footer",
+      "screenshot": ".artifacts/362/state5-header-footer.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T00:37:32Z",
+      "runner": "mason@MMBP"
+    }
+  ]
+}
