@@ -38,6 +38,7 @@ import {
   findBlockAt,
   computeBlockMove,
   computeBlockConvert,
+  computeBlockTurnInto,
   computeBlockDuplicate,
   computeBlockDelete,
   computeMinimalChange,
@@ -49,6 +50,7 @@ import {
   computeGutterLeft,
   type BlockConvertTarget,
 } from './block-handle-ops'
+import { getBlockAt } from './block-model'
 
 export {
   findBlockAt,
@@ -143,8 +145,20 @@ const CONVERT_TARGETS: readonly BlockConvertTarget[] = [
   'paragraph',
 ]
 
+const TURN_INTO_TARGETS: readonly BlockConvertTarget[] = [
+  'ordered',
+  'bullet',
+  'todo',
+  'code',
+  'quote',
+  'callout',
+]
+
 const isConvertTarget = (value: string | null): value is BlockConvertTarget =>
   value !== null && (CONVERT_TARGETS as readonly string[]).includes(value)
+
+const isTurnIntoTarget = (value: string | null): value is BlockConvertTarget =>
+  value !== null && (TURN_INTO_TARGETS as readonly string[]).includes(value)
 
 // --- ViewPlugin --------------------------------------------------------------
 
@@ -312,10 +326,24 @@ class BlockHandlePlugin {
     const rect = this.chrome.handle.getBoundingClientRect()
     const r = this.view.dom.getBoundingClientRect()
     this.chrome.menu.style.left = `${rect.right - r.left + 8}px`
-    this.chrome.menu.style.top = `${rect.top - r.top}px`
     const block = this.menuBlock ?? this.currentBlock
+    if (block) {
+      try {
+        const coords = this.view.coordsAtPos(block.from)
+        if (coords) {
+          this.chrome.menu.style.top = `${coords.top - r.top}px`
+        } else {
+          this.chrome.menu.style.top = `${rect.top - r.top}px`
+        }
+      } catch {
+        this.chrome.menu.style.top = `${rect.top - r.top}px`
+      }
+    } else {
+      this.chrome.menu.style.top = `${rect.top - r.top}px`
+    }
     const text = block ? this.view.state.doc.sliceString(block.from, block.to) : ''
     this.chrome.setCalloutContext(block !== null && isCalloutBlock(text))
+    this.chrome.setTableContext(block !== null && block.type === 'table')
     this.chrome.showMenu()
   }
 
@@ -567,12 +595,30 @@ class BlockHandlePlugin {
     let next = text
     if (isConvertTarget(convert)) {
       next = computeBlockConvert(text, block.from, block.to, convert)
+    } else if (isTurnIntoTarget(convert)) {
+      next = computeBlockTurnInto(text, block.from, block.to, convert)
     } else if (action === 'duplicate') {
       next = computeBlockDuplicate(text, block.from, block.to)
     } else if (action === 'delete') {
       next = computeBlockDelete(text, block.from, block.to)
     } else if (action === 'move-up' || action === 'move-down') {
       next = this.computeMove(text, block, action)
+    } else if (action === 'toggle-header-row' || action === 'toggle-header-col' || action === 'distribute-columns') {
+      this.handleTableAction(block, action)
+      this.chrome.hideMenu()
+      this.setSelected(null)
+      event.stopPropagation()
+      return
+    } else if (action === 'synced-block') {
+      this.chrome.hideMenu()
+      this.setSelected(null)
+      event.stopPropagation()
+      return
+    } else if (action === 'comment' || action === 'cut' || action === 'translate' || action === 'share' || action === 'copy-link' || action === 'add-below') {
+      this.chrome.hideMenu()
+      this.setSelected(null)
+      event.stopPropagation()
+      return
     }
     if (next !== text) {
       this.view.dispatch({ changes: computeMinimalChange(text, next) })
@@ -582,6 +628,48 @@ class BlockHandlePlugin {
     // document the action produced.
     this.setSelected(null)
     event.stopPropagation()
+  }
+
+  private handleTableAction(_block: Block, action: string): void {
+    const { state } = this.view
+    const { main } = state.selection
+    const pos = main.empty ? main.head : main.from
+    const blocks = getBlocks(state)
+    const tableBlock = getBlockAt(pos, blocks)
+    if (!tableBlock || tableBlock.type !== 'table') return
+
+    const docText = state.doc.toString()
+    const tableText = docText.slice(tableBlock.from, tableBlock.to)
+    let nextText = tableText
+
+    if (action === 'toggle-header-row') {
+      const lines = tableText.split('\n')
+      const hasHeaderSep = lines[1]?.match(/^\s*\|(\s*:?-+:?\s*\|)+\s*$/)
+      if (hasHeaderSep) {
+        lines.splice(1, 1)
+      } else {
+        const firstRow = lines[0]
+        const colCount = (firstRow.match(/\|/g) || []).length - 1
+        const sepRow = '|' + ' --- |'.repeat(colCount)
+        lines.splice(1, 0, sepRow)
+      }
+      nextText = lines.join('\n')
+    } else if (action === 'toggle-header-col') {
+      const lines = tableText.split('\n')
+      const hasHeaderCol = lines[0]?.startsWith('| ')
+      if (hasHeaderCol) {
+        nextText = lines.map(l => l.replace(/^\|\s+/, '|')).join('\n')
+      } else {
+        nextText = lines.map(l => l.replace(/^\|/, '| ')).join('\n')
+      }
+    } else if (action === 'distribute-columns') {
+      return
+    }
+
+    if (nextText !== tableText) {
+      const change = computeMinimalChange(docText, docText.slice(0, tableBlock.from) + nextText + docText.slice(tableBlock.to))
+      this.view.dispatch({ changes: change })
+    }
   }
 
   /** Apply a flyout option (align / indent / color / callout type) to the block. */

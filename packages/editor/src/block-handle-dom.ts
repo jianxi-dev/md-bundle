@@ -13,7 +13,6 @@ import { commandRegistry } from './commands';
 import {
   renderIcon,
   HANDLE_DEFAULT_ICON,
-  CONVERT_ICON_NAME,
   ACTION_ICON_NAME,
 } from './icons';
 
@@ -29,6 +28,8 @@ export const FLYOUT_ITEM_CLASS = 'mdb-block-handle-flyout-item';
 export const FLYOUT_ATTR = 'data-flyout';
 export const FLYOUT_ACTION_ATTR = 'data-flyout-action';
 export const CALLOUT_ONLY_ATTR = 'data-callout-only';
+export const NON_CALLOUT_ONLY_ATTR = 'data-non-callout-only';
+export const TABLE_ONLY_ATTR = 'data-table-only';
 export const HANDLE_TYPE_ICON_CLASS = 'mdb-block-type-icon';
 export const HANDLE_DRAG_CLASS = 'mdb-drag-handle';
 
@@ -55,26 +56,61 @@ interface MenuConvert {
 interface MenuAction {
   readonly label: string;
   readonly icon: string;
-  readonly action: 'duplicate' | 'delete' | 'move-up' | 'move-down';
+  readonly action:
+    | 'duplicate'
+    | 'delete'
+    | 'move-up'
+    | 'move-down'
+    | 'toggle-header-row'
+    | 'toggle-header-col'
+    | 'distribute-columns'
+    | 'synced-block'
+    | 'comment'
+    | 'cut'
+    | 'translate'
+    | 'share'
+    | 'copy-link'
+    | 'add-below';
+  readonly nonCalloutOnly?: boolean;
 }
 
-/** 转为 grid rows: H1..H6 then 正文, rendered as icon buttons. */
 const MENU_CONVERT: readonly MenuConvert[] = [
-  { label: '一级标题', icon: CONVERT_ICON_NAME['h1'], convert: 'h1' },
-  { label: '二级标题', icon: CONVERT_ICON_NAME['h2'], convert: 'h2' },
-  { label: '三级标题', icon: CONVERT_ICON_NAME['h3'], convert: 'h3' },
-  { label: '四级标题', icon: CONVERT_ICON_NAME['h4'], convert: 'h4' },
-  { label: '五级标题', icon: CONVERT_ICON_NAME['h5'], convert: 'h5' },
-  { label: '六级标题', icon: CONVERT_ICON_NAME['h6'], convert: 'h6' },
-  { label: '正文', icon: CONVERT_ICON_NAME['paragraph'], convert: 'paragraph' },
+  { label: '正文', icon: 'TextOutlined', convert: 'paragraph' },
+  { label: '一级标题', icon: 'H1Outlined', convert: 'h1' },
+  { label: '二级标题', icon: 'H2Outlined', convert: 'h2' },
+  { label: '三级标题', icon: 'H3Outlined', convert: 'h3' },
+  { label: '有序', icon: 'OrderListOutlined', convert: 'ordered' },
+  { label: '无序', icon: 'DisorderListOutlined', convert: 'bullet' },
+  { label: '待办', icon: 'TodoOutlined', convert: 'todo' },
+  { label: '代码', icon: 'CodeblockOutlined', convert: 'code' },
+  { label: '引用', icon: 'ReferenceOutlined', convert: 'quote' },
+  { label: '高亮', icon: 'CalloutOutlined', convert: 'callout' },
 ];
 
-/** Footer rows: move/copy/delete. */
 const MENU_ACTIONS: readonly MenuAction[] = [
   { label: '上移', icon: ACTION_ICON_NAME['move-up'], action: 'move-up' },
   { label: '下移', icon: ACTION_ICON_NAME['move-down'], action: 'move-down' },
-  { label: '复制块', icon: ACTION_ICON_NAME['duplicate'], action: 'duplicate' },
-  { label: '删除块', icon: ACTION_ICON_NAME['delete'], action: 'delete' },
+  { label: '复制', icon: 'CopyOutlined', action: 'duplicate' },
+  { label: '删除', icon: ACTION_ICON_NAME['delete'], action: 'delete' },
+];
+
+const TABLE_ACTIONS: readonly MenuAction[] = [
+  { label: '标题行', icon: 'HeaderRowOutlined', action: 'toggle-header-row' },
+  { label: '标题列', icon: 'HeaderColumnOutlined', action: 'toggle-header-col' },
+  { label: '均分列宽', icon: 'DistributeColumnsOutlined', action: 'distribute-columns' },
+];
+
+const CALLOUT_ACTIONS: readonly MenuAction[] = [
+  { label: '同步块', icon: 'LinkRecordOutlined', action: 'synced-block' },
+];
+
+const COMMON_ACTIONS: readonly MenuAction[] = [
+  { label: '评论', icon: 'AddCommentOutlined', action: 'comment' },
+  { label: '剪切', icon: 'FeishuclipOutlined', action: 'cut' },
+  { label: '翻译', icon: 'TranslateOutlined', action: 'translate', nonCalloutOnly: true },
+  { label: '分享', icon: 'SharewordsOutlined', action: 'share' },
+  { label: '复制链接', icon: 'BlocklinkOutlined', action: 'copy-link' },
+  { label: '在下方添加', icon: 'NewJoinMeetingOutlined', action: 'add-below' },
 ];
 
 interface FlyoutOption {
@@ -134,6 +170,8 @@ function createMenuItem(
     action?: MenuAction['action'];
     flyout?: string;
     calloutOnly?: boolean;
+    nonCalloutOnly?: boolean;
+    tableOnly?: boolean;
   },
 ): HTMLButtonElement {
   const item = document.createElement('button');
@@ -147,8 +185,13 @@ function createMenuItem(
     item.setAttribute(CALLOUT_ONLY_ATTR, '');
     item.style.display = 'none';
   }
-  // Icons are aria-hidden so a button's accessible name stays exactly its label
-  // (role/name queries and assistive tech rely on it, #276).
+  if (opts.nonCalloutOnly) {
+    item.setAttribute(NON_CALLOUT_ONLY_ATTR, '');
+  }
+  if (opts.tableOnly) {
+    item.setAttribute(TABLE_ONLY_ATTR, '');
+    item.style.display = 'none';
+  }
   if (icon !== null) {
     const iconEl = document.createElement('span');
     iconEl.className = 'mdb-block-handle-item-icon';
@@ -234,11 +277,21 @@ export function createMenu(): HTMLElement {
   }
   menu.appendChild(grid);
 
-  // Hover flyout rows: indent/align + color on every block, callout type only
-  // on callouts (toggled by setCalloutContext when the menu opens).
   menu.appendChild(createMenuItem('缩进和对齐', null, { flyout: 'indent-align' }));
-  menu.appendChild(createMenuItem('颜色', null, { flyout: 'color' }));
+  menu.appendChild(createMenuItem('颜色', null, { flyout: 'color', nonCalloutOnly: true }));
   menu.appendChild(createMenuItem('类型', null, { flyout: 'callout-type', calloutOnly: true }));
+
+  for (const entry of TABLE_ACTIONS) {
+    menu.appendChild(createMenuItem(entry.label, entry.icon, { action: entry.action, tableOnly: true }));
+  }
+
+  for (const entry of CALLOUT_ACTIONS) {
+    menu.appendChild(createMenuItem(entry.label, entry.icon, { action: entry.action, calloutOnly: true }));
+  }
+
+  for (const entry of COMMON_ACTIONS) {
+    menu.appendChild(createMenuItem(entry.label, entry.icon, { action: entry.action, nonCalloutOnly: entry.nonCalloutOnly }));
+  }
 
   for (const entry of MENU_ACTIONS) {
     menu.appendChild(createMenuItem(entry.label, entry.icon, { action: entry.action }));
@@ -349,13 +402,27 @@ export class HandleChrome {
 
   /** Show or hide the callout-only 类型 row for the block about to open. */
   setCalloutContext(isCallout: boolean): void {
-    const rows = this.menu.querySelectorAll<HTMLElement>(`[${CALLOUT_ONLY_ATTR}]`);
-    rows.forEach((row) => {
+    const calloutRows = this.menu.querySelectorAll<HTMLElement>(`[${CALLOUT_ONLY_ATTR}]`);
+    calloutRows.forEach((row) => {
       row.style.display = isCallout ? 'flex' : 'none';
+    });
+    const nonCalloutRows = this.menu.querySelectorAll<HTMLElement>(`[${NON_CALLOUT_ONLY_ATTR}]`);
+    nonCalloutRows.forEach((row) => {
+      row.style.display = isCallout ? 'none' : 'flex';
     });
     if (!isCallout && this.flyout?.getAttribute(FLYOUT_ATTR) === 'callout-type') {
       this.hideFlyout();
     }
+    if (isCallout && this.flyout?.getAttribute(FLYOUT_ATTR) === 'color') {
+      this.hideFlyout();
+    }
+  }
+
+  setTableContext(isTable: boolean): void {
+    const tableRows = this.menu.querySelectorAll<HTMLElement>(`[${TABLE_ONLY_ATTR}]`);
+    tableRows.forEach((row) => {
+      row.style.display = isTable ? 'flex' : 'none';
+    });
   }
 
   /**
@@ -507,13 +574,14 @@ export const blockHandleTheme = EditorView.baseTheme({
   '.mdb-block-handle-menu': {
     position: 'absolute',
     display: 'none',
-    minWidth: '120px',
-    padding: '4px',
+    minWidth: '236px',
+    padding: '5px',
     backgroundColor: 'var(--mdb-bg-secondary)',
     border: `1px solid var(--mdb-border)`,
     borderRadius: '6px',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.18)',
     zIndex: '1000',
+    fontSize: '12px',
   },
   '.mdb-block-handle-label': {
     padding: '2px 8px',
@@ -523,15 +591,17 @@ export const blockHandleTheme = EditorView.baseTheme({
   '.mdb-block-handle-item': {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '9px',
     width: '100%',
     textAlign: 'left',
     background: 'transparent',
     border: 'none',
     color: 'var(--mdb-text)',
-    padding: '4px 8px',
+    padding: '0 8px',
+    height: '32px',
+    borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: '12px',
   },
   '.mdb-block-handle-item-icon': {
     display: 'inline-flex',
@@ -558,6 +628,9 @@ export const blockHandleTheme = EditorView.baseTheme({
     lineHeight: '1',
     color: 'var(--mdb-text-secondary)',
   },
+  '.mdb-block-handle-item:hover': {
+    backgroundColor: 'rgba(235, 235, 235, 0.08)',
+  },
   '.mdb-block-handle-grid': {
     display: 'grid',
     gridTemplateColumns: 'repeat(4, 1fr)',
@@ -578,7 +651,7 @@ export const blockHandleTheme = EditorView.baseTheme({
     cursor: 'pointer',
   },
   '.mdb-block-handle-grid-item:hover': {
-    backgroundColor: 'rgba(127, 127, 127, 0.18)',
+    backgroundColor: 'rgba(235, 235, 235, 0.08)',
   },
   '.mdb-block-handle-flyout': {
     minWidth: '96px',
@@ -601,7 +674,7 @@ export const blockHandleTheme = EditorView.baseTheme({
     fontSize: '13px',
   },
   '.mdb-block-handle-flyout-item:hover': {
-    backgroundColor: 'rgba(127, 127, 127, 0.18)',
+    backgroundColor: 'rgba(235, 235, 235, 0.08)',
   },
   '.mdb-block-handle-flyout-icon': {
     display: 'inline-block',

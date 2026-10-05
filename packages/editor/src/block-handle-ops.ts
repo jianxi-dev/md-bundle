@@ -48,7 +48,20 @@ export function computeGutterLeft(view: EditorView): number {
 }
 
 /** Target of the 转换为 menu group (legacy, first-line only). */
-export type BlockConvertTarget = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'paragraph'
+export type BlockConvertTarget =
+  | 'h1'
+  | 'h2'
+  | 'h3'
+  | 'h4'
+  | 'h5'
+  | 'h6'
+  | 'paragraph'
+  | 'ordered'
+  | 'bullet'
+  | 'todo'
+  | 'code'
+  | 'quote'
+  | 'callout'
 
 /** Target of the 转换 dropdown (whole-block, per-line). */
 export type BlockTurnIntoTarget =
@@ -59,8 +72,11 @@ export type BlockTurnIntoTarget =
   | 'h5'
   | 'h6'
   | 'paragraph'
+  | 'ordered'
+  | 'bullet'
   | 'list'
   | 'task'
+  | 'todo'
   | 'quote'
   | 'code'
   | 'callout'
@@ -190,11 +206,18 @@ export function computeBlockConvert(
   const blockText = docText.slice(blockFrom, blockTo)
   if (blockText.length === 0) return docText
 
+  // The 10-item convert grid includes whole-block targets (ordered/bullet/todo/
+  // code/quote/callout); only the heading + paragraph targets convert first-line.
+  if (target !== 'paragraph' && !(target in HEADING_LEVEL)) {
+    return computeBlockTurnInto(docText, blockFrom, blockTo, target as BlockTurnIntoTarget)
+  }
+
   const newline = blockText.indexOf('\n')
   const firstLine = newline === -1 ? blockText : blockText.slice(0, newline)
   const remainder = newline === -1 ? '' : blockText.slice(newline)
   const stripped = firstLine.replace(/^\s*#{1,6}\s+/, '').replace(/^\s*#{1,6}\s*$/, '')
-  const prefix = target === 'paragraph' ? '' : `${'#'.repeat(HEADING_LEVEL[target])} `
+  const headingTarget = target as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
+  const prefix = target === 'paragraph' ? '' : `${'#'.repeat(HEADING_LEVEL[headingTarget])} `
   return docText.slice(0, blockFrom) + prefix + stripped + remainder + docText.slice(blockTo)
 }
 
@@ -281,10 +304,15 @@ export function computeBlockTurnInto(
       case 'paragraph':
         prefix = ''
         break
+      case 'ordered':
+        prefix = '1. '
+        break
+      case 'bullet':
       case 'list':
         prefix = '- '
         break
       case 'task':
+      case 'todo':
         prefix = '- [ ] '
         break
       case 'quote':

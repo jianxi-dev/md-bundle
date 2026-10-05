@@ -1,5 +1,5 @@
 // 块手柄（#189）e2e：悬停左侧沟槽出现 ⠿ 手柄、手柄与所属块对齐（缺陷 1 的浏览器层回归锁）、
-// 点击开菜单、指针移到菜单保持开启、Escape 关闭、删除块生效。
+// 点击开菜单、指针移到菜单保持开启、Escape 关闭、删除生效。
 // 运行：pnpm --filter @md-bundle/web exec playwright test test/block-handle.spec.ts
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
@@ -88,7 +88,7 @@ test('点击手柄打开菜单，指针移到菜单保持开启，Escape 关闭'
   await expect(menu).toBeHidden()
 })
 
-test('菜单「删除块」删除目标段落', async ({ page }) => {
+test('菜单「删除」删除目标段落', async ({ page }) => {
   await openEditor(page)
   await hoverParagraph(page, 'Beta paragraph.')
 
@@ -98,7 +98,7 @@ test('菜单「删除块」删除目标段落', async ({ page }) => {
 
   const menu = page.getByTestId('block-handle-menu')
   await expect(menu).toBeVisible()
-  await menu.getByRole('button', { name: '删除块' }).click()
+  await menu.getByRole('button', { name: '删除' }).click()
 
   const content = page.locator('.cm-content')
   await expect(content).not.toContainText('Beta paragraph.')
