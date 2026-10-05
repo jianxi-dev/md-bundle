@@ -700,10 +700,58 @@ describe('font/color toggle commands (ticket #261)', () => {
     expect(doc).toContain('Hello');
   });
 
+  it.each([
+    ['color-yellow', 'mdb-color-yellow'],
+    ['color-cyan', 'mdb-color-cyan'],
+    ['bg-yellow', 'mdb-bg-yellow'],
+    ['bg-cyan', 'mdb-bg-cyan'],
+    ['bg-gray', 'mdb-bg-gray'],
+    ['bg-darkred', 'mdb-bg-darkred'],
+    ['bg-brown', 'mdb-bg-brown'],
+    ['bg-olive', 'mdb-bg-olive'],
+    ['bg-darkgreen', 'mdb-bg-darkgreen'],
+    ['bg-navy', 'mdb-bg-navy'],
+    ['bg-indigo', 'mdb-bg-indigo'],
+    ['bg-slate', 'mdb-bg-slate'],
+  ])('%s wraps the selection with <span class="%s">', (commandId, className) => {
+    view.dispatch({
+      changes: { from: 0, insert: 'Hello world' },
+      selection: { anchor: 0, head: 5 },
+    });
+    commandRegistry.execute(commandId, view);
+    expect(view.state.doc.toString()).toContain(`<span class="${className}">Hello</span>`);
+  });
+
   it('all font/color commands are registered with Chinese labels', () => {
     const fontIds = ['font-serif', 'font-mono', 'font-sans', 'font-clear'];
-    const colorIds = ['color-red', 'color-blue', 'color-green', 'color-orange', 'color-purple', 'color-clear'];
-    const bgIds = ['bg-red', 'bg-blue', 'bg-green', 'bg-orange', 'bg-purple', 'bg-clear'];
+    const colorIds = [
+      'color-red',
+      'color-blue',
+      'color-green',
+      'color-orange',
+      'color-purple',
+      'color-yellow',
+      'color-cyan',
+      'color-clear',
+    ];
+    const bgIds = [
+      'bg-red',
+      'bg-blue',
+      'bg-green',
+      'bg-orange',
+      'bg-purple',
+      'bg-yellow',
+      'bg-cyan',
+      'bg-gray',
+      'bg-darkred',
+      'bg-brown',
+      'bg-olive',
+      'bg-darkgreen',
+      'bg-navy',
+      'bg-indigo',
+      'bg-slate',
+      'bg-clear',
+    ];
     for (const id of [...fontIds, ...colorIds, ...bgIds, 'color-reset']) {
       const cmd = commandRegistry.all().find((c) => c.id === id);
       expect(cmd, `command ${id} should be registered`).toBeDefined();

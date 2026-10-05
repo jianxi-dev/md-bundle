@@ -10,6 +10,7 @@ import { EditorView } from '@codemirror/view';
 import { calloutTypeMap } from '@md-bundle/renderer';
 import type { BlockConvertTarget } from './block-handle-ops';
 import { commandRegistry } from './commands';
+import { createColorPalette } from './color-palette';
 import {
   renderIcon,
   HANDLE_DEFAULT_ICON,
@@ -131,16 +132,6 @@ const INDENT_ALIGN_OPTIONS: readonly FlyoutOption[] = [
   { label: '减少缩进', value: 'indent-decrease' },
 ];
 
-/** 颜色 flyout — font colors plus reset. */
-const COLOR_OPTIONS: readonly FlyoutOption[] = [
-  { label: '红色', value: 'color-red' },
-  { label: '蓝色', value: 'color-blue' },
-  { label: '绿色', value: 'color-green' },
-  { label: '橙色', value: 'color-orange' },
-  { label: '紫色', value: 'color-purple' },
-  { label: '恢复默认', value: 'color-clear' },
-];
-
 /** 类型 flyout — labels sourced from the renderer's shared callout type map. */
 function calloutTypeOptions(): readonly FlyoutOption[] {
   return Object.entries(calloutTypeMap).map(([key, def]) => ({
@@ -152,7 +143,6 @@ function calloutTypeOptions(): readonly FlyoutOption[] {
 
 const FLYOUT_OPTIONS: Record<string, () => readonly FlyoutOption[]> = {
   'indent-align': () => INDENT_ALIGN_OPTIONS,
-  color: () => COLOR_OPTIONS,
   'callout-type': calloutTypeOptions,
 };
 
@@ -329,7 +319,10 @@ export class HandleChrome {
 
   private flyout: HTMLElement | null = null;
 
-  constructor(private readonly onEscape: (event: KeyboardEvent | MouseEvent) => void) {
+  constructor(
+    private readonly onEscape: (event: KeyboardEvent | MouseEvent) => void,
+    private readonly onColorPick: (commandId: string) => void = () => {},
+  ) {
     this.menu.addEventListener('mouseover', this.onMenuOver);
     this.menu.addEventListener('mouseleave', this.onMenuLeave);
   }
@@ -437,30 +430,40 @@ export class HandleChrome {
    * Open the flyout for a hovered row. Replaces any open flyout so exactly one
    * panel exists at a time; the panel is removed (not merely hidden) on close
    * so a dismissed menu leaves no residual nodes (#330).
+   *
+   * The 颜色 row mounts the shared color palette (#360) instead of a generic
+   * option list, so the block menu and the floating toolbar render the same
+   * swatches from one function.
    */
   private showFlyout(row: HTMLElement): void {
     const key = row.getAttribute(FLYOUT_ATTR) ?? '';
-    const options = FLYOUT_OPTIONS[key]?.() ?? [];
-    if (options.length === 0 || this.flyout?.getAttribute(FLYOUT_ATTR) === key) return;
+    if (this.flyout?.getAttribute(FLYOUT_ATTR) === key) return;
+    const isColor = key === 'color';
+    const options = isColor ? [] : FLYOUT_OPTIONS[key]?.() ?? [];
+    if (!isColor && options.length === 0) return;
     this.hideFlyout();
     const panel = document.createElement('div');
     panel.className = FLYOUT_CLASS;
     panel.setAttribute('data-testid', 'block-handle-flyout');
     panel.setAttribute(FLYOUT_ATTR, key);
-    for (const option of options) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = FLYOUT_ITEM_CLASS;
-      btn.setAttribute(FLYOUT_ACTION_ATTR, option.value);
-      if (option.icon) {
-        const iconEl = document.createElement('span');
-        iconEl.className = 'mdb-block-handle-flyout-icon';
-        iconEl.setAttribute('aria-hidden', 'true');
-        iconEl.textContent = option.icon;
-        btn.appendChild(iconEl);
+    if (isColor) {
+      panel.appendChild(createColorPalette(this.onColorPick));
+    } else {
+      for (const option of options) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = FLYOUT_ITEM_CLASS;
+        btn.setAttribute(FLYOUT_ACTION_ATTR, option.value);
+        if (option.icon) {
+          const iconEl = document.createElement('span');
+          iconEl.className = 'mdb-block-handle-flyout-icon';
+          iconEl.setAttribute('aria-hidden', 'true');
+          iconEl.textContent = option.icon;
+          btn.appendChild(iconEl);
+        }
+        btn.appendChild(document.createTextNode(option.label));
+        panel.appendChild(btn);
       }
-      btn.appendChild(document.createTextNode(option.label));
-      panel.appendChild(btn);
     }
     panel.style.position = 'absolute';
     panel.style.left = '100%';

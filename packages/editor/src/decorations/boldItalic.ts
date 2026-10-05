@@ -7,8 +7,8 @@ const strikeRegex = /~~(.+?)~~/g;
 // Match <u>…</u> raw-HTML passthrough (ticket #260). Non-greedy, single-line.
 const underlineRegex = /<u>([^<]+?)<\/u>/g;
 const fontRegex = /<span class="mdb-font-(serif|mono|sans)">([^<]+?)<\/span>/g;
-const colorRegex = /<span class="mdb-color-(red|blue|green|orange|purple)">([^<]+?)<\/span>/g;
-const bgRegex = /<span class="mdb-bg-(red|blue|green|orange|purple)">([^<]+?)<\/span>/g;
+const colorRegex = /<span class="mdb-color-(red|orange|yellow|green|cyan|blue|purple)">([^<]+?)<\/span>/g;
+const bgRegex = /<span class="mdb-bg-(darkred|darkgreen|red|orange|yellow|green|cyan|blue|purple|gray|brown|olive|navy|indigo|slate)">([^<]+?)<\/span>/g;
 
 const BOLD_CLASS = 'cm-strong';
 const ITALIC_CLASS = 'cm-em';

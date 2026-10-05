@@ -40,11 +40,23 @@ type SpanClass =
   | 'mdb-color-green'
   | 'mdb-color-orange'
   | 'mdb-color-purple'
+  | 'mdb-color-yellow'
+  | 'mdb-color-cyan'
   | 'mdb-bg-red'
   | 'mdb-bg-blue'
   | 'mdb-bg-green'
   | 'mdb-bg-orange'
-  | 'mdb-bg-purple';
+  | 'mdb-bg-purple'
+  | 'mdb-bg-yellow'
+  | 'mdb-bg-cyan'
+  | 'mdb-bg-gray'
+  | 'mdb-bg-darkred'
+  | 'mdb-bg-brown'
+  | 'mdb-bg-olive'
+  | 'mdb-bg-darkgreen'
+  | 'mdb-bg-navy'
+  | 'mdb-bg-indigo'
+  | 'mdb-bg-slate';
 
 /**
  * Toggle-wrap a selection with `before`/`after` markers.
@@ -416,12 +428,24 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   'color-green': '将文字颜色设为绿色',
   'color-orange': '将文字颜色设为橙色',
   'color-purple': '将文字颜色设为紫色',
+  'color-yellow': '将文字颜色设为黄色',
+  'color-cyan': '将文字颜色设为青色',
   'color-clear': '清除文字颜色',
   'bg-red': '将背景色设为红色',
   'bg-blue': '将背景色设为蓝色',
   'bg-green': '将背景色设为绿色',
   'bg-orange': '将背景色设为橙色',
   'bg-purple': '将背景色设为紫色',
+  'bg-yellow': '将背景色设为黄色',
+  'bg-cyan': '将背景色设为青色',
+  'bg-gray': '将背景色设为浅灰',
+  'bg-darkred': '将背景色设为暗红',
+  'bg-brown': '将背景色设为棕色',
+  'bg-olive': '将背景色设为橄榄绿',
+  'bg-darkgreen': '将背景色设为深绿',
+  'bg-navy': '将背景色设为藏蓝',
+  'bg-indigo': '将背景色设为靛紫',
+  'bg-slate': '将背景色设为深灰',
   'bg-clear': '清除背景色',
   'color-reset': '颜色与背景恢复默认',
   'align-left': '将当前块左对齐',
@@ -1101,6 +1125,21 @@ export function registerEditorCommands(): void {
     const { from, to } = main;
 
     if (!main.empty) {
+      // Markers inside the selection (a block-level selection spans the raw
+      // tags) — mirror toggleSpanClass case 1 and peel the outer wrapper.
+      const selected = state.doc.sliceString(from, to);
+      const insideOpen = selected.match(new RegExp(`^<span class="(${prefix}-\\w+)">`));
+      if (insideOpen && selected.endsWith('</span>')) {
+        const openTag = `<span class="${insideOpen[1]}">`;
+        const closeTag = '</span>';
+        const inner = selected.slice(openTag.length, selected.length - closeTag.length);
+        view.dispatch({
+          changes: { from, to, insert: inner },
+          selection: { anchor: from, head: from + inner.length },
+        });
+        return true;
+      }
+
       const contextBefore = from >= 60 ? state.doc.sliceString(from - 60, from) : state.doc.sliceString(0, from);
       const contextAfter = state.doc.sliceString(to, to + 20);
 
@@ -1139,22 +1178,29 @@ export function registerEditorCommands(): void {
       const { main } = state.selection;
       if (main.empty) break;
 
+      const selected = state.doc.sliceString(main.from, main.to);
       const contextBefore = main.from >= 60
         ? state.doc.sliceString(main.from - 60, main.from)
         : state.doc.sliceString(0, main.from);
-      const colorMatch = contextBefore.match(/<span class="(mdb-color-\w+)">/);
-      const bgMatch = contextBefore.match(/<span class="(mdb-bg-\w+)">/);
 
       let prefix: SpanClassPrefix | null = null;
-      if (colorMatch && bgMatch) {
-        prefix =
-          contextBefore.lastIndexOf(colorMatch[0]) > contextBefore.lastIndexOf(bgMatch[0])
-            ? 'mdb-color'
-            : 'mdb-bg';
-      } else if (colorMatch) {
+      if (selected.match(/^<span class="mdb-color-\w+">/) && selected.endsWith('</span>')) {
         prefix = 'mdb-color';
-      } else if (bgMatch) {
+      } else if (selected.match(/^<span class="mdb-bg-\w+">/) && selected.endsWith('</span>')) {
         prefix = 'mdb-bg';
+      } else {
+        const colorMatch = contextBefore.match(/<span class="(mdb-color-\w+)">/);
+        const bgMatch = contextBefore.match(/<span class="(mdb-bg-\w+)">/);
+        if (colorMatch && bgMatch) {
+          prefix =
+            contextBefore.lastIndexOf(colorMatch[0]) > contextBefore.lastIndexOf(bgMatch[0])
+              ? 'mdb-color'
+              : 'mdb-bg';
+        } else if (colorMatch) {
+          prefix = 'mdb-color';
+        } else if (bgMatch) {
+          prefix = 'mdb-bg';
+        }
       }
 
       if (!prefix || !clearSpanClass(view, prefix)) break;
@@ -1245,6 +1291,24 @@ export function registerEditorCommands(): void {
   });
 
   commandRegistry.register({
+    id: 'color-yellow',
+    label: '黄色',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-color-yellow', 'mdb-color');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'color-cyan',
+    label: '青色',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-color-cyan', 'mdb-color');
+    },
+  });
+
+  commandRegistry.register({
     id: 'color-clear',
     label: '清除颜色',
     group: '格式',
@@ -1295,6 +1359,96 @@ export function registerEditorCommands(): void {
     group: '格式',
     execute: (view) => {
       toggleSpanClass(view, 'mdb-bg-purple', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-yellow',
+    label: '黄色背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-yellow', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-cyan',
+    label: '青色背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-cyan', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-gray',
+    label: '浅灰背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-gray', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-darkred',
+    label: '暗红背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-darkred', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-brown',
+    label: '棕色背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-brown', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-olive',
+    label: '橄榄绿背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-olive', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-darkgreen',
+    label: '深绿背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-darkgreen', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-navy',
+    label: '藏蓝背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-navy', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-indigo',
+    label: '靛紫背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-indigo', 'mdb-bg');
+    },
+  });
+
+  commandRegistry.register({
+    id: 'bg-slate',
+    label: '深灰背景',
+    group: '格式',
+    execute: (view) => {
+      toggleSpanClass(view, 'mdb-bg-slate', 'mdb-bg');
     },
   });
 

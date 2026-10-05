@@ -1,0 +1,40 @@
+{
+  "task": "360",
+  "states": [
+    {
+      "state": "toolbar-open",
+      "screenshot": "01-toolbar-open.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T06:53:10Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "bg-row",
+      "screenshot": "02-bg-row.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T06:53:10Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "block-menu",
+      "screenshot": "03-block-menu.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T06:53:10Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "applied",
+      "screenshot": "04-applied.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T06:53:10Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "reset",
+      "screenshot": "05-reset.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T06:53:10Z",
+      "runner": "mason@MMBP"
+    }
+  ]
+}

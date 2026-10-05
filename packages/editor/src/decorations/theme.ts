@@ -147,6 +147,8 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-color-green': { color: 'var(--mdb-success)' },
   '.cm-content .cm-color-orange': { color: 'var(--mdb-warning)' },
   '.cm-content .cm-color-purple': { color: '#a371f7' },
+  '.cm-content .cm-color-yellow': { color: '#f0b622' },
+  '.cm-content .cm-color-cyan': { color: '#20b2aa' },
   // Background colors (ticket #278): translucent so they stay readable on
   // both dark and light editor surfaces. Mirrors the renderer's dark palette.
   '.cm-content .cm-bg-red': { backgroundColor: 'rgba(248, 81, 73, 0.25)' },
@@ -154,6 +156,16 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-bg-green': { backgroundColor: 'rgba(63, 185, 80, 0.25)' },
   '.cm-content .cm-bg-orange': { backgroundColor: 'rgba(227, 179, 65, 0.25)' },
   '.cm-content .cm-bg-purple': { backgroundColor: 'rgba(163, 113, 247, 0.25)' },
+  '.cm-content .cm-bg-yellow': { backgroundColor: 'rgba(240, 182, 34, 0.25)' },
+  '.cm-content .cm-bg-cyan': { backgroundColor: 'rgba(32, 178, 170, 0.25)' },
+  '.cm-content .cm-bg-gray': { backgroundColor: 'rgba(235, 235, 235, 0.22)' },
+  '.cm-content .cm-bg-darkred': { backgroundColor: 'rgba(179, 68, 68, 0.30)' },
+  '.cm-content .cm-bg-brown': { backgroundColor: 'rgba(132, 81, 23, 0.30)' },
+  '.cm-content .cm-bg-olive': { backgroundColor: 'rgba(135, 123, 16, 0.30)' },
+  '.cm-content .cm-bg-darkgreen': { backgroundColor: 'rgba(41, 107, 34, 0.30)' },
+  '.cm-content .cm-bg-navy': { backgroundColor: 'rgba(32, 62, 120, 0.30)' },
+  '.cm-content .cm-bg-indigo': { backgroundColor: 'rgba(77, 38, 145, 0.30)' },
+  '.cm-content .cm-bg-slate': { backgroundColor: 'rgba(95, 95, 95, 0.30)' },
 
   // ── Lists (values aligned to reader CSS) ──────────────────────────────
   '.cm-content .cm-line.cm-list': {

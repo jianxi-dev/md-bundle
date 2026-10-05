@@ -84,25 +84,25 @@ test.describe('字体色 = 彩色字母 A；背景色 = 色块（#328）', () =>
     await selectWord(page, 'UNIQUEMARKER')
     const menu = await openColorPopup(page)
 
-    const textSwatches = menu.locator('.mdb-color-swatch-text')
-    await expect(textSwatches).toHaveCount(5)
-    const glyphTexts = await textSwatches.locator('span').allTextContents()
-    expect(glyphTexts).toEqual(['A', 'A', 'A', 'A', 'A'])
+    const textSwatches = menu.locator('.mdb-color-font-swatch')
+    await expect(textSwatches).toHaveCount(8)
+    const glyphTexts = await textSwatches.locator('span.mdb-color-swatch-text-glyph').allTextContents()
+    expect(glyphTexts).toEqual(['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A'])
 
-    const redGlyph = menu.locator('.mdb-color-swatch-text[title="红色"] span')
+    const redGlyph = menu.locator('.mdb-color-font-swatch[title="红色"] span.mdb-color-swatch-text-glyph')
     const redColor = await redGlyph.evaluate((el) => window.getComputedStyle(el).color)
-    expect(redColor).toMatch(/rgb\(207, 34, 46\)/i)
+    expect(redColor).toMatch(/rgb\(240, 0, 14\)/i)
 
     // The font row is a glyph, not a filled swatch.
     const redFontBg = await menu
-      .locator('.mdb-color-swatch-text[title="红色"]')
+      .locator('.mdb-color-font-swatch[title="红色"]')
       .evaluate((el) => window.getComputedStyle(el).backgroundColor)
     expect(redFontBg).toMatch(/rgba?\(0, 0, 0, 0\)|transparent/i)
 
     // The background row keeps solid swatches.
-    const blueBg = menu.locator('.mdb-color-swatch-bg[title="蓝色"]')
+    const blueBg = menu.locator('.mdb-color-bg-swatch[title="蓝色"]')
     const blueBgColor = await blueBg.evaluate((el) => window.getComputedStyle(el).backgroundColor)
-    expect(blueBgColor).not.toMatch(/rgba?\(0, 0, 0, 0\)|transparent/i)
+    expect(blueBgColor).toMatch(/rgb\(76, 136, 255\)/i)
   })
 })
 

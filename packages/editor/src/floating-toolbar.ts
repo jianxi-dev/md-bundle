@@ -19,6 +19,7 @@
  */
 import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { commandRegistry, type Command } from './commands';
+import { createColorPalette } from './color-palette';
 
 /**
  * A single toolbar control descriptor.
@@ -42,31 +43,16 @@ export interface FloatingToolbarItem {
   /**
    * Control shape. `'button'` (default) renders a flat action button.
    * `'dropdown'` renders a button that opens a submenu of options.
-   * `'color'` renders a button that opens the dual-palette color popup
-   * (`color` field, ticket #278).
+   * `'color'` renders a button that opens the shared dual-palette color popup
+   * (`createColorPalette`, ticket #360).
    * `'columns'` renders a button that opens the visual bar picker for 1..N
    * columns (`columns` field, ticket #290).
    */
   readonly kind?: 'button' | 'dropdown' | 'color' | 'columns';
   /** Submenu options for dropdown controls. */
   readonly options?: readonly DropdownOption[];
-  /** Dual-palette rows for color-popup controls. */
-  readonly color?: ColorPopupOptions;
   /** Bar-picker bounds for column controls. */
   readonly columns?: ColumnsPopupOptions;
-}
-
-/**
- * Rows of the `kind: 'color'` dual palette (ticket #278): a font-color row,
- * a background-color row, and a 恢复默认 action.
- */
-export interface ColorPopupOptions {
-  /** 字体色 row — options execute their own text-color command ids. */
-  readonly text: readonly DropdownOption[];
-  /** 背景色 row — options execute their own background-color command ids. */
-  readonly background: readonly DropdownOption[];
-  /** 恢复默认 action — clears both wrappers on the selection. */
-  readonly reset: DropdownOption;
 }
 
 /**
@@ -85,7 +71,7 @@ export interface DropdownOption {
   readonly label?: string;
   /** Override the command's icon for this option. */
   readonly icon?: string;
-  /** Swatch chip colour (used by color-popup options). */
+  /** Optional swatch chip colour for custom option rendering. */
   readonly swatch?: string;
 }
 
@@ -118,23 +104,6 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
     label: '颜色',
     icon: 'A',
     kind: 'color',
-    color: {
-      text: [
-        { commandId: 'color-red', label: '红色', swatch: '#cf222e' },
-        { commandId: 'color-blue', label: '蓝色', swatch: '#4f5ad1' },
-        { commandId: 'color-green', label: '绿色', swatch: '#1a7f37' },
-        { commandId: 'color-orange', label: '橙色', swatch: '#9a6700' },
-        { commandId: 'color-purple', label: '紫色', swatch: '#7a4f9d' },
-      ],
-      background: [
-        { commandId: 'bg-red', label: '红色', swatch: '#ffd8d3' },
-        { commandId: 'bg-blue', label: '蓝色', swatch: '#d7dcff' },
-        { commandId: 'bg-green', label: '绿色', swatch: '#d2f8d2' },
-        { commandId: 'bg-orange', label: '橙色', swatch: '#ffedd0' },
-        { commandId: 'bg-purple', label: '紫色', swatch: '#e8d7ff' },
-      ],
-      reset: { commandId: 'color-reset', label: '恢复默认' },
-    },
   },
   {
     commandId: 'align-left',
@@ -388,60 +357,9 @@ function createDropdownItemDom(
 }
 
 /**
- * One color-panel option.
- *
- * The font-color row renders each option as a letter "A" tinted with its own
- * color (spec §6): the glyph IS the label, so a color is identifiable without
- * reading text. The background row keeps solid swatches.
- */
-function createColorSwatchButton(
-  view: EditorView,
-  option: DropdownOption,
-  variant: 'text' | 'bg',
-  closeMenu: () => void,
-): HTMLButtonElement {
-  const swatch = document.createElement('button');
-  swatch.className = `mdb-color-swatch mdb-color-swatch-${variant}`;
-  swatch.title = option.label ?? option.commandId;
-  swatch.setAttribute('aria-label', swatch.title);
-  swatch.style.width = '20px';
-  swatch.style.height = '20px';
-  swatch.style.borderRadius = '4px';
-  swatch.style.border = '1px solid var(--mdb-border)';
-  swatch.style.cursor = 'pointer';
-  swatch.style.padding = '0';
-
-  if (variant === 'text') {
-    // Font color: a tinted "A" glyph, not a filled swatch.
-    swatch.style.background = 'transparent';
-    swatch.style.display = 'flex';
-    swatch.style.alignItems = 'center';
-    swatch.style.justifyContent = 'center';
-    const glyph = document.createElement('span');
-    glyph.className = 'mdb-color-swatch-text-glyph';
-    glyph.textContent = 'A';
-    glyph.style.color = option.swatch ?? 'var(--mdb-text)';
-    glyph.style.fontSize = '14px';
-    glyph.style.fontWeight = '600';
-    glyph.style.lineHeight = '1';
-    swatch.appendChild(glyph);
-  } else {
-    swatch.style.background = option.swatch ?? 'transparent';
-  }
-
-  swatch.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    commandRegistry.execute(option.commandId, view);
-    closeMenu();
-  });
-
-  return swatch;
-}
-
-/**
- * Dual-palette color popup (ticket #278): one trigger (title 颜色) whose panel
- * shows a 字体色 swatch row, a 背景色 swatch row, and 恢复默认.
+ * Dual-palette color popup (ticket #278, unified in #360): one trigger
+ * (title 颜色) whose panel mounts the SHARED color palette — the same node the
+ * block-handle 颜色› flyout renders — so both surfaces stay identical.
  */
 function createColorPopupItemDom(
   view: EditorView,
@@ -465,53 +383,16 @@ function createColorPopupItemDom(
   const menu = document.createElement('div');
   menu.className = 'mdb-toolbar-dropdown-menu mdb-toolbar-color-menu';
   stylePopupMenu(menu);
-  menu.style.minWidth = '150px';
-  menu.style.gap = '6px';
+  menu.style.minWidth = '184px';
 
   const { closeMenu } = wirePopup(container, btn, menu);
 
-  if (item.color) {
-    const rows: readonly (readonly [string, readonly DropdownOption[], 'text' | 'bg'])[] = [
-      ['字体色', item.color.text, 'text'],
-      ['背景色', item.color.background, 'bg'],
-    ];
-
-    for (const [rowLabel, options, variant] of rows) {
-      const row = document.createElement('div');
-      row.className = 'mdb-color-row';
-      row.style.display = 'flex';
-      row.style.flexDirection = 'column';
-      row.style.gap = '4px';
-
-      const labelEl = document.createElement('span');
-      labelEl.className = 'mdb-color-row-label';
-      labelEl.textContent = rowLabel;
-      labelEl.style.fontSize = '11px';
-      labelEl.style.color = 'var(--mdb-text-secondary)';
-
-      const swatches = document.createElement('div');
-      swatches.className = 'mdb-color-swatches';
-      swatches.style.display = 'flex';
-      swatches.style.gap = '6px';
-
-      for (const option of options) {
-        const optionCmd = commandRegistry.all().find((c) => c.id === option.commandId);
-        if (!optionCmd) continue;
-        swatches.appendChild(createColorSwatchButton(view, option, variant, closeMenu));
-      }
-
-      row.appendChild(labelEl);
-      row.appendChild(swatches);
-      menu.appendChild(row);
-    }
-
-    const resetCmd = commandRegistry.all().find((c) => c.id === item.color?.reset.commandId);
-    if (resetCmd) {
-      menu.appendChild(
-        createOptionButtonDom(view, item.color.reset, resetCmd, closeMenu, 'mdb-color-reset'),
-      );
-    }
-  }
+  menu.appendChild(
+    createColorPalette((commandId) => {
+      commandRegistry.execute(commandId, view);
+      closeMenu();
+    }),
+  );
 
   container.appendChild(btn);
   container.appendChild(menu);
@@ -649,7 +530,7 @@ function createToolbarDom(
   for (const item of items) {
     const cmd = resolveCommand(item);
     if (!cmd) continue;
-    if (item.kind === 'color' && item.color) {
+    if (item.kind === 'color') {
       toolbar.appendChild(createColorPopupItemDom(view, item, cmd));
     } else if (item.kind === 'columns' && item.columns) {
       toolbar.appendChild(createColumnsItemDom(view, item, cmd));

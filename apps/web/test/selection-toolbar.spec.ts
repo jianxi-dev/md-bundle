@@ -135,7 +135,7 @@ test.describe('选区浮条：11 控件 + 颜色弹出面板/对齐/转换 + 切
 
     const menu = page.locator('.mdb-toolbar-dropdown-menu.mdb-toolbar-color-menu')
     await expect(menu).toBeVisible()
-    const redSwatch = menu.locator('.mdb-color-swatch-text[title="红色"]')
+    const redSwatch = menu.locator('.mdb-color-font-swatch[title="红色"]')
     await expect(redSwatch).toBeVisible()
     await redSwatch.click()
     await settle(page)
@@ -165,13 +165,13 @@ test.describe('选区浮条：11 控件 + 颜色弹出面板/对齐/转换 + 切
     await settle(page)
     const menu = page.locator('.mdb-toolbar-dropdown-menu.mdb-toolbar-color-menu')
     await expect(menu).toBeVisible()
-    await menu.locator('.mdb-color-swatch-text[title="红色"]').click()
+    await menu.locator('.mdb-color-font-swatch[title="红色"]').click()
     await settle(page)
 
     await colorBtn.click()
     await settle(page)
     await expect(menu).toBeVisible()
-    await menu.locator('.mdb-color-swatch-bg[title="蓝色"]').click()
+    await menu.locator('.mdb-color-bg-swatch[title="蓝色"]').click()
     await settle(page)
 
     await page.getByTestId('mode-preview-btn').click()
