@@ -2,8 +2,9 @@
  * Callout card decorations.
  *
  * Parses markdown blockquote callout syntax (> [!TYPE][+-] title + subsequent
- * > lines) and renders them as styled callout cards. Colors/labels come from the
- * renderer's calloutTypeMap (single source of truth). Invalid types ([!FOO]) fall
+ * > lines) and renders them as styled callout cards. Colors/labels come from
+ * `resolveCalloutType` (the deduped editor set, falling back to the renderer's
+ * calloutTypeMap so parse aliases still render). Invalid types ([!FOO]) fall
  * back to regular blockquote display.
  *
  * How editing works (D5/D7: a callout must never collapse to `> [!TYPE]` source)
@@ -20,7 +21,8 @@
  */
 import { Decoration, WidgetType, type EditorView } from '@codemirror/view';
 import type { Range } from '@codemirror/state';
-import { calloutTypeMap } from '@md-bundle/renderer';
+import { resolveCalloutType } from '../callout-types';
+import { getCalloutEmojiOverride, openCalloutEmojiPicker } from './callout-emoji';
 
 // --- Staging + flush --------------------------------------------------------
 
@@ -216,20 +218,33 @@ class CalloutWidget extends WidgetType {
     const container = document.createElement('div');
     container.className = `cm-callout cm-callout-tone-${this.tone}`;
     if (this.fold) container.setAttribute('data-fold', this.fold);
+    const emoji = (view ? getCalloutEmojiOverride(view, this.index) : undefined) ?? this.icon;
+    container.setAttribute('data-callout-emoji', emoji);
 
     if (view) {
       wireExternalFlush(view);
       const index = this.index;
+      const defaultEmoji = this.icon;
       // The card replaces the whole block, so it owns pointer events. Open the
       // inline editor on the next frame: CM6 rebuilds this widget during the
-      // mousedown capture phase, detaching the event's target.
+      // mousedown capture phase, detaching the event's target. A press on the
+      // header emoji opens the picker instead of the text editor.
       container.addEventListener('mousedown', (event) => {
         event.preventDefault();
         event.stopPropagation();
+        const onEmoji = event.target instanceof Element && event.target.closest('.cm-callout-icon') !== null;
+        const open = (): void => {
+          if (onEmoji) {
+            flushCalloutEdits(view);
+            openCalloutEmojiPicker(view, index, defaultEmoji);
+          } else {
+            openCalloutEditor(view, index);
+          }
+        };
         if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(() => openCalloutEditor(view, index));
+          requestAnimationFrame(open);
         } else {
-          openCalloutEditor(view, index);
+          open();
         }
       });
     }
@@ -239,7 +254,25 @@ class CalloutWidget extends WidgetType {
 
     const iconEl = document.createElement('span');
     iconEl.className = 'cm-callout-icon';
-    iconEl.textContent = this.icon;
+    iconEl.setAttribute('data-testid', 'cm-callout-emoji-btn');
+    iconEl.setAttribute('data-callout-emoji', emoji);
+    iconEl.setAttribute('role', 'button');
+    iconEl.setAttribute('tabindex', '0');
+    iconEl.setAttribute('aria-label', '更改 emoji');
+    iconEl.title = '更改 emoji';
+    iconEl.textContent = emoji;
+    if (view) {
+      const index = this.index;
+      const defaultEmoji = this.icon;
+      // Keyboard parity with the mouse path; focus stays on the (rebuilt) card.
+      iconEl.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        event.stopPropagation();
+        flushCalloutEdits(view);
+        openCalloutEmojiPicker(view, index, defaultEmoji);
+      });
+    }
     header.appendChild(iconEl);
 
     const badge = document.createElement('span');
@@ -318,7 +351,7 @@ function findCalloutBlocks(docText: string): CalloutBlock[] {
       const fold = (openMatch[2] as '+' | '-' | '') || '';
       const title = openMatch[3].trim();
 
-      const typeInfo = calloutTypeMap[type];
+      const typeInfo = resolveCalloutType(type);
       if (!typeInfo) {
         i++;
         continue;
@@ -377,7 +410,7 @@ export function createCalloutDecorations(
   const decorations: Range<Decoration>[] = [];
 
   findCalloutBlocks(docText).forEach((block, index) => {
-    const typeInfo = calloutTypeMap[block.type];
+    const typeInfo = resolveCalloutType(block.type);
     if (!typeInfo) return;
 
     decorations.push(

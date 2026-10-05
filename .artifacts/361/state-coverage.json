@@ -1,0 +1,33 @@
+{
+  "task": "361",
+  "states": [
+    {
+      "state": "type-flyout-open",
+      "screenshot": "01-type-flyout.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T07:23:16Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "type-selected",
+      "screenshot": "02-type-selected.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T07:23:16Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "emoji-picker-open",
+      "screenshot": "03-emoji-picker.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T07:23:16Z",
+      "runner": "mason@MMBP"
+    },
+    {
+      "state": "emoji-selected",
+      "screenshot": "04-emoji-selected.png",
+      "assertion": "passed",
+      "recorded_at": "2026-10-05T07:23:16Z",
+      "runner": "mason@MMBP"
+    }
+  ]
+}
