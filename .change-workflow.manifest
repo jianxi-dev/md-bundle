@@ -1,11 +1,11 @@
-a2ef8fb3f507879ed2a9e6c8ff8babed3aa4cccda533829187077b784b58f6d7  .opencode/skills/change-workflow/SKILL.md
-08b78b034bba7a8062cc7d65b250ae085d4a204feaf0837bb70ae5c0c427fa75  .opencode/skills/change-workflow/agents-quick-reference.md
-dd3d33b1e3da2565da65e3df4f5c435964cec82e45c613220e7e610f80f51db4  scripts/pr-automation.sh
+0ff2def0c7badb5921f2bf3af5bc9dc315b9c1487a4ea046c59aa6e08001c290  .opencode/skills/change-workflow/SKILL.md
+54fd315f550414c153f56b5a08bf9e904de28a3714a278cafb712d55e52b5d41  .opencode/skills/change-workflow/agents-quick-reference.md
+8d556a7f53b2a18bd519570364375c81184f37f3bdbcbf6debddcaf1268f4887  scripts/pr-automation.sh
 86fa9d89189e1c8d2a7dc8939950ef66ba954a2a477e5038ba402f119aca9e23  scripts/cw-update.sh
 LOCAL  .github/workflows/change-closure-signal.yml
 217dea4e74582ada4af22e34593cec747da717e873778bfb7d3bd2ecf2f4eb2d  .github/workflows/evidence-check.yml
 96c9747f80abacedf6aae9c6ecce73965d652a558f7ba5c0815bdbb7582466bd  scripts/cw-evidence.sh
-aa88e10701ab1d70de41cd28b0f71dcba26af6a09d82149b2fe5256516f7025d  scripts/cw-greploop.sh
+1845bf8abb261ef68f10296a9607ac8afac69df7e65cbb18c46e8ab89af699c7  scripts/cw-greploop.sh
 409013f0f6956643a9f913ce3d3017f41f185b548e117646725e289add3225e5  scripts/cw-tickets-check.sh
 b2cfeddc1fd4075010215edc2f9ee85ec106f7c66e2f412666962f7f00bb843b  scripts/cw-conformance.sh
 e89014755f5b33a041afe98a1b6d92ada7222a791f901e8df0b0e855d1f81efa  scripts/decisions-log.sh
@@ -20,5 +20,5 @@ LOCAL  docs/agents/incident-merge-local-workspace.md
 bc7027265b054dc78330607814e28bc2ec5f47eaaa741a0d90c84a2114d5a173  docs/agents/pr-writing.md
 1d2b26931008e89945a84aafbc671eafb1f2db6c8f57a324a80b6f6f258d8b10  docs/agents/project-board.md
 LOCAL  docs/agents/quality-gates.md
-5e6d1f78b244fbf1f4d904d0e96f8ac5618b26b630a4622cef66e34cf10bdbdd  docs/agents/task-tracking.md
+af3b3f1f1b2957f84f8c37f9db38a0b81fa1554158176eea43b05f748904556b  docs/agents/task-tracking.md
 99366787b19982a53a07b92c22b18da0629c804839b25e628ae50df1f742136a  docs/agents/triage-labels.md
