@@ -59,9 +59,10 @@ test('悬停段落后手柄出现，且贴合块的左缘与行垂直中心', as
   await expect(handle).toBeVisible()
   const handleBox = await boxOf(handle)
 
-  // 坐标系回归锁：手柄左缘应贴着块的左缘（约 -26px 沟槽偏移），
-  // 顶部应贴着行，而不是被 viewport 原点甩到编辑器右下方。
-  expect(Math.abs(handleBox.x - lineBox.x)).toBeLessThanOrEqual(40)
+  // 坐标系回归锁：新 42×26 两段式手柄，左缘固定在 contentLeft - 44px 处，
+  // 与行左缘（contentLeft + paddingLeft）水平距离约 44px + paddingLeft。
+  // 允许 ≤ 60px 容差（含 2rem 内边距）。
+  expect(Math.abs(handleBox.x - lineBox.x)).toBeLessThanOrEqual(60)
   const handleCenterY = handleBox.y + handleBox.height / 2
   const lineCenterY = lineBox.y + lineBox.height / 2
   expect(Math.abs(handleCenterY - lineCenterY)).toBeLessThanOrEqual(40)

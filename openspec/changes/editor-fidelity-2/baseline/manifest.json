@@ -1,0 +1,50 @@
+[
+  {
+    "file": "block-handle.png",
+    "sha256": "13ddb3ae1b50f500251c9da4d126de5db4f23fc4f1f0d4cd150d99b746cb8f7c",
+    "sourceUrl": "file:///Users/mason/ToHighs/md-bundle/.lavish/doubao-editor-spec-v2.html",
+    "timestamp": "2026-10-04T17:56:53.955Z"
+  },
+  {
+    "file": "block-menu.png",
+    "sha256": "741865d4bbb90db00afdf697344065d8d2718e3f2167e26421aa751fc9212e7c",
+    "sourceUrl": "file:///Users/mason/ToHighs/md-bundle/.lavish/doubao-editor-spec-v2.html",
+    "timestamp": "2026-10-04T17:56:54.339Z"
+  },
+  {
+    "file": "table-handle.png",
+    "sha256": "13361c42e02861fd3831b811571e7d4ad0d593df25ada5bc95d7f2739fc87854",
+    "sourceUrl": "file:///Users/mason/ToHighs/md-bundle/.lavish/doubao-editor-spec-v2.html",
+    "timestamp": "2026-10-04T17:56:54.619Z"
+  },
+  {
+    "file": "table-menu.png",
+    "sha256": "708c461a15fc0686071216ce7c8dc86ac9158e12c95dc94174f704e68e2cf665",
+    "sourceUrl": "file:///Users/mason/ToHighs/md-bundle/.lavish/doubao-editor-spec-v2.html",
+    "timestamp": "2026-10-04T17:56:55.003Z"
+  },
+  {
+    "file": "color-flyout.png",
+    "sha256": "182d2a2708b73bb4aee61e716553d8039756fdc6b2e24b413d0ad54194c7feb3",
+    "sourceUrl": "file:///Users/mason/ToHighs/md-bundle/.lavish/doubao-editor-spec-v2.html",
+    "timestamp": "2026-10-04T17:56:55.387Z"
+  },
+  {
+    "file": "insert-menu.png",
+    "sha256": "0e83a6b95beba6d7326b28709a2b941e4b096d9f0bc0217c197e80eedd5541f5",
+    "sourceUrl": "file:///Users/mason/ToHighs/md-bundle/.lavish/doubao-editor-spec-v2.html",
+    "timestamp": "2026-10-04T17:56:55.755Z"
+  },
+  {
+    "file": "palette.png",
+    "sha256": "27d47b4116f0a048c9f4c258bfaf828e724864612c21acd3ffb8fe6161e09d40",
+    "sourceUrl": "file:///Users/mason/ToHighs/md-bundle/.lavish/doubao-editor-spec-v2.html",
+    "timestamp": "2026-10-04T17:56:56.455Z"
+  },
+  {
+    "file": "base-bg.png",
+    "sha256": "5f0eca4a84c222c07c5f831560d39bcb4344215dbbabebe368d18f839d302ab3",
+    "sourceUrl": "file:///Users/mason/ToHighs/md-bundle/.lavish/doubao-editor-spec-v2.html",
+    "timestamp": "2026-10-04T17:56:56.522Z"
+  }
+]
