@@ -338,31 +338,29 @@ describe('blockHandleIcon', () => {
   })
 
   it('returns checked/unchecked icon names for task blocks', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'task', checked: true }))).toBe('TaskAltOutlined')
-    expect(blockHandleIcon(makeBlock({ type: 'task', checked: false }))).toBe(
-      'CheckBoxOutlineBlankOutlined',
-    )
+    expect(blockHandleIcon(makeBlock({ type: 'task', checked: true }))).toBe('TodoOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'task', checked: false }))).toBe('TodoOutlined')
   })
 
   it('returns quote icon name for blockquote', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'blockquote' }))).toBe('FormatQuoteOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'blockquote' }))).toBe('ReferenceOutlined')
   })
 
   it('returns code icon name for fencedCode and codeBlock', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'fencedCode' }))).toBe('CodeOutlined')
-    expect(blockHandleIcon(makeBlock({ type: 'codeBlock' }))).toBe('CodeOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'fencedCode' }))).toBe('CodeblockOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'codeBlock' }))).toBe('CodeblockOutlined')
   })
 
   it('returns list icon name for list', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'list' }))).toBe('ListOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'list' }))).toBe('DisorderListOutlined')
   })
 
   it('returns table icon name for table', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'table' }))).toBe('TableChartOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'table' }))).toBe('DataSheetOutlined')
   })
 
   it('returns thematicBreak icon name', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'thematicBreak' }))).toBe('HorizontalRuleOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'thematicBreak' }))).toBe('DividerOutlined')
   })
 
   it('returns image icon name', () => {
@@ -374,11 +372,11 @@ describe('blockHandleIcon', () => {
   })
 
   it('returns drag-handle icon name for paragraph', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'paragraph' }))).toBe('DragHandleOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'paragraph' }))).toBe('TextOutlined')
   })
 
   it('returns drag-handle icon name for yamlFrontMatter and unknown types', () => {
-    expect(blockHandleIcon(makeBlock({ type: 'yamlFrontMatter' }))).toBe('DragHandleOutlined')
+    expect(blockHandleIcon(makeBlock({ type: 'yamlFrontMatter' }))).toBe('TextOutlined')
   })
 })
 
@@ -491,9 +489,14 @@ describe('blockHandle lifecycle', () => {
     hover(PARAGRAPH_POS)
     const el = handleEl()
     expect(el.getAttribute('data-testid')).toBe('block-handle')
-    expect(el.getAttribute('data-icon')).toBe('DragHandleOutlined')
+    expect(el.getAttribute('data-icon')).toBe('TextOutlined')
     expect(el.querySelector('svg')).not.toBeNull()
-    expect(el.textContent).toBe('')
+    // No bare text nodes as direct children (#322 guard). The block-type glyph
+    // lives inside the SVG <text>, so el.textContent legitimately carries it.
+    const bareText = Array.from(el.childNodes).some(
+      (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim().length > 0,
+    )
+    expect(bareText).toBe(false)
     expect(el.style.display).not.toBe('none')
   })
 
@@ -653,7 +656,7 @@ describe('blockHandle lifecycle', () => {
     view.dom.dispatchEvent(mouse('mousemove', { clientX: 5, clientY: 25 }))
 
     const el = handleEl()
-    expect(el.style.left).toBe('-22px')
+    expect(el.style.left).toBe('-44px')
     expect(el.style.top).toBe('190px')
   })
 

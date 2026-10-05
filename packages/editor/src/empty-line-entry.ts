@@ -13,6 +13,7 @@ import type { Extension } from '@codemirror/state'
 import { ViewPlugin, EditorView, type ViewUpdate } from '@codemirror/view'
 import { insertSlashChar } from './slash'
 import { renderIcon, ADD_ICON_NAME } from './icons'
+import { computeGutterLeft } from './block-handle-ops'
 
 const EMPTY_LINE_ADD_CLASS = 'mdb-empty-line-add'
 
@@ -108,7 +109,9 @@ class EmptyLineEntryPlugin {
 
   private isPointerInEditorHorizontally(clientX: number): boolean {
     const contentRect = this.view.contentDOM.getBoundingClientRect()
-    const buttonLeft = contentRect.left - 22
+    const paddingLeft = parseFloat(getComputedStyle(this.view.contentDOM).paddingLeft) || 0
+    const contentLeft = contentRect.left + paddingLeft
+    const buttonLeft = contentLeft - 44 // Same as handle left position
     const contentRight = contentRect.right
     return clientX >= buttonLeft && clientX <= contentRight
   }
@@ -166,10 +169,9 @@ class EmptyLineEntryPlugin {
     try {
       const coords = this.view.coordsAtPos(pos)
       if (coords) {
-        const r = this.view.dom.getBoundingClientRect()
-        const contentLeft = this.view.contentDOM.getBoundingClientRect().left
-        this.button.style.left = `${contentLeft - r.left - 22}px`
-        this.button.style.top = `${coords.top - r.top}px`
+        const gutterLeft = computeGutterLeft(this.view)
+        this.button.style.left = `${gutterLeft}px`
+        this.button.style.top = `${coords.top - this.view.dom.getBoundingClientRect().top}px`
       }
     } catch {
       // jsdom / unmeasured content — keep the default position.

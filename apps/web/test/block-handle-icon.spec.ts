@@ -67,11 +67,17 @@ async function expectHandleIcon(page: Page, iconName: string): Promise<void> {
   const handle = page.getByTestId('block-handle')
   await expect(handle).toBeVisible()
   await expect(handle).toHaveAttribute('data-icon', iconName)
-  const icon = handle.locator('svg')
-  await expect(icon).toHaveCount(1)
-  await expect(icon).toHaveAttribute('aria-hidden', 'true')
+  // 新两段式手柄：左段 .mdb-block-type-icon 包含类型图标，右段 .mdb-drag-handle 包含拖拽图标
+  // 只校验左段的类型图标
+  const typeIcon = handle.locator('.mdb-block-type-icon svg')
+  await expect(typeIcon).toHaveCount(1)
+  await expect(typeIcon).toHaveAttribute('aria-hidden', 'true')
   // 图标本体必须有实际绘制内容：标题/段落图标用 SVG <text> 字形，其余用 <path>
-  await expect(icon.locator('path, text')).not.toHaveCount(0)
+  await expect(typeIcon.locator('path, text')).not.toHaveCount(0)
+  // 右段拖拽图标始终为 DragOutlined
+  const dragIcon = handle.locator('.mdb-drag-handle svg')
+  await expect(dragIcon).toHaveCount(1)
+  await expect(dragIcon).toHaveAttribute('aria-hidden', 'true')
   // 回归防线：#322 之前手柄直接塞裸文本（如 "H2"），不能残留独立文本节点
   const strayText = await handle.evaluate((el) =>
     Array.from(el.childNodes)
@@ -88,29 +94,29 @@ test('悬停 H2 块时手柄显示 H2 图标', async ({ page }) => {
   await expectHandleIcon(page, 'H2Outlined')
 })
 
-test('悬停未勾选任务块时手柄显示未勾选图标', async ({ page }) => {
+test('悬停未勾选任务块时手柄显示 TodoOutlined', async ({ page }) => {
   await openEditor(page)
   await hoverLine(page, 'Unchecked task')
 
-  await expectHandleIcon(page, 'CheckBoxOutlineBlankOutlined')
+  await expectHandleIcon(page, 'TodoOutlined')
 })
 
-test('悬停已勾选任务块时手柄显示已勾选图标', async ({ page }) => {
+test('悬停已勾选任务块时手柄显示 TodoOutlined', async ({ page }) => {
   await openEditor(page)
   await hoverLine(page, 'Checked task only')
 
-  await expectHandleIcon(page, 'TaskAltOutlined')
+  await expectHandleIcon(page, 'TodoOutlined')
 })
 
-test('悬停普通段落时手柄显示拖拽手柄图标', async ({ page }) => {
+test('悬停普通段落时手柄显示 TextOutlined', async ({ page }) => {
   await openEditor(page)
   await hoverLine(page, 'Regular paragraph')
 
-  await expectHandleIcon(page, 'DragHandleOutlined')
+  await expectHandleIcon(page, 'TextOutlined')
 })
 
 // #322 AC【生命周期】：单次会话内跨块型移动指针，图标必须跟着块型切换，
-// 且不得残留上一个块的图标元素（每次切换后手柄内恰好一个 svg）。
+// 且不得残留上一个块的图标元素（每次切换后手柄左段恰好一个类型图标 svg）。
 test('在一次会话内跨块型移动指针，手柄图标随块型切换且无残留', async ({ page }) => {
   await openEditorWith(page, 'block-handle-icon-switch.md', SWITCH_DOC)
 
@@ -118,17 +124,17 @@ test('在一次会话内跨块型移动指针，手柄图标随块型切换且�
 
   await hoverLine(page, 'H2 Switch Target')
   await expectHandleIcon(page, 'H2Outlined')
-  await expect(handle.locator('svg')).toHaveCount(1)
+  await expect(handle.locator('.mdb-block-type-icon svg')).toHaveCount(1)
 
   await hoverLine(page, 'H3 Switch Target')
   await expectHandleIcon(page, 'H3Outlined')
-  await expect(handle.locator('svg')).toHaveCount(1)
+  await expect(handle.locator('.mdb-block-type-icon svg')).toHaveCount(1)
 
   await hoverLine(page, 'Quote switch target')
-  await expectHandleIcon(page, 'FormatQuoteOutlined')
-  await expect(handle.locator('svg')).toHaveCount(1)
+  await expectHandleIcon(page, 'ReferenceOutlined')
+  await expect(handle.locator('.mdb-block-type-icon svg')).toHaveCount(1)
 
   await hoverLine(page, 'codeSwitchTarget')
-  await expectHandleIcon(page, 'CodeOutlined')
-  await expect(handle.locator('svg')).toHaveCount(1)
+  await expectHandleIcon(page, 'CodeblockOutlined')
+  await expect(handle.locator('.mdb-block-type-icon svg')).toHaveCount(1)
 })

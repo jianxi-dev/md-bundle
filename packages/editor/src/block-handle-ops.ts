@@ -9,8 +9,43 @@
  * Block boundaries come from `block-model.ts` (Lezer AST) — never a regex
  * re-parse of the Markdown source.
  */
+import type { EditorView } from '@codemirror/view'
 import type { EditorState } from '@codemirror/state'
 import { getBlocks, getBlockAt, type Block } from './block-model'
+
+// Minimal Lezer SyntaxNode shape for tree traversal (avoids @lezer/common dep).
+interface LezerNode {
+  readonly name: string
+  readonly parent: LezerNode | null
+}
+
+/**
+ * GFM table line detection — reused from decorations/table.ts.
+ * A table line is either a pipe row (header/body) or a separator row.
+ */
+const TABLE_ROW_RE = /^\s*\|.*\|\s*$/
+const TABLE_SEP_RE = /^\s*\|(\s*:?-+:?\s*\|)+\s*$/
+
+/** Check if a line's text is a GFM table row (header, separator, or body). */
+export function isTableLine(text: string): boolean {
+  return TABLE_ROW_RE.test(text) || TABLE_SEP_RE.test(text)
+}
+
+/**
+ * Shared gutter-x helper: returns the left position (relative to editor root)
+ * for the handle / empty-line "+" column. Both affordances use this so their
+ * x coordinates align within ≤2px (F-06).
+ */
+export function computeGutterLeft(view: EditorView): number {
+  const contentDOM = view.contentDOM
+  const contentRect = contentDOM.getBoundingClientRect()
+  const paddingLeft = parseFloat(getComputedStyle(contentDOM).paddingLeft) || 0
+  const contentLeft = contentRect.left + paddingLeft
+  const r = view.dom.getBoundingClientRect()
+  // Handle is 42px wide; its right edge sits at contentLeft - 2px gap.
+  // So handle left = contentLeft - 2 - 42 = contentLeft - 44.
+  return contentLeft - r.left - 44
+}
 
 /** Target of the 转换为 menu group (legacy, first-line only). */
 export type BlockConvertTarget = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'paragraph'
@@ -327,25 +362,55 @@ export function computeMinimalChange(oldText: string, next: string): MinimalChan
  * name is consumed by `renderIcon` (icons.ts) and asserted via `data-icon`
  * (ticket #322: contract changed from a text glyph to a data-icon name).
  */
-export function blockHandleIcon(block: Block): string {
+export function blockHandleIcon(block: Block, blockText?: string, lineText?: string): string {
+  // If the block is a paragraph, check if it's inside a table cell/row.
+  // Traverse up the syntax tree to find a Table/TableRow/TableCell ancestor.
+  if (block.type === 'paragraph' && block.node) {
+    let node: LezerNode | null = block.node as LezerNode
+    while (node) {
+      if (node.name === 'Table' || node.name === 'TableRow' || node.name === 'TableCell') {
+        return 'DataSheetOutlined'
+      }
+      node = node.parent
+    }
+  }
+
+  // If the current line at handle position is a table line (header, separator, or body),
+  // force DataSheetOutlined regardless of block type (handles parser limitation).
+  if (lineText && isTableLine(lineText)) {
+    return 'DataSheetOutlined'
+  }
+
   switch (block.type) {
     case 'heading':
       return block.level !== undefined && block.level >= 1 && block.level <= 6
         ? `H${block.level}Outlined`
         : 'HOutlined'
     case 'task':
-      return block.checked ? 'TaskAltOutlined' : 'CheckBoxOutlineBlankOutlined'
+      return 'TodoOutlined'
     case 'blockquote':
-      return 'FormatQuoteOutlined'
+      // Callout blocks (blockquote starting with > [!TYPE]) get CalloutOutlined,
+      // regular blockquotes get ReferenceOutlined.
+      if (blockText && isCalloutBlock(blockText)) {
+        return 'CalloutOutlined'
+      }
+      return 'ReferenceOutlined'
     case 'fencedCode':
     case 'codeBlock':
-      return 'CodeOutlined'
+      return 'CodeblockOutlined'
     case 'list':
-      return 'ListOutlined'
+      // Distinguish ordered vs unordered by checking the first non-blank line.
+      if (blockText) {
+        const firstNonBlank = blockText.split('\n').find((l) => l.trim().length > 0)
+        if (firstNonBlank && /^\s*\d+\.\s/.test(firstNonBlank)) {
+          return 'OrderListOutlined'
+        }
+      }
+      return 'DisorderListOutlined'
     case 'table':
-      return 'TableChartOutlined'
+      return 'DataSheetOutlined'
     case 'thematicBreak':
-      return 'HorizontalRuleOutlined'
+      return 'DividerOutlined'
     case 'image':
       return 'ImageOutlined'
     case 'htmlBlock':
@@ -353,7 +418,7 @@ export function blockHandleIcon(block: Block): string {
     case 'paragraph':
     case 'yamlFrontMatter':
     default:
-      return 'DragHandleOutlined'
+      return 'TextOutlined'
   }
 }
 

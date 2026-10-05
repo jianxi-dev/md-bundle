@@ -102,8 +102,70 @@ const ICON_REGISTRY: Record<string, IconDef> = {
     ],
   },
 
+  // Drag (four dots, compact) — right segment of the two-segment pill handle.
+  DragOutlined: {
+    kind: 'paths',
+    paths: [
+      'M9 8a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9 14a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z',
+    ],
+  },
+
   // Add (+) — empty-line insert affordance.
   AddOutlined: { kind: 'paths', paths: ['M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z'] },
+
+  // Paragraph / text block — pilcrow.
+  TextOutlined: { kind: 'text', label: '¶', weight: 700 },
+
+  // Ordered list — numbered list marker.
+  OrderListOutlined: {
+    kind: 'paths',
+    paths: ['M5 5h14v2H5zm0 5h14v2H5zm0 5h14v2H5zM3 5v2h1v-2zm0 5v2h1v-2zm0 5v2h1v-2z'],
+  },
+
+  // Unordered (disorder) list — bullet list marker.
+  DisorderListOutlined: {
+    kind: 'paths',
+    paths: ['M4 6h2v2H4V6zm4 0h12v2H8V6zM4 11h2v2H4v-2zm4 0h12v2H8v-2zM4 16h2v2H4v-2zm4 0h12v2H8v-2z'],
+  },
+
+  // Task / todo list — checkbox.
+  TodoOutlined: {
+    kind: 'paths',
+    paths: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V5z'],
+  },
+
+  // Code block — fenced code.
+  CodeblockOutlined: {
+    kind: 'paths',
+    paths: ['M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6zm5.2-9.2L19.2 12l-4.6 4.6L16 18l6-6-6-6z'],
+  },
+
+  // Reference / blockquote — quotation mark.
+  ReferenceOutlined: {
+    kind: 'paths',
+    paths: [
+      'M7.5 11a2.5 2.5 0 0 1 2.5 2.5V17a2.5 2.5 0 0 1-2.5 2.5H4A1.5 1.5 0 0 1 2.5 18V11A6.5 6.5 0 0 1 9 4.5v3A3.5 3.5 0 0 0 5.5 11zm10 0a2.5 2.5 0 0 1 2.5 2.5V17a2.5 2.5 0 0 1-2.5 2.5H14A1.5 1.5 0 0 1 12.5 18V11A6.5 6.5 0 0 1 19 4.5v3A3.5 3.5 0 0 0 15.5 11z',
+    ],
+  },
+
+  // Callout — info circle with exclamation.
+  CalloutOutlined: {
+    kind: 'paths',
+    paths: [
+      'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 11h2v2h-2zm0-6h2v4h-2z',
+    ],
+  },
+
+  // Data sheet / table — grid.
+  DataSheetOutlined: {
+    kind: 'paths',
+    paths: [
+      'M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm1 2v4h6V5zm0 6v4h6v-4zm0 6v4h6v-4zm8-12v4h6V5zm0 6v4h6v-4zm0 6v4h6v-4z',
+    ],
+  },
+
+  // Divider / thematic break — horizontal rule.
+  DividerOutlined: { kind: 'paths', paths: ['M3 11h18v2H3z'] },
 
   // Paragraph — pilcrow.
   FormatParagraphOutlined: { kind: 'text', label: '¶' },
