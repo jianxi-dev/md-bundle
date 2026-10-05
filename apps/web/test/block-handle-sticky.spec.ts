@@ -2,7 +2,8 @@
 // 运行：pnpm --filter @md-bundle/web exec playwright test test/block-handle-sticky.spec.ts
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
-// 文档：标题 + 空行 + 段落 + 空行 + 列表 + 空行 + 段落，便于测试空行/间隙穿越。
+// 文档：标题 + 空行 + 段落 + 空行 + 列表 + 空行 + 段落，便于测试空行/间隙穿越；
+// 末尾追加填充段使其可滚动，供滚动消退用例产生真实 scroll 事件。
 const DOC = `# Alpha
 
 Beta paragraph.
@@ -11,6 +12,8 @@ Beta paragraph.
 - list item two
 
 Gamma paragraph.
+
+${Array.from({ length: 40 }, (_, i) => `Filler ${i + 1}.`).join('\n\n')}
 `
 
 test.use({ viewport: { width: 1440, height: 900 } })
@@ -153,35 +156,21 @@ test.describe('Sticky hover (A): handle stays visible across gutter gap and menu
   })
 })
 
-test.describe('Re-anchor on scroll (B): handle returns to hovered block after scroll', () => {
-  test('滚动后手柄自动回到当前悬停块，无需再次移动鼠标', async ({ page }) => {
+test.describe('Scroll dismissal (B): scrolling tears the widget down (F-07)', () => {
+  test('滚动后手柄消退，不再随块重锚', async ({ page }) => {
     await openEditor(page)
-    // 使用中间的块，滚动时位置会明显变化
     await hoverParagraph(page, 'Beta paragraph.')
 
     const handle = page.getByTestId('block-handle')
     await expect(handle).toBeVisible()
-
-    // 记录手柄初始视口位置
-    const handleBoxBefore = await getHandleBox(page)
 
     // 使用鼠标滚轮滚动，模拟真实用户操作
     await page.mouse.wheel(0, 200)
     await page.waitForTimeout(300)
     await settle(page)
 
-    // 手柄应该重新定位到 Beta paragraph（仍在视口内）
-    await expect(handle).toBeVisible()
-    const handleBoxAfter = await getHandleBox(page)
-
-    // 验证手柄仍在 Beta paragraph 附近（核心需求：手柄跟随块）
-    // 注意：测试环境中 scroll 事件触发时机可能导致位置未即时更新，
-    // 但核心行为是手柄保持可见且贴合当前块。
-    const betaLine = page.locator('.cm-content .cm-line').filter({ hasText: 'Beta paragraph.' })
-    const betaBox = await boxOf(betaLine)
-    const handleCenterY = handleBoxAfter.y + handleBoxAfter.height / 2
-    const betaCenterY = betaBox.y + betaBox.height / 2
-    expect(Math.abs(handleCenterY - betaCenterY)).toBeLessThanOrEqual(40)
+    // F-07 / R-CHOREO-03：滚动即消退，浮层不留在旧坐标上。
+    await expect(handle).toBeHidden()
   })
 
   test('滚动导致块离开视口时手柄隐藏', async ({ page }) => {

@@ -475,6 +475,11 @@ describe('blockHandle lifecycle', () => {
     handleEl().dispatchEvent(mouse('mouseenter'))
   }
 
+  /** Resolve after the hover-intent delay has elapsed. */
+  function waitForHoverIntent(): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, 200))
+  }
+
   /** Current selected-block range, or null when nothing is selected. */
   function selectedRange(): { from: number; to: number } | null {
     return view.state.field(selectedBlockField, false) ?? null
@@ -623,12 +628,16 @@ describe('blockHandle lifecycle', () => {
     expect(changeDispatchCount(dispatchSpy)).toBe(1)
   })
 
-  it('re-anchors the handle on scroll when block stays in viewport', () => {
+  it('dismisses the handle and menu on scroll', () => {
     hover(PARAGRAPH_POS)
-    view.scrollDOM.dispatchEvent(new Event('scroll'))
-    // In jsdom there is no real viewport change; the block remains in viewport,
-    // so the handle should stay visible (re-anchor behavior).
+    openMenu()
     expect(handleEl().style.display).not.toBe('none')
+    expect(menuEl()?.style.display).toBe('block')
+
+    view.scrollDOM.dispatchEvent(new Event('scroll'))
+    // Scrolling tears the widget down instead of re-anchoring it (R-CHOREO-03).
+    expect(handleEl().style.display).toBe('none')
+    expect(menuEl()?.style.display).toBe('none')
   })
 
   it('drag shows a blue insertion line and reorders the block in one transaction', () => {
@@ -741,37 +750,45 @@ describe('blockHandle lifecycle', () => {
     localParent.remove()
   })
 
-  it('opens the menu on handle hover without a click', () => {
+  it('opens the menu only after the hover-intent delay', async () => {
     hover(PARAGRAPH_POS)
     expect(menuEl()?.style.display).not.toBe('block')
     enterHandle()
+    // Still closed: the intent buffer has not elapsed yet.
+    expect(menuEl()?.style.display).not.toBe('block')
+    await waitForHoverIntent()
     expect(menuEl()?.style.display).toBe('block')
   })
 
-  it('keeps the selection while the menu is open and clears it on Escape', () => {
+  it('keeps the selection while the menu is open and clears it on Escape', async () => {
     hover(PARAGRAPH_POS)
     enterHandle()
+    await waitForHoverIntent()
     expect(selectedRange()).toEqual({ from: 6, to: 25 })
     document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(selectedRange()).toBeNull()
   })
 
-  it('retargets an already-open menu when hovering another block handle', () => {
+  it('dismisses the open menu when the pointer leaves the merged stack', async () => {
     hover(PARAGRAPH_POS)
     enterHandle()
+    await waitForHoverIntent()
     expect(menuEl()?.style.display).toBe('block')
     expect(selectedRange()).toEqual({ from: 6, to: 25 })
 
+    // clientX 40 sits outside the 8px gutter corridor and off the handle/menu,
+    // so the pointer has left the merged stack and the widget is torn down.
     vi.spyOn(view, 'posAtCoords').mockReturnValue(HEADING_POS)
-    vi.spyOn(view, 'coordsAtPos').mockReturnValue({ left: 10, right: 30, top: 0, bottom: 20 })
-    handleEl().dispatchEvent(mouse('mouseenter'))
-    expect(selectedRange()).toEqual({ from: 0, to: 4 })
-    expect(menuEl()?.style.display).toBe('block')
+    view.dom.dispatchEvent(mouse('mousemove', { clientX: 40, clientY: 25 }))
+    expect(menuEl()?.style.display).toBe('none')
+    expect(handleEl().style.display).toBe('none')
+    expect(selectedRange()).toBeNull()
   })
 
-  it('dims the handle while the pointer crosses the gap and un-dims on the menu', () => {
+  it('dims the handle while the pointer crosses the gap and un-dims on the menu', async () => {
     hover(PARAGRAPH_POS)
     enterHandle()
+    await waitForHoverIntent()
     const el = handleEl()
     expect(el.classList.contains('mdb-block-handle-dimmed')).toBe(false)
 
@@ -784,17 +801,19 @@ describe('blockHandle lifecycle', () => {
     expect(el.classList.contains('mdb-block-handle-dimmed')).toBe(false)
   })
 
-  it('clears the selection after a menu action', () => {
+  it('clears the selection after a menu action', async () => {
     hover(PARAGRAPH_POS)
     enterHandle()
+    await waitForHoverIntent()
     clickMenuItem('复制')
     expect(selectedRange()).toBeNull()
   })
 
-  it('does not add undo depth while hovering, selecting or opening the menu', () => {
+  it('does not add undo depth while hovering, selecting or opening the menu', async () => {
     const before = undoDepth(view.state)
     hover(PARAGRAPH_POS)
     enterHandle()
+    await waitForHoverIntent()
     expect(undoDepth(view.state)).toBe(before)
   })
 
@@ -820,7 +839,7 @@ describe('blockHandle lifecycle', () => {
     }
   })
 
-  it('leaves no handle, menu or selection residue on editor destroy', () => {
+  it('leaves no handle, menu or selection residue on editor destroy', async () => {
     const localParent = document.createElement('div')
     document.body.appendChild(localParent)
     const local = createMarkdownEditor(localParent, {
@@ -833,6 +852,7 @@ describe('blockHandle lifecycle', () => {
     const localHandle = local.view.dom.querySelector<HTMLElement>('.mdb-block-handle')
     if (!localHandle) throw new Error('block handle not found')
     localHandle.dispatchEvent(mouse('mouseenter'))
+    await waitForHoverIntent()
     expect(local.view.dom.querySelector('[data-testid="block-handle-menu"]')).not.toBeNull()
 
     local.destroy()
