@@ -76,7 +76,7 @@ function createTheme(theme: ThemeName): Extension {
   return EditorView.theme(
     {
       '&': {
-        backgroundColor: getThemeColor(theme, 'bg'),
+        backgroundColor: getThemeColor(theme, 'editor-canvas'),
         color: getThemeColor(theme, 'text'),
       },
       '.cm-content': {
