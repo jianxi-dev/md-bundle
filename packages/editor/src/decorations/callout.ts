@@ -368,6 +368,11 @@ function findCalloutBlocks(docText: string): CalloutBlock[] {
         const lineMatch = CALLOUT_LINE_RE.exec(lines[j]);
         if (lineMatch) {
           if (lines[j].startsWith('>')) {
+            // Check if this line is a new callout opener — if so, stop collecting
+            // for the current block. This prevents adjacent callouts from merging.
+            if (CALLOUT_OPEN_RE.test(lines[j])) {
+              break;
+            }
             contentLines.push(lineMatch[1]);
             j++;
           } else {
