@@ -7,8 +7,7 @@ test.use({ viewport: { width: 1200, height: 700 } })
 
 async function settle(page: Page): Promise<void> {
   await page.evaluate(
-    () =>
-      new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
   )
 }
 
@@ -36,32 +35,7 @@ async function getDocText(page: Page): Promise<string> {
   return lines.join('\n')
 }
 
-async function simulateImeComposition(
-  page: Page,
-  commitText: string,
-): Promise<void> {
-  // Add global event listeners to debug
-  await page.evaluate(() => {
-    const contentDOM = document.querySelector('.cm-content > div') as HTMLElement
-    if (contentDOM) {
-      contentDOM.addEventListener('compositionstart', (e) => {
-        console.log('[DEBUG] compositionstart on contentDOM', (e as CompositionEvent).data)
-      })
-      contentDOM.addEventListener('compositionend', (e) => {
-        console.log('[DEBUG] compositionend on contentDOM', (e as CompositionEvent).data)
-      })
-      contentDOM.addEventListener('compositionupdate', (e) => {
-        console.log('[DEBUG] compositionupdate on contentDOM', (e as CompositionEvent).data)
-      })
-    }
-    document.addEventListener('compositionstart', (e) => {
-      console.log('[DEBUG] compositionstart on document', (e as CompositionEvent).data)
-    }, true)
-    document.addEventListener('compositionend', (e) => {
-      console.log('[DEBUG] compositionend on document', (e as CompositionEvent).data)
-    }, true)
-  })
-
+async function simulateImeComposition(page: Page, commitText: string): Promise<void> {
   // Start composition via CDP
   const session = await page.context().newCDPSession(page)
   try {
@@ -82,8 +56,6 @@ async function simulateImeComposition(
 
 test.describe('IME slash handling (#388)', () => {
   test('ASCII slash opens menu (baseline)', async ({ page }) => {
-    page.on('console', (msg) => console.log('[BROWSER]', msg.text()))
-    
     await openEditor(page)
     await placeCaretAtLineEnd(page)
     await page.keyboard.press('/')
@@ -94,8 +66,6 @@ test.describe('IME slash handling (#388)', () => {
   })
 
   test('full-width slash (U+FF0F) via IME composition opens menu', async ({ page }) => {
-    page.on('console', (msg) => console.log('[BROWSER]', msg.text()))
-    
     await openEditor(page)
     await placeCaretAtLineEnd(page)
 
@@ -111,8 +81,6 @@ test.describe('IME slash handling (#388)', () => {
   })
 
   test('ASCII slash via IME composition opens menu', async ({ page }) => {
-    page.on('console', (msg) => console.log('[BROWSER]', msg.text()))
-    
     await openEditor(page)
     await placeCaretAtLineEnd(page)
 
@@ -127,8 +95,6 @@ test.describe('IME slash handling (#388)', () => {
   })
 
   test('Chinese composition does NOT open menu', async ({ page }) => {
-    page.on('console', (msg) => console.log('[BROWSER]', msg.text()))
-    
     await openEditor(page)
     await placeCaretAtLineEnd(page)
 

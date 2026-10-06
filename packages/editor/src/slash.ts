@@ -1370,6 +1370,12 @@ const slashCompositionGuard = ViewPlugin.define((view) => {
   const onCompositionEnd = (event: CompositionEvent): void => {
     const data = event.data ?? '';
     slashComposing = false;
+    // Only react to a composition committed inside THIS editor. Real IMEs
+    // dispatch on the contentDOM (inside view.dom); the CDP-driven e2e harness
+    // dispatches on document. An unrelated input (e.g. the share nickname
+    // field) committing a slash must not pop this editor's slash menu.
+    const target = event.target as Node | null;
+    if (target !== null && target !== document && !view.dom.contains(target)) return;
     // If the committed text is a slash (ASCII or full-width), trigger the menu.
     // This handles the IME path where typing "/" under Chinese IME produces
     // a full-width slash via composition.
