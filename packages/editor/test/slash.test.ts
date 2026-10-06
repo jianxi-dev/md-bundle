@@ -559,3 +559,34 @@ describe('slash registry isolation', () => {
     expect(commandRegistry.has('insert-css')).toBe(true);
   });
 });
+
+describe('IME composition handling', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent, {
+      extensions: [slashKeymap()],
+    }).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+  });
+
+  it('full-width slash (U+FF0F) triggers the menu when not composing', () => {
+    const FULLWIDTH_SLASH = '\uFF0F';
+    const inserted = insertSlashChar(view, defaultCommands, FULLWIDTH_SLASH);
+    expect(inserted).toBe(true);
+    expect(view.state.doc.toString()).toBe(FULLWIDTH_SLASH);
+    expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
+  });
+
+  // Note: ViewPlugin event handlers (compositionstart/compositionend) are not
+  // easily testable in jsdom. The compositionend path that triggers the menu
+  // on committed slash is covered by the Playwright e2e test.
+});
