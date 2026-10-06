@@ -479,6 +479,20 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   },
   '.cm-content .cm-callout-title': {
     fontWeight: '600',
+    // Signals the title is editable in place (the body shows the same affordance
+    // through its textarea on click).
+    cursor: 'text',
+  },
+  '.cm-content .cm-callout-title-editor': {
+    flex: '1 1 auto',
+    minWidth: '0',
+    font: 'inherit',
+    fontWeight: '600',
+    padding: '0',
+    border: 'none',
+    outline: 'none',
+    background: 'transparent',
+    color: 'inherit',
   },
   '.cm-content .cm-callout-content': {
     color: 'var(--mdb-text-secondary)',
