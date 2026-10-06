@@ -170,7 +170,7 @@ describe('slash commands', () => {
     cell!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
 
     const doc = view.state.doc.toString();
-    expect(doc).toContain('| A | B | C | D | E | F | G |');
+    expect(doc).toContain('|  |  |  |  |  |  |  |');
     expect(doc.split('\n').length).toBe(5); // header + separator + 3 body rows
   });
 
@@ -201,7 +201,7 @@ describe('slash commands', () => {
     // Enter must apply the hovered size instead of falling through to a newline.
     expect(slashMenuApply(view)).toBe(true)
     const doc = view.state.doc.toString()
-    expect(doc).toContain('| A | B | C | D | E | F | G |')
+    expect(doc).toContain('|  |  |  |  |  |  |  |')
     expect(doc.split('\n').length).toBe(5)
     expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull()
     expect(view.dom.querySelector('.mdb-slash-flyout')).toBeNull()
@@ -558,4 +558,35 @@ describe('slash registry isolation', () => {
     expect(commandRegistry.has('insert-html')).toBe(true);
     expect(commandRegistry.has('insert-css')).toBe(true);
   });
+});
+
+describe('IME composition handling', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+    view = createMarkdownEditor(parent, {
+      extensions: [slashKeymap()],
+    }).view;
+  });
+
+  afterEach(() => {
+    view.destroy();
+    parent.remove();
+  });
+
+  it('full-width slash (U+FF0F) triggers the menu when not composing', () => {
+    const FULLWIDTH_SLASH = '\uFF0F';
+    const inserted = insertSlashChar(view, defaultCommands, FULLWIDTH_SLASH);
+    expect(inserted).toBe(true);
+    expect(view.state.doc.toString()).toBe(FULLWIDTH_SLASH);
+    expect(view.dom.querySelector('.mdb-slash-menu')).not.toBeNull();
+  });
+
+  // Note: ViewPlugin event handlers (compositionstart/compositionend) are not
+  // easily testable in jsdom. The compositionend path that triggers the menu
+  // on committed slash is covered by the Playwright e2e test.
 });

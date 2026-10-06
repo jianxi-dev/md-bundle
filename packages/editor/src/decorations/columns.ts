@@ -152,12 +152,21 @@ class ColumnsWidget extends WidgetType {
     container.style.display = 'flex';
     container.style.alignItems = 'stretch';
 
-    this.block.cells.forEach((cell, index) => {
+    // Render `count` columns even when the block is empty: a freshly inserted
+    // `::: {.col-N}` has no cells yet, and a zero-child container is invisible.
+    // Missing cells become empty placeholders anchored at the opening fence so
+    // clicking a column still selects a sensible source range.
+    for (let index = 0; index < this.block.count; index++) {
       if (index > 0) {
         container.appendChild(this.buildGutter(view, index, widths));
       }
+      const cell = this.block.cells[index] ?? {
+        from: this.block.openTo,
+        to: this.block.openTo,
+        text: '',
+      };
       container.appendChild(this.buildColumn(view, cell, index, widths[index] ?? 100 / this.block.count));
-    });
+    }
 
     return container;
   }

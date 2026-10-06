@@ -66,11 +66,12 @@ async function expectFullyDismissed(page: Page): Promise<void> {
   expect(raw).toContain('# Title')
 }
 
+/** 列统计：按 `|` 切分并去掉首尾空段；不过滤空单元格（#386 空模板）。 */
 function tableCells(line: string): string[] {
   return line
     .split('|')
+    .slice(1, -1)
     .map((cell) => cell.trim())
-    .filter((cell) => cell !== '')
 }
 
 test('flyout 展开时根列表保持挂载', async ({ page }) => {
@@ -222,13 +223,22 @@ test('表格：选 4 列 × 3 行插入精确的 GFM 表格', async ({ page }) =
     .map((line) => line.trim())
     .filter((line) => line.startsWith('|'))
 
+  // #386：模板改为空单元格；4 列 × 3 行 = header + separator + 3 body rows
   expect(rows).toHaveLength(5)
+  // 每行恰好 4 列——tableCells 不再丢空单元格
   expect(rows.map((row) => tableCells(row).length)).toEqual([4, 4, 4, 4, 4])
   expect(rows.map(tableCells)).toEqual([
-    ['A', 'B', 'C', 'D'],
+    ['', '', '', ''],
     ['---', '---', '---', '---'],
-    ['1', '2', '3', '4'],
-    ['5', '6', '7', '8'],
-    ['9', '10', '11', '12'],
+    ['', '', '', ''],
+    ['', '', '', ''],
+    ['', '', '', ''],
   ])
+  // 原始行契约与 table-empty-template.spec.ts 对齐
+  expect(rows[0]).toBe('|  |  |  |  |')
+  expect(rows[1]).toBe('| --- | --- | --- | --- |')
+  // 不再写入 A/B/C/D 或 1/2/3/4 占位文字
+  const inserted = rows.join('\n')
+  expect(inserted).not.toMatch(/\| [A-Z] \|/)
+  expect(inserted).not.toMatch(/\| \d+ \|/)
 })

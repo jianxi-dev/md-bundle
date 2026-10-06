@@ -21,7 +21,12 @@
 import type { Extension, Range } from '@codemirror/state';
 import { Decoration, ViewPlugin, WidgetType, type EditorView } from '@codemirror/view';
 import { defaultCommands, openInsertMenu, releaseInsertMenu } from '../slash';
-import { sanitizeCellText } from './cell-text';
+import {
+  parseCellBackground,
+  renderCellText,
+  sanitizeCellText,
+  stripCellBackground,
+} from './cell-text';
 import {
   clearCellSelection,
   getCellSelection,
@@ -182,42 +187,7 @@ function buildTableMarkdown(header: string[], rows: string[][]): string {
   return [headerLine, sepLine, ...bodyLines].join('\n');
 }
 
-export { sanitizeCellText };
-
-/**
- * Cell background convention (ticket #328).
- *
- * A cell background is stored in the markdown source as the cell's whole text
- * wrapped in the SAME raw-HTML span the text-color system uses:
- *
- *   | <span class="mdb-bg-blue">hello</span> | ...
- *
- * This keeps the markdown a valid GFM pipe table (no column/row syntax is
- * invented) and reuses the existing `mdb-bg-*` classes, so the background
- * survives a reload and renders in preview. `buildCell` detects the exact
- * shape and paints the `<td>`/`<th>` instead of showing the span markup.
- */
-const BACKGROUND_SPAN_RE =
-  /^<span class="(mdb-bg-(?:red|blue|green|orange|purple))">([\s\S]*)<\/span>$/;
-
-interface ParsedCellBackground {
-  /** The `mdb-bg-*` span class. */
-  colorClass: string;
-  /** The visible text without the span wrapper. */
-  inner: string;
-}
-
-/** Parse a cell whose entire text is one background span; null otherwise. */
-function parseCellBackground(text: string): ParsedCellBackground | null {
-  const match = BACKGROUND_SPAN_RE.exec(text);
-  if (!match) return null;
-  return { colorClass: match[1], inner: match[2] };
-}
-
-/** Strip any background span wrapper, returning the bare cell text. */
-function stripCellBackground(text: string): string {
-  return parseCellBackground(text)?.inner ?? text;
-}
+export { renderCellText, sanitizeCellText } from './cell-text';
 
 /** Map a `mdb-bg-*` span class onto the `<td>` background class. */
 function cellBackgroundClass(colorClass: string): string {
@@ -525,8 +495,8 @@ function openCellEditor(
   // Preserve a cell background across an edit: the input shows the inner text,
   // and staged text re-wraps it in the same span so the color is not lost.
   const backgroundClass = host.dataset.cellBg ?? null;
-  const span = host.querySelector('.cm-table-cell-text');
-  const initial = span?.textContent ?? '';
+  const span = host.querySelector<HTMLElement>('.cm-table-cell-text');
+  const initial = span?.dataset.rawText ?? span?.textContent ?? '';
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'cm-table-cell-input';
@@ -549,13 +519,10 @@ function openCellEditor(
     host.classList.remove('cm-table-cell-editing');
   };
   const commit = (): void => {
-    // A structural flush may have rebuilt the widget, taking this input with it
-    // — then the document already holds the text and there is nothing to do.
     if (!input.isConnected) return;
+    teardown();
     flushDirtyTables(view);
     clearDirty(view, tableIndex, row, col);
-    if (span) span.textContent = input.value;
-    teardown();
   };
 
   input.addEventListener('compositionstart', () => {
@@ -725,7 +692,9 @@ class TableWidget extends WidgetType {
       body.setAttribute('data-testid', 'cm-table-cell-text');
       body.dataset.row = String(row);
       body.dataset.col = String(col);
-      body.textContent = background ? background.inner : text;
+      const displayText = background ? background.inner : text;
+      body.dataset.rawText = displayText;
+      body.innerHTML = renderCellText(displayText);
       el.appendChild(body);
 
       const selection = view ? getCellSelection(view) : null;
@@ -1067,8 +1036,12 @@ class TableWidget extends WidgetType {
       if (cellEl && !cellEl.querySelector('.cm-table-cell-input')) {
         const raw = this.cellText(cell.row, cell.col);
         const background = parseCellBackground(raw);
-        const expected = background ? background.inner : raw;
-        if ((body.textContent ?? '') !== expected) body.textContent = expected;
+        const displayText = background ? background.inner : raw;
+        const previousRaw = body.dataset.rawText ?? '';
+        if (previousRaw !== displayText) {
+          body.dataset.rawText = displayText;
+          body.innerHTML = renderCellText(displayText);
+        }
         if (background) {
           cellEl.dataset.cellBg = background.colorClass;
           cellEl.classList.add(cellBackgroundClass(background.colorClass));

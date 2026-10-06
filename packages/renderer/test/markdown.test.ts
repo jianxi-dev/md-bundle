@@ -192,6 +192,26 @@ describe('callout conversion', () => {
     expect(html.match(/小标题/g)?.length).toBe(1);
     expect(html.match(/正文内容/g)?.length).toBe(1);
   });
+
+  it('preserves inline/block HTML structure in callout body (regression for #393)', () => {
+    const md = `> [!NOTE]
+> 这是 **粗体** 与 [链接](https://example.com) 还有 \`code\`
+> - 列表项一
+> - 列表项二`;
+    const html = renderMarkdown(md);
+    // Should contain real HTML elements, not flattened text
+    expect(html).toContain('<strong>粗体</strong>');
+    expect(html).toContain('<a href="https://example.com" target="_blank">链接</a>');
+    expect(html).toContain('<code>code</code>');
+    expect(html).toContain('<ul>');
+    expect(html).toContain('<li>列表项一</li>');
+    expect(html).toContain('<li>列表项二</li>');
+    // Should not contain literal markdown syntax
+    expect(html).not.toContain('**粗体**');
+    expect(html).not.toContain('[链接](https://example.com)');
+    expect(html).not.toContain('`code`');
+    expect(html).not.toContain('- 列表项');
+  });
 });
 
 describe('frontmatter stripping', () => {

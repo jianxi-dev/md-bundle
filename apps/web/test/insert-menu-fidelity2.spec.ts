@@ -270,8 +270,8 @@ test('below: 在下方添加› → 表格插入真实 GFM 表格（含管道符
   const raw = await rawDoc(page)
   const tableLines = raw.split('\n').filter((line) => line.includes('|'))
   expect(tableLines).toHaveLength(4)
-  expect(tableLines[0]).toContain('| A | B | C |')
-  expect(raw.indexOf('Body paragraph.')).toBeLessThan(raw.indexOf('| A | B | C |'))
+  expect(tableLines[0]).toBe('|  |  |  |')
+  expect(raw.indexOf('Body paragraph.')).toBeLessThan(raw.indexOf('|  |  |  |'))
 })
 
 // A-17.1：空行「+」与块手柄同 gutter x 差 < 2px。

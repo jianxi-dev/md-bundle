@@ -612,14 +612,16 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
   }
 }
 
-/** Build a GFM pipe table with `cols` columns and `rows` body rows. */
+/**
+ * Build a GFM pipe table with `cols` columns and `rows` body rows.
+ * Cells start empty — placeholder text (A/B/C, 1/2/3/4) would be written
+ * into the document and force the user to clear every cell by hand (#386).
+ */
 function buildTable(cols: number, rows: number): string {
-  const header = `| ${Array.from({ length: cols }, (_, c) => String.fromCharCode(65 + c)).join(' | ')} |`;
+  const line = `| ${Array.from({ length: cols }, () => '').join(' | ')} |`;
   const separator = `| ${Array.from({ length: cols }, () => '---').join(' | ')} |`;
-  const body = Array.from({ length: rows }, (_, r) =>
-    `| ${Array.from({ length: cols }, (_, c) => String(r * cols + c + 1)).join(' | ')} |`,
-  ).join('\n');
-  return `${header}\n${separator}\n${body}`;
+  const body = Array.from({ length: rows }, () => line).join('\n');
+  return `${line}\n${separator}\n${body}`;
 }
 
 /**
@@ -1092,21 +1094,26 @@ function backToRoot(view: EditorView): void {
  */
 let slashComposing = false;
 
+/** Full-width slash (U+FF0F) used by some IMEs. */
+const FULLWIDTH_SLASH = '\uFF0F';
+
 /**
- * Handles typing `/`. Opens the command menu at the cursor. If a menu is
- * already open (a second consecutive `/`), closes it and returns false so the
+ * Handles typing `/` or `／`. Opens the command menu at the cursor. If a menu is
+ * already open (a second consecutive slash), closes it and returns false so the
  * keymap falls through to default behavior — no duplicate menu, no
  * double-insert.
  *
  * Only triggers when:
- * - The `/` is ASCII (U+002F), not full-width `／` (U+FF0F).
+ * - The character is ASCII `/` (U+002F) or full-width `／` (U+FF0F).
  * - The cursor is at word start (nothing before it on the line, or the
  *   character immediately before it is whitespace).
- * - IME is not actively composing.
+ * - IME is not actively composing (for the direct keymap path; the
+ *   compositionend path handles the committed slash separately).
  */
 export function insertSlashChar(
   view: EditorView,
   commands: SlashCommand[] = defaultCommands,
+  slashChar: '/' | typeof FULLWIDTH_SLASH = '/',
 ): boolean {
   if (slashComposing) return false;
 
@@ -1121,18 +1128,30 @@ export function insertSlashChar(
   const textBeforeCursor = line.text.slice(0, head - line.from);
 
   // Trigger at word start: the text from line start to caret must be empty
-  // or end with whitespace. Typing "/" immediately after a non-whitespace
+  // or end with whitespace. Typing a slash immediately after a non-whitespace
   // character (mid-word) must NOT open the menu.
   if (textBeforeCursor.length > 0 && !/\s$/.test(textBeforeCursor)) return false;
 
   view.dispatch({
-    changes: { from: head, insert: '/' },
-    selection: { anchor: head + 1 },
+    changes: { from: head, insert: slashChar },
+    selection: { anchor: head + slashChar.length },
   });
   // Open AFTER the dispatch so the ViewPlugin docChanged closer (if any)
   // doesn't immediately close it.
   openMenu(view, head, commands);
   return true;
+}
+
+/**
+ * Opens the slash menu at the current cursor position without inserting a slash.
+ * Used when the slash has already been inserted by IME composition.
+ */
+export function openSlashMenuAtCursor(
+  view: EditorView,
+  commands: SlashCommand[] = defaultCommands,
+): void {
+  const head = view.state.selection.main.head;
+  openMenu(view, head, commands);
 }
 
 /** ArrowDown: move the flyout selection, or the root selection, down. */
@@ -1339,17 +1358,41 @@ const menuSyncPlugin = ViewPlugin.define((view) => ({
 /**
  * Tracks IME composition state for the slash menu. Sets slashComposing so
  * insertSlashChar can skip during active composition (avoids full-width /
- * triggering the menu).
+ * triggering the menu). On compositionend, if the committed text is a slash
+ * (ASCII or full-width), trigger the menu.
+ * Uses capture-phase listeners on document to catch events even when CDP
+ * triggers them on document rather than the contentDOM.
  */
-const slashCompositionGuard = ViewPlugin.define(() => ({}), {
-  eventHandlers: {
-    compositionstart() {
-      slashComposing = true;
+const slashCompositionGuard = ViewPlugin.define((view) => {
+  const onCompositionStart = (): void => {
+    slashComposing = true;
+  };
+  const onCompositionEnd = (event: CompositionEvent): void => {
+    const data = event.data ?? '';
+    slashComposing = false;
+    // Only react to a composition committed inside THIS editor. Real IMEs
+    // dispatch on the contentDOM (inside view.dom); the CDP-driven e2e harness
+    // dispatches on document. An unrelated input (e.g. the share nickname
+    // field) committing a slash must not pop this editor's slash menu.
+    const target = event.target as Node | null;
+    if (target !== null && target !== document && !view.dom.contains(target)) return;
+    // If the committed text is a slash (ASCII or full-width), trigger the menu.
+    // This handles the IME path where typing "/" under Chinese IME produces
+    // a full-width slash via composition.
+    // The slash has already been inserted by the browser/IME, so we just open
+    // the menu at the current cursor position (after the slash).
+    if (data === '/' || data === FULLWIDTH_SLASH) {
+      openSlashMenuAtCursor(view, defaultCommands);
+    }
+  };
+  document.addEventListener('compositionstart', onCompositionStart, true);
+  document.addEventListener('compositionend', onCompositionEnd, true);
+  return {
+    destroy(): void {
+      document.removeEventListener('compositionstart', onCompositionStart, true);
+      document.removeEventListener('compositionend', onCompositionEnd, true);
     },
-    compositionend() {
-      slashComposing = false;
-    },
-  },
+  };
 });
 
 /**

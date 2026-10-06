@@ -123,4 +123,26 @@ describe('fenced code block decorations (#179)', () => {
     expect(labels[0]?.textContent).toBe('ts');
     expect(labels[1]?.textContent).toBe('python');
   });
+
+  it('paints the container class on every line of the block (#377)', () => {
+    const doc = '```ts\nconst x = 1;\nconst y = 2;\n```';
+    view = createMarkdownEditor(parent, {
+      value: doc,
+      extensions: [editorDecorations()],
+    }).view;
+
+    // Cursor at the end lands past the closing fence: block is inactive.
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    view.requestMeasure();
+
+    // Opening fence + both code lines + closing fence all carry the class.
+    const painted = [...view.dom.querySelectorAll('.cm-line.cm-fenced-code')];
+    expect(painted.length).toBe(4);
+    // The code-content lines are inside the container, not just the language line.
+    const codeLines = painted.filter((el) => el.textContent === 'const x = 1;' || el.textContent === 'const y = 2;');
+    expect(codeLines.length).toBe(2);
+    for (const el of codeLines) {
+      expect(el.classList.contains('cm-block-inactive')).toBe(true);
+    }
+  });
 });
