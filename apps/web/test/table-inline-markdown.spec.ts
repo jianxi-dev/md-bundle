@@ -9,6 +9,7 @@ const DOC = `Intro paragraph.
 | **粗体** | *斜体* |
 | \`行内码\` | [链接](https://example.com) |
 | 普通文本 | **粗体** 和 *斜体* |
+| [x](javascript:alert(1)) | 安全 |
 `
 
 test.use({ viewport: { width: 1440, height: 900 } })
@@ -113,6 +114,23 @@ test('AC: 单元格内混合内联 markdown 正确渲染', async ({ page }) => {
   const emEl = cellMixed.locator('em')
   await expect(emEl).toBeVisible()
   await expect(emEl).toHaveText('斜体')
+})
+
+test('AC: 单元格内 javascript: 链接不产生可执行 href', async ({ page }) => {
+  await openEditor(page)
+
+  const table = page.getByTestId('cm-table')
+  const cell = table.locator('td[data-row="3"][data-col="0"] .cm-table-cell-text')
+  await expect(cell).toBeVisible()
+
+  // 恶意 scheme 降级为纯文本标签：不产生 <a>，更不会有 javascript: href
+  await expect(cell.locator('a')).toHaveCount(0)
+  await expect(cell).toContainText('x')
+
+  const hrefs = await cell
+    .locator('a')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('href') ?? ''))
+  expect(hrefs.some((href) => /javascript:/i.test(href))).toBe(false)
 })
 
 test('AC: 编辑单元格时输入框显示原始 markdown 标记', async ({ page }) => {

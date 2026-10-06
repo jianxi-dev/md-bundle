@@ -145,6 +145,49 @@ describe('renderCellText', () => {
     expect(renderCellText('[link](url) and normal')).toBe('<a href="url" target="_blank" rel="noopener noreferrer">link</a> and normal');
   });
 
+  it('drops anchors whose URL scheme is executable (XSS allow-list)', () => {
+    // #384 review BLOCKING-1: only http/https/mailto/scheme-less may reach href.
+    const javascript = renderCellText('[x](javascript:alert%281%29)');
+    expect(javascript).not.toContain('javascript:');
+    expect(javascript).not.toContain('<a ');
+
+    const vbscript = renderCellText('[x](vbscript:msgbox(1))');
+    expect(vbscript).not.toContain('vbscript:');
+    expect(vbscript).not.toContain('<a ');
+
+    const data = renderCellText('[x](data:text/html,x)');
+    expect(data).not.toContain('data:text/html');
+    expect(data).not.toContain('<a ');
+
+    const file = renderCellText('[x](file:///etc/passwd)');
+    expect(file).not.toContain('file:');
+    expect(file).not.toContain('<a ');
+  });
+
+  it('keeps anchors for allow-listed and scheme-less URLs', () => {
+    expect(renderCellText('[x](https://ok.com)')).toBe(
+      '<a href="https://ok.com" target="_blank" rel="noopener noreferrer">x</a>',
+    );
+    expect(renderCellText('[x](http://ok.com)')).toContain('href="http://ok.com"');
+    expect(renderCellText('[x](mailto:a@b.c)')).toContain('href="mailto:a@b.c"');
+    expect(renderCellText('[x](/rel)')).toContain('href="/rel"');
+    expect(renderCellText('[x](#frag)')).toContain('href="#frag"');
+    expect(renderCellText('[x](./rel)')).toContain('href="./rel"');
+    expect(renderCellText('[x](../rel)')).toContain('href="../rel"');
+  });
+
+  it('leaves underscores inside a link URL literal (emphasis must not touch URLs)', () => {
+    const result = renderCellText('[x](https://a_b_c.com)');
+    expect(result).toContain('href="https://a_b_c.com"');
+    expect(result).not.toContain('<em>');
+  });
+
+  it('renders inline emphasis inside a link label', () => {
+    expect(renderCellText('[**b**](https://ok.com)')).toBe(
+      '<a href="https://ok.com" target="_blank" rel="noopener noreferrer"><strong>b</strong></a>',
+    );
+  });
+
   it('handles nested/combined inline markdown', () => {
     expect(renderCellText('**bold** and *italic* and `code`')).toBe('<strong>bold</strong> and <em>italic</em> and <code>code</code>');
     expect(renderCellText('**bold *italic* bold**')).toBe('<strong>bold <em>italic</em> bold</strong>');
