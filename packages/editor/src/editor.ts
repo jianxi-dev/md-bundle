@@ -15,6 +15,7 @@ import { htmlLanguage } from '@codemirror/lang-html';
 import { jsonLanguage } from '@codemirror/lang-json';
 import { yamlLanguage } from '@codemirror/lang-yaml';
 import { getThemeColor, type ThemeName } from './theme';
+import { registerPickMediaFile } from './slash';
 
 /**
  * Lazy language descriptions for fenced code blocks.
@@ -58,6 +59,11 @@ export interface MarkdownEditorOptions {
   decorations?: Extension;
   /** Initial state of the decorations compartment. Defaults to `true`. */
   decorationsEnabled?: boolean;
+  /**
+   * Host-injected file picker for media commands (image-ref, media-ref).
+   * When omitted, media rows fall back to closing the menu without inserting.
+   */
+  pickMediaFile?: () => Promise<File | null>;
 }
 
 export interface MarkdownEditorHandle {
@@ -104,6 +110,7 @@ export function createMarkdownEditor(
     onChange,
     decorations,
     decorationsEnabled = true,
+    pickMediaFile,
   } = options;
   const themeCompartment = new Compartment();
   const decorationsCompartment = new Compartment();
@@ -126,6 +133,10 @@ export function createMarkdownEditor(
       ],
     }),
   });
+
+  if (pickMediaFile) {
+    registerPickMediaFile(view, pickMediaFile);
+  }
 
   return {
     view,

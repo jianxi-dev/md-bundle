@@ -2,7 +2,7 @@
 // 状态机：tabs state（tabs[] + activeId）→ empty | md | mdpkg。
 // 打开文件 = 新增页签（永不静默替换）；关闭唯一页签 → 回 empty。
 // 图片导入/保存/导出作用于 activeTab；各 tab 内容独立。
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MarkdownEditor,
   slashKeymap,
@@ -408,14 +408,21 @@ export default function App() {
   }
 
   // ── 图片导入 ──
-  const insertImages = async (files: File[], at?: number) => {
-    if (files.length === 0 || !activeTab) return
+  const importAssets = async (files: File[]): Promise<{ additions: string[]; skipped: string[] }> => {
     const { assets: converted, skipped } = await filesToAssets(files)
-    const view = editorViewRef.current
-    const currentDoc = view ? view.state.doc.toString() : activeTab.source
     const { assets: next, additions, skipped: skippedDup } = addAssets(assetsRef.current, converted)
     assetsRef.current = next
-    setTabsState((s) => updateTab(s, activeTab.id, { assets: next }))
+    if (activeTab) {
+      setTabsState((s) => updateTab(s, activeTab.id, { assets: next }))
+    }
+    return { additions, skipped: [...skipped, ...skippedDup] }
+  }
+
+  const insertImages = async (files: File[], at?: number) => {
+    if (files.length === 0 || !activeTab) return
+    const { additions, skipped } = await importAssets(files)
+    const view = editorViewRef.current
+    const currentDoc = view ? view.state.doc.toString() : activeTab.source
 
     const wiredSet = new Set(wireReferences(currentDoc, additions).wired)
     const toInsert = additions.filter((n) => !wiredSet.has(n))
@@ -436,11 +443,56 @@ export default function App() {
       }
     }
 
-    const allSkipped = [...skipped, ...skippedDup]
-    if (allSkipped.length > 0) {
-      setImportHint(`已跳过超大图片（>15MB）：${allSkipped.join('、')}`)
+    if (skipped.length > 0) {
+      setImportHint(`已跳过超大图片（>15MB）：${skipped.join('、')}`)
     }
   }
+
+  // ── 媒体文件选择（slash 菜单「图片引用」「视频/文件」） ──
+  // 单一隐藏 input 同时服务两个命令：点击 → 待定 Promise → change（选中）/ cancel
+  // （用户取消原生选择窗）两条路径都必须结算，否则 `/` 触发符永远残留。
+  const mediaInputRef = useRef<HTMLInputElement>(null)
+  const mediaInputResolveRef = useRef<((file: File | null) => void) | null>(null)
+
+  const settleMediaPick = useCallback((file: File | null) => {
+    mediaInputResolveRef.current?.(file)
+    mediaInputResolveRef.current = null
+  }, [])
+
+  const pickMediaFile = (): Promise<File | null> => {
+    return new Promise((resolve) => {
+      mediaInputResolveRef.current = resolve
+      mediaInputRef.current?.click()
+    })
+  }
+
+  const handleMediaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    e.target.value = ''
+    settleMediaPick(file)
+  }
+
+  const pickMediaFileForEditor = async (): Promise<File | null> => {
+    const file = await pickMediaFile()
+    if (!file) return null
+    const { skipped } = await importAssets([file])
+    // 超限文件未入库：不插入引用，避免预览/导出裂图（与批量导入同一提示口径）。
+    if (skipped.length > 0) {
+      setImportHint(`已跳过超大文件（>15MB）：${skipped.join('、')}`)
+      return null
+    }
+    return file
+  }
+
+  // 原生 cancel（用户关闭选择窗）不在 React 合成事件里（React 18 的 input 无 onCancel
+  // 类型），只能直接监听；结算 null 让编辑器清掉 `/` 触发符。
+  useEffect(() => {
+    const input = mediaInputRef.current
+    if (!input) return
+    const onCancel = () => settleMediaPick(null)
+    input.addEventListener('cancel', onCancel)
+    return () => input.removeEventListener('cancel', onCancel)
+  }, [settleMediaPick])
 
   // 拖放文档分流（Bug 2/3/4）：.md/.mdpkg 直接打开；.zip 解压找文档；文件夹遍历找文档。
   // 返回 true 表示已处理（打开文档或给出提示）；false 表示无文档可处理。
@@ -1155,6 +1207,7 @@ export default function App() {
                       decorations={DECORATIONS_EXT}
                       decorationsEnabled={mode === 'edit'}
                       onMount={onEditorMount}
+                      pickMediaFile={pickMediaFileForEditor}
                     />
                   </div>
                 </div>
@@ -1221,6 +1274,15 @@ export default function App() {
       )}
 
       {toast && <BadgeToast text={toast.text} rarity={toast.rarity} onDismiss={dismiss} />}
+
+      <input
+        ref={mediaInputRef}
+        type="file"
+        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.zip"
+        className="hidden"
+        data-testid="media-file-input"
+        onChange={handleMediaFileChange}
+      />
     </div>
   )
 }
