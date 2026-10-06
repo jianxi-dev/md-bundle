@@ -9,15 +9,18 @@
  *
  * How editing works (D5/D7: a callout must never collapse to `> [!TYPE]` source)
  * ------------------------------------------------------------------------------
- * The card stays rendered even while its block is active. A click opens a real
- * `<textarea>` inside the card (a form control is never part of CM6's editable
+ * The card stays rendered even while its block is active. A click on the body
+ * opens a real `<textarea>` inside the card, a click on the title opens a real
+ * `<input>` in its place (a form control is never part of CM6's editable
  * content, emits no DOM mutations its observer could act on, and has native
  * focus, caret, IME and undo). CM6 rebuilds the widget DOM during the mousedown
  * capture phase, so the editor is opened on the next frame against the live card.
  *
  * Typed text is staged in a per-view map (survives a widget rebuild) and written
- * back with ONE transaction when the edit settles. The flush never dispatches
- * inside a CM6 update — it defers to the next tick when it would.
+ * back with ONE transaction when the edit settles. Title and body edits merge
+ * into a single per-card draft, so settling one never clobbers the other. The
+ * flush never dispatches inside a CM6 update — it defers to the next tick when
+ * it would.
  */
 import { Decoration, WidgetType, type EditorView } from '@codemirror/view';
 import type { Range } from '@codemirror/state';
@@ -27,8 +30,17 @@ import { createContentLineElement } from './list';
 
 // --- Staging + flush --------------------------------------------------------
 
-/** Staged callout content, keyed by view then callout ordinal. */
-const dirtyCallouts = new WeakMap<EditorView, Map<number, string>>();
+/**
+ * Staged callout edits, keyed by view then callout ordinal. A field is present
+ * only when the user changed it, so an unedited title/body keeps its parsed
+ * value at flush time.
+ */
+interface CalloutDraft {
+  content?: string;
+  title?: string;
+}
+
+const dirtyCallouts = new WeakMap<EditorView, Map<number, CalloutDraft>>();
 
 const flushScheduled = new WeakSet<EditorView>();
 const flushingViews = new WeakSet<EditorView>();
@@ -50,22 +62,28 @@ export function scheduleCalloutFlush(view: EditorView): void {
   }, 0);
 }
 
-function markCalloutDirty(view: EditorView, index: number, content: string): void {
+function markCalloutDirty(view: EditorView, index: number, patch: CalloutDraft): void {
   let pending = dirtyCallouts.get(view);
   if (!pending) {
-    pending = new Map<number, string>();
+    pending = new Map<number, CalloutDraft>();
     dirtyCallouts.set(view, pending);
   }
-  pending.set(index, content);
+  // Merge: a title edit and a body edit on the same card can be staged before
+  // one flush, and should not clobber each other.
+  pending.set(index, { ...pending.get(index), ...patch });
 }
 
 function clearCalloutDirty(view: EditorView, index: number): void {
   dirtyCallouts.get(view)?.delete(index);
 }
 
-/** Rebuild a callout block's markdown from its source block plus edited content. */
-function buildCalloutMarkdown(block: CalloutBlock, content: string): string {
-  const head = `> [!${block.type.toUpperCase()}]${block.fold}${block.title ? ` ${block.title}` : ''}`;
+/** Rebuild a callout block's markdown from its source block plus staged edits. */
+function buildCalloutMarkdown(block: CalloutBlock, draft: CalloutDraft): string {
+  // A field absent from the draft keeps its parsed value; a field present — even
+  // empty — wins, so clearing the title drops it back to the badge-only header.
+  const title = (draft.title ?? block.title).trim();
+  const content = draft.content ?? block.content;
+  const head = `> [!${block.type.toUpperCase()}]${block.fold}${title ? ` ${title}` : ''}`;
   const lines = content === '' ? [] : content.split('\n').map((line) => (line ? `> ${line}` : '>'));
   return [head, ...lines].join('\n');
 }
@@ -78,10 +96,10 @@ export function flushCalloutEdits(view: EditorView): boolean {
   const docText = view.state.doc.toString();
   const blocks = findCalloutBlocks(docText);
   const changes: { from: number; to: number; insert: string }[] = [];
-  for (const [index, content] of pending) {
+  for (const [index, draft] of pending) {
     const block = blocks[index];
     if (!block) continue;
-    const insert = buildCalloutMarkdown(block, content);
+    const insert = buildCalloutMarkdown(block, draft);
     if (insert === docText.slice(block.from, block.to)) continue;
     changes.push({ from: block.from, to: block.to, insert });
   }
@@ -145,21 +163,21 @@ function openCalloutEditor(view: EditorView, index: number): void {
   };
   const commit = (): void => {
     if (!editor.isConnected) return;
-    markCalloutDirty(view, index, editor.value);
+    markCalloutDirty(view, index, { content: editor.value });
     flushCalloutEdits(view);
     teardown();
   };
 
   editor.addEventListener('input', () => {
     autoGrow(editor);
-    markCalloutDirty(view, index, editor.value);
+    markCalloutDirty(view, index, { content: editor.value });
   });
   editor.addEventListener('compositionstart', () => {
     composing = true;
   });
   editor.addEventListener('compositionend', () => {
     composing = false;
-    markCalloutDirty(view, index, editor.value);
+    markCalloutDirty(view, index, { content: editor.value });
   });
   editor.addEventListener('keydown', (event) => {
     event.stopPropagation();
@@ -179,6 +197,80 @@ function openCalloutEditor(view: EditorView, index: number): void {
 function autoGrow(editor: HTMLTextAreaElement): void {
   editor.style.height = 'auto';
   editor.style.height = `${editor.scrollHeight}px`;
+}
+
+/**
+ * Open the inline title editor for a callout card. Mirrors the body editor: a
+ * real `<input>` replaces the title span and stages through the same per-view
+ * map, so a title and a body edit settle in one transaction. Resolved through
+ * the live DOM by ordinal because CM6 may have rebuilt the widget since the click.
+ */
+function openCalloutTitleEditor(view: EditorView, index: number): void {
+  // Commit any open callout first, and do it BEFORE resolving the DOM: a flush
+  // dispatch can rebuild this widget, which would detach a card resolved earlier.
+  flushCalloutEdits(view);
+
+  const card = view.dom.querySelectorAll('.cm-callout')[index];
+  if (!(card instanceof HTMLElement)) return;
+  const existing = card.querySelector('.cm-callout-title-editor') as HTMLInputElement | null;
+  if (existing) {
+    existing.focus();
+    existing.select();
+    return;
+  }
+
+  const block = findCalloutBlocks(view.state.doc.toString())[index];
+  if (!block) return;
+  const titleEl = card.querySelector<HTMLElement>('.cm-callout-title');
+  if (!titleEl) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'cm-callout-title-editor';
+  input.setAttribute('data-testid', 'cm-callout-title-editor');
+  input.value = block.title;
+  titleEl.setAttribute('hidden', '');
+  // Sibling, not child: the card's mousedown routing hit-tests the title via
+  // closest('.cm-callout-title'), which a nested input would keep matching.
+  titleEl.after(input);
+  input.focus();
+  input.select();
+
+  let composing = false;
+  const teardown = (): void => {
+    input.remove();
+    titleEl.removeAttribute('hidden');
+  };
+  const commit = (): void => {
+    if (!input.isConnected) return;
+    markCalloutDirty(view, index, { title: input.value });
+    flushCalloutEdits(view);
+    teardown();
+  };
+
+  input.addEventListener('input', () => markCalloutDirty(view, index, { title: input.value }));
+  input.addEventListener('compositionstart', () => {
+    composing = true;
+  });
+  input.addEventListener('compositionend', () => {
+    composing = false;
+    markCalloutDirty(view, index, { title: input.value });
+  });
+  input.addEventListener('keydown', (event) => {
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      clearCalloutDirty(view, index);
+      teardown();
+    }
+  });
+  input.addEventListener('blur', () => {
+    if (!composing) commit();
+  });
+  input.addEventListener('mousedown', (event) => event.stopPropagation());
 }
 
 /**
@@ -234,10 +326,13 @@ class CalloutWidget extends WidgetType {
         event.preventDefault();
         event.stopPropagation();
         const onEmoji = event.target instanceof Element && event.target.closest('.cm-callout-icon') !== null;
+        const onTitle = event.target instanceof Element && event.target.closest('.cm-callout-title') !== null;
         const open = (): void => {
           if (onEmoji) {
             flushCalloutEdits(view);
             openCalloutEmojiPicker(view, index, defaultEmoji);
+          } else if (onTitle) {
+            openCalloutTitleEditor(view, index);
           } else {
             openCalloutEditor(view, index);
           }

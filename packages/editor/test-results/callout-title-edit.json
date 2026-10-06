@@ -1,0 +1,7 @@
+{
+  "titleEditorOpens": true,
+  "titleRoundTrip": true,
+  "emptyTitleFallsBack": true,
+  "escapeCancels": true,
+  "tests": 4
+}
