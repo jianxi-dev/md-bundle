@@ -46,16 +46,14 @@ export interface TabsState {
 
 // ── id 生成 ───────────────────────────────────────────────────
 
-let seq = 0;
-
-/** 生成唯一 tab id。测试可重置 seq。 */
+/** 生成唯一 tab id（crypto.randomUUID，避免刷新后与恢复的 id 冲突）。 */
 export function generateTabId(): string {
-  return `tab-${++seq}`;
+  return `tab-${crypto.randomUUID()}`;
 }
 
-/** 测试辅助：重置 id 序列。 */
+/** 测试辅助：保留兼容性（randomUUID 无需重置）。 */
 export function resetTabIdSeq(): void {
-  seq = 0;
+  // no-op: crypto.randomUUID 不依赖序列
 }
 
 // ── 纯函数操作 ───────────────────────────────────────────────
