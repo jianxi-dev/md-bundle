@@ -860,6 +860,21 @@ function ensureScopeCss(): Extension {
   --type-measure: 1080px;
   --type-measure-wide: 1200px;
 }
+/* Body font size and line height are consumed from the --type-* tokens so edit
+   and preview stay on one source of truth. These MUST live here rather than in
+   editorContentScope: EditorView.theme() emits a ".ͼN .cm-content" selector
+   (specificity 0,2,0), which ties with the ".cm-content" rule in createTheme()
+   (editor.ts) and loses on stylesheet order — the theme compartment is appended
+   last. The selector below is [data-theme] + .cm-editor + .cm-content (0,3,0),
+   so it wins on specificity instead of relying on injection order. Every
+   property editorContentScope declares for .cm-content is affected by this;
+   font-size and line-height are the two that carry body text. font-size has no
+   visual delta today (the token resolves to 17px), line-height does. */
+[data-theme='light'] .cm-editor .cm-content,
+[data-theme='dark'] .cm-editor .cm-content {
+  font-size: var(--type-font-size);
+  line-height: var(--type-line);
+}
 `;
   document.head.appendChild(style);
   return [];

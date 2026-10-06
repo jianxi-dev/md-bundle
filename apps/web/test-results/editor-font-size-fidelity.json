@@ -1,0 +1,50 @@
+{
+  "baselineFontSize": "17px",
+  "probeFontSize": "23px",
+  "probeLine": "2.4",
+  "probedLineHeight": "55.2px",
+  "light": {
+    "editBaseline": {
+      "container": "17px",
+      "text": "17px",
+      "lineHeight": "28.9px"
+    },
+    "editProbed": {
+      "container": "17px",
+      "text": "17px",
+      "lineHeight": "28.9px"
+    },
+    "previewBaseline": {
+      "container": "17px",
+      "text": "17px",
+      "lineHeight": "30.26px"
+    },
+    "previewProbed": {
+      "container": "23px",
+      "text": "23px",
+      "lineHeight": "55.2px"
+    }
+  },
+  "dark": {
+    "editBaseline": {
+      "container": "",
+      "text": "",
+      "lineHeight": ""
+    },
+    "editProbed": {
+      "container": "",
+      "text": "",
+      "lineHeight": ""
+    },
+    "previewBaseline": {
+      "container": "",
+      "text": "",
+      "lineHeight": ""
+    },
+    "previewProbed": {
+      "container": "",
+      "text": "",
+      "lineHeight": ""
+    }
+  }
+}
