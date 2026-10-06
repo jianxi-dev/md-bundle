@@ -206,8 +206,10 @@ function stylePopupMenu(menu: HTMLDivElement): void {
 }
 
 /**
- * Wire a popup trigger: mousedown toggles the menu, an outside mousedown
- * closes it. Shared by the dropdown and color-popup controls (ticket #278).
+ * Wire a popup trigger. The secondary menu slides in on hover (mouseenter) to
+ * match the block-handle flyout's interaction philosophy, while the click path
+ * stays intact: mousedown still toggles, and Esc / an outside mousedown close
+ * it. Shared by the dropdown, color-popup and columns controls (ticket #390).
  */
 function wirePopup(
   container: HTMLDivElement,
@@ -215,17 +217,24 @@ function wirePopup(
   menu: HTMLDivElement,
 ): { closeMenu: () => void } {
   let isOpen = false;
+  // True while the panel was revealed by hover rather than by a click. A click
+  // that merely follows the hover-open (a real pointer click always hovers
+  // first) must promote it to a click-open instead of toggling it shut.
+  let openedByHover = false;
 
   function openMenu(): void {
     menu.style.display = 'flex';
     isOpen = true;
     document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
   }
 
   function closeMenu(): void {
     menu.style.display = 'none';
     isOpen = false;
+    openedByHover = false;
     document.removeEventListener('mousedown', closeOnOutsideClick);
+    document.removeEventListener('keydown', closeOnEscape);
   }
 
   function closeOnOutsideClick(e: MouseEvent): void {
@@ -234,9 +243,27 @@ function wirePopup(
     }
   }
 
+  function closeOnEscape(e: KeyboardEvent): void {
+    if (e.key === 'Escape') closeMenu();
+  }
+
+  container.addEventListener('mouseenter', () => {
+    if (isOpen) return;
+    openMenu();
+    openedByHover = true;
+  });
+
+  container.addEventListener('mouseleave', () => {
+    if (isOpen) closeMenu();
+  });
+
   btn.addEventListener('mousedown', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isOpen && openedByHover) {
+      openedByHover = false;
+      return;
+    }
     if (isOpen) {
       closeMenu();
     } else {

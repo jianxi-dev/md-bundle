@@ -3,7 +3,8 @@
  * Binds only commands that actually exist in the registry. Each `run`
  * returns false when the command cannot apply so default CM6 behavior
  * survives. Mod-k is intentionally NOT bound (reserved for the command
- * palette); Mod-1/2/3 are not bound either.
+ * palette); Mod-m is intentionally NOT bound (no assignment; macOS keeps it
+ * for the system "minimize" role).
  *
  * No custom `scope` — CM6's default keydown handler only runs the "editor"
  * scope; a custom scope would make these bindings unreachable.
@@ -91,22 +92,32 @@ export interface EditorKeybinding {
 export const EDITOR_KEYBINDINGS: ReadonlyArray<EditorKeybinding> = [
   { id: 'toggle-bold', chord: 'Mod-b' },
   { id: 'toggle-italic', chord: 'Mod-i' },
-  { id: 'toggle-strikethrough', chord: 'Mod-Shift-x' },
+  { id: 'toggle-underline', chord: 'Mod-u' },
+  // editor-shortcuts spec: bold/italic/underline/⇧S → B/I/U/⇧S.
+  { id: 'toggle-strikethrough', chord: 'Mod-Shift-s' },
   { id: 'toggle-code', chord: 'Mod-e' },
-  { id: 'toggle-link', chord: 'Mod-l' },
-  // Heading level shortcuts (ticket #291): Mod-Alt-1..6 → heading-1..6
-  // These work with a collapsed caret (unlike turn-into-hN which requires a non-empty selection).
+  // editor-shortcuts spec: link uses ⇧L; Mod-l is NOT the link chord.
+  { id: 'toggle-link', chord: 'Mod-Shift-l' },
+  // Paragraph + heading levels (spec: Mod-Alt-0 and Mod-Alt-1…6). These work
+  // with a collapsed caret (unlike turn-into-hN which needs a non-empty selection).
+  { id: 'paragraph', chord: 'Mod-Alt-0' },
   { id: 'heading-1', chord: 'Mod-Alt-1' },
   { id: 'heading-2', chord: 'Mod-Alt-2' },
   { id: 'heading-3', chord: 'Mod-Alt-3' },
   { id: 'heading-4', chord: 'Mod-Alt-4' },
   { id: 'heading-5', chord: 'Mod-Alt-5' },
   { id: 'heading-6', chord: 'Mod-Alt-6' },
-  // List shortcuts (ticket #291): Mod-Shift-7/8/9 → bullet/ordered/task list
-  // These existing commands already work with a collapsed caret.
-  { id: 'insert-unordered-list', chord: 'Mod-Shift-7' },
-  { id: 'insert-ordered-list', chord: 'Mod-Shift-8' },
+  // List shortcuts follow the Doubao/Google-Docs convention the spec lists as
+  // ordered/bullet/task: ⇧7 ordered, ⇧8 bullet, ⇧9 task.
+  { id: 'insert-ordered-list', chord: 'Mod-Shift-7' },
+  { id: 'insert-unordered-list', chord: 'Mod-Shift-8' },
   { id: 'insert-task-list', chord: 'Mod-Shift-9' },
+  // editor-shortcuts spec: ⇧. quote, ⇧C code block.
+  { id: 'insert-quote', chord: 'Mod-Shift-.' },
+  { id: 'insert-code-block', chord: 'Mod-Shift-c' },
+  // NOT bound here (documented spec gaps, see the change notes):
+  // - Mod-Shift-h "color panel": no registered command opens the color panel.
+  // - Tab / Shift-Tab indent/outdent: owned by smart-input's headingTabKeymap.
   // Mod-k is intentionally NOT bound (reserved for the command palette).
   // Mod-m is intentionally NOT bound (no assignment).
 ];
