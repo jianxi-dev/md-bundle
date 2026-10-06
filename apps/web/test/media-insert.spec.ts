@@ -121,7 +121,8 @@ test.describe('媒体插入（#389）', () => {
     await cell.hover()
     await settle(page)
 
-    await page.getByTestId('cm-table-cell-handle').first().hover()
+    // #385b：格内手柄改为点击打开插入菜单（悬停不再弹）。
+    await page.getByTestId('cm-table-cell-handle').first().click()
     await settle(page)
     await expect(page.getByTestId('slash-menu')).toBeVisible()
 

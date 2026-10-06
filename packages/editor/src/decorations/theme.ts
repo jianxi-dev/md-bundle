@@ -701,8 +701,10 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-table-boundary-active .cm-table-boundary-line': {
     background: 'var(--reader-accent, var(--mdb-primary-fg))',
   },
-  // Hotspots: hidden by default; a table hover reveals every dot, and the
-  // hovered dot turns brand-blue with its bubble + boundary line.
+  // Hotspots: hidden until the pointer is near their boundary line. The dot
+  // for the nearest row/column boundary is revealed by `wireBoundaryReveal`
+  // (#385a) — a cell hover no longer lights every dot — and the hovered dot
+  // turns brand-blue with its bubble + boundary line.
   '.cm-content .cm-table-hotspot': {
     display: 'none',
     position: 'absolute',
@@ -712,11 +714,10 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     cursor: 'pointer',
     zIndex: '6',
   },
-  // `cm-table-hovering` is set when a CELL is entered (not the wrap), so the
-  // dots appear only after hovering a cell (R-TABLE-01/A-18.2). It is cleared
-  // on wrap mouseleave, which keeps the dots usable while the pointer travels
-  // from the cell onto a dot.
-  '.cm-content .cm-table-wrap.cm-table-hovering .cm-table-hotspot': {
+  // Set by `wireBoundaryReveal` on the one hotspot nearest the pointer, so the
+  // dot appears only while the pointer is within BOUNDARY_REVEAL_DISTANCE of
+  // that row/column line; it stays revealed while the pointer travels onto it.
+  '.cm-content .cm-table-hotspot.cm-table-hotspot-revealed': {
     display: 'flex',
   },
   '.cm-content .cm-table-hotspot-col': {

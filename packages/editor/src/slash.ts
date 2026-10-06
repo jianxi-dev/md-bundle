@@ -811,10 +811,18 @@ export function openInsertMenu(
  * widget that opened it goes away (disposal, mode switch) or the pointer leaves
  * the trigger without entering the menu, where waiting out the hover grace
  * period would leave an orphaned panel over another view.
+ *
+ * `only` restricts the release to one trigger: the table cell's menu is
+ * `anchor` and the block handle's is `below`, so a block-handle dismissal must
+ * not tear down a table cell menu the pointer merely passed near (#385b).
  */
-export function releaseInsertMenu(view: EditorView): void {
+export function releaseInsertMenu(
+  view: EditorView,
+  only?: 'anchor' | 'below',
+): void {
   const trigger = menus.get(view)?.trigger;
   if (trigger !== 'anchor' && trigger !== 'below') return;
+  if (only !== undefined && trigger !== only) return;
   closeMenu(view);
 }
 
