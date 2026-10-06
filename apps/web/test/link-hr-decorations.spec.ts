@@ -57,7 +57,8 @@ test.describe('edit-mode link decoration (#379)', () => {
     await openEditor(page, DOC)
 
     // Move cursor away from the first link line so it's inactive
-    const paraLine = page.locator('.cm-content .cm-line').filter({ hasText: 'A [link to example' }).first()
+    // The rendered text is "A link to example in a paragraph." (brackets hidden)
+    const paraLine = page.locator('.cm-content .cm-line').filter({ hasText: 'A link to example in a paragraph' }).first()
     await paraLine.click()
     await settle(page)
 
@@ -68,6 +69,10 @@ test.describe('edit-mode link decoration (#379)', () => {
     // The URL should NOT be visible (hidden by replace decoration)
     const content = page.locator('.cm-content').first()
     await expect(content).not.toContainText('https://example.com')
+
+    // The full rendered line should NOT contain the raw brackets
+    await expect(paraLine).not.toContainText('[')
+    await expect(paraLine).not.toContainText('](')
   })
 
   test('link shows raw source when cursor enters the link (active block)', async ({ page }) => {
@@ -118,7 +123,7 @@ test.describe('edit-mode thematic break (hr) decoration (#379)', () => {
     await openEditor(page, DOC)
 
     // Move cursor away from the first hr line
-    const paraLine = page.locator('.cm-content .cm-line').filter({ hasText: 'A [link to example' }).first()
+    const paraLine = page.locator('.cm-content .cm-line').filter({ hasText: 'A link to example in a paragraph' }).first()
     await paraLine.click()
     await settle(page)
 
