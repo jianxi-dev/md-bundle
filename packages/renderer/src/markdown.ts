@@ -231,7 +231,6 @@ const FRONTMATTER_RE = /^\uFEFF?---\s*\n[\s\S]*?\n---\s*(?:\n|$)/;
 // ── Callout conversion ───────────────────────────────────────────────────
 // Type names align with Obsidian: alphanumeric + -_/.; allowed, [! and ]
 // may surround whitespace, case-insensitive.
-const CALLOUT_HEAD = /^\[!\s*([^\]\r\n]+?)\s*\]([+-]?)/;
 
 /** Callout label map — matches clairis CALLOUT_LABELS exactly. */
 const CALLOUT_LABELS: Record<string, string> = {
@@ -261,61 +260,87 @@ const CALLOUT_LABELS: Record<string, string> = {
 
 function convertCallouts(doc: Document): void {
   doc.querySelectorAll('blockquote').forEach((bq) => {
-    const first = bq.firstElementChild;
-    if (!first) return;
-    // First child node index may not be 0 (preceding whitespace text nodes),
-    // so slice from the actual first element's index onward.
-    const children = Array.from(bq.childNodes);
-    const after = children.slice(children.indexOf(first) + 1);
+    // Get the full text content of the blockquote to find all callout openers.
+    // Marked may merge adjacent callouts into a single <p> with literal newlines.
+    const fullText = bq.textContent ?? '';
+    if (!fullText.trim()) return;
 
-    const m = CALLOUT_HEAD.exec(first.innerHTML);
-    if (!m) return;
+    // Find all callout openers in the text: [!TYPE][+-] at start of string or after newline.
+    // Title is captured only up to end of line (not across newlines).
+    // Use [ \t]* instead of \s* to avoid matching newlines.
+    const openerRegex = /(^|\n)\[!\s*([^\]\r\n]+?)\s*\]([+-]?)[ \t]*([^\n]*)/g;
+    const matches: Array<{ index: number; type: string; fold: string; title: string; afterOpenerIndex: number }> = [];
+    let match: RegExpExecArray | null;
+    while ((match = openerRegex.exec(fullText)) !== null) {
+      const openerStart = match.index + (match[1] ? 1 : 0); // Adjust for leading newline
+      const title = match[4]?.trim() ?? '';
+      matches.push({
+        index: openerStart,
+        type: match[2].toLowerCase(),
+        fold: match[3],
+        title,
+        afterOpenerIndex: match.index + match[0].length, // Points to char after the match (typically a newline)
+      });
+    }
 
-    const type = m[1].toLowerCase();
-    const fold = m[2];
-    const rest = first.innerHTML.slice(m[0].length);
+    if (matches.length === 0) return;
 
-    // Title goes to the first <br> or newline; remainder is body.
-    const sep = /<br\s*\/?>|\n/.exec(rest);
-    const at = sep ? sep.index : -1;
-    const titleHtml = (at >= 0 ? rest.slice(0, at) : rest).trim();
-    let bodyHtml = sep ? rest.slice(sep.index + sep[0].length) : '';
+    // Split the text content into segments, one per callout.
+    const segments: Array<{ type: string; fold: string; title: string; body: string }> = [];
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      const nextIndex = matches[i + 1]?.index ?? fullText.length;
+      const segmentText = fullText.slice(m.afterOpenerIndex, nextIndex);
 
-    after.forEach((n) => {
-      bodyHtml += (n as Element).outerHTML ?? n.textContent ?? '';
+      // Body is everything after the first newline (the opener line ends at afterOpenerIndex).
+      // If segmentText starts with newline, body is after that newline.
+      // If no newline, the entire segmentText is body (title was on opener line).
+      const firstNewline = segmentText.indexOf('\n');
+      const body = firstNewline >= 0 ? segmentText.slice(firstNewline + 1).trim() : segmentText.trim();
+
+      segments.push({ type: m.type, fold: m.fold, title: m.title, body });
+    }
+
+    if (segments.length === 0) return;
+
+    // Build replacement nodes for each callout segment.
+    const fragment = doc.createDocumentFragment();
+    segments.forEach((seg) => {
+      const label = CALLOUT_LABELS[seg.type] ?? seg.type;
+      const title = seg.title || label;
+
+      const el = doc.createElement(seg.fold ? 'details' : 'div');
+      el.className = 'callout';
+      el.setAttribute('data-callout', seg.type);
+      if (seg.fold === '+') el.setAttribute('open', '');
+
+      const titleEl = doc.createElement(seg.fold ? 'summary' : 'div');
+      if (!seg.fold) titleEl.className = 'callout-title';
+
+      const typeEntry = CALLOUT_TYPE_MAP[seg.type];
+      if (typeEntry) {
+        const iconSpan = doc.createElement('span');
+        iconSpan.className = 'callout-icon';
+        iconSpan.textContent = typeEntry.icon;
+        titleEl.appendChild(iconSpan);
+      }
+
+      const titleText = doc.createElement('span');
+      titleText.textContent = title;
+      titleEl.appendChild(titleText);
+      el.appendChild(titleEl);
+
+      if (seg.body) {
+        const bodyEl = doc.createElement('div');
+        // Preserve line breaks in body
+        bodyEl.innerHTML = seg.body.replace(/\n/g, '<br>');
+        while (bodyEl.firstChild) el.appendChild(bodyEl.firstChild);
+      }
+
+      fragment.appendChild(el);
     });
 
-    const label = CALLOUT_LABELS[type] ?? type;
-    const title = titleHtml || label;
-
-    const el = doc.createElement(fold ? 'details' : 'div');
-    el.className = 'callout';
-    el.setAttribute('data-callout', type);
-    if (fold === '+') el.setAttribute('open', '');
-
-    const titleEl = doc.createElement(fold ? 'summary' : 'div');
-    if (!fold) titleEl.className = 'callout-title';
-
-    const typeEntry = CALLOUT_TYPE_MAP[type];
-    if (typeEntry) {
-      const iconSpan = doc.createElement('span');
-      iconSpan.className = 'callout-icon';
-      iconSpan.textContent = typeEntry.icon;
-      titleEl.appendChild(iconSpan);
-    }
-
-    const titleText = doc.createElement('span');
-    titleText.textContent = title;
-    titleEl.appendChild(titleText);
-    el.appendChild(titleEl);
-
-    if (bodyHtml) {
-      const wrap = doc.createElement('div');
-      wrap.innerHTML = bodyHtml;
-      while (wrap.firstChild) el.appendChild(wrap.firstChild);
-    }
-
-    bq.replaceWith(el);
+    bq.replaceWith(fragment);
   });
 }
 
