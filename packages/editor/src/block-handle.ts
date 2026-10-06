@@ -219,7 +219,7 @@ class BlockHandlePlugin {
     // The insert panel is part of the same reachable stack but lives on
     // `view.dom`, so a full teardown must release it too or it would outlive the
     // chrome (Escape / scroll / leaving the editor / leaving the stack).
-    releaseInsertMenu(this.view)
+    releaseInsertMenu(this.view, 'below')
     this.clearChrome()
     this.setSelected(null)
   }
@@ -679,7 +679,7 @@ class BlockHandlePlugin {
     ) {
       return
     }
-    releaseInsertMenu(this.view)
+    releaseInsertMenu(this.view, 'below')
   }
 
   private onMenuClick = (event: MouseEvent): void => {

@@ -33,7 +33,7 @@ Clicking a table cell SHALL place an editable cursor for that cell and allow edi
 
 ### Requirement: Hover reveals add-row and add-column affordances
 
-Row and column insertion hotspots SHALL appear only on hover of a cell, positioned exactly on the cell boundaries (row hotspot on the horizontal line between rows at the left edge; column hotspot on the vertical line between columns at the top edge). Each hotspot SHALL be a 12×12px circle that turns into a brand-blue `+` (`var(--brand)`) with a tooltip bubble ("插入行" / "插入列") and a highlight line along the boundary (horizontal for row, vertical for column). The hover highlight SHALL be a single boundary line, NOT a full-column or full-row background fill.
+Row and column insertion hotspots SHALL appear only while the pointer is within ~8px of that row/column's boundary line (a mere hover anywhere over a cell SHALL NOT reveal every hotspot), positioned exactly on the cell boundaries (row hotspot on the horizontal line between rows at the left edge; column hotspot on the vertical line between columns at the top edge). Each hotspot SHALL be a 12×12px circle that turns into a brand-blue `+` (`var(--brand)`) with a tooltip bubble ("插入行" / "插入列") and a highlight line along the boundary (horizontal for row, vertical for column). The hover highlight SHALL be a single boundary line, NOT a full-column or full-row background fill.
 
 #### Scenario: Add a column at an inter-cell line
 - **WHEN** the user hovers the vertical boundary line between two columns and clicks 「＋」
@@ -55,13 +55,17 @@ Row and column insertion hotspots SHALL appear only on hover of a cell, position
 - **WHEN** the user hovers the hotzone left of a row and clicks 「＋」
 - **THEN** a new row is inserted at that position and the source is updated
 
-#### Scenario: Hover cell shows row hotspot at row boundary
-- **WHEN** the pointer hovers a table cell
-- **THEN** a row hotspot appears at the left end of the horizontal boundary line above the cell; its center Y matches the boundary line Y (±1px)
+#### Scenario: Hover row boundary line reveals its row hotspot
+- **WHEN** the pointer moves within ~8px of a horizontal boundary line between rows
+- **THEN** that row's hotspot appears at the left end of the line; its center Y matches the boundary line Y (±1px); every other hotspot stays hidden
 
-#### Scenario: Hover cell shows column hotspot at column boundary
-- **WHEN** the pointer hovers a table cell
-- **THEN** a column hotspot appears at the top end of the vertical boundary line left of the cell; its center X matches the boundary line X (±1px)
+#### Scenario: Hover column boundary line reveals its column hotspot
+- **WHEN** the pointer moves within ~8px of a vertical boundary line between columns
+- **THEN** that column's hotspot appears at the top end of the line; its center X matches the boundary line X (±1px); every other hotspot stays hidden
+
+#### Scenario: Hover cell interior reveals no hotspot
+- **WHEN** the pointer hovers a table cell away from any boundary line
+- **THEN** all row/column hotspots stay hidden
 
 #### Scenario: Hotspot shows blue "+" and tooltip on hover
 - **WHEN** the pointer hovers the row/column hotspot itself

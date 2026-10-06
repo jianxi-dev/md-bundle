@@ -45,6 +45,14 @@ const FALLBACK_TABLE_WIDTH = 600;
 const FALLBACK_ROW_HEIGHT = 32;
 const BOUNDARY_THICKNESS = 6;
 
+/**
+ * How close (px) the pointer must be to a row/column boundary line before its
+ * insertion hotspot is revealed. Matches the reader spec's "within 8px of a
+ * boundary line" contract and the 16px dot diameter. Issue #385a: the reveal is
+ * per-boundary, so entering a cell no longer lights every hotspot at once.
+ */
+const BOUNDARY_REVEAL_DISTANCE = 8;
+
 interface CellSpan {
   /** `-1` marks the header row. */
   row: number;
@@ -192,10 +200,6 @@ export { renderCellText, sanitizeCellText } from './cell-text';
 /** Map a `mdb-bg-*` span class onto the `<td>` background class. */
 function cellBackgroundClass(colorClass: string): string {
   return colorClass.replace('mdb-bg-', 'cm-table-cell-bg-');
-}
-
-function cellKey(row: number, col: number): string {
-  return `${row}:${col}`;
 }
 
 /**
@@ -604,9 +608,7 @@ class TableWidget extends WidgetType {
     return this.rows[row]?.[col] ?? '';
   }
 
-  private rewrite(view: EditorView, header: string[], rows: string[][]): void {
-    const block = this.currentBlock(view);
-    if (!block) return;
+  private rewrite(view: EditorView, block: TableBlock, header: string[], rows: string[][]): void {
     view.dispatch({
       changes: { from: block.from, to: block.to, insert: buildTableMarkdown(header, rows) },
     });
@@ -623,7 +625,7 @@ class TableWidget extends WidgetType {
       next.splice(at, 0, '');
       return next;
     });
-    this.rewrite(view, header, rows);
+    this.rewrite(view, block, header, rows);
     view.focus();
   }
 
@@ -633,7 +635,7 @@ class TableWidget extends WidgetType {
     if (!block) return;
     const rows = block.rows.map((row) => [...row]);
     rows.splice(at, 0, new Array(block.header.length).fill(''));
-    this.rewrite(view, [...block.header], rows);
+    this.rewrite(view, block, [...block.header], rows);
     view.focus();
   }
 
@@ -661,71 +663,11 @@ class TableWidget extends WidgetType {
     table.className = 'cm-table';
     table.setAttribute('data-testid', 'cm-table');
 
-    const activeKey = (() => {
-      const active = this.cells.find((c) => c.active);
-      return active ? cellKey(active.row, active.col) : null;
-    })();
-
-    /** Build one `th`/`td` with its text span and insert handle. */
-    const buildCell = (
-      tag: 'th' | 'td',
-      row: number,
-      col: number,
-      text: string,
-    ): HTMLElement => {
-      const key = cellKey(row, col);
-      const el = document.createElement(tag);
-      el.dataset.row = String(row);
-      el.dataset.col = String(col);
-      if (key === activeKey) el.classList.add('cm-table-cell-active');
-
-      // A cell whose whole text is an `mdb-bg-*` span paints the cell itself
-      // and shows only the inner text — the span markup never reaches the DOM.
-      const background = parseCellBackground(text);
-      if (background) {
-        el.dataset.cellBg = background.colorClass;
-        el.classList.add(cellBackgroundClass(background.colorClass));
-      }
-
-      const body = document.createElement('span');
-      body.className = 'cm-table-cell-text';
-      body.setAttribute('data-testid', 'cm-table-cell-text');
-      body.dataset.row = String(row);
-      body.dataset.col = String(col);
-      const displayText = background ? background.inner : text;
-      body.dataset.rawText = displayText;
-      body.innerHTML = renderCellText(displayText);
-      el.appendChild(body);
-
-      const selection = view ? getCellSelection(view) : null;
-      if (
-        selection &&
-        selection.tableIndex === this.tableIndex &&
-        isCellInSelection(selection, row, col)
-      ) {
-        el.classList.add('cm-table-cell-selected');
-      }
-
-      const handle = document.createElement('div');
-      // Two class aliases: `.cm-table-cell-handle` is the wiring/outside-click
-      // guard (`slash.ts`), `.mdb-table-cell-handle` is the public conformance
-      // anchor (R-TABLE-04). Both name the same node.
-      handle.className = 'cm-table-cell-handle mdb-table-cell-handle';
-      handle.setAttribute('data-testid', 'cm-table-cell-handle');
-      handle.dataset.row = String(row);
-      handle.dataset.col = String(col);
-      handle.title = '插入内容';
-      el.appendChild(handle);
-
-      if (view) this.wireCell(view, el, handle, row, col);
-      return el;
-    };
-
     // ── Header row ────────────────────────────────────────────────────────
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
     this.header.forEach((text, col) => {
-      headRow.appendChild(buildCell('th', -1, col, text));
+      headRow.appendChild(this.buildCell(view ?? null, 'th', -1, col, text));
     });
     thead.appendChild(headRow);
     table.appendChild(thead);
@@ -735,7 +677,7 @@ class TableWidget extends WidgetType {
     this.rows.forEach((row, r) => {
       const tr = document.createElement('tr');
       row.forEach((text, col) => {
-        tr.appendChild(buildCell('td', r, col, text));
+        tr.appendChild(this.buildCell(view ?? null, 'td', r, col, text));
       });
       tbody.appendChild(tr);
     });
@@ -749,9 +691,9 @@ class TableWidget extends WidgetType {
 
     if (view) {
       this.wireExternalFlush(view);
-      // Hotspots are revealed by a CELL enter (see `wireCell`), then survive
-      // the trip onto a dot; leaving the whole widget clears the reveal.
-      wrap.addEventListener('mouseleave', () => wrap.classList.remove('cm-table-hovering'));
+      // Reveal is per-boundary: the hotspot nearest the pointer appears, the
+      // rest stay hidden, and leaving the widget clears them (#385a).
+      this.wireBoundaryReveal(wrap, boundaries);
       // Layout is not available synchronously inside toDOM, so measure on the
       // next frame. rAF may be absent (node-env unit tests).
       if (typeof requestAnimationFrame === 'function') {
@@ -762,6 +704,99 @@ class TableWidget extends WidgetType {
     }
 
     return wrap;
+  }
+
+  /** Build one `th`/`td` with its text span and insert handle. */
+  private buildCell(
+    view: EditorView | null,
+    tag: 'th' | 'td',
+    row: number,
+    col: number,
+    text: string,
+  ): HTMLElement {
+    const el = document.createElement(tag);
+    el.dataset.row = String(row);
+    el.dataset.col = String(col);
+    if (this.cells.some((c) => c.active && c.row === row && c.col === col)) {
+      el.classList.add('cm-table-cell-active');
+    }
+
+    // A cell whose whole text is an `mdb-bg-*` span paints the cell itself
+    // and shows only the inner text — the span markup never reaches the DOM.
+    const background = parseCellBackground(text);
+    if (background) {
+      el.dataset.cellBg = background.colorClass;
+      el.classList.add(cellBackgroundClass(background.colorClass));
+    }
+
+    const body = document.createElement('span');
+    body.className = 'cm-table-cell-text';
+    body.setAttribute('data-testid', 'cm-table-cell-text');
+    body.dataset.row = String(row);
+    body.dataset.col = String(col);
+    const displayText = background ? background.inner : text;
+    body.dataset.rawText = displayText;
+    body.innerHTML = renderCellText(displayText);
+    el.appendChild(body);
+
+    const selection = view ? getCellSelection(view) : null;
+    if (
+      selection &&
+      selection.tableIndex === this.tableIndex &&
+      isCellInSelection(selection, row, col)
+    ) {
+      el.classList.add('cm-table-cell-selected');
+    }
+
+    const handle = document.createElement('div');
+    // Two class aliases: `.cm-table-cell-handle` is the wiring/outside-click
+    // guard (`slash.ts`), `.mdb-table-cell-handle` is the public conformance
+    // anchor (R-TABLE-04). Both name the same node.
+    handle.className = 'cm-table-cell-handle mdb-table-cell-handle';
+    handle.setAttribute('data-testid', 'cm-table-cell-handle');
+    handle.dataset.row = String(row);
+    handle.dataset.col = String(col);
+    handle.title = '插入内容';
+    el.appendChild(handle);
+
+    if (view) this.wireCell(view, el, handle, row, col);
+    return el;
+  }
+
+  /**
+   * Match the live `<table>` shape to the current header/rows without
+   * recreating the cells that already exist (#385c). The insertion path used to
+   * return a false `eq` whenever a dimension changed, so CM6 threw the whole
+   * widget away and built it again — every cell, every handle listener, plus a
+   * fresh boundary pass — for what is a one-row/one-column delta. New cells are
+   * built and wired; surplus cells are dropped; surviving cells keep their
+   * listeners and are refreshed by `updateDOM`.
+   */
+  private reconcileStructure(table: HTMLTableElement, view: EditorView): void {
+    const headRow = table.tHead?.rows[0];
+    if (headRow) {
+      while (headRow.cells.length > this.header.length) headRow.deleteCell(-1);
+      for (let col = 0; col < this.header.length; col += 1) {
+        if (!headRow.cells[col]) {
+          headRow.appendChild(this.buildCell(view, 'th', -1, col, this.header[col] ?? ''));
+        }
+      }
+    }
+
+    const tbody = table.tBodies[0];
+    if (tbody) {
+      while (tbody.rows.length > this.rows.length) tbody.deleteRow(-1);
+      for (let r = 0; r < this.rows.length; r += 1) {
+        let tr = tbody.rows[r];
+        if (!tr) tr = tbody.insertRow(-1);
+        while (tr.cells.length > this.header.length) tr.deleteCell(-1);
+        for (let col = 0; col < this.header.length; col += 1) {
+          if (!tr.cells[col]) {
+            tr.appendChild(this.buildCell(view, 'td', r, col, this.rows[r]?.[col] ?? ''));
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -814,7 +849,6 @@ class TableWidget extends WidgetType {
     });
 
     cellEl.addEventListener('mouseenter', () => {
-      cellEl.closest('.cm-table-wrap')?.classList.add('cm-table-hovering');
       const drag = activeCellDrags.get(view);
       if (!drag || drag.tableIndex !== tableIndex) return;
       if (row === drag.anchorRow && col === drag.anchorCol) return;
@@ -828,11 +862,11 @@ class TableWidget extends WidgetType {
       });
     });
 
-    // Handle: hover opens, press repositions. Leaving the handle must NOT close
-    // — the pointer is usually on its way to the menu, which has its own grace.
+    // Handle: press opens, hover only marks the affordance. Opening on mere
+    // enter fired the insert menu when the pointer merely brushed the handle
+    // (#385b) — worst at the last column, whose handle sits on the wrap edge.
     handle.addEventListener('mouseenter', () => {
       handle.classList.add('cm-table-cell-handle-active');
-      this.openCellMenu(view, row, col);
     });
     handle.addEventListener('mouseleave', () => {
       handle.classList.remove('cm-table-cell-handle-active');
@@ -869,15 +903,84 @@ class TableWidget extends WidgetType {
   }
 
   /**
+   * Reveal only the insertion hotspot for the boundary the pointer is near
+   * (#385a). The previous gate lit every hotspot as soon as a cell was
+   * entered; the desired behaviour is the hovered row/column line alone.
+   *
+   * A column boundary's x and a row boundary's y are already on the element as
+   * inline offsets, so a mousemove needs one container rect read, not one
+   * layout read per boundary. The work is coalesced into a frame.
+   */
+  private wireBoundaryReveal(wrap: HTMLElement, boundaries: HTMLElement): void {
+    let frame = 0;
+    let pointerX = 0;
+    let pointerY = 0;
+
+    const clear = (): void => {
+      for (const hotspot of boundaries.querySelectorAll('.cm-table-hotspot-revealed')) {
+        hotspot.classList.remove('cm-table-hotspot-revealed');
+      }
+    };
+
+    const update = (): void => {
+      frame = 0;
+      const rect = boundaries.getBoundingClientRect();
+      const x = pointerX - rect.left;
+      const y = pointerY - rect.top;
+      const half = BOUNDARY_THICKNESS / 2;
+      let nearCol: HTMLElement | null = null;
+      let nearRow: HTMLElement | null = null;
+      let colDist = BOUNDARY_REVEAL_DISTANCE;
+      let rowDist = BOUNDARY_REVEAL_DISTANCE;
+
+      for (const boundary of boundaries.querySelectorAll<HTMLElement>('.cm-table-boundary')) {
+        const hotspot = boundary.querySelector<HTMLElement>('.cm-table-hotspot');
+        if (!hotspot) continue;
+        if (boundary.dataset.type === 'col') {
+          const dist = Math.abs(x - (parseFloat(boundary.style.left) + half));
+          if (dist <= colDist) {
+            colDist = dist;
+            nearCol = hotspot;
+          }
+        } else {
+          const dist = Math.abs(y - (parseFloat(boundary.style.top) + half));
+          if (dist <= rowDist) {
+            rowDist = dist;
+            nearRow = hotspot;
+          }
+        }
+      }
+
+      for (const hotspot of boundaries.querySelectorAll<HTMLElement>('.cm-table-hotspot')) {
+        hotspot.classList.toggle('cm-table-hotspot-revealed', hotspot === nearCol || hotspot === nearRow);
+      }
+    };
+
+    wrap.addEventListener('mousemove', (event) => {
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+      if (frame) return;
+      if (typeof requestAnimationFrame === 'function') frame = requestAnimationFrame(update);
+      else update();
+    });
+    wrap.addEventListener('mouseleave', () => {
+      if (frame && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame);
+      frame = 0;
+      clear();
+    });
+  }
+
+  /**
    * Build the insertion-boundary layer over the measured table.
    *
    * One `.cm-table-boundary` strip sits exactly ON each boundary: a vertical
    * strip on every interior column boundary and a horizontal strip on every
    * body row's top edge (F-03 geometry). The strip itself is `pointer-events: none`
    * so the 6px layer can never swallow a click meant for a cell interior; only
-   * the small hotspot dot inside it takes the pointer, and only while the
-   * table is hovered (F-04 / R-TABLE-03). Each hotspot inserts before its own
-   * ordinal: `data-col` → addColumn(index), `data-row` → addRow(index).
+   * the small hotspot dot inside it takes the pointer, and only once the
+   * pointer is near that boundary (F-04 / R-TABLE-03, per-boundary since
+   * #385a). Each hotspot inserts before its own ordinal: `data-col` →
+   * addColumn(index), `data-row` → addRow(index).
    *
    * Falls back to `evenColumnWidths` when the table has not been laid out, so
    * the layer still carries the correct ordinal geometry in jsdom.
@@ -971,36 +1074,49 @@ class TableWidget extends WidgetType {
     const fallbackWidths = evenColumnWidths(this.header.length, totalWidth);
     const head = table.rows[0];
 
+    // Batch every layout read before creating any node: interleaving the two
+    // forced a reflow per boundary, which made an insert stutter (#385c).
+    const colX: (number | null)[] = [];
+    if (measured && head) {
+      for (let col = 1; col < this.header.length; col += 1) {
+        const cell = head.cells[col];
+        colX.push(cell ? cell.getBoundingClientRect().left - tableRect.left : null);
+      }
+    }
+    const rowY: (number | null)[] = [];
+    if (measured) {
+      for (let r = 0; r < this.rows.length; r += 1) {
+        const tr = table.rows[r + 1];
+        rowY.push(tr ? tr.getBoundingClientRect().top - tableRect.top : null);
+      }
+    }
+
     // ── Column boundaries: interior only (between two columns) ────────────
     // Starting at col 1 keeps the hotspot inside the table, so its dot and
     // bubble are never clipped by the wrap's edge (§7.4 "两列之间").
     for (let col = 1; col < this.header.length; col += 1) {
       const fallbackLeft = fallbackWidths.slice(0, col).reduce((a, b) => a + b, 0);
-      const cell = measured && head ? head.cells[col] : undefined;
       // A merged or unrendered cell has no rect; keep the boundary on the
       // even-division position instead of collapsing it onto the leading edge.
-      const x = cell ? cell.getBoundingClientRect().left - tableRect.left : fallbackLeft;
+      const x = colX[col - 1] ?? fallbackLeft;
       addBoundary('col', col, originX + x - half, originY, BOUNDARY_THICKNESS, totalHeight);
     }
 
     // ── Row boundaries: the top edge of every body row ────────────────────
     for (let r = 0; r < this.rows.length; r += 1) {
-      const tr = table.rows[r + 1];
-      const y =
-        measured && tr
-          ? tr.getBoundingClientRect().top - tableRect.top
-          : ((r + 1) / (this.rows.length + 1)) * totalHeight;
+      const y = rowY[r] ?? ((r + 1) / (this.rows.length + 1)) * totalHeight;
       addBoundary('row', r, originX, originY + y - half, totalWidth, BOUNDARY_THICKNESS);
     }
   }
 
   /**
-   * Adopt the freshly computed offsets while KEEPING the existing DOM.
+   * Adopt the new state while KEEPING the existing DOM.
    *
-   * The widget is retained because the rendered text is identical, but its
-   * positions are stale — every other edit in the document may have shifted
-   * them. Mutating `this` inside `eq` is the only place CM6 hands us the new
-   * state while keeping our DOM, so the retained instance adopts it here.
+   * Mutating `this` inside `eq` is the only place CM6 hands us the new state
+   * while keeping our DOM. Returning false for a content or dimension change
+   * routes CM6 through `updateDOM`, which reconciles the structure in place
+   * (#385c) instead of discarding and rebuilding every cell; only a different
+   * table ordinal forces a fresh draw, because the DOM is table-specific.
    */
   eq(other: WidgetType): boolean {
     if (!(other instanceof TableWidget)) return false;
@@ -1023,6 +1139,10 @@ class TableWidget extends WidgetType {
     const table = wrap.querySelector<HTMLTableElement>('table.cm-table');
     const boundaries = wrap.querySelector<HTMLElement>('.cm-table-boundaries');
     if (!table || !boundaries) return false;
+
+    // Grow/shrink the DOM to the new dimensions before refreshing text: cells
+    // are addressed by data-row/data-col, so reused cells need no rebuild.
+    this.reconcileStructure(table, view);
 
     const selection = getCellSelection(view);
     // Skip the cell that is being edited: its text lives in the input until the
@@ -1077,7 +1197,7 @@ class TableWidget extends WidgetType {
    */
   destroy(): void {
     if (!this.view) return;
-    releaseInsertMenu(this.view);
+    releaseInsertMenu(this.view, 'anchor');
     // Teardown runs inside a CM6 update, so a synchronous flush would throw and
     // lose staged text. Defer it instead (a no-op when nothing is staged).
     scheduleTableFlush(this.view);

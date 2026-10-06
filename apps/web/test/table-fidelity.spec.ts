@@ -29,6 +29,10 @@ async function openEditor(page: Page): Promise<void> {
   await page.getByTestId('mode-edit-btn').click()
   await expect(page.locator('.cm-editor').first()).toBeVisible()
   await settle(page)
+  // Absorb CM6's one-time widget re-render on first pointer entry so a later
+  // boundary-move reveal is not lost to it.
+  await page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]').hover()
+  await settle(page)
 }
 
 async function rawDoc(page: Page): Promise<string> {
@@ -74,7 +78,7 @@ test('AC: 点击单元格后仍可编辑并回写源码', async ({ page }) => {
   expect(await rawDoc(page)).toContain('A1')
 })
 
-test('AC: 格内手柄悬停打开插入菜单（基础图标组）', async ({ page }) => {
+test('AC: 格内手柄点击打开插入菜单（基础图标组）', async ({ page }) => {
   await openEditor(page)
 
   const cell = page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]')
@@ -84,7 +88,8 @@ test('AC: 格内手柄悬停打开插入菜单（基础图标组）', async ({ p
 
   const handle = page.getByTestId('cm-table-cell-handle').first()
   await expect(handle).toBeVisible()
-  await handle.hover()
+  // #385b: a hover must not pop the menu; a deliberate press opens it.
+  await handle.click()
   await settle(page)
 
   // 展开的是插入菜单（含「基础」图标网格），而非块菜单。
@@ -97,8 +102,13 @@ test('AC: 格内手柄悬停打开插入菜单（基础图标组）', async ({ p
 test('AC: 格间线热点悬停高亮单一边界线', async ({ page }) => {
   await openEditor(page)
 
-  // 先悬停单元格浮现热点，再悬停热点 → 仅对应边界进入 active（边界层自身不接管指针）。
-  await page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]').hover()
+  // #385a: 热点改为边界级门控——先把指针移到列边界线上，只现该条热点，再悬停它 → 单一边界 active。
+  const boundary = page.locator('[data-testid="cm-table-boundary"][data-type="col"]').first()
+  const boundaryBox = await boundary.boundingBox()
+  if (!boundaryBox) throw new Error('boundary has no bounding box')
+  await page.mouse.move(boundaryBox.x + boundaryBox.width / 2, boundaryBox.y + 8)
+  await settle(page)
+
   const hotspot = page.getByTestId('cm-table-hotspot').first()
   await expect(hotspot).toBeVisible()
   await hotspot.hover()
