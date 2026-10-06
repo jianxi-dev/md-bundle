@@ -32,6 +32,20 @@ export function isTableLine(text: string): boolean {
 }
 
 /**
+ * True when a block's source is a GFM pipe table: a header row immediately
+ * followed by a separator row.
+ *
+ * The editor's markdown language is CommonMark (no GFM table extension), so the
+ * Lezer tree never emits a `Table` node — a table reaches the block model as a
+ * `paragraph` (#392). Table-aware UI must therefore key off the source text, not
+ * `block.type`; `blockHandleIcon` already does the same via `isTableLine`.
+ */
+export function isTableBlock(blockText: string): boolean {
+  const lines = blockText.split('\n')
+  return lines.length >= 2 && TABLE_ROW_RE.test(lines[0]) && TABLE_SEP_RE.test(lines[1])
+}
+
+/**
  * Shared gutter-x helper: returns the left position (relative to editor root)
  * for the handle / empty-line "+" column. Both affordances use this so their
  * x coordinates align within ≤2px (F-06).

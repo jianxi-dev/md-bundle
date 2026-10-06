@@ -47,11 +47,11 @@ import {
   computeBlockIndent,
   computeCalloutType,
   isCalloutBlock,
+  isTableBlock,
   blockHandleIcon,
   computeGutterLeft,
   type BlockConvertTarget,
 } from './block-handle-ops'
-import { getBlockAt } from './block-model'
 
 export {
   findBlockAt,
@@ -63,6 +63,7 @@ export {
   computeBlockIndent,
   computeCalloutType,
   isCalloutBlock,
+  isTableBlock,
   blockStillExists,
   isBlockInViewport,
   blockHandleIcon,
@@ -366,7 +367,9 @@ class BlockHandlePlugin {
     const block = this.menuBlock ?? this.currentBlock
     const text = block ? this.view.state.doc.sliceString(block.from, block.to) : ''
     this.chrome.setCalloutContext(block !== null && isCalloutBlock(text))
-    this.chrome.setTableContext(block !== null && block.type === 'table')
+    // A GFM table parses as a `paragraph` (CommonMark has no table node), so the
+    // table rows are gated on the block's source text, not `block.type` (#392).
+    this.chrome.setTableContext(block !== null && isTableBlock(text))
     // Show before measuring: a `display:none` element has no layout box, so the
     // size needed for viewport clamping is only real once it is displayed.
     this.chrome.showMenu()
@@ -739,44 +742,37 @@ class BlockHandlePlugin {
     event.stopPropagation()
   }
 
-  private handleTableAction(_block: Block, action: string): void {
-    const { state } = this.view
-    const { main } = state.selection
-    const pos = main.empty ? main.head : main.from
-    const blocks = getBlocks(state)
-    const tableBlock = getBlockAt(pos, blocks)
-    if (!tableBlock || tableBlock.type !== 'table') return
-
-    const docText = state.doc.toString()
-    const tableText = docText.slice(tableBlock.from, tableBlock.to)
+  private handleTableAction(block: Block, action: string): void {
+    const docText = this.view.state.doc.toString()
+    const tableText = docText.slice(block.from, block.to)
+    // The menu only opens for tables, but the document can move under an open
+    // menu, so re-check the source before rewriting it.
+    if (!isTableBlock(tableText)) return
     let nextText = tableText
 
     if (action === 'toggle-header-row') {
       const lines = tableText.split('\n')
-      const hasHeaderSep = lines[1]?.match(/^\s*\|(\s*:?-+:?\s*\|)+\s*$/)
-      if (hasHeaderSep) {
-        lines.splice(1, 1)
-      } else {
-        const firstRow = lines[0]
-        const colCount = (firstRow.match(/\|/g) || []).length - 1
-        const sepRow = '|' + ' --- |'.repeat(colCount)
-        lines.splice(1, 0, sepRow)
-      }
+      // `isTableBlock` guarantees a separator row, so the header is always ON
+      // here and toggling removes it (matching the original ON/OFF semantics).
+      lines.splice(1, 1)
       nextText = lines.join('\n')
     } else if (action === 'toggle-header-col') {
       const lines = tableText.split('\n')
       const hasHeaderCol = lines[0]?.startsWith('| ')
       if (hasHeaderCol) {
-        nextText = lines.map(l => l.replace(/^\|\s+/, '|')).join('\n')
+        nextText = lines.map((l) => l.replace(/^\|\s+/, '|')).join('\n')
       } else {
-        nextText = lines.map(l => l.replace(/^\|/, '| ')).join('\n')
+        nextText = lines.map((l) => l.replace(/^\|/, '| ')).join('\n')
       }
     } else if (action === 'distribute-columns') {
       return
     }
 
     if (nextText !== tableText) {
-      const change = computeMinimalChange(docText, docText.slice(0, tableBlock.from) + nextText + docText.slice(tableBlock.to))
+      const change = computeMinimalChange(
+        docText,
+        docText.slice(0, block.from) + nextText + docText.slice(block.to),
+      )
       this.view.dispatch({ changes: change })
     }
   }
