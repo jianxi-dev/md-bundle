@@ -486,6 +486,12 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     whiteSpace: 'pre-wrap',
     marginTop: '0.35em',
   },
+  // Callout body lines are block elements (the old plain-text node relied on
+  // `white-space: pre-wrap`); min-height keeps blank lines the same height they
+  // had as preserved newlines, and backs the list line's own 1.7em.
+  '.cm-content .cm-callout-content .cm-callout-line': {
+    minHeight: '1.7em',
+  },
   '.cm-content .cm-columns': {
     marginBlock: '0.4em',
   },

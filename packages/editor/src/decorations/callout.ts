@@ -23,6 +23,7 @@ import { Decoration, WidgetType, type EditorView } from '@codemirror/view';
 import type { Range } from '@codemirror/state';
 import { resolveCalloutType } from '../callout-types';
 import { getCalloutEmojiOverride, openCalloutEmojiPicker } from './callout-emoji';
+import { createContentLineElement } from './list';
 
 // --- Staging + flush --------------------------------------------------------
 
@@ -294,7 +295,12 @@ class CalloutWidget extends WidgetType {
     if (this.content) {
       const contentEl = document.createElement('div');
       contentEl.className = 'cm-callout-content';
-      contentEl.textContent = this.content;
+      // Render line by line instead of one text node: a widget cannot carry CM6
+      // decorations, so list lines are given the editor's list classes here to
+      // stay WYSIWYG inside the card (#382).
+      for (const line of this.content.split('\n')) {
+        contentEl.appendChild(createContentLineElement(line));
+      }
       container.appendChild(contentEl);
     }
 
