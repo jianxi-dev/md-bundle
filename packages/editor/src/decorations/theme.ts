@@ -547,6 +547,29 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     color: 'var(--mdb-text-secondary)',
   },
 
+  // ── Thematic break (horizontal rule) ────────────────────────────────────
+  '.cm-content .cm-thematic-break': {
+    border: 'none',
+    borderTop: '1px solid var(--mdb-border)',
+    margin: '0.7em 0',
+    width: '100%',
+  },
+
+  // ── Link ────────────────────────────────────────────────────────────────
+  '.cm-content .cm-link': {
+    color: 'var(--mdb-primary-fg)',
+    textDecoration: 'underline',
+    textDecorationColor: 'var(--mdb-primary-fg)',
+    textUnderlineOffset: '2px',
+    cursor: 'pointer',
+  },
+  '.cm-content .cm-link.cm-block-active': {
+    // Active block: show raw source, but keep link text styled
+    textDecoration: 'underline',
+    textDecorationColor: 'var(--mdb-muted)',
+    color: 'var(--mdb-text)',
+  },
+
   // ── Tables (values aligned to reader CSS) ─────────────────────────────
   '.cm-content .cm-table': {
     borderCollapse: 'separate',
