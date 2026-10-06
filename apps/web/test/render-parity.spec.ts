@@ -235,7 +235,7 @@ test.describe('编辑态装饰形态（DOM 契约保持）', () => {
     await expect(page.locator('.cm-content .cm-line').first()).toBeVisible()
     await expect(page.locator('.cm-content .cm-heading.cm-h2')).toBeVisible()
     await expect(page.locator('.cm-content .cm-line.cm-list').first()).toBeVisible()
-    await expect(page.locator('.cm-content .cm-line.cm-fenced-code')).toBeVisible()
+    await expect(page.locator('.cm-content .cm-line.cm-fenced-code').first()).toBeVisible()
     await expect(
       page.locator('.cm-content .cm-line.cm-quote').filter({ hasText: '引用块文本' }),
     ).toBeVisible()
