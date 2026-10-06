@@ -211,7 +211,7 @@ describe('canonical registry contents', () => {
 });
 
 describe('keyBinding drift prevention', () => {
-  it('exactly fourteen commands carry a keyBinding', () => {
+  it('exactly eighteen commands carry a keyBinding', () => {
     const withBinding = commandRegistry.all().filter((c) => c.keyBinding);
     expect(withBinding.map((c) => c.id).sort()).toEqual([
       'heading-1',
@@ -220,14 +220,18 @@ describe('keyBinding drift prevention', () => {
       'heading-4',
       'heading-5',
       'heading-6',
+      'insert-code-block',
       'insert-ordered-list',
+      'insert-quote',
       'insert-task-list',
       'insert-unordered-list',
+      'paragraph',
       'toggle-bold',
       'toggle-code',
       'toggle-italic',
       'toggle-link',
       'toggle-strikethrough',
+      'toggle-underline',
     ]);
   });
 

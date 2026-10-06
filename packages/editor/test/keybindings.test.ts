@@ -20,6 +20,19 @@ function modKeyEvent(key: string): KeyboardEvent {
   });
 }
 
+/** Mod chord with extra Shift/Alt, mirroring the spec's ⌘/Ctrl+⇧ and ⌘/Ctrl+Alt. */
+function chordEvent(key: string, extra: { shift?: boolean; alt?: boolean } = {}): KeyboardEvent {
+  return new KeyboardEvent('keydown', {
+    key,
+    bubbles: true,
+    cancelable: true,
+    metaKey: IS_MAC,
+    ctrlKey: !IS_MAC,
+    shiftKey: extra.shift ?? false,
+    altKey: extra.alt ?? false,
+  });
+}
+
 function installPolyfills(): void {
   if (typeof globalThis.requestAnimationFrame !== 'function') {
     globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) =>
@@ -266,6 +279,54 @@ describe('editorKeybindings on real keydown events (ticket #193)', () => {
     view.contentDOM.dispatchEvent(modKeyEvent('j'));
     expect(view.state.doc.toString()).toBe('hello world');
   });
+
+  // editor-shortcuts spec scheme: these real keydowns prove each chord the
+  // tests assert against actually resolves in CM6's keymap.
+  it('Mod-Shift-7 turns the line into an ordered list', () => {
+    view.dispatch({ selection: EditorSelection.cursor(0) });
+    view.contentDOM.dispatchEvent(chordEvent('7', { shift: true }));
+    expect(view.state.doc.toString()).toBe('1. hello world');
+  });
+
+  it('Mod-Shift-8 turns the line into a bullet list', () => {
+    view.dispatch({ selection: EditorSelection.cursor(0) });
+    view.contentDOM.dispatchEvent(chordEvent('8', { shift: true }));
+    expect(view.state.doc.toString()).toBe('- hello world');
+  });
+
+  it('Mod-Shift-. turns the line into a quote', () => {
+    view.dispatch({ selection: EditorSelection.cursor(0) });
+    view.contentDOM.dispatchEvent(chordEvent('.', { shift: true }));
+    expect(view.state.doc.toString()).toBe('> hello world');
+  });
+
+  it('Mod-Shift-c inserts a code block', () => {
+    view.dispatch({ selection: EditorSelection.cursor(0) });
+    view.contentDOM.dispatchEvent(chordEvent('c', { shift: true }));
+    expect(view.state.doc.toString()).toContain('```');
+  });
+
+  it('Mod-u wraps the selection in <u>', () => {
+    view.contentDOM.dispatchEvent(chordEvent('u'));
+    expect(view.state.doc.toString()).toBe('<u>hello</u> world');
+  });
+
+  it('Mod-Shift-s wraps the selection in ~~', () => {
+    view.contentDOM.dispatchEvent(chordEvent('s', { shift: true }));
+    expect(view.state.doc.toString()).toBe('~~hello~~ world');
+  });
+
+  it('Mod-Shift-l wraps the selection in [](url)', () => {
+    view.contentDOM.dispatchEvent(chordEvent('l', { shift: true }));
+    expect(view.state.doc.toString()).toBe('[hello](url) world');
+  });
+
+  it('Mod-Alt-0 resets a heading block to a paragraph', () => {
+    view.dispatch({ changes: { from: 0, to: 11, insert: '# hello' } });
+    view.dispatch({ selection: EditorSelection.cursor(0) });
+    view.contentDOM.dispatchEvent(chordEvent('0', { alt: true }));
+    expect(view.state.doc.toString()).toBe('hello');
+  });
 });
 
 describe('formatKeyChord / isMacPlatform (ticket #335)', () => {
@@ -273,12 +334,16 @@ describe('formatKeyChord / isMacPlatform (ticket #335)', () => {
   const chords = [
     'Mod-b',
     'Mod-i',
-    'Mod-Shift-x',
+    'Mod-u',
+    'Mod-Shift-s',
     'Mod-e',
-    'Mod-l',
+    'Mod-Shift-l',
+    'Mod-Shift-.',
+    'Mod-Shift-c',
     'Mod-Shift-7',
     'Mod-Shift-8',
     'Mod-Shift-9',
+    'Mod-Alt-0',
     'Mod-Alt-1',
     'Mod-Alt-2',
     'Mod-Alt-3',

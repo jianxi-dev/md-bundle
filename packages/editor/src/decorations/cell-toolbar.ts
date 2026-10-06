@@ -79,12 +79,17 @@ export function cellToolbar(): Extension {
       private root: HTMLDivElement | null = null;
       private mergeBtn: HTMLButtonElement | null = null;
       private menu: HTMLDivElement | null = null;
+      // True while the menu was revealed by hover rather than by a click; a
+      // click that follows the hover-open must not toggle it shut (ticket #390).
+      private hoverOpened = false;
       private readonly closeMenu: () => void;
 
       constructor(private readonly view: EditorView) {
         this.closeMenu = () => {
           if (this.menu) this.menu.style.display = 'none';
+          this.hoverOpened = false;
           document.removeEventListener('mousedown', this.onOutsideDown, true);
+          document.removeEventListener('keydown', this.onEscape, true);
         };
         this.unsubscribe = subscribeCellSelection(view, () => this.sync());
       }
@@ -95,10 +100,15 @@ export function cellToolbar(): Extension {
         }
       };
 
+      private onEscape = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape') this.closeMenu();
+      };
+
       private openMenu(): void {
         if (!this.menu) return;
         this.menu.style.display = 'flex';
         document.addEventListener('mousedown', this.onOutsideDown, true);
+        document.addEventListener('keydown', this.onEscape, true);
       }
 
       private toggleMenu(): void {
@@ -143,8 +153,21 @@ export function cellToolbar(): Extension {
         bg.addEventListener('mousedown', (event) => {
           event.preventDefault();
           event.stopPropagation();
+          if (this.menu?.style.display === 'flex' && this.hoverOpened) {
+            this.hoverOpened = false;
+            return;
+          }
           this.toggleMenu();
         });
+
+        // Slide-in: hovering the 单元格背景色 control reveals its submenu
+        // without a click, matching the block-handle flyout (ticket #390).
+        dropdown.addEventListener('mouseenter', () => {
+          if (this.menu?.style.display === 'flex') return;
+          this.openMenu();
+          this.hoverOpened = true;
+        });
+        dropdown.addEventListener('mouseleave', () => this.closeMenu());
 
         const menu = document.createElement('div');
         menu.className = 'mdb-cell-toolbar-menu';

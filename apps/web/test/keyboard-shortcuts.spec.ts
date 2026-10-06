@@ -1,6 +1,7 @@
-// 键盘快捷键验收 e2e（ticket #291）：真实键盘路径驱动 CM6 keymap。
+// 键盘快捷键验收 e2e（ticket #291，#390 修正列表映射）：真实键盘路径驱动 CM6 keymap。
 // AC (A): `## ` → H2（行内快捷，已由 smart-input 处理，锁定回归）
-// AC (B): Mod-Alt-3 → 当前行变 `### `；Mod-Shift-7/8/9 → `- ` / `1. ` / `- [ ] `
+// AC (B): Mod-Alt-3 → 当前行变 `### `；Mod-Shift-7/8/9 → `1. ` / `- ` / `- [ ] `
+// （豆包/Google Docs 惯例：⇧7 有序、⇧8 无序、⇧9 任务）
 import { expect, test, type Page } from '@playwright/test'
 
 test.use({ viewport: { width: 1440, height: 900 } })
@@ -103,7 +104,7 @@ test.describe('键盘快捷键：标题与列表（真实键盘路径）', () =>
     expect(source).toBe('# Plain line')
   })
 
-  test('AC (B): Mod-Shift-7 → 无序列表 - ', async ({ page }) => {
+  test('AC (B): Mod-Shift-7 → 有序列表 1. ', async ({ page }) => {
     await openEditor(page, 'Plain line')
     await placeCaretAtLineStart(page)
 
@@ -111,10 +112,10 @@ test.describe('键盘快捷键：标题与列表（真实键盘路径）', () =>
     await settle(page)
 
     const source = await exactDoc(page)
-    expect(source).toBe('- Plain line')
+    expect(source).toBe('1. Plain line')
   })
 
-  test('AC (B): Mod-Shift-8 → 有序列表 1. ', async ({ page }) => {
+  test('AC (B): Mod-Shift-8 → 无序列表 - ', async ({ page }) => {
     await openEditor(page, 'Plain line')
     await placeCaretAtLineStart(page)
 
@@ -122,7 +123,7 @@ test.describe('键盘快捷键：标题与列表（真实键盘路径）', () =>
     await settle(page)
 
     const source = await exactDoc(page)
-    expect(source).toBe('1. Plain line')
+    expect(source).toBe('- Plain line')
   })
 
   test('AC (B): Mod-Shift-9 → 任务列表 - [ ] ', async ({ page }) => {

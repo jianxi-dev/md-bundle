@@ -418,6 +418,7 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   'heading-4': '将当前块转为四级标题',
   'heading-5': '将当前块转为五级标题',
   'heading-6': '将当前块转为六级标题',
+  'paragraph': '将当前块转为正文段落',
   'structure-check': '检查文档结构问题',
   'font-serif': '将选中文本设为衬线字体',
   'font-mono': '将选中文本设为等宽字体',
@@ -643,7 +644,8 @@ export function registerEditorCommands(): void {
     label: '删除线',
     icon: 'S',
     group: '格式',
-    keyBinding: 'Mod-Shift-x',
+    // editor-shortcuts spec: strikethrough is ⇧S.
+    keyBinding: 'Mod-Shift-s',
     execute: (view) => {
       toggleWrap(view, '~~', '~~');
     },
@@ -654,6 +656,8 @@ export function registerEditorCommands(): void {
     label: '下划线',
     icon: 'U',
     group: '格式',
+    // editor-shortcuts spec: underline is U.
+    keyBinding: 'Mod-u',
     execute: (view) => {
       toggleWrap(view, '<u>', '</u>');
     },
@@ -675,7 +679,8 @@ export function registerEditorCommands(): void {
     label: '插入链接',
     icon: '🔗',
     group: '插入',
-    keyBinding: 'Mod-l',
+    // editor-shortcuts spec: link is ⇧L so Mod-K stays reserved for the palette.
+    keyBinding: 'Mod-Shift-l',
     execute: (view) => {
       // Reuse toggleWrap for the bracket pair so a second click removes the
       // link wrapper. `](url)` is the literal closing marker — toggling it off
@@ -689,7 +694,8 @@ export function registerEditorCommands(): void {
     label: '无序列表',
     icon: '•',
     group: '块',
-    keyBinding: 'Mod-Shift-7',
+    // Doubao/Google-Docs convention: ⇧8 bullet, ⇧7 ordered, ⇧9 task.
+    keyBinding: 'Mod-Shift-8',
     execute: (view) => {
       const { main } = view.state.selection;
       view.dispatch({
@@ -704,7 +710,7 @@ export function registerEditorCommands(): void {
     label: '有序列表',
     icon: '1.',
     group: '块',
-    keyBinding: 'Mod-Shift-8',
+    keyBinding: 'Mod-Shift-7',
     execute: (view) => {
       const { main } = view.state.selection;
       view.dispatch({
@@ -734,6 +740,8 @@ export function registerEditorCommands(): void {
     label: '引用块',
     icon: '❝',
     group: '块',
+    // editor-shortcuts spec: quote is ⇧. (Mod-Shift-Period).
+    keyBinding: 'Mod-Shift-.',
     execute: (view) => {
       const { main } = view.state.selection;
       view.dispatch({
@@ -748,6 +756,8 @@ export function registerEditorCommands(): void {
     label: '代码块',
     icon: '{ }',
     group: '块',
+    // editor-shortcuts spec: code block is ⇧C.
+    keyBinding: 'Mod-Shift-c',
     execute: (view) => {
       const { main } = view.state.selection;
       view.dispatch({
@@ -1006,6 +1016,31 @@ export function registerEditorCommands(): void {
       });
     },
   });
+  commandRegistry.register({
+    id: 'paragraph',
+    label: '正文',
+    icon: '¶',
+    group: '块',
+    // editor-shortcuts spec: Mod-Alt-0 resets the current block to a paragraph.
+    // Mirrors heading-N: works with a collapsed caret, unlike turn-into-paragraph
+    // which requires a non-empty selection.
+    keyBinding: 'Mod-Alt-0',
+    execute: (view) => {
+      const { state } = view;
+      const { main } = state.selection;
+      const block = findBlockAt(state, main.empty ? main.head : main.from);
+      if (!block) return;
+      const docText = state.doc.toString();
+      const nextText = computeBlockConvert(docText, block.from, block.to, 'paragraph');
+      if (nextText === docText) return;
+      const change = computeMinimalChange(docText, nextText);
+      view.dispatch({
+        changes: { from: change.from, to: change.to, insert: change.insert },
+        selection: { anchor: change.from, head: change.from + change.insert.length },
+      });
+    },
+  });
+
   commandRegistry.register({
     id: 'structure-check',
     label: '结构体检',

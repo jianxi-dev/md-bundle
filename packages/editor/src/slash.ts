@@ -30,6 +30,8 @@ import { calloutTypeMap } from '@md-bundle/renderer';
 import { TABLE_SIZE_QUERY, filterSlashCommands } from './slash-filter';
 import { sanitizeCellText } from './decorations/cell-text';
 import { renderIcon } from './icons';
+import { commandRegistry } from './commands';
+import { formatKeyChord } from './keybindings';
 
 export interface SlashCommand {
   id: string;
@@ -130,6 +132,30 @@ function columnCount(count: number): SlashCommand {
       return { from: head - 1, to: head, text: `::: {.col-${count}}\n\n:::` }
     },
   }
+}
+
+/**
+ * Registry command id backing a slash row, so the row shows the product
+ * keybinding (editor-shortcuts: slash items show the product chord, never the
+ * markdown trigger). Rows with no bound command are absent → no chord shown.
+ */
+const SLASH_COMMAND_IDS: Record<string, string> = {
+  'heading-1': 'heading-1',
+  'heading-2': 'heading-2',
+  'heading-3': 'heading-3',
+  'heading-4': 'heading-4',
+  'heading-5': 'heading-5',
+  'heading-6': 'heading-6',
+  quote: 'insert-quote',
+  'code-block': 'insert-code-block',
+  task: 'insert-task-list',
+};
+
+function slashKeybind(id: string): string {
+  const commandId = SLASH_COMMAND_IDS[id];
+  if (commandId === undefined) return '';
+  const chord = commandRegistry.getKeyBinding(commandId);
+  return chord === null ? '' : formatKeyChord(chord);
 }
 
 export const defaultCommands: SlashCommand[] = [
@@ -580,6 +606,18 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
     label.style.textOverflow = 'ellipsis';
     label.style.whiteSpace = 'nowrap';
     cell.appendChild(label);
+
+    const keybind = slashKeybind(cmd.id);
+    if (keybind !== '') {
+      const kbd = document.createElement('kbd');
+      kbd.className = 'mdb-slash-item-kbd';
+      kbd.textContent = keybind;
+      kbd.style.color = 'var(--mdb-text-secondary)';
+      kbd.style.fontSize = '10px';
+      kbd.style.flexShrink = '0';
+      kbd.style.fontFamily = 'var(--mdb-font-mono, ui-monospace, monospace)';
+      cell.appendChild(kbd);
+    }
 
     const hasSecondLevel = Boolean(cmd.children?.length) || cmd.grid !== undefined;
     if (hasSecondLevel || cmd.hint) {
@@ -1093,6 +1131,18 @@ function renderFlyout(view: EditorView, state: SlashMenuState): void {
     const label = document.createElement('span');
     label.textContent = cmd.label;
     row.appendChild(label);
+
+    const keybind = slashKeybind(cmd.id);
+    if (keybind !== '') {
+      const kbd = document.createElement('kbd');
+      kbd.className = 'mdb-slash-flyout-kbd';
+      kbd.textContent = keybind;
+      kbd.style.marginLeft = 'auto';
+      kbd.style.color = 'var(--mdb-text-secondary)';
+      kbd.style.fontSize = '11px';
+      kbd.style.fontFamily = 'var(--mdb-font-mono, ui-monospace, monospace)';
+      row.appendChild(kbd);
+    }
 
     const hint = document.createElement('span');
     hint.style.marginLeft = 'auto';
