@@ -3,6 +3,7 @@ import { createMarkdownEditor } from '../src/editor';
 import {
   defaultCommands,
   insertSlashChar,
+  openInsertMenu,
   slashKeymap,
   slashMenuApply,
   slashMenuClose,
@@ -589,4 +590,193 @@ describe('IME composition handling', () => {
   // Note: ViewPlugin event handlers (compositionstart/compositionend) are not
   // easily testable in jsdom. The compositionend path that triggers the menu
   // on committed slash is covered by the Playwright e2e test.
+});
+
+describe('media pick commands', () => {
+  let parent: HTMLElement;
+  let view: ReturnType<typeof createMarkdownEditor>['view'];
+
+  beforeEach(() => {
+    installPolyfills();
+    parent = document.createElement('div');
+    document.body.appendChild(parent);
+  });
+
+  afterEach(() => {
+    view?.destroy();
+    parent.remove();
+  });
+
+  /** Type text at the caret; the doc-change sync plugin turns it into the query. */
+  function typeText(text: string): void {
+    const head = view.state.selection.main.head;
+    view.dispatch({
+      changes: { from: head, insert: text },
+      selection: { anchor: head + text.length },
+    });
+  }
+
+  /** Select the row at `index` in the open root menu. */
+  function selectRootRow(index: number): void {
+    for (let i = 0; i < index; i++) slashMenuSelectNext(view);
+  }
+
+  /**
+   * A picker whose promise the test settles by hand.
+   *
+   * `vi.waitFor` must NOT be used for these: it polls on a macrotask, which
+   * lets CodeMirror's 16ms requestAnimationFrame run `measureTextSize` while
+   * the view is still alive — jsdom text nodes lack getClientRects, so that
+   * throws an unhandled error and fails the whole run. A captured resolver plus
+   * microtask-only flushing never advances the frame, and the afterEach destroy
+   * cancels the pending rAF before it can fire.
+   */
+  function deferredPicker(): {
+    pickMediaFile: () => Promise<File | null>;
+    resolve: (file: File | null) => void;
+  } {
+    // A holder, not a captured local: the executor rebinds `holder.resolve`
+    // after `deferredPicker` returns, and the returned wrapper must read the
+    // latest binding or it would call the initial no-op.
+    const holder: { resolve: (file: File | null) => void } = { resolve: () => {} };
+    const pickMediaFile = vi.fn(
+      () => new Promise<File | null>((res) => (holder.resolve = res)),
+    );
+    return { pickMediaFile, resolve: (file) => holder.resolve(file) };
+  }
+
+  /** Drain microtasks only — never advances timers or requestAnimationFrame. */
+  async function flushMicrotasks(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  it('image-ref and media-ref carry the pickMedia flag (no static insert)', () => {
+    const imageRef = defaultCommands.find((c) => c.id === 'image-ref');
+    const mediaRef = defaultCommands.find((c) => c.id === 'media-ref');
+    expect(imageRef?.pickMedia).toBe(true);
+    expect(mediaRef?.pickMedia).toBe(true);
+    expect(imageRef?.insert).toBeUndefined();
+    expect(mediaRef?.insert).toBeUndefined();
+  });
+
+  it('applying image-ref with an injected picker inserts an editable reference', async () => {
+    const file = new File(['x'], 'pic.png', { type: 'image/png' });
+    const { pickMediaFile, resolve } = deferredPicker();
+    view = createMarkdownEditor(parent, { extensions: [slashKeymap()], pickMediaFile }).view;
+
+    insertSlashChar(view);
+    selectRootRow(5); // 图片引用
+    slashMenuApply(view);
+
+    expect(pickMediaFile).toHaveBeenCalledTimes(1);
+    resolve(file);
+    await flushMicrotasks();
+    expect(view.state.doc.toString()).toBe('![pic.png](pic.png)');
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+  });
+
+  it('applying media-ref inserts its picked file reference', async () => {
+    const file = new File(['v'], 'clip.mp4', { type: 'video/mp4' });
+    const { pickMediaFile, resolve } = deferredPicker();
+    view = createMarkdownEditor(parent, { extensions: [slashKeymap()], pickMediaFile }).view;
+
+    insertSlashChar(view);
+    selectRootRow(6); // 视频/文件
+    slashMenuApply(view);
+
+    expect(pickMediaFile).toHaveBeenCalledTimes(1);
+    resolve(file);
+    await flushMicrotasks();
+    expect(view.state.doc.toString()).toBe('![clip.mp4](clip.mp4)');
+  });
+
+  it('applying image-ref without an injected picker removes the trigger and inserts nothing', () => {
+    view = createMarkdownEditor(parent, { extensions: [slashKeymap()] }).view;
+
+    insertSlashChar(view);
+    selectRootRow(5);
+    slashMenuApply(view);
+
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+  });
+
+  it('a no-picker apply removes the typed /query (no residue)', () => {
+    view = createMarkdownEditor(parent, { extensions: [slashKeymap()] }).view;
+
+    insertSlashChar(view);
+    typeText('img');
+    expect(view.state.doc.toString()).toBe('/img');
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(1);
+
+    expect(slashMenuApply(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+  });
+
+  it('a cancelled picker (null) removes the trigger and inserts nothing', async () => {
+    const { pickMediaFile, resolve } = deferredPicker();
+    view = createMarkdownEditor(parent, { extensions: [slashKeymap()], pickMediaFile }).view;
+
+    insertSlashChar(view);
+    selectRootRow(5);
+    slashMenuApply(view);
+
+    expect(pickMediaFile).toHaveBeenCalledTimes(1);
+    resolve(null);
+    await flushMicrotasks();
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+  });
+
+  it('a cancelled picker also removes a typed /query (no residue)', async () => {
+    const { pickMediaFile, resolve } = deferredPicker();
+    view = createMarkdownEditor(parent, { extensions: [slashKeymap()], pickMediaFile }).view;
+
+    insertSlashChar(view);
+    typeText('v');
+    expect(view.state.doc.toString()).toBe('/v');
+    expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(1);
+
+    expect(slashMenuApply(view)).toBe(true);
+    resolve(null);
+    await flushMicrotasks();
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull();
+  });
+
+  it('an anchored (table cell) apply inserts at the anchor even when the caret precedes it', async () => {
+    const file = new File(['x'], 'pic.png', { type: 'image/png' });
+    const { pickMediaFile, resolve } = deferredPicker();
+    view = createMarkdownEditor(parent, { extensions: [slashKeymap()], pickMediaFile }).view;
+
+    view.dispatch({ changes: { from: 0, insert: 'abcdef' } });
+    // Caret deliberately before the anchor: a cell menu opens by hovering a
+    // handle, so the insert must be position-based, not caret-based.
+    view.dispatch({ selection: { anchor: 0 } });
+    openInsertMenu(view, 2, defaultCommands, { from: 2, to: 2 });
+    selectRootRow(5);
+    slashMenuApply(view);
+
+    resolve(file);
+    await flushMicrotasks();
+    expect(view.state.doc.toString()).toBe('ab![pic.png](pic.png)cdef');
+  });
+
+  it('a below (block handle) apply inserts the reference on a new line at the block end', async () => {
+    const file = new File(['x'], 'pic.png', { type: 'image/png' });
+    const { pickMediaFile, resolve } = deferredPicker();
+    view = createMarkdownEditor(parent, { extensions: [slashKeymap()], pickMediaFile }).view;
+
+    view.dispatch({ changes: { from: 0, insert: 'abc' } });
+    openInsertMenu(view, 3, defaultCommands, { from: 3, to: 3 }, 'below');
+    selectRootRow(5);
+    slashMenuApply(view);
+
+    resolve(file);
+    await flushMicrotasks();
+    expect(view.state.doc.toString()).toBe('abc\n![pic.png](pic.png)');
+  });
 });

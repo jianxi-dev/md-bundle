@@ -59,6 +59,12 @@ export interface SlashCommand {
    * no-query case). Leaf rows only; submenu openers omit it.
    */
   insert?(state: EditorState): { from: number; to: number; text: string };
+  /**
+   * When true, activating the row asks the host to pick a media file via the
+   * injected `pickMediaFile` callback instead of inserting static text. The
+   * picked file's name becomes an editable `![name](name.ext)` reference.
+   */
+  pickMedia?: boolean;
 }
 
 function headingLevel(level: 1 | 2 | 3 | 4 | 5 | 6): SlashCommand {
@@ -185,14 +191,7 @@ export const defaultCommands: SlashCommand[] = [
     code: 'p',
     aliases: ['img'],
     group: '常用',
-    insert(state) {
-      const head = state.selection.main.head;
-      return {
-        from: head - 1,
-        to: head,
-        text: '![](https://example.com/image.png)',
-      };
-    },
+    pickMedia: true,
   },
   {
     id: 'media-ref',
@@ -201,10 +200,7 @@ export const defaultCommands: SlashCommand[] = [
     code: 'v',
     aliases: ['media'],
     group: '常用',
-    insert(state) {
-      const head = state.selection.main.head;
-      return { from: head - 1, to: head, text: '![文件](文件.pdf)' };
-    },
+    pickMedia: true,
   },
   {
     id: 'table',
@@ -360,6 +356,24 @@ interface SlashMenuState {
 }
 
 const menus = new WeakMap<EditorView, SlashMenuState>();
+
+/**
+ * Host-injected file pickers, keyed by view. The editor package never touches
+ * the DOM file input directly; the host (apps/web) registers a callback that
+ * opens a native picker and returns the chosen File (or null on cancel).
+ */
+const pickMediaFiles = new WeakMap<EditorView, () => Promise<File | null>>();
+
+/**
+ * Register a file picker for a view. Called by `createMarkdownEditor` when the
+ * host supplies `pickMediaFile` in options.
+ */
+export function registerPickMediaFile(
+  view: EditorView,
+  pickMediaFile: () => Promise<File | null>,
+): void {
+  pickMediaFiles.set(view, pickMediaFile);
+}
 
 /** Closes the menu (root panel + flyout) for `view` without touching the document. */
 /** Pointer travel from the cell handle to the menu crosses the editor, so closing
@@ -847,9 +861,76 @@ function positionMenu(
   }
 }
 
+/**
+ * Replace `[from, to]` with `text` and park the caret right after the insert.
+ * `to === from` gives a zero-width insertion at an anchor/below position.
+ */
+function replaceTrigger(view: EditorView, from: number, to: number, text: string): void {
+  view.dispatch({
+    changes: { from, to, insert: text },
+    selection: { anchor: from + text.length },
+    scrollIntoView: true,
+  });
+}
+
+/**
+ * Remove the `/query` trigger range after a media pick row is cancelled or no
+ * picker is injected. Mirrors `dismissMenu`'s slash-trigger cleanup but runs
+ * after `closeMenu` has already torn down the menu state.
+ */
+function removeSlashTrigger(view: EditorView, from: number, query: string): void {
+  const to = Math.min(from + 1 + query.length, view.state.doc.length);
+  const hasTrigger = view.state.doc.sliceString(from, from + 1) === '/';
+  if (!hasTrigger) return;
+  replaceTrigger(view, from, to, '');
+}
+
 function applyCommand(view: EditorView, cmd: SlashCommand): void {
   const state = menus.get(view);
   const trigger = state?.trigger ?? 'slash';
+  // Media pick rows delegate to the host's file picker instead of inserting
+  // static placeholder text (#389). The picked file name becomes an editable
+  // `![name](name.ext)` reference the host also imports as an asset.
+  if (cmd.pickMedia) {
+    const pickMediaFile = pickMediaFiles.get(view);
+    const anchored = trigger === 'anchor';
+    const below = trigger === 'below';
+    const head = view.state.selection.main.head;
+    const from = state ? state.slashPos : head - 1;
+    const query = state?.query ?? '';
+    // Close FIRST so the doc-change sync plugin never fights the insert we are
+    // about to dispatch once the picker resolves asynchronously.
+    closeMenu(view);
+    if (!pickMediaFile) {
+      // No host picker wired: leave no `/query` residue and insert nothing.
+      if (trigger === 'slash') removeSlashTrigger(view, from, query);
+      return;
+    }
+    // An anchored or below insert is position-based (zero-width at the anchor),
+    // so it must NOT be blocked by a caret that happens to sit before it: the
+    // table-cell menu opens by hovering a handle, never by moving the caret.
+    // Only the slash insert, which replaces `[slashPos, head]`, is caret-based.
+    if (!anchored && !below && head < from) return;
+    void pickMediaFile().then((file) => {
+      if (!file) {
+        if (trigger === 'slash') removeSlashTrigger(view, from, query);
+        return;
+      }
+      const ref = `![${file.name}](${file.name})`;
+      if (anchored) {
+        // A cell insert must stay on one line or it splits the table row.
+        replaceTrigger(view, from, from, sanitizeCellText(ref));
+        return;
+      }
+      if (below) {
+        replaceTrigger(view, from, from, `\n${ref}`);
+        return;
+      }
+      // Slash: replace `[slashPos, head]` — the `/`, plus any typed filter.
+      replaceTrigger(view, from, head, ref);
+    });
+    return;
+  }
   // Fidelity-only rows have no insert; dismiss without leaking the `/query`.
   if (!cmd.insert) {
     if (trigger === 'slash') dismissMenu(view);

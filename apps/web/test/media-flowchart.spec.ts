@@ -142,6 +142,11 @@ test('HTML 导出：产物含渲染后的 mermaid svg，且不含原始围栏', 
 // ── 5. 斜杠菜单「视频/文件」插入命令（spec scenario）────────────────────────
 
 test('斜杠菜单：应用「视频/文件」命令后源码含 ![...](...) 引用', async ({ page }) => {
+  // #389：该命令不再插入静态占位，而是弹出真实文件选择窗。Stub 掉 input.click()
+  // 以免弹出系统窗，改为直接对隐藏 input 触发 change（确定性 headless 路径）。
+  await page.addInitScript(() => {
+    HTMLInputElement.prototype.click = function () {}
+  })
   await page.goto('/')
   await page.getByTestId('file-input').setInputFiles({
     name: 'slash.md',
@@ -160,11 +165,24 @@ test('斜杠菜单：应用「视频/文件」命令后源码含 ![...](...) 引
 
   const slashMenu = page.locator('.mdb-slash-menu')
   await expect(slashMenu).toBeVisible({ timeout: 3000 })
-  await page.locator('.mdb-slash-item').filter({ hasText: '视频/文件' }).first().click()
+  // 行的 mousedown 即拆菜单，用坐标点击避开 Playwright 的 actionability 竞争。
+  const row = page
+    .locator('.mdb-slash-grid-menu .mdb-slash-item')
+    .filter({ hasText: '视频/文件' })
+    .first()
+  const box = await row.boundingBox()
+  if (!box) throw new Error('row not found: 视频/文件')
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
 
-  // 切源码态读原始文本：插入命令产出 ![文件](文件.pdf)
+  // 选择文件 → 插入 ![clip.mp4](clip.mp4)（文件同时作为资产入库）。
+  await page.locator('[data-testid="media-file-input"]').setInputFiles({
+    name: 'clip.mp4',
+    mimeType: 'video/mp4',
+    buffer: Buffer.from('fake-mp4-bytes'),
+  })
+
   await page.getByTestId('mode-source-btn').click()
-  await expect(content).toContainText('![文件](文件.pdf)')
+  await expect(content).toContainText('![clip.mp4](clip.mp4)')
   const raw = await contentText(page)
   expect(raw).toMatch(/!\[[^\]]+\]\([^)]+\)/)
 })

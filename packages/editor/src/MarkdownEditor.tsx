@@ -41,6 +41,7 @@ export function MarkdownEditor({
   decorations,
   decorationsEnabled = true,
   onMount,
+  pickMediaFile,
 }: MarkdownEditorComponentProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<MarkdownEditorHandle | null>(null);
@@ -49,9 +50,14 @@ export function MarkdownEditor({
   // genuine external change (tab switch) from a stale echo that would revert
   // the user's just-made edit (ghost content, #172).
   const lastEmittedRef = useRef<string | null>(null);
+  // Latest-callback ref: the picker closes over host state (active tab/assets),
+  // so the mount-once editor must call the CURRENT callback, not the mount-time
+  // one, or it would import into a stale tab after a tab switch.
+  const pickMediaRef = useRef(pickMediaFile);
 
   // Latest-callback ref: prop identity changes never remount the editor.
   onChangeRef.current = onChange;
+  pickMediaRef.current = pickMediaFile;
 
   // Mount once — create the editor on the host div, destroy on unmount.
   useEffect(() => {
@@ -64,6 +70,9 @@ export function MarkdownEditor({
       extensions,
       decorations,
       decorationsEnabled,
+      pickMediaFile: pickMediaFile
+        ? () => pickMediaRef.current?.() ?? Promise.resolve(null)
+        : undefined,
       onChange: (next) => {
         lastEmittedRef.current = next;
         onChangeRef.current?.(next);
