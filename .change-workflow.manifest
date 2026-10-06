@@ -1,6 +1,6 @@
 0ff2def0c7badb5921f2bf3af5bc9dc315b9c1487a4ea046c59aa6e08001c290  .opencode/skills/change-workflow/SKILL.md
 54fd315f550414c153f56b5a08bf9e904de28a3714a278cafb712d55e52b5d41  .opencode/skills/change-workflow/agents-quick-reference.md
-8d556a7f53b2a18bd519570364375c81184f37f3bdbcbf6debddcaf1268f4887  scripts/pr-automation.sh
+4bdfdb86e648db770b095659eb0a0026b808d66e08794437cec6294751036960  scripts/pr-automation.sh
 86fa9d89189e1c8d2a7dc8939950ef66ba954a2a477e5038ba402f119aca9e23  scripts/cw-update.sh
 038d909cd51ad27a040bdc12688a9b52f1ef63dd866be00dbf2f2f9f1c8d3df4  .github/workflows/change-closure-signal.yml
 217dea4e74582ada4af22e34593cec747da717e873778bfb7d3bd2ecf2f4eb2d  .github/workflows/evidence-check.yml
