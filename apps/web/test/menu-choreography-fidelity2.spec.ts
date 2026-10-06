@@ -116,11 +116,13 @@ test('R-CHOREO-01b 在下方添加› 插入面板同属合并栈：移入面板
   const slashMenu = page.locator('.mdb-slash-menu')
   await expect(slashMenu).toBeVisible()
 
-  // 把指针移到插入面板上：面板属于同一合并栈，块菜单/手柄不应被拆掉。
+  // 把指针移到插入面板上：面板取代块菜单（#387 同一时刻仅一层菜单），手柄保留
+  // （仍是同一合并栈），面板不因移入而关闭。
   const sb = await boxOf(slashMenu)
   await page.mouse.move(sb.x + sb.width / 2, sb.y + 20)
   await settle(page)
-  await expect(menu).toHaveCSS('display', 'block')
+  await expect(slashMenu).toBeVisible()
+  await expect(menu).toHaveCSS('display', 'none')
   await expect(handle).toHaveCSS('display', 'flex')
 
   // 移出整个栈（块手柄 + 菜单 + 插入面板）：块 chrome 与插入面板一并消失。

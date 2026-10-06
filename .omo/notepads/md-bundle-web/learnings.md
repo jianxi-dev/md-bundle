@@ -335,3 +335,81 @@
 - **GH Pages workflow** (`.github/workflows/pages.yml`): checkout → pnpm/action-setup v4 → setup-node 22 (pnpm cache) → `pnpm install --frozen-lockfile` → `pnpm --filter @md-bundle/web build` → configure-pages@v5 → upload-pages-artifact@v3 (path apps/web/dist) → deploy-pages@v4. Permissions pages:write + id-token:write at workflow level; concurrency group `pages` cancel-in-progress; environment github-pages with page_url output.
 - **What stays absolute**: test-file fetches (`/robots.txt`, `/sitemap.xml`, `/og-banner.png` in seo specs) run against dev server root — not runtime app paths, untouched. smoke-prod.spec.ts root-style paths are for the eventual bundle.jianxi.me (orchestrator runs GH-Pages interim smoke as ops script).
 - **Verification**: dist/index.html `src="./assets/..."` + `href="./assets/..."`; spec/about zero `href="/` (grep -c = 0); editor 59 + web 181 unit; root build green; e2e 49/49 (18.1s). Evidence restored via exact-path git restore (15 files).
+
+## [2026-10-06] #389 媒体插入：#409 合并（委派 3 次才成）
+
+**票**：#389 斜杠「图片引用」「视频/文件」与表格单元格菜单的同类行 → 从「插静态占位」改为「弹真实文件选择窗 + 以 `![name](name.ext)` 引用插入 + 文件入库」。
+
+**委派教训（重要）**：
+- **`unspecified-high`（LongCat-2.5-Preview）不适合本类任务**：两次委派均**灾难性复读**（第二次输出 79KB 同一段内心独白），且交付**不自洽**——声称「908 全绿」实测 `pnpm -r test` exit 1；第一次甚至漏了 apps/web 接线（真机仍无动作）。
+- **换 `deep`（deepseek-flash）一次成功**：它定位到 LongCat 漏掉的真正断点——`MarkdownEditor.tsx` **没把 `pickMediaFile` 转发**给 `createMarkdownEditor`（React wrapper 丢参），并修了异步测试泄漏 jsdom `measureTextSize` rAF 的 exit-1 问题。
+- **结论**：长推理/收尾型任务优先 `deep`；避 LongCat。
+
+**方案要点**（可复用）：
+- 编辑器库不碰 DOM：`MarkdownEditorOptions.pickMediaFile?: () => Promise<File|null>` 注入缝，`MarkdownEditor.tsx` 以 **latest-ref** 转发（防切页签导入到陈旧 tab）。
+- `SlashCommand.pickMedia` 行 + `applyCommand` 分支覆盖 **slash / anchor（表格单元格）/ below** 三种触发；取消或无 picker 时必须清 `/query`（否则触发符残留）。
+- apps/web 用**单一隐藏 input**：选择→change、取消→原生 `cancel` 事件（React 18 input 无 `onCancel`）两条路径都要结算 Promise；超限文件不入库则不插引用。
+
+**又一次踩到 `github.com:443` 路由中断**（DNS 返回被墙 IP）：`api.github.com`/`gh` 可用 → 走 **Git Data API**（blobs→tree→commit→`POST git/refs` 建分支）发新分支，再 `gh pr create`。注意 `cw-evidence.sh record-state` 的 `--screenshot` 是 **CWD 相对路径**（不是相对 `--dir`）。
+
+**证据纪律**：ui-surface 票（diff 命中 `*.tsx`）PR 必须有 `.artifacts/<票号>/state-coverage.json`（≥4 态）。#389 录 5 态，evidence-check 一次通过。
+
+## [2026-10-06] #385 表格边界热点：#410 合并（deep 一次成）
+
+**票**：编辑态表格 3 缺陷——(a) 悬停表格所有边界 `＋` 同亮；(b) 末列手柄误弹插入菜单；(c) 插入行/列卡顿。
+
+**修复模式（可复用）**：
+- **(a) 边界级门控**：删掉 wrap 级 `.cm-table-hovering`，改 `wireBoundaryReveal`——wrap `mousemove`（rAF 合并）+ 一次容器 rect 读取 + 用各边界的内联 `style.left/top` 算距离，只揭示最近的行/列热点（阈值 8px）。
+- **(b) 手柄开菜单从 `mouseenter` 改 `mousedown`**；关键根因是 `BlockHandlePlugin.dismiss` **无条件** `releaseInsertMenu(view)` 会误杀表格的 `anchor` 菜单 → 给 `releaseInsertMenu(view, only?)` 加 trigger 过滤（块手柄只释放 `below`）。
+- **(c) 去抖动**：`renderBoundaries` 先批量读坐标再建 DOM；`addColumn/addRow` 复用已解析 block（去第二次全文档 `findTables`）。
+- **CM6 关键点**：`eq()` 返回 **false** 时，CM6 `findWidget` 的**第二遍**会调 `widget.updateDOM(oldDom, view, oldWidget)`（constructor 相同即复用 DOM）——所以「eq false + updateDOM 原位 reconcile」是**有效路径**，不是死代码（源码 `@codemirror/view` findWidget 第二遍）。
+
+**委派**：继续用 `deep`(deepseek-flash)（避 LongCat），一次成，且**主动更正了票面 (b) 的根因描述**（票面误把两个机制合成一条）——这正是 DQ-2 的价值。
+
+**环境**：`github.com:443` 再次中断 → 继续走 Git Data API 发分支/PR。
+
+## [2026-10-06] #392 表格标题行/列：#411 合并（deep 更正票面根因）
+
+**票面假设错误 → 实测更正**：票面以为「块手柄菜单正常，用户入口是另一个菜单」。真相：**编辑器 markdown 语言是 CommonMark**（未装 GFM 表格扩展），Lezer 树**从不产生 `Table` 节点** → 表格以 `paragraph` 进 block model → `block-handle.ts` 的 `setTableContext(block.type === 'table')` **恒 false** → 标题行/标题列 **永远 display:none**。真入口 = 块手柄（gutter handle）。修法：`isTableBlock(blockText)` 按源码判定 + `handleTableAction` 用**菜单所属块**（原实现从光标重取，光标不在表格即失效）。
+
+**通用教训**：本仓编辑器 markdown 语法是 CommonMark，**任何依赖 Lezer `Table` 节点的逻辑都不可靠**——表格识别必须走源码（`isTableLine`/`isTableBlock` 模式）。
+
+**行为坑（已在 PR 标注）**：「标题行」OFF = 移除分隔行；因 `findTables` 要求分隔行，OFF 后该块不再是表格（需手动补回）。保留原（此前不可达的）语义，若需不同语义另开票。
+
+**环境**：`github.com:443` 仍间歇中断 → 继续 Git Data API 发分支/PR（第 3 次）。
+
+## [2026-10-06] #390 并发会话处置
+`#390-hover-submenu` 的并发 opencode 会话**已自行退出**（`ps`+`lsof` 核实：worktree cwd 的 opencode 只有本会话）；残留 = 主工作树停在 `fix/390-hover-submenu` + 未提交 WIP + 一个陈旧 vite dev server。处置：停 dev server；WIP 落为 commit `fef0f4b`（+ 既有 `stash@{0}`）；主工作树切回 `main`。
+
+## [2026-10-06] #390 快捷键/滑入：#412 合并
+**票据**：插入菜单/Ctrl+K 面板缺产品快捷键 + 选区/Ctrl+K 二级菜单需点击而非滑入。
+**真相**：`openspec/specs/editor-shortcuts/spec.md` 是权威——绑定对齐（正文 Alt-0、引用 ⇧.、代码块 ⇧C、下划线 U、删除线 ⇧x→⇧s、链接 Mod-l→⇧L、列表 ⇧7 有序/⇧8 无序/⇧9 任务）；斜杠菜单行**显示产品 chord 而非 markdown 触发符**；工具栏二级菜单从 `mousedown` 改 `mouseenter`（带 openedByHover 守卫，先 hover 再点不误关）+ Esc。
+**教训**：`EDITOR_KEYBINDINGS`/`commands.keyBinding`/斜杠菜单显示三处必须同步；spec 自身有**不一致**（标题 Requirement=Alt-1 但 scenario 写 ⇧7；颜色 ⇧H 无命令）——按 Requirement 为绑定权威、显示实际 chord，并把缺口显式记录，不静默取舍。**不造死绑定**（无命令不绑）。
+
+## [2026-10-06] #382 容器内列表：#413 合并
+引用块/高亮块内列表编辑态不渲染。根因：list.ts 行首正则不含 `> ` 前缀；callout 正文 `textContent` 纯文本。修法：`classifyListLine` 剥离 `(?:>[ \t]?)+` 统一分类 + `createContentLineElement()` 作 widget 内的 DOM 孪生（widget 承载不了 CM6 装饰）。票面「预览态整块异常」未复现→移出范围。
+
+## [2026-10-06] #387 二级菜单栈语义（red→green）
+
+**票面 6 条根因**（全部独立复核）：
+1. `slash.ts` root-row `mouseenter` 无 else → 无二级行时旧 flyout/grid 残留。
+2. `enterSubmenu`（`state.grid` 守卫）→ 网格打开后悬停另一二级行是 no-op；`slashMenuSubmenuEnter` 同守卫。
+3. `block-handle-dom.ts showFlyout` 空 options 分支在 `hideFlyout()` 之前 return → 旧 flyout 残留（`insert-menu` 行 options 为空）。
+4. `block-handle.ts onMenuHoverInsert` 不隐藏 chrome menu → `.mdb-block-handle-menu` 与 `.mdb-slash-menu` 并存重叠。
+5. 定位夹取用 `window.innerWidth`（视口）而非裁剪祖先（workspace-modes `overflow-hidden`）→ 靠右菜单被面板右缘截断。
+6. `onMouseMove` 沟槽只容横向 `[handle.right, +GUTTER_GAP)`；菜单翻到锚点上方时跨竖直间隙 → dismiss。
+
+**修法（可复用）**：
+- 新增 `collapseSecondLevel(state)`（closeFlyout + grid=null）；mouseenter 无二级分支调用；`enterSubmenu` 先 collapse 再开 flyout ⇒ 同一时刻只有一层。`slashMenuSubmenuEnter` 去掉 `state.grid` 守卫。
+- `showFlyout` 空 options 先 `hideFlyout()` 再 return；`onMenuOver` 无 `[data-flyout]` 命中且 target 在 menu 内 → `hideFlyout()`。
+- `onMenuHoverInsert` 打开插入面板后 `this.chrome.hideMenu()`；`onMouseMove` 把 `view.dom.querySelector('.mdb-slash-menu')` 计入「栈已打开」，并以 handle+menu 并集矩形（±GUTTER_GAP）作桥（既修翻转竖直间隙，又保留 U-07 离栈即收）。
+- **裁剪祖先定位**：横向夹取改 `rect.right`（slash positionMenu/positionFlyout）与 `r.right`（block-handle positionMenu）；竖直仍留视口（保住 R-CHOREO-02 视口内断言）。
+
+**e2e 复现关键（#387 专用，别丢）**：
+- DEF5「靠右菜单不截断」：宽视口 + **展开左栏**（`left-rail-toggle`）后编辑面板收缩、编辑器填满面板（右缘 == 面板右缘）；靠右落光标后 menu.right 达 1660 > 面板 1575 被 `overflow:hidden` 截断。左栏收起时编辑器两侧各 ~115px 内边距，菜单永远够不到面板右缘——**不展开左栏不可复现**。
+- DEF5 落光标：长段落首行点 `content.x + content.width - 150`（再 -40 会落到行外、CM6 映射回行首）。
+- DEF6「翻转上方」：viewport 900 + 长文档滚到底，最后可见块手柄贴底 → 菜单翻到锚点上方并留 8px 竖直间隙；用间隙中点穿越验证。
+
+**既有 spec 更新**：`menu-choreography-fidelity2.spec.ts` R-CHOREO-01b 原断言「插入面板打开时块菜单仍 `display:block`」= 旧的并存行为 → 改为 `slashMenu` 可见 + 块菜单 `display:none` + 手柄 `display:flex`（更强，非削弱）。
+
+**证据**：red 6/6 → green 6/6；typecheck 0 / lint 0（3 warning）/ 单测 editor 949 + web 416 / 全量 e2e 515 passed, 53 skipped, 0 failed（两条已知 flaky 本次未复现）。

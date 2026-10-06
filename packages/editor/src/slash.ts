@@ -639,7 +639,14 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
         enterGrid(view, cmd, cell);
         return;
       }
-      if (cmd.children?.length) enterSubmenu(view, cmd);
+      if (cmd.children?.length) {
+        enterSubmenu(view, cmd);
+        return;
+      }
+      // A row with no second level must collapse whatever panel the previous
+      // row opened, or that panel lingers beside this row (#387). Exactly one
+      // second-level layer exists at a time.
+      collapseSecondLevel(state);
     });
 
     cell.addEventListener('mousedown', (e) => {
@@ -865,11 +872,11 @@ export function releaseInsertMenu(
 }
 
 /**
- * Place the menu at the cursor, clamping its right/bottom edges into the
- * viewport and capping its height so long or second-level menus scroll instead
- * of overflowing (#250). coordsAtPos is viewport-relative but the menu is a
- * child of view.dom, so the editor origin is subtracted (issue #203). jsdom has
- * no layout; the try/catch leaves the menu at 0,0 there.
+ * Place the menu at the cursor, clamping its right edge into the editor pane
+ * (and its bottom into the viewport, capping height) so long or second-level
+ * menus scroll instead of overflowing (#250). coordsAtPos is viewport-relative
+ * but the menu is a child of view.dom, so the editor origin is subtracted
+ * (issue #203). jsdom has no layout; the try/catch leaves the menu at 0,0 there.
  */
 function positionMenu(
   view: EditorView,
@@ -882,13 +889,16 @@ function positionMenu(
     if (!coords) return;
     const rect = view.dom.getBoundingClientRect();
     const menuRect = menu.getBoundingClientRect();
-    const viewportW = window.innerWidth;
     const viewportH = window.innerHeight;
 
     let leftV = coords.left;
     let topV = coords.bottom + 4;
-    if (leftV + menuRect.width > viewportW - 8) {
-      leftV = Math.max(8, viewportW - 8 - menuRect.width);
+    // Horizontal clamp targets the editor box, not the viewport: the menu is an
+    // absolutely positioned child of `view.dom`, whose host pane clips with
+    // overflow:hidden. Clamping to the viewport would leave the panel cut off
+    // at the pane's right edge even though it is inside the window (#387).
+    if (leftV + menuRect.width > rect.right - 8) {
+      leftV = Math.max(rect.left + 8, rect.right - 8 - menuRect.width);
     }
     // Prefer opening under the cursor and scrolling when the list is tall;
     // only flip above the cursor when there is no usable room below. A flip is
@@ -1042,7 +1052,11 @@ function activateRow(view: EditorView, cmd: SlashCommand): void {
 /** Open a row's second-level flyout beside its cell; the root grid stays put. */
 function enterSubmenu(view: EditorView, cmd: SlashCommand): void {
   const state = menus.get(view);
-  if (!state?.open || !state.dom || state.grid || !cmd.children?.length) return;
+  if (!state?.open || !state.dom || !cmd.children?.length) return;
+  // A grid picker is a second-level layer too: collapse it before showing this
+  // row's flyout, mirroring the ArrowLeft/backToRoot path (#387). Otherwise a
+  // second-level row hovered while the grid is open would be a silent no-op.
+  collapseSecondLevel(state);
   state.submenuParent = cmd;
   state.flyoutRows = cmd.children;
   state.flyoutSelected = 0;
@@ -1093,6 +1107,17 @@ function closeFlyout(state: SlashMenuState): void {
   state.flyoutRows = [];
   state.flyoutSelected = 0;
   state.parentCell = null;
+}
+
+/**
+ * Tear down whichever second-level layer is open (row flyout or grid picker)
+ * while keeping the root list mounted. Shared by the hover path so a row
+ * without a second level, or a different second-level row, never leaves the
+ * previous panel behind (#387).
+ */
+function collapseSecondLevel(state: SlashMenuState): void {
+  closeFlyout(state);
+  state.grid = null;
 }
 
 /** Render the flyout rows, marking the keyboard selection. */
@@ -1182,9 +1207,10 @@ function highlightFlyout(state: SlashMenuState): void {
 }
 
 /**
- * Place the flyout beside its parent cell, flipping to the cell's left and
- * clamping top/bottom when the viewport edge is reached. Same coordinate
- * recipe as `positionMenu` (viewport coords minus the editor origin).
+ * Place the flyout beside its parent cell, flipping to the cell's left at the
+ * editor pane's right edge and clamping top/bottom when the viewport bottom is
+ * reached. Same coordinate recipe as `positionMenu` (viewport coords minus the
+ * editor origin).
  */
 function positionFlyout(view: EditorView, state: SlashMenuState): void {
   const flyout = state.flyoutDom;
@@ -1194,12 +1220,11 @@ function positionFlyout(view: EditorView, state: SlashMenuState): void {
     const cellRect = anchor.getBoundingClientRect();
     const editorRect = view.dom.getBoundingClientRect();
     const flyoutRect = flyout.getBoundingClientRect();
-    const viewportW = window.innerWidth;
     const viewportH = window.innerHeight;
 
     let leftV = cellRect.right + 4;
-    if (leftV + flyoutRect.width > viewportW - 8) {
-      leftV = Math.max(8, cellRect.left - flyoutRect.width - 4);
+    if (leftV + flyoutRect.width > editorRect.right - 8) {
+      leftV = Math.max(editorRect.left + 8, cellRect.left - flyoutRect.width - 4);
     }
     let topV = cellRect.top;
     if (topV + flyoutRect.height > viewportH - 8) {
@@ -1382,12 +1407,14 @@ export function slashMenuApply(view: EditorView): boolean {
 /** ArrowRight: open the selected row's flyout when it has children. */
 export function slashMenuSubmenuEnter(view: EditorView): boolean {
   const state = menus.get(view);
-  if (!state?.open || !state.dom || state.grid || isFlyoutOpen(state)) return false;
+  if (!state?.open || !state.dom || isFlyoutOpen(state)) return false;
   const cmd = state.rows[state.selected];
   if (cmd?.grid) {
     openGrid(view, cmd);
     return true;
   }
+  // `enterSubmenu` collapses an open grid first (#387), so ArrowRight from a
+  // grid row whose sibling has children swaps to that flyout instead of no-op.
   if (!cmd?.children?.length) return false;
   enterSubmenu(view, cmd);
   return true;

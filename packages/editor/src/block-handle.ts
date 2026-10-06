@@ -401,8 +401,10 @@ class BlockHandlePlugin {
     }
 
     // Horizontal flip: prefer the right of the handle, mirror to its left when
-    // the menu would cross the viewport's right edge.
-    if (r.left + left + menuWidth > window.innerWidth - MENU_VIEWPORT_MARGIN) {
+    // the menu would cross the editor pane's right edge. Clamp to `r.right`
+    // (view.dom), not the viewport: the menu is absolutely positioned inside
+    // view.dom and the host pane clips with overflow:hidden (#387).
+    if (r.left + left + menuWidth > r.right - MENU_VIEWPORT_MARGIN) {
       left = handleRect.left - r.left - GUTTER_GAP - menuWidth
     }
 
@@ -439,13 +441,36 @@ class BlockHandlePlugin {
       return
     }
 
-    const menuOpen = this.chrome.isMenuOpen()
-    if (menuOpen) {
+    // The shared insert panel (在下方添加›) lives on view.dom, not in
+    // `chrome.menu`, and the chrome menu is hidden while it is open. Count it as
+    // the open stack so the merged handle+panel dismissal still applies (#387).
+    const menuEl = this.chrome.isMenuOpen()
+      ? this.chrome.menu
+      : this.view.dom.querySelector<HTMLElement>('.mdb-slash-menu')
+    if (menuEl) {
       // The corridor between handle and menu is gutter, not content, so
       // posAtCoords has no meaningful answer there. Dim to mark the crossing
       // while keeping the menu reachable.
       const handleRect = this.chrome.handle.getBoundingClientRect()
       if (event.clientX >= handleRect.right && event.clientX < handleRect.right + GUTTER_GAP) {
+        this.chrome.setDimmed(true)
+        return
+      }
+      // A menu flipped above (or below) the anchor leaves a vertical gap the
+      // horizontal corridor does not cover, so travelling from the handle into
+      // the panel would otherwise dismiss it (#387). Keep the stack alive inside
+      // the handle+menu bounding box (plus the gutter).
+      const menuRect = menuEl.getBoundingClientRect()
+      const bridgeLeft = Math.min(handleRect.left, menuRect.left) - GUTTER_GAP
+      const bridgeRight = Math.max(handleRect.right, menuRect.right) + GUTTER_GAP
+      const bridgeTop = Math.min(handleRect.top, menuRect.top) - GUTTER_GAP
+      const bridgeBottom = Math.max(handleRect.bottom, menuRect.bottom) + GUTTER_GAP
+      if (
+        event.clientX >= bridgeLeft &&
+        event.clientX <= bridgeRight &&
+        event.clientY >= bridgeTop &&
+        event.clientY <= bridgeBottom
+      ) {
         this.chrome.setDimmed(true)
         return
       }
@@ -665,6 +690,10 @@ class BlockHandlePlugin {
     if (!block) return
     if (this.view.dom.querySelector('.mdb-slash-menu')) return
     openInsertMenu(this.view, block.to, defaultCommands, { from: block.to, to: block.to }, 'below')
+    // The insert menu replaces the block-handle menu, so hide the chrome menu
+    // rather than letting the two panels coexist and overlap (#387). The handle
+    // stays visible; `onMouseMove` treats the open insert panel as the stack.
+    this.chrome.hideMenu()
   }
 
   /**
