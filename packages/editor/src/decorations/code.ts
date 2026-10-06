@@ -170,6 +170,13 @@ export function createCodeDecorations(
   }
 
   // --- Fenced code block decorations ---
+  // Line-start offsets for the whole doc, used to paint every line of a
+  // fenced block below.
+  const lineStarts: number[] = [0];
+  for (let i = 0; i < text.length; i += 1) {
+    if (text.charCodeAt(i) === 10) lineStarts.push(i + 1);
+  }
+
   for (const block of parseFencedBlocks(text)) {
     // Mermaid blocks are replaced wholesale by the mermaid decoration; a fence
     // replace here would overlap that block replace, which CM6 rejects.
@@ -190,14 +197,20 @@ export function createCodeDecorations(
       );
     }
 
-    // Mark the opening line so theme can style the block surface.
-    decorations.push(
-      Decoration.line({
-        class: isActive
-          ? `${FENCED_CODE_CLASS} cm-block-active`
-          : `${FENCED_CODE_CLASS} cm-block-inactive`,
-      }).range(block.openStart),
-    );
+    // Mark every line of the block — opening fence through closing fence —
+    // so the theme paints one rounded container around the whole code block
+    // instead of only the language line (#377).
+    for (const start of lineStarts) {
+      if (start < block.openStart) continue;
+      if (start > block.closeStart) break;
+      decorations.push(
+        Decoration.line({
+          class: isActive
+            ? `${FENCED_CODE_CLASS} cm-block-active`
+            : `${FENCED_CODE_CLASS} cm-block-inactive`,
+        }).range(start),
+      );
+    }
 
     // Inactive: replace the opener (fence + info string) and the closer so the
     // block reads as clean code. Active: emit no replace, keeping the raw source
