@@ -151,8 +151,33 @@ describe('renderCellText', () => {
   });
 
   it('escapes HTML in text content', () => {
-    expect(renderCellText('<script>alert(1)</script>')).toBe('<script>alert(1)</script>');
-    expect(renderCellText('**<b>bold</b>**')).toBe('<strong><b>bold</b></strong>');
+    expect(renderCellText('<script>alert(1)</script>')).toBe('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(renderCellText('<img src=x onerror=alert(1)>')).toBe('&lt;img src=x onerror=alert(1)&gt;');
+    expect(renderCellText('**<b>bold</b>**')).toBe('<strong>&lt;b&gt;bold&lt;/b&gt;</strong>');
+  });
+
+  it('does not execute XSS payloads - no script/img elements in output', () => {
+    const scriptResult = renderCellText('<script>alert(1)</script>');
+    const imgResult = renderCellText('<img src=x onerror=alert(1)>');
+    const svgResult = renderCellText('<svg onload=alert(1)>');
+    
+    expect(scriptResult).not.toContain('<script>');
+    expect(imgResult).not.toContain('<img');
+    expect(svgResult).not.toContain('<svg');
+  });
+
+  it('neutralizes attribute injection via quote in link URL', () => {
+    const result = renderCellText('[x](a"onmouseover="alert(1))');
+    expect(result).not.toContain('onmouseover="');
+    expect(result).toContain('&quot;');
+  });
+
+  it('still renders markdown syntax after escaping', () => {
+    expect(renderCellText('**bold**')).toBe('<strong>bold</strong>');
+    expect(renderCellText('*italic*')).toBe('<em>italic</em>');
+    expect(renderCellText('`code`')).toBe('<code>code</code>');
+    expect(renderCellText('~~strike~~')).toBe('<del>strike</del>');
+    expect(renderCellText('[link](https://example.com)')).toBe('<a href="https://example.com" target="_blank" rel="noopener noreferrer">link</a>');
   });
 
   it('extracts inner text from background span wrapper', () => {
