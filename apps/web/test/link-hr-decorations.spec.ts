@@ -180,6 +180,32 @@ test.describe('edit-mode thematic break (hr) decoration (#379)', () => {
   })
 })
 
+test.describe('thematic break CommonMark edge cases (#379)', () => {
+  const EDGE_DOC = `Intro paragraph.
+
+----
+
+Not a rule (mixed characters):
+
+-*-
+
+End.
+`
+
+  test('4+ repeats render as a rule; mixed characters stay raw', async ({ page }) => {
+    await openEditor(page, EDGE_DOC)
+
+    // Park the cursor on the last line so every rule block is inactive
+    await page.locator('.cm-content .cm-line').filter({ hasText: 'End.' }).first().click()
+    await settle(page)
+
+    // `----` (4+ repeats) is a CommonMark thematic break → exactly one rule
+    await expect(page.locator('.cm-content .cm-thematic-break')).toHaveCount(1)
+    // mixed `-*-` is not a valid thematic break → source stays visible
+    await expect(page.locator('.cm-content').first()).toContainText('-*-')
+  })
+})
+
 test.describe('mixed document: no console errors (#379)', () => {
   test('no CM6 overlapping decoration errors in console', async ({ page }) => {
     const errors: string[] = []

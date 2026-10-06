@@ -13,10 +13,13 @@ import { Decoration, WidgetType } from '@codemirror/view';
 const HR_CLASS = 'cm-thematic-break';
 
 /**
- * Matches thematic breaks: ---, ***, ___ (with optional spaces)
- * Must be on its own line (CommonMark spec).
+ * Matches thematic breaks (CommonMark §4.1): 0-3 leading spaces, then three or
+ * more of the SAME character (-, *, _), each optionally followed by spaces/tabs.
+ * Requires the same character so mixed runs like `-*-` are not rules; allows
+ * 4+ and spaced forms like `----` / `- - -` that a fixed-three pattern misses.
+ * Must be on its own line.
  */
-const hrRegex = /^( {0,3})([-*_])([-*_])([-*_])[ \t]*$/m;
+const hrRegex = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
 /**
  * Empty widget that replaces the hr markers but keeps the line editable.
