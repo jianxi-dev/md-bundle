@@ -259,168 +259,217 @@ const CALLOUT_LABELS: Record<string, string> = {
   cite: '引述',
 };
 
+// Marker comment inserted before each detected opener so the multi-opener split
+// can follow the ORIGINAL DOM nodes instead of a flattened text stream.
+const CALLOUT_OPENER_MARKER = 'callout-opener-marker';
+
+function isCalloutOpenerMarker(node: Node): boolean {
+  return (
+    node.nodeType === Node.COMMENT_NODE &&
+    (node as Comment).data === CALLOUT_OPENER_MARKER
+  );
+}
+
+/**
+ * Count `[!TYPE]` openers that begin a text line inside the blockquote. Reads
+ * text nodes directly (never the concatenated textContent) so an opener that
+ * starts a fresh block after a list is still recognised, and so detection is a
+ * pure read — no DOM mutation leaks into the single-callout path.
+ */
+function countCalloutOpeners(bq: Element, doc: Document): number {
+  const re = /(^|\n)[ \t]*\[!\s*([^\]\r\n]+?)\s*\]([+-]?)/g;
+  const walker = doc.createTreeWalker(bq, NodeFilter.SHOW_TEXT);
+  let count = 0;
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    const src = (node as Text).nodeValue ?? '';
+    if (!src.includes('[!')) continue;
+    re.lastIndex = 0;
+    while (re.exec(src) !== null) count += 1;
+  }
+  return count;
+}
+
+/**
+ * Split every text node that holds an opener so each opener starts a fresh text
+ * node, then insert a marker comment immediately before it. Openers are marked
+ * in document order; the caller segments by walking the marker comments.
+ */
+function markCalloutOpeners(bq: Element, doc: Document): void {
+  const re = /(^|\n)[ \t]*\[!\s*([^\]\r\n]+?)\s*\]([+-]?)/g;
+  const walker = doc.createTreeWalker(bq, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  let node: Node | null;
+  while ((node = walker.nextNode())) textNodes.push(node as Text);
+
+  for (const text of textNodes) {
+    const src = text.nodeValue ?? '';
+    if (!src.includes('[!')) continue;
+    re.lastIndex = 0;
+    const offsets: number[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(src)) !== null) {
+      offsets.push(match.index + match[0].indexOf('[!'));
+    }
+    if (offsets.length === 0) continue;
+
+    // Split left-to-right; `current` always starts at the previous opener, so
+    // the next split offset is relative to it.
+    let current = text;
+    let consumed = 0;
+    for (const offset of offsets) {
+      const relative = offset - consumed;
+      if (relative > 0) current = current.splitText(relative);
+      current.parentNode?.insertBefore(doc.createComment(CALLOUT_OPENER_MARKER), current);
+      consumed = offset;
+    }
+  }
+}
+
+/**
+ * Split any element that directly contains an opener marker into sibling copies
+ * of itself, one per marker-delimited run. Runs keep their ORIGINAL nodes (only
+ * the wrapper element is cloned), and markers surface as direct children of the
+ * blockquote so segmentation can assign every node to exactly one segment.
+ */
+function splitMarkedElements(container: Element, doc: Document): void {
+  for (const child of Array.from(container.children)) {
+    splitMarkedElements(child, doc);
+  }
+  const hasMarker = Array.from(container.childNodes).some(isCalloutOpenerMarker);
+  if (!hasMarker) return;
+  const parent = container.parentNode;
+  if (!parent) return;
+
+  const tag = container.tagName;
+  const pieces: Node[] = [];
+  let run: Node[] = [];
+  const flushRun = (): void => {
+    if (run.length === 0) return;
+    const clone = doc.createElement(tag);
+    for (const attr of Array.from(container.attributes)) {
+      clone.setAttribute(attr.name, attr.value);
+    }
+    for (const n of run) clone.appendChild(n);
+    pieces.push(clone);
+    run = [];
+  };
+
+  for (const n of Array.from(container.childNodes)) {
+    if (isCalloutOpenerMarker(n)) {
+      flushRun();
+      pieces.push(n);
+    } else {
+      run.push(n);
+    }
+  }
+  flushRun();
+
+  for (const piece of pieces) parent.insertBefore(piece, container);
+  parent.removeChild(container);
+}
+
+/**
+ * Build one callout element from a blockquote whose first element child's
+ * innerHTML begins with a `[!TYPE]` head. Serializes the ORIGINAL child nodes
+ * (innerHTML / outerHTML), so inline structure — <strong>, <a>, <code> — and
+ * following blocks (lists) survive into the callout body. Returns null when the
+ * head does not match.
+ */
+function buildCallout(bq: Element, doc: Document): Element | null {
+  const first = bq.firstElementChild;
+  if (!first) return null;
+  // First child node index may not be 0 (preceding whitespace text nodes),
+  // so slice from the actual first element's index onward.
+  const children = Array.from(bq.childNodes);
+  const after = children.slice(children.indexOf(first) + 1);
+
+  const m = CALLOUT_HEAD.exec(first.innerHTML);
+  if (!m) return null;
+
+  const type = m[1].toLowerCase();
+  const fold = m[2];
+  const rest = first.innerHTML.slice(m[0].length);
+
+  // Title goes to the first <br> or newline; remainder is body.
+  const sep = /<br\s*\/?>|\n/.exec(rest);
+  const at = sep ? sep.index : -1;
+  const titleHtml = (at >= 0 ? rest.slice(0, at) : rest).trim();
+  let bodyHtml = sep ? rest.slice(sep.index + sep[0].length) : '';
+
+  after.forEach((n) => {
+    bodyHtml += (n as Element).outerHTML ?? n.textContent ?? '';
+  });
+
+  const label = CALLOUT_LABELS[type] ?? type;
+  const title = titleHtml || label;
+
+  const el = doc.createElement(fold ? 'details' : 'div');
+  el.className = 'callout';
+  el.setAttribute('data-callout', type);
+  if (fold === '+') el.setAttribute('open', '');
+
+  const titleEl = doc.createElement(fold ? 'summary' : 'div');
+  if (!fold) titleEl.className = 'callout-title';
+
+  const typeEntry = CALLOUT_TYPE_MAP[type];
+  if (typeEntry) {
+    const iconSpan = doc.createElement('span');
+    iconSpan.className = 'callout-icon';
+    iconSpan.textContent = typeEntry.icon;
+    titleEl.appendChild(iconSpan);
+  }
+
+  const titleText = doc.createElement('span');
+  titleText.textContent = title;
+  titleEl.appendChild(titleText);
+  el.appendChild(titleEl);
+
+  if (bodyHtml) {
+    const wrap = doc.createElement('div');
+    wrap.innerHTML = bodyHtml;
+    while (wrap.firstChild) el.appendChild(wrap.firstChild);
+  }
+
+  return el;
+}
+
 function convertCallouts(doc: Document): void {
   doc.querySelectorAll('blockquote').forEach((bq) => {
-    // First, check if this blockquote has multiple callout openers.
-    // We use textContent for detection only; single-opener path preserves DOM.
-    const fullText = bq.textContent ?? '';
-    const openerRegex = /(^|\n)\[!\s*([^\]\r\n]+?)\s*\]([+-]?)/g;
-    const openers: Array<{ index: number; type: string; fold: string; matchLength: number }> = [];
-    let match: RegExpExecArray | null;
-    while ((match = openerRegex.exec(fullText)) !== null) {
-      openers.push({
-        index: match.index + (match[1] ? 1 : 0),
-        type: match[2].toLowerCase(),
-        fold: match[3],
-        matchLength: match[0].length,
-      });
-    }
+    const openerCount = countCalloutOpeners(bq, doc);
+    if (openerCount === 0) return;
 
-    if (openers.length === 0) return;
-
-    // Single opener: use original DOM-preserving logic (preserves bold, links, lists, code, etc.).
-    if (openers.length === 1) {
-      const first = bq.firstElementChild;
-      if (!first) return;
-      const children = Array.from(bq.childNodes);
-      const after = children.slice(children.indexOf(first) + 1);
-
-      const m = CALLOUT_HEAD.exec(first.innerHTML);
-      if (!m) return;
-
-      const type = m[1].toLowerCase();
-      const fold = m[2];
-      const rest = first.innerHTML.slice(m[0].length);
-
-      const sep = /<br\s*\/?>|\n/.exec(rest);
-      const at = sep ? sep.index : -1;
-      const titleHtml = (at >= 0 ? rest.slice(0, at) : rest).trim();
-      let bodyHtml = sep ? rest.slice(sep.index + sep[0].length) : '';
-
-      after.forEach((n) => {
-        bodyHtml += (n as Element).outerHTML ?? n.textContent ?? '';
-      });
-
-      const label = CALLOUT_LABELS[type] ?? type;
-      const title = titleHtml || label;
-
-      const el = doc.createElement(fold ? 'details' : 'div');
-      el.className = 'callout';
-      el.setAttribute('data-callout', type);
-      if (fold === '+') el.setAttribute('open', '');
-
-      const titleEl = doc.createElement(fold ? 'summary' : 'div');
-      if (!fold) titleEl.className = 'callout-title';
-
-      const typeEntry = CALLOUT_TYPE_MAP[type];
-      if (typeEntry) {
-        const iconSpan = doc.createElement('span');
-        iconSpan.className = 'callout-icon';
-        iconSpan.textContent = typeEntry.icon;
-        titleEl.appendChild(iconSpan);
-      }
-
-      const titleText = doc.createElement('span');
-      titleText.textContent = title;
-      titleEl.appendChild(titleText);
-      el.appendChild(titleEl);
-
-      if (bodyHtml) {
-        const wrap = doc.createElement('div');
-        wrap.innerHTML = bodyHtml;
-        while (wrap.firstChild) el.appendChild(wrap.firstChild);
-      }
-
-      bq.replaceWith(el);
+    // Single callout: the original blockquote already has the right shape.
+    if (openerCount === 1) {
+      const el = buildCallout(bq, doc);
+      if (el) bq.replaceWith(el);
       return;
     }
 
-    // Multiple openers (adjacent callouts): split by textContent and process each segment
-    // using the single-opener DOM-preserving logic on a synthetic blockquote.
-    // This preserves HTML structure (bold, links, lists, code) within each callout.
-    const segments: Array<{ type: string; fold: string; title: string; body: string }> = [];
-
-    for (let i = 0; i < openers.length; i++) {
-      const opener = openers[i];
-      const nextOpener = openers[i + 1];
-      const segmentText = fullText.slice(opener.index, nextOpener?.index ?? fullText.length);
-
-      // Parse title and body from segment.
-      // Opener format: [!TYPE][+-] optional_title
-      const afterOpener = segmentText.slice(segmentText.indexOf(']') + 1);
-      const firstNewline = afterOpener.indexOf('\n');
-      const title = firstNewline >= 0 ? afterOpener.slice(0, firstNewline).trim() : afterOpener.trim();
-      const body = firstNewline >= 0 ? afterOpener.slice(firstNewline + 1).trim() : '';
-
-      segments.push({ type: opener.type, fold: opener.fold, title, body });
+    // Multiple adjacent callouts merged into one blockquote: segment the
+    // ORIGINAL DOM (markers + wrapper clones) and reuse buildCallout per
+    // segment, so every original node keeps its place and its markup.
+    markCalloutOpeners(bq, doc);
+    for (const child of Array.from(bq.children)) {
+      splitMarkedElements(child, doc);
     }
 
-    // Build callout elements for each segment using DOM-preserving approach.
-    // We create a synthetic blockquote for each segment and apply the single-opener logic.
+    const holders = Array.from({ length: openerCount }, () => doc.createElement('blockquote'));
+    let segment = -1;
+    for (const n of Array.from(bq.childNodes)) {
+      if (isCalloutOpenerMarker(n)) {
+        segment += 1;
+        continue;
+      }
+      if (segment >= 0) holders[segment].appendChild(n);
+    }
+
     const fragment = doc.createDocumentFragment();
-    for (const seg of segments) {
-      // Create synthetic blockquote HTML for this segment.
-      const syntheticHtml = `<blockquote><p>[${seg.fold ? `!${seg.type.toUpperCase()}${seg.fold}` : `!${seg.type.toUpperCase()}`}] ${seg.title}${seg.body ? '\n' + seg.body : ''}</p></blockquote>`;
-      const syntheticBq = doc.createElement('div');
-      syntheticBq.innerHTML = syntheticHtml;
-      const syntheticBlockquote = syntheticBq.querySelector('blockquote');
-      if (!syntheticBlockquote) continue;
-
-      // Apply single-opener logic to synthetic blockquote.
-      const first = syntheticBlockquote.firstElementChild;
-      if (!first) continue;
-      const children = Array.from(syntheticBlockquote.childNodes);
-      const after = children.slice(children.indexOf(first) + 1);
-
-      const m = CALLOUT_HEAD.exec(first.innerHTML);
-      if (!m) continue;
-
-      const type = m[1].toLowerCase();
-      const fold = m[2];
-      const rest = first.innerHTML.slice(m[0].length);
-
-      const sep = /<br\s*\/?>|\n/.exec(rest);
-      const at = sep ? sep.index : -1;
-      const titleHtml = (at >= 0 ? rest.slice(0, at) : rest).trim();
-      let bodyHtml = sep ? rest.slice(sep.index + sep[0].length) : '';
-
-      after.forEach((n) => {
-        bodyHtml += (n as Element).outerHTML ?? n.textContent ?? '';
-      });
-
-      const label = CALLOUT_LABELS[type] ?? type;
-      const title = titleHtml || label;
-
-      const el = doc.createElement(fold ? 'details' : 'div');
-      el.className = 'callout';
-      el.setAttribute('data-callout', type);
-      if (fold === '+') el.setAttribute('open', '');
-
-      const titleEl = doc.createElement(fold ? 'summary' : 'div');
-      if (!fold) titleEl.className = 'callout-title';
-
-      const typeEntry = CALLOUT_TYPE_MAP[type];
-      if (typeEntry) {
-        const iconSpan = doc.createElement('span');
-        iconSpan.className = 'callout-icon';
-        iconSpan.textContent = typeEntry.icon;
-        titleEl.appendChild(iconSpan);
-      }
-
-      const titleText = doc.createElement('span');
-      titleText.textContent = title;
-      titleEl.appendChild(titleText);
-      el.appendChild(titleEl);
-
-      if (bodyHtml) {
-        const wrap = doc.createElement('div');
-        wrap.innerHTML = bodyHtml;
-        while (wrap.firstChild) el.appendChild(wrap.firstChild);
-      }
-
-      fragment.appendChild(el);
+    for (const holder of holders) {
+      if (holder.firstElementChild === null) continue;
+      const el = buildCallout(holder, doc);
+      if (el) fragment.appendChild(el);
     }
-
     bq.replaceWith(fragment);
   });
 }
