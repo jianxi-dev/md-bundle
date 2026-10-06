@@ -187,3 +187,86 @@ test('AC: 编辑中直接切换源码模式，未提交的输入不丢', async (
   const text = await page.locator('.cm-content').first().innerText()
   expect(text).toContain('1X')
 })
+
+const INLINE_MD_DOC = `Intro paragraph.
+
+| A | B |
+| --- | --- |
+| **粗体** | *斜体* |
+| \`代码\` | 普通 |
+`
+
+async function openInlineMdEditor(page: Page): Promise<void> {
+  await page.goto('/')
+  await page.getByTestId('file-input').setInputFiles({
+    name: 'inline-md.md',
+    mimeType: 'text/markdown',
+    buffer: Buffer.from(INLINE_MD_DOC),
+  })
+  await page.getByTestId('mode-edit-btn').click()
+  await expect(page.locator('.cm-editor').first()).toBeVisible()
+  await settle(page)
+}
+
+test('AC: 编辑态表格单元格渲染行内 markdown（粗体/斜体/代码）', async ({ page }) => {
+  await openInlineMdEditor(page)
+
+  const table = page.getByTestId('cm-table')
+  await expect(table).toBeVisible()
+
+  const boldCell = table.locator('td[data-row="0"][data-col="0"]')
+  await expect(boldCell).toBeVisible()
+  const boldWeight = await boldCell.locator('.cm-table-cell-text strong').evaluate(
+    (el) => getComputedStyle(el).fontWeight
+  )
+  expect(Number(boldWeight)).toBeGreaterThanOrEqual(600)
+
+  const italicCell = table.locator('td[data-row="0"][data-col="1"]')
+  await expect(italicCell).toBeVisible()
+  const italicStyle = await italicCell.locator('.cm-table-cell-text em').evaluate(
+    (el) => getComputedStyle(el).fontStyle
+  )
+  expect(italicStyle).toBe('italic')
+
+  const codeCell = table.locator('td[data-row="1"][data-col="0"]')
+  await expect(codeCell).toBeVisible()
+  const codeFamily = await codeCell.locator('.cm-table-cell-text code').evaluate(
+    (el) => getComputedStyle(el).fontFamily
+  )
+  expect(codeFamily).toContain('monospace')
+
+  const source = await rawDoc(page)
+  expect(source).toContain('**粗体**')
+  expect(source).toContain('*斜体*')
+  expect(source).toContain('`代码`')
+})
+
+test('AC: 编辑单元格时输入框显示原始 markdown，提交后渲染为格式化文本', async ({ page }) => {
+  await openInlineMdEditor(page)
+
+  const table = page.getByTestId('cm-table')
+  const cell = table.locator('td[data-row="1"][data-col="1"]')
+  await expect(cell).toBeVisible()
+  await cell.click()
+  await settle(page)
+
+  const input = page.getByTestId('cm-table-cell-input')
+  await expect(input).toBeFocused()
+  await expect(input).toHaveValue('普通')
+
+  await input.fill('**新粗体**')
+  await page.keyboard.press('Enter')
+  await settle(page)
+
+  await expect(cell.locator('.cm-table-cell-text')).toContainText('新粗体')
+  await settle(page)
+
+  const updatedCell = table.locator('td[data-row="1"][data-col="1"]')
+  const boldWeight = await updatedCell.locator('.cm-table-cell-text strong').evaluate(
+    (el) => getComputedStyle(el).fontWeight
+  )
+  expect(Number(boldWeight)).toBeGreaterThanOrEqual(600)
+
+  const source = await rawDoc(page)
+  expect(source).toContain('**新粗体**')
+})

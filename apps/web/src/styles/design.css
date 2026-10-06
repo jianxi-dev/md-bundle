@@ -69,6 +69,30 @@
   --shadow: 0 24px 60px rgba(24, 26, 40, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
+.cm-table-cell-text strong {
+  font-weight: 700;
+}
+.cm-table-cell-text em {
+  font-style: italic;
+}
+.cm-table-cell-text code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--surface-2);
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+}
+.cm-table-cell-text del {
+  text-decoration: line-through;
+}
+.cm-table-cell-text a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.cm-table-cell-text a:hover {
+  color: var(--accent-bright);
+}
+
 /* ── 基础排版 ───────────────────────────────────────────── */
 ::selection {
   background: color-mix(in oklch, var(--accent) 32%, transparent);
