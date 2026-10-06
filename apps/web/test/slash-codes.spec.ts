@@ -49,7 +49,7 @@ test('AC(A): /t53 + Enter 插入 5 列 3 行表格', async ({ page }) => {
 
   const raw = await rawDoc(page)
   const lines = raw.split('\n').filter((l) => l.includes('|'))
-  expect(lines[0]).toContain('| A | B | C | D | E |')
+  expect(lines[0]).toBe('|  |  |  |  |  |')
   expect(lines.length).toBe(5) // header + separator + 3 body rows
 })
 

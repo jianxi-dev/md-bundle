@@ -95,6 +95,6 @@ test('「表格」网格选择器插入 GFM 表格（#251）', async ({ page }) 
   await settle(page)
 
   const raw = await rawDoc(page)
-  expect(raw).toContain('| A | B | C | D | E | F | G |')
+  expect(raw).toContain('|  |  |  |  |  |  |  |')
   expect(raw.split('\n').filter((line) => line.includes('|')).length).toBe(5)
 })

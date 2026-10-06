@@ -170,7 +170,7 @@ describe('slash commands', () => {
     cell!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
 
     const doc = view.state.doc.toString();
-    expect(doc).toContain('| A | B | C | D | E | F | G |');
+    expect(doc).toContain('|  |  |  |  |  |  |  |');
     expect(doc.split('\n').length).toBe(5); // header + separator + 3 body rows
   });
 
@@ -201,7 +201,7 @@ describe('slash commands', () => {
     // Enter must apply the hovered size instead of falling through to a newline.
     expect(slashMenuApply(view)).toBe(true)
     const doc = view.state.doc.toString()
-    expect(doc).toContain('| A | B | C | D | E | F | G |')
+    expect(doc).toContain('|  |  |  |  |  |  |  |')
     expect(doc.split('\n').length).toBe(5)
     expect(view.dom.querySelector('.mdb-slash-menu')).toBeNull()
     expect(view.dom.querySelector('.mdb-slash-flyout')).toBeNull()
