@@ -33,6 +33,7 @@ import {
   computeBlockIndent,
   computeCalloutType,
   isCalloutBlock,
+  isTableBlock,
   blockHandleIcon,
 } from '../src/block-handle'
 import type { Block } from '../src/block-model'
@@ -404,6 +405,20 @@ describe('#330 block menu helpers', () => {
   it('leaves blank lines blank when indenting', () => {
     const doc = 'a\n\nb'
     expect(computeBlockIndent(doc, 0, doc.length, 'increase')).toBe('  a\n\n  b')
+  })
+})
+
+// --- isTableBlock (#392) ------------------------------------------------------
+
+describe('isTableBlock', () => {
+  it('detects a GFM table block from its header + separator rows', () => {
+    expect(isTableBlock('| A | B |\n| --- | --- |\n| 1 | 2 |')).toBe(true)
+    expect(isTableBlock('| A | B |\n| :--- | ---: |')).toBe(true)
+  })
+
+  it('rejects prose that merely contains pipes, and a row without a separator', () => {
+    expect(isTableBlock('a | b\nc | d')).toBe(false)
+    expect(isTableBlock('| A | B |')).toBe(false)
   })
 })
 
@@ -902,5 +917,71 @@ describe('blockHandle lifecycle', () => {
 
     local.destroy()
     localParent.remove()
+  })
+})
+
+describe('table header menu actions (#392)', () => {
+  // The table parses as a `paragraph` (CommonMark has no GFM table node), yet
+  // the block handle must still offer the table rows for it.
+  const TABLE_DOC = 'Intro paragraph.\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n'
+  const TABLE_POS = 20
+  const INTRO_POS = 3
+
+  let parent: HTMLElement
+  let editor: ReturnType<typeof createMarkdownEditor>
+  let view: EditorView
+
+  beforeEach(() => {
+    installPolyfills()
+    parent = document.createElement('div')
+    document.body.appendChild(parent)
+    editor = createMarkdownEditor(parent, {
+      value: TABLE_DOC,
+      extensions: [chapterReorgExtension(), blockHandle()],
+    })
+    view = editor.view
+  })
+
+  afterEach(() => {
+    editor.destroy()
+    parent.remove()
+    vi.restoreAllMocks()
+  })
+
+  function openMenuAt(pos: number): void {
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(pos)
+    vi.spyOn(view, 'coordsAtPos').mockReturnValue(RECT)
+    view.dom.dispatchEvent(mouse('mousemove', { clientX: 5, clientY: 25 }))
+    const el = view.dom.querySelector<HTMLElement>('.mdb-block-handle')
+    if (!el) throw new Error('block handle not found')
+    el.dispatchEvent(mouse('mousedown', { clientX: 0, clientY: 0 }))
+    el.dispatchEvent(mouse('mouseup'))
+    el.dispatchEvent(mouse('click'))
+  }
+
+  function row(label: string): HTMLElement {
+    const el = Array.from(
+      view.dom.querySelectorAll<HTMLElement>('.mdb-block-handle-item'),
+    ).find((item) => item.querySelector('.mdb-block-handle-item-label')?.textContent === label)
+    if (!el) throw new Error(`menu row not found: ${label}`)
+    return el
+  }
+
+  it('reveals 标题行/标题列 for a table block', () => {
+    openMenuAt(TABLE_POS)
+    expect(row('标题行').style.display).toBe('flex')
+    expect(row('标题列').style.display).toBe('flex')
+  })
+
+  it('keeps 标题行/标题列 hidden for a non-table block', () => {
+    openMenuAt(INTRO_POS)
+    expect(row('标题行').style.display).toBe('none')
+    expect(row('标题列').style.display).toBe('none')
+  })
+
+  it('标题行 removes the header separator from the table source', () => {
+    openMenuAt(TABLE_POS)
+    row('标题行').dispatchEvent(mouse('click'))
+    expect(view.state.doc.toString()).toBe('Intro paragraph.\n\n| A | B |\n| 1 | 2 |\n')
   })
 })
