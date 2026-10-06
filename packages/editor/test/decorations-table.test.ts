@@ -5,7 +5,7 @@
  * column geometry used before layout is measurable, and cell-text sanitisation.
  */
 import { describe, expect, it } from 'vitest';
-import { evenColumnWidths, sanitizeCellText, tableCellRange } from '../src/decorations/table';
+import { evenColumnWidths, sanitizeCellText, tableCellRange, renderCellText } from '../src/decorations/table';
 
 const DOC = ['| A | B |', '| --- | --- |', '| 1 | 2 |', '| 3 | 4 |'].join('\n');
 
@@ -104,5 +104,61 @@ describe('sanitizeCellText', () => {
     ].join('\n');
     expect(tableCellRange(doc, 0, 0, 1)).not.toBeNull();
     expect(tableCellRange(doc, 0, 0, 2)).toBeNull();
+  });
+});
+
+describe('renderCellText', () => {
+  it('passes plain text through untouched', () => {
+    expect(renderCellText('plain text')).toBe('plain text');
+    expect(renderCellText('')).toBe('');
+  });
+
+  it('renders **bold** as <strong>', () => {
+    expect(renderCellText('**bold**')).toBe('<strong>bold</strong>');
+    expect(renderCellText('**bold** and normal')).toBe('<strong>bold</strong> and normal');
+    expect(renderCellText('normal and **bold**')).toBe('normal and <strong>bold</strong>');
+    expect(renderCellText('**a** **b**')).toBe('<strong>a</strong> <strong>b</strong>');
+  });
+
+  it('renders *italic* as <em>', () => {
+    expect(renderCellText('*italic*')).toBe('<em>italic</em>');
+    expect(renderCellText('*italic* and normal')).toBe('<em>italic</em> and normal');
+    expect(renderCellText('normal and *italic*')).toBe('normal and <em>italic</em>');
+    expect(renderCellText('*a* *b*')).toBe('<em>a</em> <em>b</em>');
+  });
+
+  it('renders `code` as <code>', () => {
+    expect(renderCellText('`code`')).toBe('<code>code</code>');
+    expect(renderCellText('`code` and normal')).toBe('<code>code</code> and normal');
+    expect(renderCellText('normal and `code`')).toBe('normal and <code>code</code>');
+    expect(renderCellText('`a` `b`')).toBe('<code>a</code> <code>b</code>');
+  });
+
+  it('renders ~~strikethrough~~ as <del>', () => {
+    expect(renderCellText('~~strike~~')).toBe('<del>strike</del>');
+    expect(renderCellText('~~strike~~ and normal')).toBe('<del>strike</del> and normal');
+  });
+
+  it('renders [link](url) as <a> with security attributes', () => {
+    const result = renderCellText('[link](https://example.com)');
+    expect(result).toBe('<a href="https://example.com" target="_blank" rel="noopener noreferrer">link</a>');
+    expect(renderCellText('[link](url) and normal')).toBe('<a href="url" target="_blank" rel="noopener noreferrer">link</a> and normal');
+  });
+
+  it('handles nested/combined inline markdown', () => {
+    expect(renderCellText('**bold** and *italic* and `code`')).toBe('<strong>bold</strong> and <em>italic</em> and <code>code</code>');
+    expect(renderCellText('**bold *italic* bold**')).toBe('<strong>bold <em>italic</em> bold</strong>');
+  });
+
+  it('escapes HTML in text content', () => {
+    expect(renderCellText('<script>alert(1)</script>')).toBe('<script>alert(1)</script>');
+    expect(renderCellText('**<b>bold</b>**')).toBe('<strong><b>bold</b></strong>');
+  });
+
+  it('extracts inner text from background span wrapper', () => {
+    const withBg = '<span class="mdb-bg-blue">hello</span>';
+    expect(renderCellText(withBg)).toBe('hello');
+    const withBgAndMarkdown = '<span class="mdb-bg-blue">**bold**</span>';
+    expect(renderCellText(withBgAndMarkdown)).toBe('<strong>bold</strong>');
   });
 });

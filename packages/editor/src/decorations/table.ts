@@ -182,7 +182,7 @@ function buildTableMarkdown(header: string[], rows: string[][]): string {
   return [headerLine, sepLine, ...bodyLines].join('\n');
 }
 
-export { sanitizeCellText };
+export { sanitizeCellText } from './cell-text';
 
 /**
  * Cell background convention (ticket #328).
@@ -217,6 +217,37 @@ function parseCellBackground(text: string): ParsedCellBackground | null {
 /** Strip any background span wrapper, returning the bare cell text. */
 function stripCellBackground(text: string): string {
   return parseCellBackground(text)?.inner ?? text;
+}
+
+/**
+ * Render inline markdown in cell text to HTML.
+ *
+ * Used by the table widget to display formatted text in cells while keeping
+ * the raw markdown as the source of truth. Handles **bold**, *italic*, `code`,
+ * ~~strike~~, [link](url), <u>underline</u>, and mdb-font/mdb-color spans.
+ * Background spans (mdb-bg-*) are handled separately by the table widget.
+ */
+export function renderCellText(text: string): string {
+  const background = parseCellBackground(text);
+  const inner = background ? background.inner : text;
+
+  const escaped = inner
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>');
+
+  const rendered = escaped
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>')
+    .replace(/_([^_]+?)_/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/~~(.+?)~~/g, '<del>$1</del>')
+    .replace(/<u>([^<]+?)<\/u>/g, '<u>$1</u>')
+    .replace(/<span class="mdb-font-(serif|mono|sans)">([^<]+?)<\/span>/g, '<span class="mdb-font-$1">$2</span>')
+    .replace(/<span class="mdb-color-(red|orange|yellow|green|cyan|blue|purple)">([^<]+?)<\/span>/g, '<span class="mdb-color-$1">$2</span>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  return rendered;
 }
 
 /** Map a `mdb-bg-*` span class onto the `<td>` background class. */
@@ -525,8 +556,8 @@ function openCellEditor(
   // Preserve a cell background across an edit: the input shows the inner text,
   // and staged text re-wraps it in the same span so the color is not lost.
   const backgroundClass = host.dataset.cellBg ?? null;
-  const span = host.querySelector('.cm-table-cell-text');
-  const initial = span?.textContent ?? '';
+  const span = host.querySelector<HTMLElement>('.cm-table-cell-text');
+  const initial = span?.dataset.rawText ?? span?.textContent ?? '';
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'cm-table-cell-input';
@@ -725,7 +756,9 @@ class TableWidget extends WidgetType {
       body.setAttribute('data-testid', 'cm-table-cell-text');
       body.dataset.row = String(row);
       body.dataset.col = String(col);
-      body.textContent = background ? background.inner : text;
+      const displayText = background ? background.inner : text;
+      body.dataset.rawText = displayText;
+      body.innerHTML = renderCellText(displayText);
       el.appendChild(body);
 
       const selection = view ? getCellSelection(view) : null;
@@ -1067,8 +1100,12 @@ class TableWidget extends WidgetType {
       if (cellEl && !cellEl.querySelector('.cm-table-cell-input')) {
         const raw = this.cellText(cell.row, cell.col);
         const background = parseCellBackground(raw);
-        const expected = background ? background.inner : raw;
-        if ((body.textContent ?? '') !== expected) body.textContent = expected;
+        const displayText = background ? background.inner : raw;
+        const previousRaw = body.dataset.rawText ?? '';
+        if (previousRaw !== displayText) {
+          body.dataset.rawText = displayText;
+          body.innerHTML = renderCellText(displayText);
+        }
         if (background) {
           cellEl.dataset.cellBg = background.colorClass;
           cellEl.classList.add(cellBackgroundClass(background.colorClass));
