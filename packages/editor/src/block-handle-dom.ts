@@ -444,7 +444,12 @@ export class HandleChrome {
     if (this.flyout?.getAttribute(FLYOUT_ATTR) === key) return;
     const isColor = key === 'color';
     const options = isColor ? [] : FLYOUT_OPTIONS[key]?.() ?? [];
-    if (!isColor && options.length === 0) return;
+    if (!isColor && options.length === 0) {
+      // Rows such as 在下方添加 own their panel elsewhere (the shared insert
+      // menu): hide any open flyout first so it cannot linger beside it (#387).
+      this.hideFlyout();
+      return;
+    }
     this.hideFlyout();
     const panel = document.createElement('div');
     panel.className = FLYOUT_CLASS;
@@ -486,7 +491,13 @@ export class HandleChrome {
     const target = event.target;
     if (!(target instanceof Element)) return;
     const row = target.closest<HTMLElement>(`[${FLYOUT_ATTR}]`);
-    if (row && this.menu.contains(row)) this.showFlyout(row);
+    if (row && this.menu.contains(row)) {
+      this.showFlyout(row);
+      return;
+    }
+    // A menu item without a second level (e.g. 复制) must collapse the flyout
+    // the previously hovered row opened; otherwise it lingers beside it (#387).
+    if (this.menu.contains(target)) this.hideFlyout();
   };
 
   private readonly onMenuLeave = (event: MouseEvent): void => {
