@@ -39,3 +39,10 @@ blob-report/
 !.artifacts/**/
 !.artifacts/**/state-coverage.json
 .lavish/
+
+# Agent 技能镜像 + 锁（skills CLI 生成，重新生成勿提交；同 .codex/.gemini）
+.agents/
+.claude/skills/
+skills-lock.json
+# .codebuddy/skills 为技能镜像，忽略（已跟踪的 openspec-* 不受影响）；.codebuddy/commands 仍可提交
+.codebuddy/skills/
