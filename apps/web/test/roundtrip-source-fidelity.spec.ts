@@ -43,7 +43,8 @@ const a = 1
 结尾段落。
 `
 
-test.use({ viewport: { width: 1440, height: 900 } })
+// 夹具覆盖全部块类型，视口给足高度，避免表格/分栏落在折叠线以下导致悬停需要先滚动。
+test.use({ viewport: { width: 1440, height: 1400 } })
 
 const MOD = process.platform === 'darwin' ? 'Meta' : 'Control'
 
@@ -69,6 +70,9 @@ async function settle(page: Page): Promise<void> {
 
 async function openEditor(page: Page): Promise<void> {
   await page.goto('/')
+  // 冷启动的 Vite 会先做一次依赖预打包并整页重载；不吸收这次重载，
+  // 后续的悬停状态会在中途被清掉（首个用例单独运行时会稳定复现）。
+  await page.waitForLoadState('networkidle')
   await page.getByTestId('file-input').setInputFiles({
     name: 'roundtrip.md',
     mimeType: 'text/markdown',
