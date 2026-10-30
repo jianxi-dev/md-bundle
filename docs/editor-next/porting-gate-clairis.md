@@ -42,11 +42,13 @@
 
 | 门槛 | 现状 | 证据 |
 |---|---|---|
-| 红线 1 源码无损 | ⏳ 矩阵在建 | change `editor-porting-gate` task 1.1 / 1.2（#420 / #421） |
+| 红线 1 源码无损 | ✅ 矩阵全绿 | 12 类操作 + 1 条基线，13 passed；零红项，见 `openspec/changes/editor-porting-gate/roundtrip-report.md` |
 | 红线 2 P0 清零 | ✅ 独立复核通过 | 6 个目标 spec 共 34 用例 passed，见 §五 |
-| 红线 3 p1 清零 | ⏳ #381 open | 修复在 change task 1.3（#422）；#396 同源并入 |
+| 红线 3 p1 清零 | ✅ 无 open p1 | #381 / #396 以「症状不复现 + 回归锁」关闭（PR #428，5 条用例） |
 | 红线 4 回归资产 | ✅ 已复跑 | renderer 118 / editor 949 / web 416 passed |
 | 加分项 renderer | ❌ 仍耦合 | 不阻塞移植，Clairis 侧连带接收管线即可 |
+
+> 结论（2026-10-30）：**红线 1–4 全绿，可触发 Clairis 侧移植 proposal**。加分项 renderer 解耦在移植中解决。
 
 > 2026-10-06 版记「红线 2 ❌ 12+ 项 open」已过期：子票 #356–#364 与 #376–#395 陆续合并后，issue 侧无 open 的 p0。本节改用独立探针复核，不再以票据状态推定。
 
