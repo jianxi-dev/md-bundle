@@ -46,3 +46,9 @@ blob-report/
 skills-lock.json
 # .codebuddy/skills 为技能镜像，忽略（已跟踪的 openspec-* 不受影响）；.codebuddy/commands 仍可提交
 .codebuddy/skills/
+
+# Agent 会话状态（每次会话都变，不入库；留在索引里会阻塞每张票的 PR 白名单）
+.pi-glla/
+agent/
+*.local-baseline
+apps/web/.artifacts/
