@@ -1,0 +1,16 @@
+{
+  "ticket": "336",
+  "tasks": "9.1",
+  "d1MdOpensEdit": true,
+  "d3FencesHiddenInactive": true,
+  "d3FencesShownActive": true,
+  "d4OutsideClickCloses": true,
+  "d5EmptyStateAndEscape": true,
+  "d6SlashResidue": true,
+  "d6CommaResidue": true,
+  "d9CtaExists": true,
+  "d9CreatesBlankDoc": true,
+  "d10NoWarnings": true,
+  "d10NoKeyWarnings": true,
+  "narrowStillPreview": true
+}
