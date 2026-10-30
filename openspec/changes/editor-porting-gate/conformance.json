@@ -41,9 +41,9 @@
         },
         {
           "id": "A-2.2",
-          "claim": "引用块内追加列表项",
+          "claim": "引用块内追加文本",
           "kind": "exact",
-          "assert": "新增 `> - 条目二` 1 行，`> - 条目一` 字节不变",
+          "assert": "第 8 行由 `> 引用段落` 变为 `> 引用段落补充`，其余行 0 变化",
           "source": "门槛清单 §二 红线1"
         },
         {
@@ -95,9 +95,9 @@
         },
         {
           "id": "A-4.3",
-          "claim": "插入图片与链接",
+          "claim": "经斜杠菜单插入 photo.png",
           "kind": "exact",
-          "assert": "新增 1 处图片语法与 1 处链接语法，其余行 0 变化",
+          "assert": "新增且仅新增 1 行 `![photo.png](photo.png)`，其余行 0 变化",
           "source": "门槛清单 §二 红线1"
         }
       ]
@@ -123,7 +123,7 @@
           "id": "A-6.1",
           "claim": "矩阵用例数",
           "kind": "exact",
-          "assert": "`roundtrip-source-fidelity.spec.ts` 至少 11 条用例且全部通过",
+          "assert": "`roundtrip-source-fidelity.spec.ts` 至少 13 条用例（12 类操作 + 1 基线）且全部通过",
           "source": "决策 D1"
         },
         {
