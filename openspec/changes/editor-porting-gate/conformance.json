@@ -1,0 +1,179 @@
+{
+  "change": "editor-porting-gate",
+  "requirements": [
+    {
+      "id": "R-1",
+      "text": "源码无损：块转换与结构",
+      "anchors": [
+        {
+          "id": "A-1.1",
+          "claim": "段落转二级标题后源码首行",
+          "kind": "exact",
+          "assert": "首行变为 `## 正文`，文档行数保持 1 行",
+          "source": "门槛清单 §二 红线1"
+        },
+        {
+          "id": "A-1.2",
+          "claim": "二级标题转正文",
+          "kind": "exact",
+          "assert": "首行 `## 标题` 变为 `标题`，行数保持 1 行",
+          "source": "门槛清单 §二 红线1"
+        },
+        {
+          "id": "A-1.3",
+          "claim": "插入 2 栏分栏",
+          "kind": "exact",
+          "assert": "新增 `::: {.col-2}` 起始行与 `:::` 结束行共 2 行",
+          "source": "决策 D1 矩阵清单"
+        }
+      ]
+    },
+    {
+      "id": "R-2",
+      "text": "源码无损：列表、引用、代码块",
+      "anchors": [
+        {
+          "id": "A-2.1",
+          "claim": "待办勾选在两种状态间切换",
+          "kind": "state-machine",
+          "assert": "`- [ ]` 切换到 `- [x]`，再次点击回到 `- [ ]`，其余行 0 变化",
+          "source": "门槛清单 §二 红线1"
+        },
+        {
+          "id": "A-2.2",
+          "claim": "引用块内追加列表项",
+          "kind": "exact",
+          "assert": "新增 `> - 条目二` 1 行，`> - 条目一` 字节不变",
+          "source": "门槛清单 §二 红线1"
+        },
+        {
+          "id": "A-2.3",
+          "claim": "围栏代码块内追加代码行",
+          "kind": "exact",
+          "assert": "围栏头 ts 标记与块外内容 0 变化，代码体新增 1 行",
+          "source": "门槛清单 §二 红线1"
+        }
+      ]
+    },
+    {
+      "id": "R-3",
+      "text": "源码无损：表格",
+      "anchors": [
+        {
+          "id": "A-3.1",
+          "claim": "单元格 B2 改为「改」",
+          "kind": "exact",
+          "assert": "仅第 2 行第 2 列内容替换，分隔行 `---` 与其余 3 格不变",
+          "source": "门槛清单 §二 红线1"
+        },
+        {
+          "id": "A-3.2",
+          "claim": "在第 1 行后插入一行",
+          "kind": "exact",
+          "assert": "表格行数由 3 行增至 4 行，原有 3 行逐字节不变",
+          "source": "门槛清单 §二 红线1"
+        }
+      ]
+    },
+    {
+      "id": "R-4",
+      "text": "源码无损：行内格式、颜色、媒体",
+      "anchors": [
+        {
+          "id": "A-4.1",
+          "claim": "选中「加粗」执行加粗",
+          "kind": "exact",
+          "assert": "源码变为 `**加粗**`，选区外 0 字符变化",
+          "source": "门槛清单 §二 红线1"
+        },
+        {
+          "id": "A-4.2",
+          "claim": "选中「红字」设为红色",
+          "kind": "exact",
+          "assert": "出现 1 处 `mdb-color-red` 包裹，选区外 0 变化",
+          "source": "决策 D1 矩阵清单"
+        },
+        {
+          "id": "A-4.3",
+          "claim": "插入图片与链接",
+          "kind": "exact",
+          "assert": "新增 1 处图片语法与 1 处链接语法，其余行 0 变化",
+          "source": "门槛清单 §二 红线1"
+        }
+      ]
+    },
+    {
+      "id": "R-5",
+      "text": "非操作区逐字节不变",
+      "anchors": [
+        {
+          "id": "A-5.1",
+          "claim": "所有 11 类操作的非操作区",
+          "kind": "exact",
+          "assert": "还原操作区后与操作前源码 diff 为 0 字节",
+          "source": "决策 D1 两级断言"
+        }
+      ]
+    },
+    {
+      "id": "R-6",
+      "text": "往返矩阵可复跑",
+      "anchors": [
+        {
+          "id": "A-6.1",
+          "claim": "矩阵用例数",
+          "kind": "exact",
+          "assert": "`roundtrip-source-fidelity.spec.ts` 至少 11 条用例且全部通过",
+          "source": "决策 D1"
+        },
+        {
+          "id": "A-6.2",
+          "claim": "失败可定位",
+          "kind": "exact",
+          "assert": "失败信息含期望与实际 2 段源码，可定位到 1 个装饰器文件",
+          "source": "决策 D1"
+        }
+      ]
+    },
+    {
+      "id": "R-7",
+      "text": "callout 草稿即时渲染",
+      "anchors": [
+        {
+          "id": "A-7.1",
+          "claim": "输入后卡片文本",
+          "kind": "exact",
+          "assert": "输入 3 个字后卡片正文即含这 3 个字，无需失焦",
+          "source": "一手观察 2026-10-05 复现记录"
+        },
+        {
+          "id": "A-7.2",
+          "claim": "卡片被重建后",
+          "kind": "state-machine",
+          "assert": "重建前显示草稿，重建后仍显示同一草稿，旧值出现 0 次",
+          "source": "决策 D3 draft-first"
+        }
+      ]
+    },
+    {
+      "id": "R-8",
+      "text": "callout 点击稳定进入编辑",
+      "anchors": [
+        {
+          "id": "A-8.1",
+          "claim": "点击卡片后编辑器数量",
+          "kind": "exact",
+          "assert": "`.cm-callout-editor` 恰好 1 个且 activeElement 命中",
+          "source": "一手观察 高亮块复现记录"
+        },
+        {
+          "id": "A-8.2",
+          "claim": "多卡片点击定位",
+          "kind": "exact",
+          "assert": "点击第 2 张卡片时打开的编辑器属于第 2 张",
+          "source": "决策 D3 offset 反查"
+        }
+      ]
+    }
+  ]
+}

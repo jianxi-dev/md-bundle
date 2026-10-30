@@ -8,3 +8,15 @@
 {"type":"session_waiting_for_load","value":{"reason":"startup"},"at":"2026-09-06T13:54:57.951Z"}
 {"type":"model_switch","value":{"from":"codebuddy/hy4-preview","to":"codebuddy/hy3","reason":"manual","at":"2026-09-06T14:18:04.568Z","source":"set"},"at":"2026-09-06T14:18:04.568Z"}
 {"type":"state","value":{"goal":null,"list":[],"loop":null,"mainModelRecovery":null,"lastModelRef":"codebuddy/hy3","lastCompactionAt":null,"supervisorPausedAt":null,"loadHoldAt":null,"lastOutcome":null},"at":"2026-09-06T14:18:04.569Z"}
+{"type":"session_rebound","value":{"reason":"startup"},"at":"2026-10-25T13:01:31.844Z"}
+{"type":"id_invalidation","value":{"oldId":"01a07700-2489-77b5-8c21-b6445aa8d640","newId":"01a17326-d384-7020-bdfb-f44498a76c2b","reason":"forced_rewrite","at":"2026-10-25T13:01:31.851Z"},"at":"2026-10-25T13:01:31.851Z"}
+{"type":"session_waiting_for_load","value":{"reason":"startup"},"at":"2026-10-25T13:01:31.851Z"}
+{"type":"model_switch","value":{"from":"codebuddy/deepseek-v4.1-flash","to":"codebuddy/step-5-preview","reason":"manual","at":"2026-10-25T13:01:42.595Z","source":"set"},"at":"2026-10-25T13:01:42.595Z"}
+{"type":"state","value":{"goal":null,"list":[],"loop":null,"mainModelRecovery":null,"lastModelRef":"codebuddy/step-5-preview","lastCompactionAt":null,"postCompactRecovery":null,"supervisorPausedAt":null,"loadHoldAt":null,"lastOutcome":null},"at":"2026-10-25T13:01:42.595Z"}
+{"type":"context_usage_sample","value":{"goalId":null,"provider":"codebuddy","model":"step-5-preview","providerUsage":{"inputTokens":1033,"outputTokens":298,"cacheReadTokens":49920,"cacheWriteTokens":0,"totalTokens":51251},"contextUsage":{"tokens":51251,"contextWindow":1000000,"percent":5.1251}},"at":"2026-10-25T13:02:32.314Z"}
+{"type":"session_shutdown","value":{"reason":"new"},"at":"2026-10-27T11:57:22.753Z"}
+{"type":"session_rebound","value":{"reason":"new"},"at":"2026-10-27T11:57:23.847Z"}
+{"type":"id_invalidation","value":{"oldId":"01a17326-d384-7020-bdfb-f44498a76c2b","newId":"01a17d38-e385-7020-bdfb-f447369cc30e","reason":"session_shutdown","shutdownReason":"new","at":"2026-10-27T11:57:23.856Z"},"at":"2026-10-27T11:57:23.856Z"}
+{"type":"model_switch","value":{"from":"codebuddy/deepseek-v4.1-flash","to":"codebuddy/hy3","reason":"manual","at":"2026-10-27T11:57:31.573Z","source":"set"},"at":"2026-10-27T11:57:31.574Z"}
+{"type":"state","value":{"goal":null,"list":[],"loop":null,"mainModelRecovery":null,"lastModelRef":"codebuddy/hy3","lastCompactionAt":null,"postCompactRecovery":null,"supervisorPausedAt":null,"loadHoldAt":null,"lastOutcome":null},"at":"2026-10-27T11:57:31.574Z"}
+{"type":"session_shutdown","value":{"reason":"quit"},"at":"2026-10-27T12:02:08.473Z"}

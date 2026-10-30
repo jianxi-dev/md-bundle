@@ -1,0 +1,40 @@
+{
+  "task": "324",
+  "states": [
+    {
+      "state": "open",
+      "screenshot": "01-open-menu.png",
+      "assertion": "passed"
+    },
+    {
+      "state": "filter",
+      "screenshot": "02-filter-menu.png",
+      "assertion": "passed"
+    },
+    {
+      "state": "cancel",
+      "screenshot": "03-cancel-insert.png",
+      "assertion": "passed"
+    },
+    {
+      "state": "open",
+      "screenshot": "04-reopen-menu.png",
+      "assertion": "passed"
+    },
+    {
+      "state": "click-outside",
+      "screenshot": "05-click-outside.png",
+      "assertion": "passed"
+    },
+    {
+      "state": "empty",
+      "screenshot": "06-empty-state.png",
+      "assertion": "passed"
+    },
+    {
+      "state": "close",
+      "screenshot": "07-close-by-action.png",
+      "assertion": "passed"
+    }
+  ]
+}
