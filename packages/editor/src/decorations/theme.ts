@@ -634,6 +634,9 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   },
   '.cm-content .cm-table-cell-input': {
     width: '100%',
+    // A text input carries a default intrinsic width (~20ch) that `width:100%`
+    // does not cancel inside a table's auto layout; `min-width: 0` does (#438).
+    minWidth: '0',
     boxSizing: 'border-box',
     border: 'none',
     outline: 'none',
