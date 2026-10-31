@@ -291,7 +291,9 @@ export function cellToolbar(): Extension {
 
       private sync(): void {
         const selection = getCellSelection(this.view);
-        if (!selection) {
+        // A single-cell selection is just "the caret is in a cell": clicking a
+        // cell must not raise a toolbar before the user selects anything (#455).
+        if (!selection || cellSelectionCount(selection) <= 1) {
           this.closeMenu();
           if (this.root) this.root.style.display = 'none';
           return;

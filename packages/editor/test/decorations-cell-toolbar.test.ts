@@ -92,6 +92,12 @@ describe('table cell selection + toolbar (ticket #328)', () => {
     return btn;
   }
 
+  /** The toolbar only exists for a range selection (#455). */
+  function toolbarVisible(): boolean {
+    const root = view.dom.querySelector<HTMLElement>('[data-testid="cell-toolbar"]');
+    return root !== null && root.style.display !== 'none';
+  }
+
   it('renders the table widget so cells are addressable', () => {
     expect(view.dom.querySelector('.cm-table')).not.toBeNull();
     expect(cell(0, 0).textContent).toContain('1');
@@ -111,9 +117,10 @@ describe('table cell selection + toolbar (ticket #328)', () => {
     expect(mergeBtn().disabled).toBe(false);
   });
 
-  it('a single-cell click disables merge and opens the cell editor', async () => {
+  it('a single-cell click opens the cell editor without a toolbar (#455)', async () => {
     mousedown(cell(0, 0));
-    expect(mergeBtn().disabled).toBe(true);
+    // A single cell is "caret is here", not a selection: no toolbar to mislead.
+    expect(toolbarVisible()).toBe(false);
 
     docMouseup();
     await nextFrame();
@@ -159,9 +166,9 @@ describe('table cell selection + toolbar (ticket #328)', () => {
     expect(view.state.doc.toString()).toBe(
       ['Intro paragraph.', '', '| A B |  |', '| --- | --- |', '| 1 | 2 |', '| 3 | 4 |'].join('\n'),
     );
-    // The selection collapses to the single top-left cell.
+    // The selection collapses to the single top-left cell → toolbar hides (#455).
     expect(cellSelectionCount(getCellSelection(view)!)).toBe(1);
-    expect(mergeBtn().disabled).toBe(true);
+    expect(toolbarVisible()).toBe(false);
   });
 
   it('applying a background wraps the cell text in an mdb-bg span and paints the cell', async () => {
