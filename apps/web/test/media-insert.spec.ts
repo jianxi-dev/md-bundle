@@ -122,7 +122,8 @@ test.describe('媒体插入（#389）', () => {
     await settle(page)
 
     // #385b：格内手柄改为点击打开插入菜单（悬停不再弹）。
-    await page.getByTestId('cm-table-cell-handle').first().click()
+    // #399 起手柄按内容分流：这里点的是**空**单元格自己的手柄 → 插入菜单。
+    await cell.locator('.cm-table-cell-handle').click()
     await settle(page)
     await expect(page.getByTestId('slash-menu')).toBeVisible()
 
