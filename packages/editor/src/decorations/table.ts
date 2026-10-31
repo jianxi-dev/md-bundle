@@ -21,6 +21,11 @@
 import type { Extension, Range } from '@codemirror/state';
 import { Decoration, ViewPlugin, WidgetType, type EditorView } from '@codemirror/view';
 import { defaultCommands, openInsertMenu, releaseInsertMenu } from '../slash';
+
+/** Insert rows that make sense inside a one-line GFM cell (#470). */
+const CELL_SAFE_COMMANDS = defaultCommands.filter((cmd) =>
+  ['image-ref', 'media-ref'].includes(cmd.id),
+);
 import { ADD_ICON_NAME, renderIcon } from '../icons';
 import { openBlockMenuAt } from '../block-handle';
 import {
@@ -697,7 +702,10 @@ class TableWidget extends WidgetType {
     if (!cell) return;
     // Zero-width anchor: the menu inserts at the cell start and the anchor
     // range is the cell body, so closing the menu can never eat cell text.
-    openInsertMenu(view, cell.from, defaultCommands, { from: cell.from, to: cell.to });
+    // A GFM cell is one line: block-level commands (task list, callout, divider,
+  // nested table, columns, fenced code) sanitize to a single line and silently
+  // do nothing, which reads as "checked a menu item, nothing happened" (#470).
+  openInsertMenu(view, cell.from, CELL_SAFE_COMMANDS, { from: cell.from, to: cell.to });
   }
 
   toDOM(view?: EditorView): HTMLElement {
