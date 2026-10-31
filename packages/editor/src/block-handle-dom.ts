@@ -89,21 +89,22 @@ const MENU_CONVERT: readonly MenuConvert[] = [
   { label: '高亮', icon: 'CalloutOutlined', convert: 'callout' },
 ];
 
-const MENU_ACTIONS: readonly MenuAction[] = [
-  { label: '上移', icon: ACTION_ICON_NAME['move-up'], action: 'move-up' },
-  { label: '下移', icon: ACTION_ICON_NAME['move-down'], action: 'move-down' },
-  { label: '复制', icon: 'CopyOutlined', action: 'duplicate' },
-  { label: '删除', icon: ACTION_ICON_NAME['delete'], action: 'delete' },
-];
 
 const CALLOUT_ACTIONS: readonly MenuAction[] = [
   { label: '同步块', icon: 'LinkRecordOutlined', action: 'synced-block' },
 ];
 
-const COMMON_ACTIONS: readonly MenuAction[] = [
+// Action rows, in the reference product's grouping (#397): operations first
+// (comment / cut / duplicate / translate / delete), then sharing, then
+// "add below". Move up/down sit next to delete — they act on the block itself.
+const ACTION_ROWS: readonly MenuAction[] = [
   { label: '评论', icon: 'AddCommentOutlined', action: 'comment' },
   { label: '剪切', icon: 'FeishuclipOutlined', action: 'cut' },
+  { label: '复制', icon: 'CopyOutlined', action: 'duplicate' },
   { label: '翻译', icon: 'TranslateOutlined', action: 'translate', nonCalloutOnly: true },
+  { label: '上移', icon: ACTION_ICON_NAME['move-up'], action: 'move-up' },
+  { label: '下移', icon: ACTION_ICON_NAME['move-down'], action: 'move-down' },
+  { label: '删除', icon: ACTION_ICON_NAME['delete'], action: 'delete' },
   { label: '分享', icon: 'SharewordsOutlined', action: 'share' },
   { label: '复制链接', icon: 'BlocklinkOutlined', action: 'copy-link' },
   { label: '在下方添加', icon: 'NewJoinMeetingOutlined', action: 'add-below', flyout: 'insert-menu' },
@@ -269,7 +270,7 @@ export function createMenu(): HTMLElement {
     menu.appendChild(createMenuItem(entry.label, entry.icon, { action: entry.action, calloutOnly: true }));
   }
 
-  for (const entry of COMMON_ACTIONS) {
+  for (const entry of ACTION_ROWS) {
     menu.appendChild(
       createMenuItem(entry.label, entry.icon, {
         action: entry.action,
@@ -277,10 +278,6 @@ export function createMenu(): HTMLElement {
         flyout: entry.flyout,
       }),
     );
-  }
-
-  for (const entry of MENU_ACTIONS) {
-    menu.appendChild(createMenuItem(entry.label, entry.icon, { action: entry.action }));
   }
   return menu;
 }
