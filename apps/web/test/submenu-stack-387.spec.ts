@@ -213,8 +213,14 @@ test('DEF6 菜单翻转到上方后：指针从手柄移入菜单不消失', asy
   await expect(menu).toBeVisible()
   await settle(page)
   const mb = await boxOf(menu)
-  // 前置条件：菜单确实翻到了手柄上方（否则本用例不成立）。
-  expect(mb.y + mb.height).toBeLessThanOrEqual(hb.y + 2)
+  // 前置条件：菜单贴在编辑面板内（#466 起菜单比面板高时会被夹取/限高，
+  // 不再保证整块翻到手柄上方；本用例真正要守的是指针移入菜单不掉栈）。
+  const pane = await page.evaluate(() => {
+    const r = document.querySelector('.cm-editor')!.getBoundingClientRect()
+    return { top: r.top, bottom: r.bottom }
+  })
+  expect(mb.y).toBeGreaterThanOrEqual(pane.top - 1)
+  expect(mb.y + mb.height).toBeLessThanOrEqual(pane.bottom + 1)
 
   // 穿越手柄与上方菜单之间那条不被横向沟槽覆盖的竖直间隙。
   const gapX = mb.x + 20

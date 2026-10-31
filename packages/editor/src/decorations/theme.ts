@@ -905,7 +905,9 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     color: 'var(--reader-ink, var(--mdb-text))',
     fontSize: '12px',
     lineHeight: '1.4',
-    pointerEvents: 'none',
+    // The bubble owns the pointer while it is shown so its buttons are
+    // reachable; it only exists in the DOM while the boundary is active (#469).
+    pointerEvents: 'auto',
     zIndex: '7',
   },
   '.cm-content .cm-table-hotspot-active .cm-table-hotspot-bubble': {

@@ -98,3 +98,22 @@ test('列边界气泡提供「删除」并删掉该列', async ({ page }) => {
   expect(doc).toContain('| A | C |')
   expect(doc).toContain('| 1 | 3 |')
 })
+
+test('指针从圆点移到「删除列」途中气泡不消失（#483）', async ({ page }) => {
+  await openEditor(page)
+  await pointAt(page, 'col', 1)
+  const boundary = page.locator('.cm-table-boundary-col[data-col="1"]').first()
+  const hotspot = boundary.locator('.cm-table-hotspot')
+  await expect(hotspot).toBeVisible()
+  await hotspot.hover()
+  await settle(page)
+
+  const bubble = boundary.locator('.cm-table-hotspot-bubble')
+  await expect(bubble).toBeVisible()
+
+  // 气泡位于热点盒子之外：指针移过去时不得因离开热点而收起。
+  await boundary.locator('.cm-table-boundary-delete').hover()
+  await settle(page)
+  await expect(bubble).toBeVisible()
+  await expect(boundary.locator('.cm-table-boundary-delete')).toBeVisible()
+})
