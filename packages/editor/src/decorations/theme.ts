@@ -894,8 +894,11 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-table-hotspot-bubble': {
     position: 'absolute',
     display: 'none',
+    // Two actions share the bubble (#469): insert and delete.
+    gap: '2px',
+    alignItems: 'center',
     whiteSpace: 'nowrap',
-    padding: '2px 6px',
+    padding: '2px 4px',
     borderRadius: '4px',
     border: '1px solid var(--reader-line, var(--mdb-border))',
     background: 'var(--reader-sunken, var(--mdb-bg-secondary))',
@@ -906,7 +909,29 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     zIndex: '7',
   },
   '.cm-content .cm-table-hotspot-active .cm-table-hotspot-bubble': {
-    display: 'block',
+    display: 'inline-flex',
+  },
+  // #469: boundary bubble actions. They must accept the pointer while the
+  // bubble is revealed (the bubble itself stays pointer-events:none).
+  '.cm-content .cm-table-boundary-insert': {
+    pointerEvents: 'auto',
+    border: 'none',
+    background: 'transparent',
+    color: 'inherit',
+    font: 'inherit',
+    padding: '1px 4px',
+    borderRadius: '3px',
+    cursor: 'pointer',
+  },
+  '.cm-content .cm-table-boundary-delete': {
+    pointerEvents: 'auto',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--reader-danger, #d14343)',
+    font: 'inherit',
+    padding: '1px 4px',
+    borderRadius: '3px',
+    cursor: 'pointer',
   },
   '.cm-content .cm-table-hotspot-col .cm-table-hotspot-bubble': {
     left: '50%',
