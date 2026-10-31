@@ -418,26 +418,30 @@ class BlockHandlePlugin {
     const clipTop = Math.max(MENU_VIEWPORT_MARGIN, clipRect.top + MENU_VIEWPORT_MARGIN)
     const clipBottom = Math.min(window.innerHeight, clipRect.bottom) - MENU_VIEWPORT_MARGIN
     const available = Math.max(120, clipBottom - clipTop)
-    // A menu taller than the pane cannot fit at all: cap it and let it scroll,
-    // otherwise it overflows the clipped pane and its lower rows are unreachable
-    // (R-CHOREO-02).
+    // Measure the NATURAL height: a cap left from a previous position would
+    // make `measured` equal the cap and clear itself, letting the menu grow back
+    // out of the pane.
+    menuEl.style.maxHeight = ''
+    menuEl.style.overflowY = ''
     const measured = menuEl.getBoundingClientRect().height || menuEl.offsetHeight
-    if (measured > available) {
-      menuEl.style.maxHeight = `${available}px`
+    // Cap the menu so it can sit ADJACENT to the anchor instead of being parked
+    // hundreds of pixels away: the taller side around the anchor is the room we
+    // may use (#487). Falls back to the whole pane when the anchor is centred.
+    const roomBelow = clipBottom - anchorClientY;
+    const roomAbove = anchorClientY - clipTop;
+    const adjacent = Math.max(180, Math.max(roomBelow, roomAbove) - GUTTER_GAP);
+    const cap = Math.min(available, adjacent);
+    if (measured > cap) {
+      menuEl.style.maxHeight = `${cap}px`
       menuEl.style.overflowY = 'auto'
-    } else if (menuEl.style.maxHeight) {
-      menuEl.style.maxHeight = ''
-      menuEl.style.overflowY = ''
     }
-    const menuHeight = Math.min(measured, available)
+    const menuHeight = Math.min(measured, cap)
     const minTop = clipTop - viewTop
     const maxTop = clipBottom - menuHeight - viewTop
     const clamp = (value: number): number => Math.max(minTop, Math.min(value, Math.max(minTop, maxTop)))
     const centred = anchorClientY - menuHeight / 2 - viewTop
     if (centred >= minTop && centred <= maxTop) return centred
     // Cannot centre: sit on the roomier side so the anchor row stays nearest.
-    const roomBelow = clipBottom - anchorClientY
-    const roomAbove = anchorClientY - clipTop
     const target = roomBelow >= roomAbove ? anchorClientY - viewTop : anchorClientY - menuHeight - viewTop
     return clamp(target)
   }
