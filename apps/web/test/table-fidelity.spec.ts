@@ -100,10 +100,11 @@ test('AC: 空格子手柄点击打开插入菜单（基础图标组）', async (
   await handle.click()
   await settle(page)
 
-  // 展开的是插入菜单（含「基础」图标网格），而非块菜单。
+  // 展开的是单元格插入菜单：只列一格装得下的项（图片/视频），不含块级命令（#470）。
   const slashMenu = page.getByTestId('slash-menu')
   await expect(slashMenu).toBeVisible()
-  await expect(slashMenu).toContainText('基础')
+  await expect(slashMenu).toContainText('图片引用')
+  await expect(slashMenu).not.toContainText('任务')
   await expect(slashMenu.locator('.mdb-slash-item').first()).toBeVisible()
 })
 

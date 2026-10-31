@@ -287,7 +287,9 @@ test('A-21.1 空格子手柄点击 → 插入菜单打开；悬停不弹', async
   await settle(page)
   const slashMenu = page.getByTestId('slash-menu')
   await expect(slashMenu).toBeVisible()
-  await expect(slashMenu).toContainText('基础')
+  // 单元格菜单只保留「一格装得下」的项（#470），不再有块级分类。
+  await expect(slashMenu).toContainText('图片引用')
+  await expect(slashMenu).not.toContainText('基础')
   await expect(slashMenu.locator('.mdb-slash-item').first()).toBeVisible()
 
   await page.screenshot({ path: '../../.artifacts/359/06-cell-handle-insert-menu.png' })
