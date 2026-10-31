@@ -44,7 +44,7 @@ test('有内容格显示转换图标，空格显示加号', async ({ page }) => 
 
   const filledName = await filledIcon.getAttribute('data-icon')
   const emptyName = await emptyIcon.getAttribute('data-icon')
-  expect(filledName, '有内容格图标').toBe('FormatParagraphOutlined')
+  expect(filledName, '有内容格图标').toBe('ReferenceOutlined')
   expect(emptyName, '空格图标').toBe('AddOutlined')
   expect(filledName).not.toBe(emptyName)
 })

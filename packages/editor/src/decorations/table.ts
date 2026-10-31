@@ -21,7 +21,7 @@
 import type { Extension, Range } from '@codemirror/state';
 import { Decoration, ViewPlugin, WidgetType, type EditorView } from '@codemirror/view';
 import { defaultCommands, openInsertMenu, releaseInsertMenu } from '../slash';
-import { ADD_ICON_NAME, CONVERT_ICON_NAME, renderIcon } from '../icons';
+import { ADD_ICON_NAME, renderIcon } from '../icons';
 import { openBlockMenuAt } from '../block-handle';
 import {
   parseCellBackground,
@@ -842,7 +842,9 @@ class TableWidget extends WidgetType {
     // The icon carries the same distinction as the label (#452): an empty cell
     // offers ADD, a filled one offers CONVERT. Same vocabulary as the block-level
     // handle (icons.ts), not a CSS glyph.
-    const iconName = empty ? ADD_ICON_NAME : (CONVERT_ICON_NAME.paragraph ?? ADD_ICON_NAME);
+    // A path icon, not a text glyph: a `kind: 'text'` icon would inject its label
+    // into the cell's text content (¶) and pollute innerText/assertions (#452).
+    const iconName = empty ? ADD_ICON_NAME : 'ReferenceOutlined';
     handle.dataset.icon = iconName;
     handle.replaceChildren(renderIcon(iconName));
     el.appendChild(handle);
