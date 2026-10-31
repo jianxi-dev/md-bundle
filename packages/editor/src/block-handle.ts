@@ -426,7 +426,7 @@ class BlockHandlePlugin {
    * pins), then clamp/flip it into the viewport so a near-bottom or near-right
    * block still gets a fully visible menu (R-CHOREO-02).
    */
-  private positionMenu(block: Block | null): void {
+  private positionMenu(_block: Block | null): void {
     const r = this.view.dom.getBoundingClientRect()
     const handleRect = this.chrome.handle.getBoundingClientRect()
     const menuEl = this.chrome.menu
@@ -434,16 +434,11 @@ class BlockHandlePlugin {
     const menuWidth = box.width || menuEl.offsetWidth
     const menuHeight = box.height || menuEl.offsetHeight
 
+    // Anchor to the HANDLE, i.e. the line the pointer is on (#453). Anchoring to
+    // `block.from` made the menu jump to the top of a tall block, which reads as
+    // "the menu drifts and never sits next to the click".
     let left = handleRect.right - r.left + GUTTER_GAP
-    let topLocal = handleRect.top - r.top
-    if (block) {
-      try {
-        const coords = this.view.coordsAtPos(block.from)
-        if (coords) topLocal = coords.top - r.top
-      } catch {
-        // jsdom / unmeasured content — keep the handle-anchored fallback.
-      }
-    }
+    let topLocal = handleRect.top - r.top;
 
     // Horizontal flip: prefer the right of the handle, mirror to its left when
     // the menu would cross the editor pane's right edge. Clamp to `r.right`
@@ -538,7 +533,10 @@ class BlockHandlePlugin {
     this.chrome.setDimmed(false)
     this.currentBlock = block
     this.setSelected({ from: block.from, to: block.to })
-    this.showHandleAt(block.from)
+    // Position the handle on the VISUAL row under the pointer, not the block's
+    // first line: a soft-wrapped paragraph is one block but several rows, and
+    // anchoring to `block.from` made handle and menu jump to the top (#453).
+    this.showHandleAt(pos)
   }
 
   private isPointerInEditorHorizontally(clientX: number): boolean {
