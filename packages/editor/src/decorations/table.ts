@@ -523,10 +523,20 @@ function openCellEditor(
     host.classList.remove('cm-table-cell-editing');
   };
   const commit = (): void => {
-    if (!input.isConnected) return;
-    teardown();
+    // CM6 rebuilds the widget during pointer capture, so the input may already be
+    // detached when blur lands. The staged text lives in the dirty map keyed by
+    // table/row/col, so the flush must not depend on the input still being in the
+    // DOM — bailing here left the edit unflushed until some unrelated flush ran
+    // (#433).
+    if (input.isConnected) teardown();
     flushDirtyTables(view);
     clearDirty(view, tableIndex, row, col);
+    // The press that blurred us flushes on pointerdown, while the input is still
+    // mounted — updateDOM deliberately skips a cell being edited, and by the time
+    // teardown runs there is no further transaction to refresh it. Sync the
+    // visible cell with the document here so display and source can never
+    // disagree (#433).
+    syncCellDom(view, tableIndex, row, col);
   };
 
   input.addEventListener('compositionstart', () => {
@@ -552,6 +562,31 @@ function openCellEditor(
     if (!composing) commit();
   });
   input.addEventListener('mousedown', (event) => event.stopPropagation());
+}
+
+/**
+ * Make one cell's rendered DOM match the document again.
+ *
+ * `updateDOM` skips a cell that still has its `<input>` mounted (its text lives
+ * in the input until the edit settles). When the pointer press that ends an edit
+ * flushes the staged text first, the resulting transaction is skipped for that
+ * cell and no later transaction comes — the source moves on while the card keeps
+ * showing the pre-edit value (#433). This re-reads the cell from the document and
+ * repaints just that span.
+ */
+function syncCellDom(view: EditorView, tableIndex: number, row: number, col: number): void {
+  const table = view.dom.querySelectorAll('.cm-table')[tableIndex];
+  const host = table?.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+  const body = host?.querySelector<HTMLElement>('.cm-table-cell-text');
+  if (!(body instanceof HTMLElement)) return;
+  const range = tableCellRange(view.state.doc.toString(), tableIndex, row, col);
+  if (!range) return;
+  const raw = view.state.doc.sliceString(range.from, range.to);
+  const background = parseCellBackground(raw);
+  const displayText = background ? background.inner : raw;
+  if ((body.dataset.rawText ?? '') === displayText) return;
+  body.dataset.rawText = displayText;
+  body.innerHTML = renderCellText(displayText);
 }
 
 /**
@@ -1135,6 +1170,10 @@ class TableWidget extends WidgetType {
 
   updateDOM(dom: HTMLElement, view: EditorView): boolean {
     this.view = view;
+    // A rebuild can replace this widget before the cell input's blur lands; the
+    // staged text must still reach the document, so every update is a settle
+    // point (#433).
+    scheduleTableFlush(view);
     const wrap = dom as HTMLElement;
     const table = wrap.querySelector<HTMLTableElement>('table.cm-table');
     const boundaries = wrap.querySelector<HTMLElement>('.cm-table-boundaries');
@@ -1197,6 +1236,9 @@ class TableWidget extends WidgetType {
    */
   destroy(): void {
     if (!this.view) return;
+    // The widget is going away (table deleted, or view teardown). Flush any
+    // staged cell so an edit is never lost to a rebuild (#433).
+    scheduleTableFlush(this.view);
     releaseInsertMenu(this.view, 'anchor');
     // Teardown runs inside a CM6 update, so a synchronous flush would throw and
     // lose staged text. Defer it instead (a no-op when nothing is staged).
