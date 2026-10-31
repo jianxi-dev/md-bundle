@@ -438,7 +438,18 @@ class BlockHandlePlugin {
     // `block.from` made the menu jump to the top of a tall block, which reads as
     // "the menu drifts and never sits next to the click".
     let left = handleRect.right - r.left + GUTTER_GAP
-    let topLocal = handleRect.top - r.top;
+    const anchorY = handleRect.top + handleRect.height / 2
+    // `view.dom` is not the clipping box: the editor pane above it clips with
+    // overflow:hidden, so a menu placed inside view.dom's rect can still be cut
+    // off (that is exactly what hid the 转换为 grid). Bound against the pane.
+    const clip = this.view.dom.closest('.cm-editor') ?? this.view.dom
+    const clipRect = clip.getBoundingClientRect()
+    const clipTop = Math.max(MENU_VIEWPORT_MARGIN, clipRect.top + MENU_VIEWPORT_MARGIN)
+    const clipBottom = Math.min(window.innerHeight, clipRect.bottom) - MENU_VIEWPORT_MARGIN
+    const centredTopLocal = anchorY - menuHeight / 2 - r.top
+    const fitsCentred =
+      r.top + centredTopLocal >= clipTop && anchorY + menuHeight / 2 <= clipBottom
+    let topLocal = fitsCentred ? centredTopLocal : handleRect.top - r.top;
 
     // Horizontal flip: prefer the right of the handle, mirror to its left when
     // the menu would cross the editor pane's right edge. Clamp to `r.right`

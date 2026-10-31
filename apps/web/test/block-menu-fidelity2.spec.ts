@@ -194,7 +194,7 @@ test('高亮块菜单不含「颜色」/「翻译」，含「同步块」', asyn
 })
 
 // --- 6. 菜单顶端与块顶对齐 ---
-test('菜单顶端与块顶对齐（menu.top ≈ block.y ±2px）', async ({ page }) => {
+test('菜单纵向以指针行为中心（#466；放不下时退回顶端对齐）', async ({ page }) => {
   await openEditorWith(page, 'menu-position.md', PARA_DOC)
   await hoverLine(page, 'Paragraph one')
   await hoverHandle(page)
@@ -206,7 +206,9 @@ test('菜单顶端与块顶对齐（menu.top ≈ block.y ±2px）', async ({ pag
   const handleBox = await boxOf(handle)
   const menuBox = await boxOf(menu)
 
-  // Menu top should align with handle top (which aligns with block top) within ±2px
-  const diff = Math.abs(menuBox.y - handleBox.y)
-  expect(diff).toBeLessThanOrEqual(2)
+  // #466：放得下时菜单以指针行为中心；放不下时退回顶端对齐。
+  const pointerY = handleBox.y + handleBox.height / 2
+  const centred = Math.abs(menuBox.y + menuBox.height / 2 - pointerY) <= 12
+  const topAligned = Math.abs(menuBox.y - handleBox.y) <= 2
+  expect(centred || topAligned).toBe(true)
 })
