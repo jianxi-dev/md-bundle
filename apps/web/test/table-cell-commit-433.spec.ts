@@ -64,7 +64,11 @@ test('失焦即落盘：单元格显示与源码同时等于输入值，无需�
   await page.waitForTimeout(300)
 
   // 先验显示：此刻不允许有任何"再点一下"的补救
-  const shown = await page.getByTestId('cm-table').locator('td[data-row="1"][data-col="1"]').innerText()
+  // 读文本节点本身：格子里的手柄是块级 SVG，td.innerText 会带一条换行（#452）。
+  const shown = await page
+    .getByTestId('cm-table')
+    .locator('td[data-row="1"][data-col="1"] .cm-table-cell-text')
+    .textContent()
   expect(shown, '失焦后单元格显示').toBe('B2XYZ')
 
   expect(await readSource(page)).toContain('| A2 | B2XYZ |')
@@ -80,7 +84,10 @@ test('回车提交同样立即落盘', async ({ page }) => {
   await settle(page)
   await page.waitForTimeout(300)
 
-  const shown = await page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]').innerText()
+  const shown = await page
+    .getByTestId('cm-table')
+    .locator('td[data-row="0"][data-col="0"] .cm-table-cell-text')
+    .textContent()
   expect(shown, '回车后单元格显示').toBe('A1!')
   expect(await readSource(page)).toContain('| A1! | B1 |')
 })
