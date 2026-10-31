@@ -106,7 +106,7 @@ test('A-12.1a 入口一：空行「+」点击打开 .mdb-slash-menu', async ({ p
   await expect(page.locator('.mdb-slash-menu')).toBeVisible()
 })
 
-test('A-12.1b 入口二：块菜单「在下方添加›」悬停打开 .mdb-slash-menu', async ({ page }) => {
+test('A-12.1b 入口二：块菜单「在下方添加›」悬停在其右侧展开二级面板（#456）', async ({ page }) => {
   await openEditor(page)
   await revealHandleOnLine(page, 'Body paragraph.')
 
@@ -114,9 +114,10 @@ test('A-12.1b 入口二：块菜单「在下方添加›」悬停打开 .mdb-sla
   await expect(page.locator('.mdb-block-handle-menu')).toBeVisible()
 
   await hoverInsertMenuRow(page)
-  await expect(page.locator('.mdb-slash-menu')).toBeVisible()
-  // 与 `/` 入口同一根实例：分类标题同样存在。
-  await expect(page.locator('.mdb-slash-group').first()).toBeVisible()
+  // #456：不再替换块菜单，而是在右侧展开同源的插入 flyout。
+  await expect(page.getByTestId('block-handle-flyout')).toBeVisible()
+  await expect(page.locator('.mdb-block-handle-menu')).toHaveCSS('display', 'block')
+  await expect(page.locator('.mdb-slash-menu')).toHaveCount(0)
 })
 
 test('A-12.1c 入口三：输入 / 打开 .mdb-slash-menu', async ({ page }) => {
@@ -238,7 +239,8 @@ async function openBelowMenu(page: Page): Promise<void> {
   await page.locator('.mdb-block-handle').hover()
   await expect(page.locator('.mdb-block-handle-menu')).toBeVisible()
   await hoverInsertMenuRow(page)
-  await expect(page.locator('.mdb-slash-menu')).toBeVisible()
+  // #456：二级面板是块菜单右侧的 flyout。
+  await expect(page.getByTestId('block-handle-flyout')).toBeVisible()
 }
 
 test('below: 在下方添加› → 代码块插入独立围栏块（新行，不压扁）', async ({ page }) => {
@@ -246,9 +248,9 @@ test('below: 在下方添加› → 代码块插入独立围栏块（新行，�
   await openBelowMenu(page)
   await page.screenshot({ path: '../../.artifacts/358/05-below-menu.png' })
 
-  await page.locator('.mdb-slash-grid-menu .mdb-slash-item', { hasText: '代码块' }).click()
+  await page.locator('[data-testid="block-handle-flyout"] [data-flyout-action="code-block"]').click()
   await settle(page)
-  await expect(page.locator('.mdb-slash-menu')).toHaveCount(0)
+  await expect(page.getByTestId('block-handle-menu')).toBeHidden()
 
   const raw = await rawDoc(page)
   const fenceLines = raw.split('\n').filter((line) => line.trim() === '```')
@@ -261,11 +263,10 @@ test('below: 在下方添加› → 表格插入真实 GFM 表格（含管道符
   await openEditor(page)
   await openBelowMenu(page)
 
-  await page.locator('.mdb-slash-grid-menu .mdb-slash-item', { hasText: '表格' }).hover()
-  await expect(page.locator('.mdb-slash-grid-cell')).toHaveCount(100)
-  await page.locator('.mdb-slash-grid-cell[data-r="2"][data-c="3"]').click()
+  // flyout 的「表格」是命令行（尺寸网格是 `/` 入口的二级层），默认 3×3。
+  await page.locator('[data-testid="block-handle-flyout"] [data-flyout-action="table"]').click()
   await settle(page)
-  await expect(page.locator('.mdb-slash-menu')).toHaveCount(0)
+  await expect(page.getByTestId('block-handle-menu')).toBeHidden()
 
   const raw = await rawDoc(page)
   const tableLines = raw.split('\n').filter((line) => line.includes('|'))

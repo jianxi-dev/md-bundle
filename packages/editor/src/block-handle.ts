@@ -35,7 +35,7 @@ import {
   FLYOUT_ACTION_ATTR,
   FLYOUT_ATTR,
 } from './block-handle-dom'
-import { defaultCommands, openInsertMenu, releaseInsertMenu } from './slash'
+import { defaultCommands, insertCommandTextAt, releaseInsertMenu } from './slash'
 import {
   findBlockAt,
   computeBlockMove,
@@ -731,12 +731,18 @@ class BlockHandlePlugin {
     if (!row || !this.chrome.menu.contains(row)) return
     const block = this.menuBlock ?? this.currentBlock
     if (!block) return
-    if (this.view.dom.querySelector('.mdb-slash-menu')) return
-    openInsertMenu(this.view, block.to, defaultCommands, { from: block.to, to: block.to }, 'below')
-    // The insert menu replaces the block-handle menu, so hide the chrome menu
-    // rather than letting the two panels coexist and overlap (#387). The handle
-    // stays visible; `onMouseMove` treats the open insert panel as the stack.
-    this.chrome.hideMenu()
+    // #456: the insert panel is a SECOND-LEVEL panel beside the block menu, not
+    // a replacement for it. Inject the command rows, then let the shared flyout
+    // machinery render and position them to the right of this row.
+    this.chrome.setFlyoutOptions(
+      'insert-menu',
+      defaultCommands.map((cmd) => ({
+        label: cmd.label,
+        value: cmd.id,
+        icon: cmd.icon,
+      })),
+    )
+    this.chrome.showFlyoutRow(row)
   }
 
   /**
@@ -810,6 +816,12 @@ class BlockHandlePlugin {
 
   /** Apply a flyout option (align / indent / color / callout type) to the block. */
   private applyFlyoutAction(block: Block, action: string): void {
+    // #456: rows of the 插入 flyout carry slash command ids.
+    if (this.chrome.menu.querySelector('[data-flyout="insert-menu"]') !== null &&
+        defaultCommands.some((cmd) => cmd.id === action)) {
+      insertCommandTextAt(this.view, action, block.to, 'below')
+      return
+    }
     if (action.startsWith('align-')) {
       const alignment = action.slice('align-'.length)
       if (alignment === 'left' || alignment === 'center' || alignment === 'right') {

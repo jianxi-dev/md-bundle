@@ -145,6 +145,13 @@ const FLYOUT_OPTIONS: Record<string, () => readonly FlyoutOption[]> = {
 };
 
 /**
+ * Options injected at runtime (#456). The 插入 flyout is built from the slash
+ * command registry, which this module must not import, so the owner hands the
+ * rows over before asking for the panel.
+ */
+const INJECTED_FLYOUT_OPTIONS = new Map<string, readonly FlyoutOption[]>();
+
+/**
  * Registry command id backing a 转为 row, or null for 正文 which has no chord.
  * Headings are `heading-${level}` (registered with Mod-Alt-<level>).
  */
@@ -417,7 +424,9 @@ export class HandleChrome {
     const key = row.getAttribute(FLYOUT_ATTR) ?? '';
     if (this.flyout?.getAttribute(FLYOUT_ATTR) === key) return;
     const isColor = key === 'color';
-    const options = isColor ? [] : FLYOUT_OPTIONS[key]?.() ?? [];
+    const options = isColor
+      ? []
+      : INJECTED_FLYOUT_OPTIONS.get(key) ?? FLYOUT_OPTIONS[key]?.() ?? [];
     if (!isColor && options.length === 0) {
       // Rows such as 在下方添加 own their panel elsewhere (the shared insert
       // menu): hide any open flyout first so it cannot linger beside it (#387).
@@ -453,6 +462,16 @@ export class HandleChrome {
     panel.style.top = `${row.offsetTop}px`;
     this.menu.appendChild(panel);
     this.flyout = panel;
+  }
+
+  /** Register the rows a flyout renders (see `INJECTED_FLYOUT_OPTIONS`). */
+  setFlyoutOptions(key: string, options: readonly FlyoutOption[]): void {
+    INJECTED_FLYOUT_OPTIONS.set(key, options);
+  }
+
+  /** Public entry so the owner can open a flyout for one of its rows. */
+  showFlyoutRow(row: HTMLElement): void {
+    this.showFlyout(row);
   }
 
   hideFlyout(): void {
