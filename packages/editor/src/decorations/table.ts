@@ -912,7 +912,7 @@ class TableWidget extends WidgetType {
       const existing = getCellSelection(view);
       if (event.shiftKey && existing && existing.tableIndex === tableIndex) {
         // Shift-click extends the current anchor to this cell; no editor opens.
-        setCellSelection(view, { ...existing, headRow: row, headCol: col });
+        setCellSelection(view, { ...existing, headRow: row, headCol: col, explicit: true });
         return;
       }
 
@@ -941,6 +941,7 @@ class TableWidget extends WidgetType {
         anchorCol: drag.anchorCol,
         headRow: row,
         headCol: col,
+        explicit: true,
       });
     });
 
