@@ -41,14 +41,16 @@ async function rawDoc(page: Page): Promise<string> {
   return text
 }
 
-test('AC: 标头文本严格含一次「注释」，不出现「注释 注释」', async ({ page }) => {
+test('AC: 标头只有 emoji，不再重复类型文字（#468）', async ({ page }) => {
   await openEditor(page)
 
   const header = page.locator('.cm-callout .cm-callout-header').first()
   await expect(header).toBeVisible()
-  const text = await header.innerText()
-  expect(text).not.toContain('注释 注释')
-  expect((text.match(/注释/g) ?? []).length).toBe(1)
+  // 类型徽标已移除：标头文本只剩 emoji，绝不出现「注释」字样。
+  const text = (await header.innerText()).trim()
+  expect(text).not.toContain('注释')
+  await expect(header.locator('.cm-callout-icon')).toHaveCount(1)
+  expect((await page.locator('.cm-callout').first().getAttribute('data-callout-type'))).toBe('note')
 })
 
 test('AC: 点击卡片后卡片保持渲染且出现可编辑区（不坍缩源码）', async ({ page }) => {

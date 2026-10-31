@@ -85,6 +85,8 @@ test('AC: 清空标题回退为类型默认标头，不残留标题文本（#395
   const title = page.locator('.cm-callout-title')
   await expect(title).toHaveCount(1)
   await expect(title).toHaveText('')
-  await expect(title).toHaveAttribute('data-placeholder', '添加标题')
-  await expect(page.locator('.cm-callout-badge')).toHaveText('注释')
+  // #468：已移除占位文案与类型徽标，空标题槽保留可点。
+  await expect(title).toHaveAttribute('data-callout-empty-title', 'true')
+  await expect(page.locator('.cm-callout-badge')).toHaveCount(0)
+  await expect(page.locator('.cm-callout').first()).toHaveAttribute('data-callout-type', 'note')
 })

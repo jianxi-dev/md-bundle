@@ -26,6 +26,7 @@ import { Decoration, WidgetType, type EditorView } from '@codemirror/view';
 import type { Range } from '@codemirror/state';
 import { resolveCalloutType } from '../callout-types';
 import { getCalloutEmojiOverride, openCalloutEmojiPicker } from './callout-emoji';
+import { attachCalloutInsertMenu } from './callout-insert';
 import { createContentLineElement } from './list';
 
 // --- Staging + flush --------------------------------------------------------
@@ -157,7 +158,11 @@ function openCalloutEditor(view: EditorView, index: number): void {
   editor.setSelectionRange(editor.value.length, editor.value.length);
 
   let composing = false;
+  // #468: `/` inside the card opens a card-local insert menu (the slash menu
+  // used to fall through to the document and insert above the block).
+  const detachInsertMenu = attachCalloutInsertMenu({ editor, card });
   const teardown = (): void => {
+    detachInsertMenu();
     editor.remove();
     contentEl?.removeAttribute('hidden');
   };
@@ -191,6 +196,13 @@ function openCalloutEditor(view: EditorView, index: number): void {
     if (!composing) commit();
   });
   editor.addEventListener('mousedown', (event) => event.stopPropagation());
+  // #468: an empty body must not linger as a stray `>` line. Leaving the card
+  // commits, and an empty commit drops the body entirely (buildCalloutMarkdown
+  // emits no lines for empty content).
+  card.addEventListener('mouseleave', () => {
+    if (composing || !editor.isConnected) return;
+    if (editor.value.trim() === '') commit();
+  });
 }
 
 /** Size the textarea to its content so the card grows instead of scrolling. */
@@ -313,6 +325,9 @@ class CalloutWidget extends WidgetType {
     if (this.fold) container.setAttribute('data-fold', this.fold);
     const emoji = (view ? getCalloutEmojiOverride(view, this.index) : undefined) ?? this.icon;
     container.setAttribute('data-callout-emoji', emoji);
+    // The badge is gone (#468), so the card carries its type as data instead.
+    container.setAttribute('data-callout-type', this.type);
+    container.setAttribute('aria-label', this.label);
 
     if (view) {
       wireExternalFlush(view);
@@ -371,18 +386,14 @@ class CalloutWidget extends WidgetType {
     }
     header.appendChild(iconEl);
 
-    const badge = document.createElement('span');
-    badge.className = 'cm-callout-badge';
-    badge.textContent = this.label;
-    header.appendChild(badge);
-
-    // The title slot is always present: an untitled card shows a muted
-    // placeholder so the title is reachable and editable (#451). It must stay
-    // empty (not repeat the badge label) — D2's "注释 注释" rule still holds.
+    // #468: the header shows ONLY the leading emoji. The type badge and the
+    // "添加标题" placeholder were duplicated chrome the user asked to remove;
+    // the title slot stays as an empty (still clickable) element so a title
+    // remains reachable (#451) without printing any text.
     const titleEl = document.createElement('span');
     titleEl.className = 'cm-callout-title';
-    titleEl.textContent = this.title;
-    if (!this.title) titleEl.dataset.placeholder = '添加标题';
+    if (this.title) titleEl.textContent = this.title;
+    if (!this.title) titleEl.setAttribute('data-callout-empty-title', 'true');
     header.appendChild(titleEl);
 
     container.appendChild(header);

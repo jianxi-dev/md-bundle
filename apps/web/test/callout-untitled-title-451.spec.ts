@@ -52,7 +52,11 @@ test('无标题卡片有「添加标题」占位，点开可写回源码', async
   await openEditor(page)
   const title = page.locator('.cm-callout-title').first()
   await expect(title).toHaveCount(1)
-  await expect(title).toHaveAttribute('data-placeholder', '添加标题')
+  // #468：头部不再打印「添加标题」；空标题槽仍存在且可点开编辑。
+  await expect(title).toHaveCount(1)
+  await expect(title).toHaveAttribute('data-callout-empty-title', 'true')
+  expect((await title.innerText()).trim()).toBe('')
+  await expect(title).not.toHaveAttribute('data-placeholder', '添加标题')
 
   await title.click()
   await settle(page)
