@@ -35,6 +35,109 @@ interface ColumnBlock {
   cells: { from: number; to: number; text: string }[];
 }
 
+
+/**
+ * Rewrite a column block from its padded cell list.
+ *
+ * GFM/Pandoc fenced divs have no slot for an EMPTY column: `splitCells` only
+ * returns blocks that contain non-whitespace, so a blank column simply does not
+ * exist in the source. Editing one therefore has to rewrite the fenced div with
+ * the padded list (blank cells become empty stretches between `:::` markers).
+ *
+ * The rewrite keeps the opening/closing fence lines byte-identical and only
+ * touches the inner stretch.
+ */
+function rebuildColumns(docText: string, block: ColumnBlock, cells: string[]): string | null {
+  const text = docText.slice(block.from, block.to);
+  const lines = text.split('\n');
+  if (lines.length < 2) return null;
+  const openLine = lines[0];
+  const closeLine = lines[lines.length - 1];
+  // Nested fences: refuse rather than mangle structure we do not model.
+  if (lines.slice(1, -1).some((line) => OPEN_RE.test(line) || CLOSE_RE.test(line))) return null;
+  const padded = Array.from({ length: block.count }, (_, i) => (cells[i] ?? '').replace(/\n{3,}/g, '\n\n'));
+  return [openLine, '', padded.join('\n\n'), '', closeLine].join('\n');
+}
+
+
+/**
+ * In-place column editor (#450).
+ *
+ * The widget replaces the whole fenced div, so putting the CM6 caret "inside a
+ * column" is not possible: any coordinate inside the widget maps back to the
+ * block's first line. A real `<textarea>` inside the column body is the only way
+ * to type where the user clicked; the edit is written back by rebuilding the
+ * fenced div on settle.
+ */
+function openColumnEditor(
+  view: EditorView,
+  blockFrom: number,
+  index: number,
+  host: HTMLElement,
+  initial: string,
+): void {
+  const existing = host.querySelector<HTMLTextAreaElement>('.cm-column-editor');
+  if (existing) {
+    existing.focus();
+    return;
+  }
+  const area = document.createElement('textarea');
+  area.className = 'cm-column-editor';
+  area.setAttribute('data-testid', 'cm-column-editor');
+  area.value = initial;
+  area.rows = 1;
+  host.appendChild(area);
+  area.focus();
+  area.setSelectionRange(area.value.length, area.value.length);
+
+  let composing = false;
+  const teardown = (): void => {
+    area.remove();
+    host.removeAttribute('data-editing');
+  };
+  const commit = (): void => {
+    if (!area.isConnected) return;
+    const value = area.value.trim();
+    teardown();
+    const docText = view.state.doc.toString();
+    const block = parseColumns(docText).find((b) => b.from === blockFrom);
+    if (!block) return;
+    const cells = Array.from({ length: block.count }, (_, i) => (block.cells[i]?.text ?? '').trim());
+    cells[index] = value;
+    const next = rebuildColumns(docText, block, cells);
+    if (next === null) return;
+    view.dispatch({ changes: { from: block.from, to: block.to, insert: next } });
+    view.focus();
+  };
+
+  area.addEventListener('compositionstart', () => {
+    composing = true;
+  });
+  area.addEventListener('compositionend', () => {
+    composing = false;
+  });
+  area.addEventListener('keydown', (event) => {
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      teardown();
+      return;
+    }
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      commit();
+    }
+  });
+  area.addEventListener('blur', () => {
+    if (!composing) commit();
+  });
+  area.addEventListener('input', () => {
+    area.style.height = 'auto';
+    area.style.height = `${area.scrollHeight}px`;
+  });
+  area.addEventListener('mousedown', (event) => event.stopPropagation());
+}
+
 /** Equal-split percentages for `count` columns (remainder spread evenly). */
 function equalWidths(count: number): number[] {
   const base = Math.floor(100 / count);
@@ -186,14 +289,17 @@ class ColumnsWidget extends WidgetType {
     const body = document.createElement('div');
     body.className = 'cm-column-body';
     body.textContent = cell.text;
-    // Selecting a column selects its source range, so block-scoped controls
-    // (the floating toolbar / 分栏 picker) can target the wrapped block.
+    if (!cell.text) body.dataset.placeholder = '输入内容…';
+    // A press opens the in-place editor for THIS column (#450). Selecting the
+    // source range instead put the caret on the block's first line, so typing
+    // landed outside the column.
     if (view) {
+      const blockFrom = this.block.from;
       body.addEventListener('mousedown', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        view.dispatch({ selection: { anchor: cell.from, head: cell.to } });
-        view.focus();
+        body.dataset.editing = 'true';
+        openColumnEditor(view, blockFrom, index, body, cell.text);
       });
     }
     col.appendChild(body);
