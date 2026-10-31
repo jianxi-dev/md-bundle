@@ -419,6 +419,9 @@ export const READER_CSS: string = `
 [data-theme='light'] .preview-content pre {
   margin: 0;
   padding: 1.1em 1.15em;
+  /* Long lines wrap instead of scrolling horizontally (#398). */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   overflow-x: auto;
   font-family: var(--type-font-mono);
   font-size: 0.88em;
@@ -1193,6 +1196,9 @@ export const READER_CSS: string = `
 [data-theme='dark'] .preview-content pre {
   margin: 0;
   padding: 1.1em 1.15em;
+  /* Long lines wrap instead of scrolling horizontally (#398). */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   overflow-x: auto;
   font-family: var(--type-font-mono);
   font-size: 0.88em;

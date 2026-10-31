@@ -6,7 +6,12 @@ import {
   indentWithTab,
 } from '@codemirror/commands';
 import { Compartment, EditorState, type Extension } from '@codemirror/state';
-import { LanguageDescription, LanguageSupport } from '@codemirror/language';
+import {
+  LanguageDescription,
+  LanguageSupport,
+  syntaxHighlighting,
+} from '@codemirror/language';
+import { classHighlighter } from '@lezer/highlight';
 import { markdown } from '@codemirror/lang-markdown';
 import { javascriptLanguage } from '@codemirror/lang-javascript';
 import { pythonLanguage } from '@codemirror/lang-python';
@@ -123,6 +128,9 @@ export function createMarkdownEditor(
         EditorView.lineWrapping,
         history(),
         markdown({ codeLanguages: CODE_LANGUAGES }),
+        // Same highlighter the preview uses: it emits `tok-*` classes, so both
+        // surfaces read their colours from one CSS rule set (#398).
+        syntaxHighlighting(classHighlighter),
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         themeCompartment.of(createTheme(theme)),
         decorationsCompartment.of(decorationsEnabled && decorations ? decorations : []),
