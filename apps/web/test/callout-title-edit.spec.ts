@@ -79,7 +79,12 @@ test('AC: 清空标题回退为类型默认标头，不残留标题文本（#395
   expect(source).toContain('> [!NOTE]')
   expect(source).not.toContain('原始标题')
 
-  // 卡片仍渲染，标题节点消失（无重复/幽灵标题，回退到徽标）
+  // 卡片仍渲染；标题槽保留为空（#451 的「添加标题」入口），但不残留旧文本、
+  // 也不重复徽标标签（D2 的「注释 注释」）。
   await expect(page.locator('.cm-callout')).toHaveCount(1)
-  await expect(page.locator('.cm-callout-title')).toHaveCount(0)
+  const title = page.locator('.cm-callout-title')
+  await expect(title).toHaveCount(1)
+  await expect(title).toHaveText('')
+  await expect(title).toHaveAttribute('data-placeholder', '添加标题')
+  await expect(page.locator('.cm-callout-badge')).toHaveText('注释')
 })
