@@ -694,6 +694,42 @@ class TableWidget extends WidgetType {
     view.focus();
   }
 
+  /**
+   * Remove one body row (#469). The last remaining row is replaced by an empty
+   * one so the markdown table stays structurally valid.
+   */
+  private deleteRow(view: EditorView, at: number): void {
+    flushDirtyTables(view);
+    const block = this.currentBlock(view);
+    if (!block || block.rows.length === 0) return;
+    const rows = block.rows.map((row) => [...row]);
+    if (at < 0 || at >= rows.length) return;
+    rows.splice(at, 1);
+    if (rows.length === 0) rows.push(new Array(block.header.length).fill(''));
+    this.rewrite(view, block, [...block.header], rows);
+    view.focus();
+  }
+
+  /**
+   * Remove one column (#469). Refuses the last column: a GFM table needs at
+   * least one, and silently emitting `| |` rows would corrupt the block.
+   */
+  private deleteColumn(view: EditorView, at: number): void {
+    flushDirtyTables(view);
+    const block = this.currentBlock(view);
+    if (!block || block.header.length <= 1) return;
+    if (at < 0 || at >= block.header.length) return;
+    const header = [...block.header];
+    header.splice(at, 1);
+    const rows = block.rows.map((row) => {
+      const next = [...row];
+      next.splice(at, 1);
+      return next;
+    });
+    this.rewrite(view, block, header, rows);
+    view.focus();
+  }
+
   /** Open the anchored INSERT menu over a cell, anchored to that cell's range. */
   private openCellMenu(view: EditorView, row: number, col: number): void {
     flushDirtyTables(view);
@@ -1164,7 +1200,36 @@ class TableWidget extends WidgetType {
 
       const bubble = document.createElement('span');
       bubble.className = 'cm-table-hotspot-bubble';
-      bubble.textContent = kind === 'col' ? '插入列' : '插入行';
+
+      const insertBtn = document.createElement('button');
+      insertBtn.type = 'button';
+      insertBtn.className = 'cm-table-boundary-insert';
+      insertBtn.setAttribute('data-testid', 'cm-table-boundary-insert');
+      insertBtn.textContent = kind === 'col' ? '＋ 插入列' : '＋ 插入行';
+      insertBtn.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (kind === 'col') this.addColumn(view, index);
+        else this.addRow(view, index);
+      });
+      bubble.appendChild(insertBtn);
+
+      // #469: delete lives in the same bubble. A table needs at least one
+      // column, so the col variant is not offered on the single-column case.
+      if (kind === 'row' || this.header.length > 1) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'cm-table-boundary-delete';
+        deleteBtn.setAttribute('data-testid', 'cm-table-boundary-delete');
+        deleteBtn.textContent = kind === 'col' ? '－ 删除列' : '－ 删除行';
+        deleteBtn.addEventListener('mousedown', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (kind === 'col') this.deleteColumn(view, index);
+          else this.deleteRow(view, index);
+        });
+        bubble.appendChild(deleteBtn);
+      }
       hotspot.appendChild(bubble);
 
       hotspot.addEventListener('mouseenter', () => {

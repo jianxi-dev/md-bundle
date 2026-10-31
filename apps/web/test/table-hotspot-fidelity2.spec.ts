@@ -141,7 +141,9 @@ test('A-18.2 悬停某条边界线只现该条热点，泊入后现蓝色「+」
   await rowHotspot.hover()
   await settle(page)
   await expect(rowHotspot.locator('.cm-table-hotspot-bubble')).toBeVisible()
-  await expect(rowHotspot.locator('.cm-table-hotspot-bubble')).toHaveText('插入行')
+  // #469：气泡里现在有两个动作（插入 + 删除），插入仍是第一个。
+  await expect(rowHotspot.locator('.cm-table-boundary-insert')).toHaveText('＋ 插入行')
+  await expect(rowHotspot.locator('.cm-table-boundary-delete')).toHaveText('－ 删除行')
   await expect(page.locator('.cm-table-boundary-active')).toHaveCount(1)
 
   await page.screenshot({ path: '../../.artifacts/359/02-hover-hotspots.png' })
