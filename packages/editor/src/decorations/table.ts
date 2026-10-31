@@ -53,6 +53,14 @@ const BOUNDARY_THICKNESS = 6;
  */
 const BOUNDARY_REVEAL_DISTANCE = 8;
 
+/**
+ * How far inside the table edge the trailing (append) boundaries sit, measured to
+ * the strip centre. Half of the 16px dot stays visible instead of being clipped
+ * by the wrap, and the pointer still lands within BOUNDARY_REVEAL_DISTANCE when
+ * the user hovers the edge (#432).
+ */
+const BOUNDARY_EDGE_INSET = 8;
+
 interface CellSpan {
   /** `-1` marks the header row. */
   row: number;
@@ -1044,6 +1052,7 @@ class TableWidget extends WidgetType {
       top: number,
       width: number,
       height: number,
+      edge = false,
     ): void => {
       const boundary = document.createElement('div');
       boundary.className = `cm-table-boundary cm-table-boundary-${kind}`;
@@ -1066,7 +1075,7 @@ class TableWidget extends WidgetType {
       boundary.appendChild(line);
 
       const hotspot = document.createElement('div');
-      hotspot.className = `cm-table-hotspot cm-table-hotspot-${kind}`;
+      hotspot.className = `cm-table-hotspot cm-table-hotspot-${kind}${edge ? ' cm-table-hotspot-edge' : ''}`;
       hotspot.setAttribute('data-testid', 'cm-table-hotspot');
       hotspot.dataset.type = kind;
       if (kind === 'col') hotspot.dataset.col = String(index);
@@ -1142,6 +1151,27 @@ class TableWidget extends WidgetType {
       const y = rowY[r] ?? ((r + 1) / (this.rows.length + 1)) * totalHeight;
       addBoundary('row', r, originX, originY + y - half, totalWidth, BOUNDARY_THICKNESS);
     }
+
+    // ── Trailing boundaries: append at the end (#432) ─────────────────────
+    // The loops above only cover interior positions, and both add* helpers splice
+    // *before* their index — so "add a row/column at the end", the most common
+    // table action in real writing, had no entry point. These two strips give it
+    // one: index === length splices to the end. They sit BOUNDARY_EDGE_INSET
+    // inside the edge so the dot is not clipped by the wrap.
+    if (this.header.length > 0) {
+      const trailingX = originX + totalWidth - BOUNDARY_EDGE_INSET - half;
+      addBoundary(
+        'col',
+        this.header.length,
+        trailingX,
+        originY,
+        BOUNDARY_THICKNESS,
+        totalHeight,
+        true,
+      );
+    }
+    const trailingY = originY + totalHeight - BOUNDARY_EDGE_INSET - half;
+    addBoundary('row', this.rows.length, originX, trailingY, totalWidth, BOUNDARY_THICKNESS, true);
   }
 
   /**

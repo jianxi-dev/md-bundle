@@ -54,8 +54,19 @@ function bodyCell(page: Page, row: number, col: number): Locator {
   return page.getByTestId('cm-table').locator(`td[data-row="${row}"][data-col="${col}"]`)
 }
 
+// Interior hotspots only: the trailing (append) ones carry index === length and
+// sit inset from the table edge by design (#432), so the "dot on the interior
+// line" contract below does not apply to them.
 function hotspots(page: Page, type: 'col' | 'row'): Locator {
-  return page.locator(`[data-testid="cm-table-hotspot"][data-type="${type}"]`)
+  return page.locator(
+    `[data-testid="cm-table-hotspot"][data-type="${type}"]:not(.cm-table-hotspot-edge)`,
+  )
+}
+
+function edgeHotspot(page: Page, type: 'col' | 'row'): Locator {
+  return page.locator(
+    `[data-testid="cm-table-hotspot"][data-type="${type}"].cm-table-hotspot-edge`,
+  )
 }
 
 function boundary(page: Page, type: 'col' | 'row', index: number): Locator {
@@ -302,4 +313,30 @@ test('A-22.1 表格块菜单含「标题行」「标题列」「均分列宽」'
   await expect(menu).toContainText('均分列宽')
 
   await page.screenshot({ path: '../../.artifacts/359/07-block-menu-table-items.png' })
+})
+
+// ── #432: 末尾追加热点在表格边缘内侧 ─────────────────────────────────────
+test('A-23 末尾热点贴表格边缘（内缩 ≤ 12px），且索引等于长度', async ({ page }) => {
+  await openEditor(page)
+
+  const table = page.getByTestId('cm-table').first()
+  const tableBox = await boxOf(table)
+
+  await pointAtBoundary(page, 'row', 2)
+  const rowEdge = edgeHotspot(page, 'row')
+  await expect(rowEdge).toBeVisible()
+  await expect(rowEdge).toHaveAttribute('data-row', '2')
+  const rowBox = await boxOf(rowEdge)
+  const rowGap = tableBox.y + tableBox.height - (rowBox.y + rowBox.height / 2)
+  expect(rowGap, 'append-row dot inset').toBeGreaterThanOrEqual(0)
+  expect(rowGap, 'append-row dot inset').toBeLessThanOrEqual(12)
+
+  await pointAtBoundary(page, 'col', 2)
+  const colEdge = edgeHotspot(page, 'col')
+  await expect(colEdge).toBeVisible()
+  await expect(colEdge).toHaveAttribute('data-col', '2')
+  const colBox = await boxOf(colEdge)
+  const colGap = tableBox.x + tableBox.width - (colBox.x + colBox.width / 2)
+  expect(colGap, 'append-col dot inset').toBeGreaterThanOrEqual(0)
+  expect(colGap, 'append-col dot inset').toBeLessThanOrEqual(12)
 })

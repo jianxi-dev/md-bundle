@@ -750,6 +750,17 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     left: '8px',
     transform: 'translateY(-50%)',
   },
+  // Trailing (append) boundaries sit on the table edge, where the top-right cell
+  // handle would intercept the dot. Centring the dot on the strip keeps them
+  // apart and keeps the dot inside the wrap (#432).
+  '.cm-content .cm-table-hotspot-col.cm-table-hotspot-edge': {
+    top: '50%',
+    transform: 'translate(-50%, -50%)',
+  },
+  '.cm-content .cm-table-hotspot-row.cm-table-hotspot-edge': {
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+  },
   '.cm-content .cm-table-hotspot-dot': {
     display: 'inline-flex',
     alignItems: 'center',
