@@ -504,8 +504,9 @@ export const CONVERT_ICON_NAME: Record<string, string> = {
 export const ACTION_ICON_NAME: Record<'move-up' | 'move-down' | 'duplicate' | 'delete', string> = {
   'move-up': 'ArrowUpwardOutlined',
   'move-down': 'ArrowDownwardOutlined',
-  duplicate: 'ContentCopyOutlined',
-  delete: 'DeleteOutlined',
+  // Same vocabulary as COMMAND_ICON_NAME: one delete icon, one copy icon (#484).
+  duplicate: 'CopyOutlined',
+  delete: 'DeleteTrashOutlined',
 };
 
 /** True when `name` is a registry icon (so a toolbar option can render an SVG). */

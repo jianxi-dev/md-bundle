@@ -60,7 +60,7 @@ const ACTION_ROWS: ReadonlyArray<readonly [label: string, icon: string]> = [
   ['上移', 'ArrowUpwardOutlined'],
   ['下移', 'ArrowDownwardOutlined'],
   ['复制', 'CopyOutlined'],
-  ['删除', 'DeleteOutlined'],
+  ['删除', 'DeleteTrashOutlined'],
   ['评论', 'AddCommentOutlined'],
   ['剪切', 'FeishuclipOutlined'],
   ['翻译', 'TranslateOutlined'],

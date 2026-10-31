@@ -269,9 +269,10 @@ export function createMenu(): HTMLElement {
   }
   menu.appendChild(grid);
 
-  menu.appendChild(createMenuItem('缩进和对齐', null, { flyout: 'indent-align' }));
-  menu.appendChild(createMenuItem('颜色', null, { flyout: 'color', nonCalloutOnly: true }));
-  menu.appendChild(createMenuItem('类型', null, { flyout: 'callout-type', calloutOnly: true }));
+  // Every row carries an icon so the column reads as one list (#484).
+  menu.appendChild(createMenuItem('缩进和对齐', 'AlignLeftOutlined', { flyout: 'indent-align' }));
+  menu.appendChild(createMenuItem('颜色', 'FontcolorOutlined', { flyout: 'color', nonCalloutOnly: true }));
+  menu.appendChild(createMenuItem('类型', 'CalloutOutlined', { flyout: 'callout-type', calloutOnly: true }));
 
   for (const entry of CALLOUT_ACTIONS) {
     menu.appendChild(createMenuItem(entry.label, entry.icon, { action: entry.action, calloutOnly: true }));
