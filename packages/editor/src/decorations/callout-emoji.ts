@@ -20,6 +20,25 @@ const calloutEmojiOverrides = new WeakMap<EditorView, Map<number, string>>();
 /** Document-level outside-press dismissers, so a removed picker never leaks one. */
 const pickerDismissers = new WeakMap<HTMLElement, (event: MouseEvent) => void>();
 
+/**
+ * Snapshot of the session overrides in document order (ordinal index), for hosts
+ * that render the same document elsewhere (preview, export). `undefined` entries
+ * mean "use the type default" (#380).
+ */
+export function getCalloutEmojiOverrides(view: EditorView): (string | undefined)[] {
+  const map = calloutEmojiOverrides.get(view);
+  if (!map || map.size === 0) return [];
+  const highest = Math.max(...map.keys());
+  return Array.from({ length: highest + 1 }, (_, i) => map.get(i));
+}
+
+/** Notify the host that the override snapshot changed (`mdb:callout-emoji`). */
+function publishOverrides(view: EditorView): void {
+  view.dom.dispatchEvent(
+    new CustomEvent('mdb:callout-emoji', { bubbles: true, detail: getCalloutEmojiOverrides(view) }),
+  );
+}
+
 /** Display override for a callout, or undefined to fall back to the type default. */
 export function getCalloutEmojiOverride(view: EditorView, index: number): string | undefined {
   return calloutEmojiOverrides.get(view)?.get(index);
@@ -56,6 +75,7 @@ function applyEmoji(view: EditorView, index: number, emoji: string | null, defau
     }
     overrides.set(index, emoji);
   }
+  publishOverrides(view);
   const next = emoji ?? defaultEmoji;
   const card = liveCard(view, index);
   if (!card) return;

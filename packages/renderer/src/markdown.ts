@@ -376,7 +376,11 @@ function splitMarkedElements(container: Element, doc: Document): void {
  * following blocks (lists) survive into the callout body. Returns null when the
  * head does not match.
  */
-function buildCallout(bq: Element, doc: Document): Element | null {
+function buildCallout(
+  bq: Element,
+  doc: Document,
+  emojiOverride?: string,
+): Element | null {
   const first = bq.firstElementChild;
   if (!first) return null;
   // First child node index may not be 0 (preceding whitespace text nodes),
@@ -416,7 +420,7 @@ function buildCallout(bq: Element, doc: Document): Element | null {
   if (typeEntry) {
     const iconSpan = doc.createElement('span');
     iconSpan.className = 'callout-icon';
-    iconSpan.textContent = typeEntry.icon;
+    iconSpan.textContent = emojiOverride ?? typeEntry.icon;
     titleEl.appendChild(iconSpan);
   }
 
@@ -434,14 +438,25 @@ function buildCallout(bq: Element, doc: Document): Element | null {
   return el;
 }
 
-function convertCallouts(doc: Document): void {
+function convertCallouts(
+  doc: Document,
+  calloutEmoji?: readonly (string | undefined)[],
+): void {
+  // Ordinal in document order — the same index the editor stores its session
+  // overrides under (#380).
+  let ordinal = -1;
+  const nextEmoji = (): string | undefined => {
+    ordinal += 1;
+    return calloutEmoji?.[ordinal];
+  };
+
   doc.querySelectorAll('blockquote').forEach((bq) => {
     const openerCount = countCalloutOpeners(bq, doc);
     if (openerCount === 0) return;
 
     // Single callout: the original blockquote already has the right shape.
     if (openerCount === 1) {
-      const el = buildCallout(bq, doc);
+      const el = buildCallout(bq, doc, nextEmoji());
       if (el) bq.replaceWith(el);
       return;
     }
@@ -467,7 +482,7 @@ function convertCallouts(doc: Document): void {
     const fragment = doc.createDocumentFragment();
     for (const holder of holders) {
       if (holder.firstElementChild === null) continue;
-      const el = buildCallout(holder, doc);
+      const el = buildCallout(holder, doc, nextEmoji());
       if (el) fragment.appendChild(el);
     }
     bq.replaceWith(fragment);
@@ -545,7 +560,7 @@ function stripDangerousUrls(doc: Document): void {
 // ── Post-process: callouts → links → url strip → CJK ────────────────
 function postProcess(html: string, opts?: RenderOptions): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  convertCallouts(doc);
+  convertCallouts(doc, opts?.calloutEmoji);
   doc.querySelectorAll('a').forEach((a) => {
     if (!a.getAttribute('target')) a.setAttribute('target', '_blank');
   });
