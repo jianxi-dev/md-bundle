@@ -513,6 +513,12 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   },
   '.cm-content .cm-columns': {
     marginBlock: '0.4em',
+    // The layout needs a frame: without it an empty 2-column block collapses to a
+    // thin strip and reads as "插入后什么都没有" (#470).
+    padding: '4px 6px',
+    minHeight: '2.4em',
+    border: '1px dashed var(--reader-line, var(--mdb-border))',
+    borderRadius: 'var(--reader-radius, 6px)',
   },
   '.cm-content .cm-column': {
     position: 'relative',
