@@ -165,5 +165,8 @@ export function openCalloutEmojiPicker(view: EditorView, index: number, defaultE
   };
   pickerDismissers.set(picker, onDocDown);
   document.addEventListener('mousedown', onDocDown, true);
-  card.appendChild(picker);
+  // #468: anchor to the header so the panel opens right under the emoji.
+  // Appending to the card made `top: calc(100% + 4px)` mean "below the card".
+  const anchor = card.querySelector('.cm-callout-header') ?? card;
+  anchor.appendChild(picker);
 }

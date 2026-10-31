@@ -389,7 +389,16 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     borderRadius: 'var(--reader-radius, 6px)',
     color: 'var(--reader-ink, var(--mdb-text))',
   },
+  // #468: no placeholder text, but the empty title slot must keep a hit area,
+  // otherwise an untitled card has no way to reach the title editor (#451).
+  '.cm-content .cm-callout-title[data-callout-empty-title]': {
+    minWidth: '40px',
+    minHeight: '1.2em',
+    display: 'inline-block',
+  },
   '.cm-content .cm-callout-header': {
+    // Containing block for the emoji picker (#468 anchor).
+    position: 'relative',
     display: 'flex',
     alignItems: 'baseline',
     gap: '0.5em',
@@ -404,6 +413,40 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   },
   '.cm-content .cm-callout-icon:hover': {
     backgroundColor: 'rgba(127, 127, 127, 0.18)',
+  },
+  // #468: the card-local `/` menu. Absolutely positioned inside the header,
+  // offset from the textarea so it opens where the user typed.
+  '.cm-content .cm-callout-insert-menu': {
+    position: 'absolute',
+    zIndex: '30',
+    width: '180px',
+    maxHeight: '220px',
+    overflowY: 'auto',
+    padding: '4px',
+    backgroundColor: 'var(--mdb-bg-secondary)',
+    border: '1px solid var(--mdb-border)',
+    borderRadius: '6px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.18)',
+  },
+  '.cm-content .cm-callout-insert-item': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    width: '100%',
+    padding: '4px 6px',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--mdb-text)',
+    fontSize: '13px',
+    lineHeight: '1.2',
+    textAlign: 'left',
+    borderRadius: '4px',
+    cursor: 'pointer',
+  },
+  '.cm-content .cm-callout-insert-empty': {
+    padding: '6px',
+    fontSize: '12px',
+    opacity: '0.6',
   },
   '.cm-content .cm-callout-emoji-picker': {
     position: 'absolute',

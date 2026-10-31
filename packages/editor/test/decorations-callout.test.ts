@@ -73,7 +73,10 @@ describe('editorDecorations with callout support', () => {
       // Callout widget should be rendered
       const widget = view.dom.querySelector('.cm-callout');
       expect(widget).not.toBeNull();
-      expect(widget?.textContent).toContain('注释'); // label from calloutTypeMap
+      // #468: the badge/placeholder are gone — identity lives on the element.
+      expect(widget?.getAttribute('data-callout-type')).toBe('note');
+      // Title still renders (explicit title in the source).
+      expect(widget?.querySelector('.cm-callout-title')?.textContent).toBe('标题');
       evidence.cardShown = true;
       evidence.tests++;
     });
@@ -163,8 +166,10 @@ describe('editorDecorations with callout support', () => {
 
       const widget = view.dom.querySelector('.cm-callout');
       expect(widget).not.toBeNull();
-      // Should show label "提示" from calloutTypeMap
-      expect(widget?.textContent).toContain('提示');
+      // #468: the type badge is gone; the card exposes the type as data and
+      // the header keeps only the emoji.
+      expect(widget?.getAttribute('data-callout-type')).toBe('tip');
+      expect(widget?.querySelector('.cm-callout-badge')).toBeNull();
       
       evidence.titleDefaults = true;
       evidence.tests++;

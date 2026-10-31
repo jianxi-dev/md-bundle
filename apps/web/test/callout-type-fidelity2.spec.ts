@@ -121,10 +121,11 @@ test('生命周期: 选择类型后 flyout 关闭、标头更新且无残留 fly
   const card = page.locator('.cm-callout').first()
   await expect(card).toBeVisible()
   await expect(card).toHaveClass(/cm-callout-tone-green/)
+  // #468: 标头只有 emoji，类型不再以文字重复；身份改由 data-callout-type 承载。
   const header = card.locator('.cm-callout-header')
-  await expect(header).toContainText('提示')
-  const headerText = await header.innerText()
-  expect((headerText.match(/提示/g) ?? []).length).toBe(1)
+  await expect(card).toHaveAttribute('data-callout-type', 'tip')
+  await expect(header.locator('.cm-callout-icon')).toHaveCount(1)
+  expect((await header.innerText()).trim()).not.toContain('提示')
 })
 
 test('R-CALLOUT-02: 点击 header emoji → 选择器打开 → 选中更新 data-callout-emoji', async ({ page }) => {
