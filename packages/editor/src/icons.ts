@@ -29,6 +29,69 @@ type IconDef =
  * reference icons by name string, so no call-site changes are required.
  */
 const ICON_REGISTRY: Record<string, IconDef> = {
+
+  // Inline format — the doubao vocabulary (spec: .lavish/doubao-editor-spec-v2.html).
+  // These replace the text glyphs (`B`/`I`/`U`/`S`) the toolbar used to print (#471).
+  BoldOutlined: {
+    kind: 'paths',
+    paths: [
+      'M6 4h6.2a4 4 0 0 1 2.9 6.7A4.2 4.2 0 0 1 13 18H6zm3 2.6v3.6h3.2a1.8 1.8 0 0 0 0-3.6zm0 6.2v3.6h4a1.8 1.8 0 0 0 0-3.6z',
+    ],
+  },
+  ItalicOutlined: {
+    kind: 'paths',
+    paths: ['M10 4h6v2h-2.2l-3.4 12H13v2H7v-2h2.2l3.4-12H10z'],
+  },
+  UnderlineOutlined: {
+    kind: 'paths',
+    paths: ['M6 3h2v8a4 4 0 0 0 8 0V3h2v8a6 6 0 0 1-12 0zM5 20h14v2H5z'],
+  },
+  StrikethroughOutlined: {
+    kind: 'paths',
+    paths: [
+      'M12 3c3 0 5 1.4 5 3.8h-2c0-1.1-1.2-1.8-3-1.8s-3 .6-3 1.8c0 .7.4 1.2 1.3 1.6H8.2C7.5 7.8 7 7.1 7 6c0-2.2 2-3 5-3z',
+      'M4 11h16v2H4z',
+      'M12 21c-3 0-5-1.4-5-3.8h2c0 1.1 1.2 1.8 3 1.8s3-.6 3-1.8c0-.7-.4-1.2-1.3-1.6h2.1c.7.6 1.2 1.3 1.2 2.4 0 2.2-2 3-5 3z',
+    ],
+  },
+  FontcolorOutlined: {
+    kind: 'paths',
+    paths: [
+      'M9.4 4h2.2L16.4 18h-2.3l-.9-3.2H8.8L7.9 18H5.6zm.3 8.9h3.6l-1.8-6z',
+      'M4 20h16v2H4z',
+    ],
+  },
+  DocColumnsOutlined: {
+    kind: 'paths',
+    paths: ['M4 4h7v16H4zm9 0h7v16h-7zM6 6v12h3V6zm9 0v12h3V6z'],
+  },
+  GlobalLinkOutlined: {
+    kind: 'paths',
+    paths: [
+      'M10.6 13.4a1 1 0 0 1 0-1.4l2.8-2.8a4 4 0 0 1 5.7 5.7l-1.4 1.4-1.4-1.4 1.4-1.4a2 2 0 1 0-2.9-2.9l-2.8 2.8a1 1 0 0 1-1.4 0z',
+      'M13.4 10.6a1 1 0 0 1 0 1.4l-2.8 2.8a4 4 0 0 1-5.7-5.7l1.4-1.4 1.4 1.4-1.4 1.4a2 2 0 1 0 2.9 2.9l2.8-2.8a1 1 0 0 1 1.4 0z',
+    ],
+  },
+  DeleteTrashOutlined: {
+    kind: 'paths',
+    paths: ['M9 3h6l1 2h4v2H4V5h4zM6 8h12l-1 12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2zm3 3v8h2v-8zm4 0v8h2v-8z'],
+  },
+  TypographyOutlined: {
+    kind: 'paths',
+    paths: ['M4 4h16v3h-6.5v13h-3V7H4z'],
+  },
+  InlineCodeOutlined: {
+    kind: 'paths',
+    paths: ['M9.4 7.4 4.8 12l4.6 4.6-1.4 1.4L1.9 12 8 5.9zM14.6 7.4 20.1 12l-5.5 5.4-1.4-1.4L17.3 12l-4.1-4.6z'],
+  },
+
+  StyleSetOutlined: {
+    kind: 'paths',
+    paths: [
+      'M12 3a9 9 0 0 1 9 9 3 3 0 0 1-3 3h-1.2a1.8 1.8 0 0 0 0 3.6H18a3 3 0 0 1-3 3 9 9 0 1 1-3-18zm-3.5 5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm2 6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6-1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-4-5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z',
+    ],
+  },
+
   // Headings — bold "H1".."H6" text marks so each level is visually distinct
   // (AC: "手柄图标随块型切换" must be observable, not just attribute-different).
   H1Outlined: { kind: 'text', label: 'H1', weight: 700 },
@@ -254,6 +317,118 @@ const ICON_REGISTRY: Record<string, IconDef> = {
     paths: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 7.5V14h2v-4.5a2.5 2.5 0 0 1 5 0V14h2v-4.5a4.5 4.5 0 0 0-9 0zM12 6a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4z'],
   },
 };
+
+
+/**
+ * Command id → icon name. The ONE place a command maps to a glyph name; the
+ * toolbar, the command palette and the code-block toolbar all resolve through
+ * it, so no surface can drift back to printing raw text (#471).
+ */
+export const COMMAND_ICON_NAME: Readonly<Record<string, string>> = {
+  'toggle-bold': 'BoldOutlined',
+  'toggle-italic': 'ItalicOutlined',
+  'toggle-underline': 'UnderlineOutlined',
+  'toggle-strikethrough': 'StrikethroughOutlined',
+  'toggle-code': 'InlineCodeOutlined',
+  'toggle-link': 'GlobalLinkOutlined',
+  'insert-unordered-list': 'DisorderListOutlined',
+  'insert-ordered-list': 'OrderListOutlined',
+  'insert-task-list': 'TodoOutlined',
+  'insert-quote': 'FormatQuoteOutlined',
+  'insert-code-block': 'CodeblockOutlined',
+  'insert-table': 'TableChartOutlined',
+  'insert-callout': 'CalloutOutlined',
+  'insert-html': 'CodeOutlined',
+  'insert-css': 'CodeOutlined',
+  'code-copy': 'CopyOutlined',
+  'heading-1': 'H1Outlined',
+  'heading-2': 'H2Outlined',
+  'heading-3': 'H3Outlined',
+  'heading-4': 'H4Outlined',
+  'heading-5': 'H5Outlined',
+  'heading-6': 'H6Outlined',
+  paragraph: 'FormatParagraphOutlined',
+  'structure-check': 'TextOutlined',
+  'font-serif': 'TypographyOutlined',
+  'font-mono': 'TypographyOutlined',
+  'font-sans': 'TypographyOutlined',
+  'font-clear': 'TypographyOutlined',
+  'color-red': 'FontcolorOutlined',
+  'color-blue': 'FontcolorOutlined',
+  'color-green': 'FontcolorOutlined',
+  'color-orange': 'FontcolorOutlined',
+  'color-purple': 'FontcolorOutlined',
+  'color-yellow': 'FontcolorOutlined',
+  'color-cyan': 'FontcolorOutlined',
+  'color-clear': 'FontcolorOutlined',
+  'bg-red': 'StyleSetOutlined',
+  'bg-blue': 'StyleSetOutlined',
+  'bg-green': 'StyleSetOutlined',
+  'bg-orange': 'StyleSetOutlined',
+  'bg-purple': 'StyleSetOutlined',
+  'bg-yellow': 'StyleSetOutlined',
+  'bg-cyan': 'StyleSetOutlined',
+  'bg-gray': 'StyleSetOutlined',
+  'bg-darkred': 'StyleSetOutlined',
+  'bg-brown': 'StyleSetOutlined',
+  'bg-olive': 'StyleSetOutlined',
+  'bg-darkgreen': 'StyleSetOutlined',
+  'bg-navy': 'StyleSetOutlined',
+  'bg-indigo': 'StyleSetOutlined',
+  'bg-slate': 'StyleSetOutlined',
+  'bg-clear': 'StyleSetOutlined',
+  'color-reset': 'StyleSetOutlined',
+  'align-left': 'AlignLeftOutlined',
+  'align-center': 'AlignCenterOutlined',
+  'align-right': 'AlignRightOutlined',
+  'align-clear': 'AlignClearOutlined',
+  'col-1': 'DocColumnsOutlined',
+  'col-2': 'DocColumnsOutlined',
+  'col-3': 'DocColumnsOutlined',
+  'col-4': 'DocColumnsOutlined',
+  'col-5': 'DocColumnsOutlined',
+  'col-clear': 'DocColumnsOutlined',
+  'turn-into-h1': 'H1Outlined',
+  'turn-into-h2': 'H2Outlined',
+  'turn-into-h3': 'H3Outlined',
+  'turn-into-h4': 'H4Outlined',
+  'turn-into-h5': 'H5Outlined',
+  'turn-into-h6': 'H6Outlined',
+  'turn-into-paragraph': 'FormatParagraphOutlined',
+  'turn-into-list': 'DisorderListOutlined',
+  'turn-into-task': 'TodoOutlined',
+  'turn-into-quote': 'ReferenceOutlined',
+  'turn-into-code': 'CodeblockOutlined',
+  'turn-into-callout': 'CalloutOutlined',
+  'turn-into-table': 'TableChartOutlined',
+  delete: 'DeleteTrashOutlined',
+  duplicate: 'CopyOutlined',
+  'move-up': 'ArrowUpwardOutlined',
+  'move-down': 'ArrowDownwardOutlined',
+};
+
+/**
+ * Resolve the icon NAME for a command, in priority order: an explicit name that
+ * is registered, then the SSOT map. `null` means "no icon — caller may print a
+ * label".
+ */
+export function resolveIconName(commandId: string, declared?: string): string | null {
+  if (declared && hasIcon(declared)) return declared;
+  const mapped = COMMAND_ICON_NAME[commandId];
+  if (mapped && hasIcon(mapped)) return mapped;
+  return null;
+}
+
+/**
+ * Fill `el` with the resolved SVG icon. Returns false when nothing was
+ * rendered (caller decides the text fallback).
+ */
+export function renderIconInto(el: HTMLElement, commandId: string, declared?: string): boolean {
+  const name = resolveIconName(commandId, declared);
+  if (!name) return false;
+  el.replaceChildren(renderIcon(name));
+  return true;
+}
 
 /** Known icon names — used as a fallback for unmapped names. */
 const FALLBACK_ICON_NAME = 'DragHandleOutlined';

@@ -178,7 +178,8 @@ describe('toolbar button definitions', () => {
   it('returns exactly the copy button for code-block context', () => {
     const buttons = getButtonsForContext({ kind: 'code-block' });
     expect(buttons).toEqual([
-      { id: 'toolbar-copy-code', icon: '📋', label: '复制代码', commandId: 'code-copy' },
+      // #471: the button declares a registry icon name, not an emoji glyph.
+      { id: 'toolbar-copy-code', icon: 'CopyOutlined', label: '复制代码', commandId: 'code-copy' },
     ]);
   });
 });

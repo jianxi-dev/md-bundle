@@ -259,8 +259,9 @@ test.describe('选区浮条：转换下拉（turn-into）#277 task 3.1', () => {
 
     const dropdownBtn = page.locator('.mdb-floating-toolbar .mdb-toolbar-dropdown-btn[title="转换"]')
     await expect(dropdownBtn).toBeVisible()
-    // Icon should be ⇄ or similar
-    await expect(dropdownBtn).toContainText('⇄')
+    // #471：图标是注册的 TypographyOutlined，不再是 ⇄ 字形。
+    await expect(dropdownBtn.locator('svg[data-icon="TypographyOutlined"]')).toHaveCount(1)
+    await expect(dropdownBtn).toContainText('▾')
   })
 
   test('转换 dropdown contains all expected options', async ({ page }) => {

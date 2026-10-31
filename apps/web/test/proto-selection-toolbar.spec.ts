@@ -227,7 +227,8 @@ test.describe('原型 §3：上下文工具栏（context-toolbar / mdb-toolbar�
     const buttons = context.locator('.mdb-toolbar-btn')
     await expect(buttons).toHaveCount(1)
     await expect(buttons.first()).toHaveAttribute('title', '复制代码')
-    await expect(buttons.first()).toHaveText('📋')
+    // #471：图标改为注册图标（CopyOutlined），不再是 emoji 字形。
+    await expect(buttons.first().locator('svg[data-icon="CopyOutlined"]')).toHaveCount(1)
   })
 })
 

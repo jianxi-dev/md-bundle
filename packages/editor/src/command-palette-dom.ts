@@ -7,6 +7,7 @@
 
 import type { MatchEntry } from './command-palette-search';
 import { formatKeyChord } from './keybindings';
+import { renderIconInto } from './icons';
 
 /** Full-viewport scrim. `onOutside` fires on mousedown anywhere on it. */
 export function createPaletteBackdrop(onOutside: () => void): HTMLDivElement {
@@ -87,7 +88,11 @@ export function createPaletteRow(
 
   const icon = document.createElement('span');
   icon.className = 'mdb-palette-icon';
-  icon.textContent = entry.icon ?? '•';
+  icon.setAttribute('aria-hidden', 'true');
+  // #471: registry names render as SVG; only unmapped commands keep a glyph.
+  if (!renderIconInto(icon, entry.id, entry.icon)) {
+    icon.textContent = entry.icon ?? '•';
+  }
   Object.assign(icon.style, {
     flex: 'none',
     width: '20px',
