@@ -108,14 +108,28 @@ test('别名：/css 命中插入 CSS', async ({ page }) => {
   expect(await rawDoc(page)).toContain('<style>')
 })
 
-test('父子直达：/n 列出标注及其 8 个二级选项', async ({ page }) => {
+test('父子直达：/n 列出标注及其 13 个二级选项', async ({ page }) => {
   await openEditor(page)
   await typeQuery(page, 'n')
 
-  // 父项 + 8 个 callout 子项
-  await expect(rows(page)).toHaveCount(9)
+  // 父项 + 13 个 callout 子项（与块菜单「类型」同一数据源，#444）
+  await expect(rows(page)).toHaveCount(14)
   await expect(rows(page).first()).toContainText('标注')
-  await expect(rows(page)).toContainText(['注释', '信息', '提示', '成功', '警告', '危险', '错误', '疑问'])
+  await expect(rows(page)).toContainText([
+    '注释',
+    '信息',
+    '摘要',
+    '待办',
+    '提示',
+    '成功',
+    '问题',
+    '警告',
+    '失败',
+    '危险',
+    'Bug',
+    '示例',
+    '引用',
+  ])
 })
 
 test('子码独占：/nd 只命中危险标注', async ({ page }) => {
