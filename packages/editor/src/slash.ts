@@ -1045,6 +1045,38 @@ function applyCommand(view: EditorView, cmd: SlashCommand): void {
   });
 }
 
+/**
+ * Insert a command's markdown at an explicit position, without the slash menu
+ * or its state (#456: the block menu's 「在下方添加」 flyout lives outside the
+ * menu lifecycle). `below` keeps the template intact and starts a new line;
+ * otherwise the text is sanitized to a single line for a table cell anchor.
+ */
+export function insertCommandTextAt(
+  view: EditorView,
+  commandId: string,
+  at: number,
+  mode: 'below' | 'inline' = 'below',
+): boolean {
+  const cmd = defaultCommands.find((entry) => entry.id === commandId)
+  if (!cmd) return false
+  closeMenu(view)
+  // Grid / submenu rows have no direct `insert`: the flyout picks a default
+  // rather than doing nothing, so every row of 在下方添加 has an effect.
+  const raw = cmd.insert
+    ? cmd.insert(view.state).text
+    : cmd.grid
+      ? '|  |  |  |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |'
+      : cmd.children?.[0]?.insert?.(view.state).text
+  if (raw === undefined) return false
+  const text = mode === 'below' ? `\n${raw}` : sanitizeCellText(raw)
+  view.dispatch({
+    changes: { from: at, to: at, insert: text },
+    selection: { anchor: at + text.length },
+    scrollIntoView: true,
+  })
+  return true
+}
+
 /** Activate a row: open its flyout or grid, or apply its insert. */
 function activateRow(view: EditorView, cmd: SlashCommand): void {
   if (cmd.grid) {

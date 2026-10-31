@@ -109,30 +109,30 @@ test('R-CHOREO-01b 在下方添加› 插入面板同属合并栈：移入面板
   const handle = page.getByTestId('block-handle')
   const menu = page.getByTestId('block-handle-menu')
 
-  // 悬停「在下方添加›」打开插入面板（.mdb-slash-menu 挂在 view.dom，而非 chrome.menu）。
+  // #456：悬停「在下方添加›」在其右侧展开二级面板，块菜单保持打开（不替换）。
   const addRow = menu.locator('.mdb-block-handle-item', { hasText: '在下方添加' })
   const rb = await boxOf(addRow)
   await page.mouse.move(rb.x + rb.width / 2, rb.y + rb.height / 2)
-  const slashMenu = page.locator('.mdb-slash-menu')
-  await expect(slashMenu).toBeVisible()
+  const flyout = page.getByTestId('block-handle-flyout')
+  await expect(flyout).toBeVisible()
+  await expect(menu).toHaveCSS('display', 'block')
 
-  // 把指针移到插入面板上：面板取代块菜单（#387 同一时刻仅一层菜单），手柄保留
-  // （仍是同一合并栈），面板不因移入而关闭。
-  const sb = await boxOf(slashMenu)
-  await page.mouse.move(sb.x + sb.width / 2, sb.y + 20)
+  // 把指针从行移到二级面板：同属一个合并栈，两者都保留。
+  const fb = await boxOf(flyout)
+  await page.mouse.move(fb.x + fb.width / 2, fb.y + 20)
   await settle(page)
-  await expect(slashMenu).toBeVisible()
-  await expect(menu).toHaveCSS('display', 'none')
+  await expect(flyout).toBeVisible()
+  await expect(menu).toHaveCSS('display', 'block')
   await expect(handle).toHaveCSS('display', 'flex')
 
-  // 移出整个栈（块手柄 + 菜单 + 插入面板）：块 chrome 与插入面板一并消失。
+  // 移出整个栈（块手柄 + 菜单 + 二级面板）：全部收起。
   const titleLine = page.locator('.cm-content .cm-line').filter({ hasText: 'Title' }).first()
   const tb = await boxOf(titleLine)
   await page.mouse.move(tb.x + 40, tb.y + tb.height / 2)
   await settle(page)
   await expect(menu).toHaveCSS('display', 'none')
   await expect(handle).toHaveCSS('display', 'none')
-  await expect(slashMenu).toHaveCount(0)
+  await expect(flyout).toHaveCount(0)
   await screenshot(page, 'state5-insert-stack.png')
 })
 

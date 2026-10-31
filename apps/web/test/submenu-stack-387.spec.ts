@@ -142,16 +142,23 @@ test('DEF3 块菜单 flyout：从类型行移到普通动作行 → flyout 收�
 // ---------------------------------------------------------------------------
 // DEF4: 悬停「在下方添加」→ 插入菜单打开且块菜单收起（同一时刻只有一个菜单可见）。
 // ---------------------------------------------------------------------------
-test('DEF4 在下方添加：插入菜单打开且块菜单收起（仅一个菜单可见）', async ({ page }) => {
+test('DEF4 在下方添加：二级面板在块菜单右侧展开，块菜单不收起（#456）', async ({ page }) => {
   await openEditor(page, 'submenu-387-def4.md', TWO_BLOCK_DOC)
   await openBlockMenu(page, 'Body paragraph.')
 
   await hoverCenter(page, page.locator('.mdb-block-handle-menu [data-flyout="insert-menu"]'))
 
-  await expect(page.locator('.mdb-slash-menu')).toBeVisible()
-  await expect(page.locator('.mdb-slash-group').first()).toBeVisible()
-  await expect(page.getByTestId('block-handle-menu')).toBeHidden()
-  await expect(page.locator('.mdb-block-handle-menu:visible, .mdb-slash-menu:visible')).toHaveCount(1)
+  const flyout = page.getByTestId('block-handle-flyout')
+  await expect(flyout).toBeVisible()
+  await expect(page.getByTestId('block-handle-menu')).toHaveCSS('display', 'block')
+  // 二级面板在菜单右侧，不是替换
+  const geo = await page.evaluate(() => {
+    const m = document.querySelector('[data-testid="block-handle-menu"]')!.getBoundingClientRect()
+    const f = document.querySelector('[data-testid="block-handle-flyout"]')!.getBoundingClientRect()
+    return { menuRight: m.right, flyoutLeft: f.left }
+  })
+  expect(geo.flyoutLeft).toBeGreaterThanOrEqual(geo.menuRight - 4)
+  await expect(page.locator('.mdb-slash-menu')).toHaveCount(0)
 })
 
 // ---------------------------------------------------------------------------
