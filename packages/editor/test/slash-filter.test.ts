@@ -81,8 +81,39 @@ describe('filterSlashCommands', () => {
     expect(filterSlashCommands(defaultCommands, 'fl3')).toEqual([]);
   });
 
-  it('declares eight callout styles as second-level options', () => {
-    expect(calloutChildren).toHaveLength(8);
+  it('declares the thirteen editor callout types as second-level options', () => {
+    // Same data source as the block-menu type flyout (#444).
+    expect(calloutChildren).toHaveLength(13);
+    expect(calloutChildren.map((c) => c.label)).toEqual([
+      '注释',
+      '信息',
+      '摘要',
+      '待办',
+      '提示',
+      '成功',
+      '问题',
+      '警告',
+      '失败',
+      '危险',
+      'Bug',
+      '示例',
+      '引用',
+    ]);
+    expect(calloutChildren.map((c) => c.emoji)).toEqual([
+      '📝',
+      'ℹ️',
+      '📋',
+      '☑️',
+      '💡',
+      '✅',
+      '❓',
+      '⚠️',
+      '✖️',
+      '🚨',
+      '🐛',
+      '📝',
+      '💬',
+    ]);
   });
 
   it('keeps only the table for a size query and reads the size from the same rule', () => {

@@ -26,7 +26,7 @@
 
 import { EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/view';
 import { Prec, type EditorState, type Extension } from '@codemirror/state';
-import { calloutTypeMap } from '@md-bundle/renderer';
+import { CALLOUT_EDIT_TYPES } from './callout-types';
 import { TABLE_SIZE_QUERY, filterSlashCommands } from './slash-filter';
 import { sanitizeCellText } from './decorations/cell-text';
 import { renderIcon } from './icons';
@@ -43,6 +43,12 @@ export interface SlashCommand {
    * DOM as visible text.
    */
   icon?: string;
+  /**
+   * Optional text glyph (an emoji) rendered in place of the SVG icon. Callout
+   * types use their emoji so the insert menu and the block-menu type flyout show
+   * the same symbol (#444).
+   */
+  emoji?: string;
   /** Single-key code typed after `/` (e.g. `r` task, `t` table, `q` quote). */
   code?: string;
   /** Extra codes that resolve to this command (e.g. `w` for the bullet list). */
@@ -83,16 +89,11 @@ function headingLevel(level: 1 | 2 | 3 | 4 | 5 | 6): SlashCommand {
   };
 }
 
-const CALLOUT_TYPES = [
-  'note',
-  'info',
-  'tip',
-  'success',
-  'warning',
-  'danger',
-  'error',
-  'question',
-] as const;
+/**
+ * Callout rows come from the SAME set the block-menu type flyout uses (#444):
+ * one data source means the insert menu and the convert menu can never drift in
+ * label or icon. The renderer map stays the parse/render source of truth.
+ */
 
 const CALLOUT_CODES: Record<string, string> = {
   note: 'nn',
@@ -105,13 +106,14 @@ const CALLOUT_CODES: Record<string, string> = {
   question: 'nq',
 };
 
-function calloutType(type: string): SlashCommand {
-  const marker = type.toUpperCase();
+function calloutType(entry: (typeof CALLOUT_EDIT_TYPES)[number]): SlashCommand {
+  const marker = entry.key.toUpperCase();
   return {
-    id: `callout-${type}`,
-    label: calloutTypeMap[type]?.label ?? type,
+    id: `callout-${entry.key}`,
+    label: entry.label,
     icon: 'CalloutOutlined',
-    code: CALLOUT_CODES[type],
+    emoji: entry.emoji,
+    code: CALLOUT_CODES[entry.key],
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: `> [!${marker}]\n> ` };
@@ -250,7 +252,7 @@ export const defaultCommands: SlashCommand[] = [
     icon: 'CalloutOutlined',
     code: 'n',
     group: '常用',
-    children: CALLOUT_TYPES.map(calloutType),
+    children: CALLOUT_EDIT_TYPES.map(calloutType),
     insert(state) {
       const head = state.selection.main.head;
       return { from: head - 1, to: head, text: '> [!NOTE]\n> ' };
@@ -595,7 +597,12 @@ function renderRootGrid(view: EditorView, state: SlashMenuState): void {
     icon.style.justifyContent = 'center';
     icon.style.lineHeight = '1';
     icon.style.color = 'var(--mdb-primary)';
-    if (cmd.icon) icon.appendChild(renderIcon(cmd.icon));
+    if (cmd.emoji) {
+      icon.textContent = cmd.emoji;
+      icon.style.fontSize = '14px';
+    } else if (cmd.icon) {
+      icon.appendChild(renderIcon(cmd.icon));
+    }
     cell.appendChild(icon);
 
     const label = document.createElement('span');
@@ -1150,7 +1157,12 @@ function renderFlyout(view: EditorView, state: SlashMenuState): void {
     icon.style.alignItems = 'center';
     icon.style.justifyContent = 'center';
     icon.style.color = 'var(--mdb-primary)';
-    if (cmd.icon) icon.appendChild(renderIcon(cmd.icon));
+    if (cmd.emoji) {
+      icon.textContent = cmd.emoji;
+      icon.style.fontSize = '14px';
+    } else if (cmd.icon) {
+      icon.appendChild(renderIcon(cmd.icon));
+    }
     row.appendChild(icon);
 
     const label = document.createElement('span');

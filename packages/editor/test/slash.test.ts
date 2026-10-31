@@ -415,7 +415,8 @@ describe('slash commands', () => {
     expect(view.dom.querySelectorAll('.mdb-slash-grid-menu .mdb-slash-item').length).toBe(1);
 
     expect(slashMenuApply(view)).toBe(true); // opens the type flyout
-    expect(view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(8);
+    // 13 editor types — the same set the block menu renders (#444).
+    expect(view.dom.querySelectorAll('.mdb-slash-flyout-item').length).toBe(13);
     expect(slashMenuApply(view)).toBe(true); // applies 注释 (note)
     expect(view.state.doc.toString()).toBe('> [!NOTE]\n> ');
   });
