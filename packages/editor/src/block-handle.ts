@@ -438,7 +438,15 @@ class BlockHandlePlugin {
     // `block.from` made the menu jump to the top of a tall block, which reads as
     // "the menu drifts and never sits next to the click".
     let left = handleRect.right - r.left + GUTTER_GAP
-    let topLocal = handleRect.top - r.top;
+    // #466: centre the menu on the pointer's row when the whole menu fits the
+    // window from there. Anything taller falls through to the flip/clamp below,
+    // which is the long-standing behaviour for edge cases (#357, DEF6 of #387).
+    const anchorY = handleRect.top + handleRect.height / 2
+    const centredTopLocal = anchorY - menuHeight / 2 - r.top
+    const fitsCentred =
+      r.top + centredTopLocal >= MENU_VIEWPORT_MARGIN &&
+      anchorY + menuHeight / 2 <= window.innerHeight - MENU_VIEWPORT_MARGIN
+    let topLocal = fitsCentred ? centredTopLocal : handleRect.top - r.top;
 
     // Horizontal flip: prefer the right of the handle, mirror to its left when
     // the menu would cross the editor pane's right edge. Clamp to `r.right`

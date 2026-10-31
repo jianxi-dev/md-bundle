@@ -697,9 +697,10 @@ describe('blockHandle lifecycle', () => {
     openMenu()
 
     expect(menuEl()?.style.left).toBe('328px')
-    // Handle at client y=100, editor origin y=50 → 50px. Anchoring to the block's
-    // first line (the old contract) would have moved it to -30px.
-    expect(menuEl()?.style.top).toBe('50px')
+    // #466: the menu's vertical middle sits on the handle (client y=110),
+    // i.e. top = 110 − menuHeight/2 − editorOrigin(50) = 60px for a 0-height box
+    // in this stub. Anchoring to the handle's top edge would give 50px.
+    expect(menuEl()?.style.top).toBe('60px')
   })
 
   it('positions the insertion line relative to the editor origin during a drag', () => {
