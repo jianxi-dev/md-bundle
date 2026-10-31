@@ -78,15 +78,23 @@ test('AC: 点击单元格后仍可编辑并回写源码', async ({ page }) => {
   expect(await rawDoc(page)).toContain('A1')
 })
 
-test('AC: 格内手柄点击打开插入菜单（基础图标组）', async ({ page }) => {
+test('AC: 空格子手柄点击打开插入菜单（基础图标组）', async ({ page }) => {
+  // #399 起手柄按内容分流：空格 → 插入菜单，有内容 → 块菜单。本条覆盖空格那一支。
   await openEditor(page)
 
   const cell = page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]')
   await expect(cell).toBeVisible()
+  // 先把该格清空，再点手柄
+  await cell.dblclick()
+  await settle(page)
+  await page.keyboard.press('Meta+A')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.press('Enter')
+  await settle(page)
   await cell.hover()
   await settle(page)
 
-  const handle = page.getByTestId('cm-table-cell-handle').first()
+  const handle = cell.locator('.cm-table-cell-handle')
   await expect(handle).toBeVisible()
   // #385b: a hover must not pop the menu; a deliberate press opens it.
   await handle.click()

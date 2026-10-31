@@ -21,6 +21,7 @@
 import type { Extension, Range } from '@codemirror/state';
 import { Decoration, ViewPlugin, WidgetType, type EditorView } from '@codemirror/view';
 import { defaultCommands, openInsertMenu, releaseInsertMenu } from '../slash';
+import { openBlockMenuAt } from '../block-handle';
 import {
   parseCellBackground,
   renderCellText,
@@ -804,7 +805,12 @@ class TableWidget extends WidgetType {
     handle.setAttribute('data-testid', 'cm-table-cell-handle');
     handle.dataset.row = String(row);
     handle.dataset.col = String(col);
-    handle.title = '插入内容';
+    // Two distinct affordances (#399, matching the reference product): an empty
+    // cell offers INSERT, a cell with content offers CONVERT (the block menu of
+    // the block that owns it). Both are real menus; neither is a placeholder.
+    const empty = text.trim() === '';
+    handle.dataset.cellEmpty = String(empty);
+    handle.title = empty ? '插入内容' : '转换块内容';
     el.appendChild(handle);
 
     if (view) this.wireCell(view, el, handle, row, col);
@@ -864,6 +870,7 @@ class TableWidget extends WidgetType {
     col: number,
   ): void {
     const tableIndex = this.tableIndex;
+    const empty = this.cellText(row, col).trim() === '';
 
     cellEl.addEventListener('mousedown', (event) => {
       if ((event.target as HTMLElement | null)?.closest('.cm-table-cell-handle')) return;
@@ -923,6 +930,10 @@ class TableWidget extends WidgetType {
       event.preventDefault();
       event.stopPropagation();
       handle.classList.add('cm-table-cell-handle-active');
+      if (!empty) {
+        const span = this.cells.find((c) => c.row === row && c.col === col);
+        if (span && openBlockMenuAt(view, span.from)) return;
+      }
       this.openCellMenu(view, row, col);
     });
   }

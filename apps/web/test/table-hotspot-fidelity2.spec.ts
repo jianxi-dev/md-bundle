@@ -263,9 +263,12 @@ test('A-20.1 点单元格中心 elementFromPoint=单元格且不插行/列', asy
   await page.screenshot({ path: '../../.artifacts/359/05-click-cell-center.png' })
 })
 
-// ── R-TABLE-04: 格内手柄点击 → 插入菜单（悬停不弹，#385b） ──────────────────
-test('A-21.1 点击 .mdb-table-cell-handle → 插入菜单打开；悬停不弹', async ({ page }) => {
-  await openEditor(page)
+// ── R-TABLE-04: 空格子手柄点击 → 插入菜单（悬停不弹，#385b / #399） ────────
+// #399 起手柄语义分流：有内容的格子 → 块菜单（转换），空格子 → 插入菜单。
+// 本条覆盖「空格子 → 插入菜单」这一支；有内容那一支见 table-cell-handle-399。
+test('A-21.1 空格子手柄点击 → 插入菜单打开；悬停不弹', async ({ page }) => {
+  // 用一个带空格子的文档，避免命中「转换块内容」那一支。
+  await openEditor(page, '\n| H1 | H2 |\n| --- | --- |\n|  |  |\n', 'table-empty-cell.md')
 
   const cell = bodyCell(page, 0, 0)
   await cell.hover()
