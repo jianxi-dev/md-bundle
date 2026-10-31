@@ -477,6 +477,11 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     letterSpacing: '0.03em',
     textTransform: 'uppercase',
   },
+  // Untitled cards keep an empty title slot as the add-title affordance (#451).
+  '.cm-content .cm-callout-title:empty::before': {
+    content: 'attr(data-placeholder)',
+    color: 'var(--reader-ink-3, var(--mdb-muted))',
+  },
   '.cm-content .cm-callout-title': {
     fontWeight: '600',
     // Signals the title is editable in place (the body shows the same affordance

@@ -376,14 +376,14 @@ class CalloutWidget extends WidgetType {
     badge.textContent = this.label;
     header.appendChild(badge);
 
-    // Title only when the source declares one — otherwise the badge is the whole
-    // header (D2: an untitled callout must not read "注释 注释").
-    if (this.title) {
-      const titleEl = document.createElement('span');
-      titleEl.className = 'cm-callout-title';
-      titleEl.textContent = this.title;
-      header.appendChild(titleEl);
-    }
+    // The title slot is always present: an untitled card shows a muted
+    // placeholder so the title is reachable and editable (#451). It must stay
+    // empty (not repeat the badge label) — D2's "注释 注释" rule still holds.
+    const titleEl = document.createElement('span');
+    titleEl.className = 'cm-callout-title';
+    titleEl.textContent = this.title;
+    if (!this.title) titleEl.dataset.placeholder = '添加标题';
+    header.appendChild(titleEl);
 
     container.appendChild(header);
 
