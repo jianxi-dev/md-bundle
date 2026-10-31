@@ -107,16 +107,14 @@ test.describe('字体色 = 彩色字母 A；背景色 = 色块（#328）', () =>
 })
 
 test.describe('表格单元格选区工具栏（#328）', () => {
-  test('单选单元格：工具栏出现且「合并单元格」禁用', async ({ page }) => {
+  test('单击单元格：不弹工具栏（#455）', async ({ page }) => {
     await openEditor(page)
     await bodyCell(page, 0, 0).click()
     await settle(page)
 
-    const toolbar = page.getByTestId('cell-toolbar')
-    await expect(toolbar).toBeVisible()
-    const merge = page.getByTestId('cell-merge')
-    await expect(merge).toBeVisible()
-    await expect(merge).toBeDisabled()
+    // 单击只是把光标放进格子；工具条服务的是选区。
+    await expect(page.getByTestId('cell-toolbar')).toBeHidden()
+    await expect(page.locator('.cm-table-cell-input')).toHaveCount(1)
   })
 
   test('多选单元格（拖拽）：合并单元格启用', async ({ page }) => {
@@ -142,7 +140,8 @@ test.describe('表格单元格选区工具栏（#328）', () => {
 
   test('单元格背景色：应用到单元格并在源码写 mdb-bg-*', async ({ page }) => {
     await openEditor(page)
-    await bodyCell(page, 0, 0).click()
+    // 拖选两格后再上色（单击不再弹工具条，#455）
+    await dragCells(page, bodyCell(page, 0, 0), bodyCell(page, 0, 1))
     await settle(page)
 
     await page.getByTestId('cell-bg').click()
@@ -163,7 +162,8 @@ test.describe('表格单元格选区工具栏（#328）', () => {
 
   test('恢复默认：移除单元格背景类与颜色', async ({ page }) => {
     await openEditor(page)
-    await bodyCell(page, 0, 0).click()
+    // 单击不再弹工具条（#455）→ 用拖选让工具条出现
+    await dragCells(page, bodyCell(page, 0, 0), bodyCell(page, 0, 1))
     await settle(page)
 
     await page.getByTestId('cell-bg').click()

@@ -26,6 +26,11 @@ export interface CellSelection {
   readonly anchorCol: number;
   readonly headRow: number;
   readonly headCol: number;
+  /**
+   * True when the user picked the range deliberately (shift-click or drag)
+   * rather than a plain click that just put the caret in a cell (#455).
+   */
+  readonly explicit?: boolean;
 }
 
 /** Normalised bounding rectangle of a selection (inclusive on all sides). */

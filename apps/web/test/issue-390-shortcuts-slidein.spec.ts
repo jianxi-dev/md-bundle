@@ -121,7 +121,16 @@ test.describe('#390 (b) 二级菜单滑入即显示', () => {
 
   test('单元格工具栏：hover「单元格背景色」即显示二级菜单（无需点击）', async ({ page }) => {
     await openEditor(page)
-    await page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]').click()
+    // #455: 单击格子只放光标、不弹工具条；拖选一格到另一格才出现。
+    const a = page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]')
+    const b = page.getByTestId('cm-table').locator('td[data-row="0"][data-col="1"]')
+    const ab = await a.boundingBox()
+    const bb = await b.boundingBox()
+    if (!ab || !bb) throw new Error('cells missing')
+    await page.mouse.move(ab.x + ab.width / 2, ab.y + ab.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2, { steps: 6 })
+    await page.mouse.up()
     await settle(page)
 
     const toolbar = page.getByTestId('cell-toolbar')
