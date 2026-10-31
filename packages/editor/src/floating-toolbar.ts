@@ -20,6 +20,7 @@
 import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { commandRegistry, type Command } from './commands';
 import { createColorPalette } from './color-palette';
+import { hasIcon, renderIcon } from './icons';
 
 /**
  * A single toolbar control descriptor.
@@ -111,10 +112,10 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
     icon: '对齐',
     kind: 'dropdown',
     options: [
-      { commandId: 'align-left', label: '左对齐' },
-      { commandId: 'align-center', label: '居中' },
-      { commandId: 'align-right', label: '右对齐' },
-      { commandId: 'align-clear', label: '清除' },
+      { commandId: 'align-left', label: '左对齐', icon: 'AlignLeftOutlined' },
+      { commandId: 'align-center', label: '居中', icon: 'AlignCenterOutlined' },
+      { commandId: 'align-right', label: '右对齐', icon: 'AlignRightOutlined' },
+      { commandId: 'align-clear', label: '清除', icon: 'AlignClearOutlined' },
     ],
   },
   { commandId: 'toggle-bold' },
@@ -137,19 +138,19 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
     icon: '⇄',
     kind: 'dropdown',
     options: [
-      { commandId: 'turn-into-h1', label: '一级标题' },
-      { commandId: 'turn-into-h2', label: '二级标题' },
-      { commandId: 'turn-into-h3', label: '三级标题' },
-      { commandId: 'turn-into-h4', label: '四级标题' },
-      { commandId: 'turn-into-h5', label: '五级标题' },
-      { commandId: 'turn-into-h6', label: '六级标题' },
-      { commandId: 'turn-into-paragraph', label: '正文' },
-      { commandId: 'turn-into-list', label: '列表' },
-      { commandId: 'turn-into-task', label: '任务' },
-      { commandId: 'turn-into-quote', label: '引用' },
-      { commandId: 'turn-into-code', label: '代码' },
-      { commandId: 'turn-into-callout', label: '高亮' },
-      { commandId: 'turn-into-table', label: '表格' },
+      { commandId: 'turn-into-h1', icon: 'H1Outlined', label: '一级标题' },
+      { commandId: 'turn-into-h2', icon: 'H2Outlined', label: '二级标题' },
+      { commandId: 'turn-into-h3', icon: 'H3Outlined', label: '三级标题' },
+      { commandId: 'turn-into-h4', icon: 'H4Outlined', label: '四级标题' },
+      { commandId: 'turn-into-h5', icon: 'H5Outlined', label: '五级标题' },
+      { commandId: 'turn-into-h6', icon: 'H6Outlined', label: '六级标题' },
+      { commandId: 'turn-into-paragraph', icon: 'FormatParagraphOutlined', label: '正文' },
+      { commandId: 'turn-into-list', icon: 'DisorderListOutlined', label: '列表' },
+      { commandId: 'turn-into-task', icon: 'TodoOutlined', label: '任务' },
+      { commandId: 'turn-into-quote', icon: 'ReferenceOutlined', label: '引用' },
+      { commandId: 'turn-into-code', icon: 'CodeblockOutlined', label: '代码' },
+      { commandId: 'turn-into-callout', icon: 'CalloutOutlined', label: '高亮' },
+      { commandId: 'turn-into-table', icon: 'TableChartOutlined', label: '表格' },
     ],
   },
 ];
@@ -285,7 +286,20 @@ function createOptionButtonDom(
   optionBtn.className = `mdb-toolbar-dropdown-option${extraClass ? ` ${extraClass}` : ''}`;
   const optionLabel = option.label ?? cmd.label;
   const optionIcon = option.icon ?? cmd.icon;
-  optionBtn.textContent = optionIcon ? `${optionIcon} ${optionLabel}` : optionLabel;
+  // Registry names render as SVG; anything else stays a short text glyph (#454).
+  if (optionIcon && hasIcon(optionIcon)) {
+    const iconEl = document.createElement('span');
+    iconEl.className = 'mdb-toolbar-dropdown-option-icon';
+    iconEl.setAttribute('aria-hidden', 'true');
+    iconEl.replaceChildren(renderIcon(optionIcon));
+    optionBtn.appendChild(iconEl);
+    const labelEl = document.createElement('span');
+    labelEl.className = 'mdb-toolbar-dropdown-option-label';
+    labelEl.textContent = optionLabel;
+    optionBtn.appendChild(labelEl);
+  } else {
+    optionBtn.textContent = optionIcon ? `${optionIcon} ${optionLabel}` : optionLabel;
+  }
   optionBtn.title = optionLabel;
   optionBtn.style.background = 'transparent';
   optionBtn.style.border = 'none';
@@ -297,6 +311,9 @@ function createOptionButtonDom(
   optionBtn.style.lineHeight = '1';
   optionBtn.style.textAlign = 'left';
   optionBtn.style.width = '100%';
+  optionBtn.style.display = 'flex';
+  optionBtn.style.alignItems = 'center';
+  optionBtn.style.gap = '6px';
 
   optionBtn.addEventListener('mouseenter', () => {
     optionBtn.style.background = 'rgba(255,255,255,0.1)';
@@ -523,7 +540,7 @@ function createColumnsItemDom(
       menu.appendChild(
         createOptionButtonDom(
           view,
-          { commandId: 'col-clear', label: '清除' },
+          { commandId: 'col-clear', label: '清除', icon: 'AlignClearOutlined' },
           clearCmd,
           closeMenu,
           'mdb-columns-clear',
@@ -579,19 +596,26 @@ function positionToolbar(view: EditorView, toolbar: HTMLDivElement): void {
       read: (v) => {
         const coords = v.coordsAtPos(v.state.selection.main.head);
         if (!coords) return null;
+        const box = toolbar.getBoundingClientRect();
         return {
           coords,
           rect: v.dom.getBoundingClientRect(),
-          width: toolbar.getBoundingClientRect().width,
+          width: box.width,
+          height: box.height,
         };
       },
       write: (measure) => {
         if (!measure) return;
-        const { coords, rect, width } = measure;
+        const { coords, rect, width, height } = measure;
         const left = coords.left - rect.left;
         const maxLeft = Math.max(4, rect.width - width - 4);
         toolbar.style.left = `${Math.max(4, Math.min(left, maxLeft))}px`;
-        toolbar.style.top = `${Math.max(4, coords.bottom - rect.top + 4)}px`;
+        // Prefer BELOW the selection (#454); flip above only when the toolbar
+        // would leave the viewport, then clamp.
+        const below = coords.bottom - rect.top + 6;
+        const above = coords.top - rect.top - height - 6;
+        const fitsBelow = rect.top + below + height <= window.innerHeight - 4;
+        toolbar.style.top = `${Math.max(4, fitsBelow ? below : above)}px`;
       },
     });
   } catch {

@@ -113,6 +113,12 @@ const ICON_REGISTRY: Record<string, IconDef> = {
   // Add (+) — empty-line insert affordance.
   AddOutlined: { kind: 'paths', paths: ['M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z'] },
 
+  // Alignment — simple rule glyphs, sized for the 18px toolbar slot.
+  AlignLeftOutlined: { kind: 'paths', paths: ['M4 6h16M4 10h10M4 14h16M4 18h10'] },
+  AlignCenterOutlined: { kind: 'paths', paths: ['M4 6h16M7 10h10M4 14h16M7 18h10'] },
+  AlignRightOutlined: { kind: 'paths', paths: ['M4 6h16M10 10h10M4 14h16M10 18h10'] },
+  AlignClearOutlined: { kind: 'paths', paths: ['M4 6h16M4 12h16M4 18h16'] },
+
   // Paragraph / text block — pilcrow.
   TextOutlined: { kind: 'text', label: '¶', weight: 700 },
 
@@ -326,6 +332,11 @@ export const ACTION_ICON_NAME: Record<'move-up' | 'move-down' | 'duplicate' | 'd
   duplicate: 'ContentCopyOutlined',
   delete: 'DeleteOutlined',
 };
+
+/** True when `name` is a registry icon (so a toolbar option can render an SVG). */
+export function hasIcon(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(ICON_REGISTRY, name);
+}
 
 /** Icon name for the empty-line "+" affordance. */
 export const ADD_ICON_NAME = 'AddOutlined';
