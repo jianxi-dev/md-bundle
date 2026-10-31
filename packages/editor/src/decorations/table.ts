@@ -734,6 +734,33 @@ class TableWidget extends WidgetType {
 
     wrap.appendChild(table);
 
+    if (view) {
+      // One anchor dot at the table's top-left (#399). Hovering it reveals the
+      // "+" and a press opens the insert menu at the first cell — the table-level
+      // entry the reference product has, alongside the per-cell handles.
+      const anchor = document.createElement('div');
+      anchor.className = 'cm-table-anchor';
+      anchor.setAttribute('data-testid', 'cm-table-anchor');
+      anchor.setAttribute('role', 'button');
+      anchor.setAttribute('tabindex', '0');
+      anchor.title = '插入内容';
+      anchor.setAttribute('aria-label', '插入内容');
+      anchor.textContent = '＋';
+      const openFromAnchor = (): void => this.openCellMenu(view, 0, 0);
+      anchor.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openFromAnchor();
+      });
+      anchor.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        event.stopPropagation();
+        openFromAnchor();
+      });
+      wrap.appendChild(anchor);
+    }
+
     const boundaries = document.createElement('div');
     boundaries.className = 'cm-table-boundaries';
     wrap.appendChild(boundaries);

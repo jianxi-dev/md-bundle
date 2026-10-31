@@ -668,6 +668,35 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-table-cell-bg-green': { backgroundColor: 'rgba(63, 185, 80, 0.25)' },
   '.cm-content .cm-table-cell-bg-orange': { backgroundColor: 'rgba(227, 179, 65, 0.25)' },
   '.cm-content .cm-table-cell-bg-purple': { backgroundColor: 'rgba(163, 113, 247, 0.25)' },
+  // Table-level anchor (#399): a small dot above the top-left corner that grows
+  // into the "+" on hover, so the table always has one predictable insert entry.
+  '.cm-content .cm-table-anchor': {
+    position: 'absolute',
+    top: '2px',
+    // Inside the wrap: it owns `overflow: auto`, so a negative offset would be
+    // clipped and unclickable (#399).
+    left: '2px',
+    width: '12px',
+    height: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
+    border: '1px solid var(--reader-line, var(--mdb-border))',
+    background: 'var(--reader-sunken, var(--mdb-bg-secondary))',
+    color: 'var(--reader-ink-2, var(--mdb-text-secondary))',
+    fontSize: '0',
+    lineHeight: '1',
+    cursor: 'pointer',
+    zIndex: '6',
+    userSelect: 'none',
+    transition: 'width 80ms ease, height 80ms ease, font-size 80ms ease',
+  },
+  '.cm-content .cm-table-anchor:hover': {
+    width: '18px',
+    height: '18px',
+    fontSize: '12px',
+  },
   '.cm-content .cm-table-cell-handle': {
     position: 'absolute',
     top: '2px',
