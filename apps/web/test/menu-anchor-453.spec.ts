@@ -47,6 +47,9 @@ test('在长段落的第二可视行唤起菜单，菜单贴该行而不是跳�
   const mb = await menu.boundingBox()
   if (!mb) throw new Error('no menu box')
 
-  // 菜单顶应贴近触发所在的可视行，而不是段落顶部
-  expect(mb.y, '菜单不应跳回段落顶部').toBeGreaterThan(box.y + box.height * 0.25)
+  // #466：菜单以触发所在的可视行为中心（中点贴近第二行），不再钉在整段顶部。
+  const menuCenter = mb.y + mb.height / 2
+  const centred = Math.abs(menuCenter - secondRowY) <= 12
+  const nearRow = Math.abs(mb.y - secondRowY) <= mb.height * 0.5 + 40
+  expect(centred || nearRow, '菜单不应跳回段落顶部').toBe(true)
 })
