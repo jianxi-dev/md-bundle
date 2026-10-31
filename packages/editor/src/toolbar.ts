@@ -15,6 +15,7 @@
  * to the editor's dom node.
  */
 
+import { renderIconInto } from './icons';
 import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { type EditorState, type Extension } from '@codemirror/state';
 import { commandRegistry } from './commands';
@@ -133,7 +134,7 @@ export function getButtonsForContext(context: ToolbarContext): ToolbarButton[] {
       // avoids two overlapping bars each carrying a link button (#233).
       return [];
     case 'code-block':
-      return [{ id: 'toolbar-copy-code', icon: '📋', label: '复制代码', commandId: 'code-copy' }];
+      return [{ id: 'toolbar-copy-code', icon: 'CopyOutlined', label: '复制代码', commandId: 'code-copy' }];
     case 'empty':
     case 'normal':
       return [];
@@ -197,7 +198,8 @@ function renderToolbar(view: EditorView, state: ToolbarState): void {
   for (const btn of buttons) {
     const button = document.createElement('button');
     button.className = 'mdb-toolbar-btn';
-    button.textContent = btn.icon;
+    // #471: icons resolve through the SSOT; unmapped buttons keep their glyph.
+    if (!renderIconInto(button, btn.commandId ?? btn.id, btn.icon)) button.textContent = btn.icon;
     button.title = btn.label;
     button.style.background = 'transparent';
     button.style.border = 'none';

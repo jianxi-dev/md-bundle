@@ -20,7 +20,7 @@
 import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { commandRegistry, type Command } from './commands';
 import { createColorPalette } from './color-palette';
-import { hasIcon, renderIcon } from './icons';
+import { hasIcon, renderIcon, renderIconInto } from './icons';
 
 /**
  * A single toolbar control descriptor.
@@ -103,13 +103,13 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
   {
     commandId: 'color-red',
     label: '颜色',
-    icon: 'A',
+    icon: 'FontcolorOutlined',
     kind: 'color',
   },
   {
     commandId: 'align-left',
     label: '对齐',
-    icon: '对齐',
+    icon: 'AlignLeftOutlined',
     kind: 'dropdown',
     options: [
       { commandId: 'align-left', label: '左对齐', icon: 'AlignLeftOutlined' },
@@ -123,19 +123,19 @@ const DEFAULT_TOOLBAR_ITEMS: readonly FloatingToolbarItem[] = [
   { commandId: 'toggle-italic' },
   { commandId: 'toggle-underline' },
   { commandId: 'toggle-link' },
-  { commandId: 'toggle-code', icon: '</>' },
+  { commandId: 'toggle-code' },
   {
     commandId: 'col-2',
     label: '分栏',
-    icon: '分栏',
+    icon: 'DocColumnsOutlined',
     kind: 'columns',
     columns: { max: 5 },
   },
-  { commandId: 'code-copy', label: '复制', icon: '复制' },
+  { commandId: 'code-copy', label: '复制', icon: 'CopyOutlined' },
   {
     commandId: 'turn-into-h2',
     label: '转换',
-    icon: '⇄',
+    icon: 'TypographyOutlined',
     kind: 'dropdown',
     options: [
       { commandId: 'turn-into-h1', icon: 'H1Outlined', label: '一级标题' },
@@ -342,13 +342,11 @@ function createButtonItemDom(
   // Item overrides win over the command's defaults.
   const label = item.label ?? cmd.label;
   const icon = item.icon ?? cmd.icon;
-  btn.textContent = icon ?? label;
   btn.title = label;
   applyToolbarButtonStyle(btn);
-
-  // Visual hint for the few glyph-bearing controls so B/I read as bold/italic.
-  if (icon === 'B') btn.style.fontWeight = '600';
-  if (icon === 'I') btn.style.fontStyle = 'italic';
+  // #471: resolve through the icon SSOT; only an unmapped command may fall
+  // back to printing text.
+  if (!renderIconInto(btn, item.commandId, icon)) btn.textContent = icon ?? label;
 
   wireHoverHighlight(btn);
 
@@ -375,9 +373,14 @@ function createDropdownItemDom(
   btn.className = 'mdb-toolbar-btn mdb-toolbar-dropdown-btn';
   const label = item.label ?? cmd.label;
   const icon = item.icon ?? cmd.icon;
-  btn.textContent = `${icon ?? label} ▾`;
   btn.title = label;
   applyToolbarButtonStyle(btn);
+  if (!renderIconInto(btn, item.commandId, icon)) btn.textContent = icon ?? label;
+  const caret = document.createElement('span');
+  caret.className = 'mdb-toolbar-caret';
+  caret.setAttribute('aria-hidden', 'true');
+  caret.textContent = '\u25be';
+  btn.appendChild(caret);
   wireHoverHighlight(btn);
 
   const menu = document.createElement('div');
@@ -419,9 +422,14 @@ function createColorPopupItemDom(
   btn.className = 'mdb-toolbar-btn mdb-toolbar-dropdown-btn';
   const label = item.label ?? cmd.label;
   const icon = item.icon ?? cmd.icon;
-  btn.textContent = `${icon ?? label} ▾`;
   btn.title = label;
   applyToolbarButtonStyle(btn);
+  if (!renderIconInto(btn, item.commandId, icon)) btn.textContent = icon ?? label;
+  const caret = document.createElement('span');
+  caret.className = 'mdb-toolbar-caret';
+  caret.setAttribute('aria-hidden', 'true');
+  caret.textContent = '\u25be';
+  btn.appendChild(caret);
   wireHoverHighlight(btn);
 
   const menu = document.createElement('div');
@@ -517,9 +525,14 @@ function createColumnsItemDom(
   btn.className = 'mdb-toolbar-btn mdb-toolbar-dropdown-btn';
   const label = item.label ?? cmd.label;
   const icon = item.icon ?? cmd.icon;
-  btn.textContent = `${icon ?? label} ▾`;
   btn.title = label;
   applyToolbarButtonStyle(btn);
+  if (!renderIconInto(btn, item.commandId, icon)) btn.textContent = icon ?? label;
+  const caret = document.createElement('span');
+  caret.className = 'mdb-toolbar-caret';
+  caret.setAttribute('aria-hidden', 'true');
+  caret.textContent = '\u25be';
+  btn.appendChild(caret);
   wireHoverHighlight(btn);
 
   const menu = document.createElement('div');
