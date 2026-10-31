@@ -661,7 +661,11 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   '.cm-content .cm-table-cell-handle': {
     position: 'absolute',
     top: '2px',
-    right: '2px',
+    // Sits BEFORE the cell's content (#399): left edge, not the right edge where
+    // it read as "after the cell". Kept inside the cell so `td:hover` still owns
+    // the reveal (a handle outside the cell loses hover the moment you reach it).
+    left: '2px',
+    right: 'auto',
     width: '16px',
     height: '16px',
     borderRadius: 'var(--reader-radius, 4px)',
@@ -682,7 +686,7 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     lineHeight: '14px',
     color: 'var(--reader-ink-2, var(--mdb-text-secondary))',
   },
-  '.cm-content .cm-table th:hover .cm-table-cell-handle, .cm-content .cm-table td:hover .cm-table-cell-handle, .cm-content .cm-table-cell-handle-active': {
+  '.cm-content .cm-table th:hover .cm-table-cell-handle, .cm-content .cm-table td:hover .cm-table-cell-handle, .cm-content .cm-table-cell-handle-active, .cm-content .cm-table-cell-handle:hover': {
     opacity: '1',
   },
   // ── Insertion boundaries (F-03/F-04) ─────────────────────────────────
