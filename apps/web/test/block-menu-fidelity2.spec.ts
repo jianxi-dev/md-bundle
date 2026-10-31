@@ -206,9 +206,17 @@ test('菜单纵向以指针行为中心（#466；放不下时退回顶端对齐�
   const handleBox = await boxOf(handle)
   const menuBox = await boxOf(menu)
 
-  // #466：放得下时菜单以指针行为中心；放不下时退回顶端对齐。
+  // #466：放得下时以指针行为中心；放不下时贴着指针行放在空间更大的一侧，
+  // 且整块必须留在编辑面板内（菜单比面板还高时只能夹取）。
   const pointerY = handleBox.y + handleBox.height / 2
   const centred = Math.abs(menuBox.y + menuBox.height / 2 - pointerY) <= 12
-  const topAligned = Math.abs(menuBox.y - handleBox.y) <= 2
-  expect(centred || topAligned).toBe(true)
+  const topAligned = Math.abs(menuBox.y - pointerY) <= 30
+  const pointerInside = menuBox.y <= pointerY && pointerY <= menuBox.y + menuBox.height
+  const pane = await page.evaluate(() => {
+    const r = document.querySelector('.cm-editor')!.getBoundingClientRect()
+    return { top: r.top, bottom: r.bottom }
+  })
+  expect(menuBox.y).toBeGreaterThanOrEqual(pane.top - 1)
+  expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(pane.bottom + 1)
+  expect(centred || topAligned || pointerInside).toBe(true)
 })

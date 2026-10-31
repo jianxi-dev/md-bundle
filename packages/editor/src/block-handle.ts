@@ -391,22 +391,55 @@ class BlockHandlePlugin {
     const menuEl = this.chrome.menu
     const box = menuEl.getBoundingClientRect()
     const menuWidth = box.width || menuEl.offsetWidth
-    const menuHeight = box.height || menuEl.offsetHeight
 
     let left = anchor.right - r.left + GUTTER_GAP
-    let topLocal = anchor.top - r.top
     if (r.left + left + menuWidth > r.right - MENU_VIEWPORT_MARGIN) {
       left = anchor.left - r.left - GUTTER_GAP - menuWidth
     }
-    const anchorClientTop = anchor.top
-    if (anchorClientTop + menuHeight > window.innerHeight - MENU_VIEWPORT_MARGIN) {
-      topLocal = anchorClientTop - menuHeight - GUTTER_GAP - r.top
-    }
-    if (r.top + topLocal < MENU_VIEWPORT_MARGIN) {
-      topLocal = MENU_VIEWPORT_MARGIN - r.top
-    }
+    const topLocal = this.verticalTop((anchor.top + anchor.bottom) / 2, r.top, menuEl)
     menuEl.style.left = `${left}px`
     menuEl.style.top = `${topLocal}px`
+  }
+
+  /**
+   * Vertical position for the menu, shared by the gutter handle and a
+   * caller-supplied anchor (#466 / #482): centre on the anchor row when the menu
+   * fits the clipping pane, otherwise park it on the roomier side and clamp.
+   * The clip box is `.cm-editor` (overflow:hidden), never `view.dom`, whose rect
+   * starts at the viewport top and would let the menu be cut off.
+   */
+  private verticalTop(anchorClientY: number, viewTop: number, menuEl: HTMLElement): number {
+    const clip = this.view.dom.closest('.cm-editor') ?? this.view.dom
+    const clipRect = clip.getBoundingClientRect()
+    // No layout box (jsdom / detached pane): fall back to the plain
+    // anchor-relative position instead of clamping against a zero-height pane.
+    const measuredNow = menuEl.getBoundingClientRect().height || menuEl.offsetHeight
+    if (clipRect.height <= 0) return anchorClientY - viewTop - measuredNow / 2
+    const clipTop = Math.max(MENU_VIEWPORT_MARGIN, clipRect.top + MENU_VIEWPORT_MARGIN)
+    const clipBottom = Math.min(window.innerHeight, clipRect.bottom) - MENU_VIEWPORT_MARGIN
+    const available = Math.max(120, clipBottom - clipTop)
+    // A menu taller than the pane cannot fit at all: cap it and let it scroll,
+    // otherwise it overflows the clipped pane and its lower rows are unreachable
+    // (R-CHOREO-02).
+    const measured = menuEl.getBoundingClientRect().height || menuEl.offsetHeight
+    if (measured > available) {
+      menuEl.style.maxHeight = `${available}px`
+      menuEl.style.overflowY = 'auto'
+    } else if (menuEl.style.maxHeight) {
+      menuEl.style.maxHeight = ''
+      menuEl.style.overflowY = ''
+    }
+    const menuHeight = Math.min(measured, available)
+    const minTop = clipTop - viewTop
+    const maxTop = clipBottom - menuHeight - viewTop
+    const clamp = (value: number): number => Math.max(minTop, Math.min(value, Math.max(minTop, maxTop)))
+    const centred = anchorClientY - menuHeight / 2 - viewTop
+    if (centred >= minTop && centred <= maxTop) return centred
+    // Cannot centre: sit on the roomier side so the anchor row stays nearest.
+    const roomBelow = clipBottom - anchorClientY
+    const roomAbove = anchorClientY - clipTop
+    const target = roomBelow >= roomAbove ? anchorClientY - viewTop : anchorClientY - menuHeight - viewTop
+    return clamp(target)
   }
 
   private openMenu(): void {
@@ -432,24 +465,13 @@ class BlockHandlePlugin {
     const menuEl = this.chrome.menu
     const box = menuEl.getBoundingClientRect()
     const menuWidth = box.width || menuEl.offsetWidth
-    const menuHeight = box.height || menuEl.offsetHeight
 
     // Anchor to the HANDLE, i.e. the line the pointer is on (#453). Anchoring to
     // `block.from` made the menu jump to the top of a tall block, which reads as
     // "the menu drifts and never sits next to the click".
     let left = handleRect.right - r.left + GUTTER_GAP
     const anchorY = handleRect.top + handleRect.height / 2
-    // `view.dom` is not the clipping box: the editor pane above it clips with
-    // overflow:hidden, so a menu placed inside view.dom's rect can still be cut
-    // off (that is exactly what hid the 转换为 grid). Bound against the pane.
-    const clip = this.view.dom.closest('.cm-editor') ?? this.view.dom
-    const clipRect = clip.getBoundingClientRect()
-    const clipTop = Math.max(MENU_VIEWPORT_MARGIN, clipRect.top + MENU_VIEWPORT_MARGIN)
-    const clipBottom = Math.min(window.innerHeight, clipRect.bottom) - MENU_VIEWPORT_MARGIN
-    const centredTopLocal = anchorY - menuHeight / 2 - r.top
-    const fitsCentred =
-      r.top + centredTopLocal >= clipTop && anchorY + menuHeight / 2 <= clipBottom
-    let topLocal = fitsCentred ? centredTopLocal : handleRect.top - r.top;
+    const topLocal = this.verticalTop(anchorY, r.top, menuEl)
 
     // Horizontal flip: prefer the right of the handle, mirror to its left when
     // the menu would cross the editor pane's right edge. Clamp to `r.right`
@@ -457,16 +479,6 @@ class BlockHandlePlugin {
     // view.dom and the host pane clips with overflow:hidden (#387).
     if (r.left + left + menuWidth > r.right - MENU_VIEWPORT_MARGIN) {
       left = handleRect.left - r.left - GUTTER_GAP - menuWidth
-    }
-
-    // Vertical clamp/flip: keep menu.bottom inside the viewport. A block too low
-    // flips the menu above the anchor, then clamps against the top edge.
-    const anchorClientTop = r.top + topLocal
-    if (anchorClientTop + menuHeight > window.innerHeight - MENU_VIEWPORT_MARGIN) {
-      topLocal = anchorClientTop - menuHeight - GUTTER_GAP - r.top
-    }
-    if (r.top + topLocal < MENU_VIEWPORT_MARGIN) {
-      topLocal = MENU_VIEWPORT_MARGIN - r.top
     }
 
     menuEl.style.left = `${left}px`

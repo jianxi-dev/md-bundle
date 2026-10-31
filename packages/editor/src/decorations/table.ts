@@ -1013,21 +1013,19 @@ class TableWidget extends WidgetType {
     handle.addEventListener('mousedown', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      // Capture the anchor from the EVENT, not from the node: this press makes
+      // CM6 rebuild the table widget, so `handle.getBoundingClientRect()` here
+      // returns an all-zero rect and the menu opened at the pane's corner.
+      const rect = {
+        left: event.clientX,
+        right: event.clientX,
+        top: event.clientY,
+        bottom: event.clientY,
+      };
       handle.classList.add('cm-table-cell-handle-active');
       if (!empty) {
         const span = this.cells.find((c) => c.row === row && c.col === col);
-        const rect = handle.getBoundingClientRect();
-        if (
-          span &&
-          openBlockMenuAt(view, span.from, {
-            left: rect.left,
-            right: rect.right,
-            top: rect.top,
-            bottom: rect.bottom,
-          })
-        ) {
-          return;
-        }
+        if (span && openBlockMenuAt(view, span.from, rect)) return;
       }
       this.openCellMenu(view, row, col);
     });
@@ -1105,8 +1103,31 @@ class TableWidget extends WidgetType {
         }
       }
 
+      // A revealed hotspot owns a bubble that sits OFF the boundary line; while
+      // the pointer is on that bubble the hotspot must stay revealed, or the
+      // bubble vanishes before it can be clicked (#483). As soon as the pointer
+      // leaves the bubble (e.g. it moved to another boundary), release it so the
+      // "only the nearest boundary is revealed" contract still holds (#385a).
+      const activeHotspot = boundaries.querySelector<HTMLElement>('.cm-table-hotspot-active');
+      let activeKeepsReveal = false;
+      if (activeHotspot) {
+        const bubble = activeHotspot.querySelector<HTMLElement>('.cm-table-hotspot-bubble');
+        const br = bubble?.getBoundingClientRect();
+        activeKeepsReveal =
+          !!br &&
+          pointerX >= br.left &&
+          pointerX <= br.right &&
+          pointerY >= br.top &&
+          pointerY <= br.bottom;
+        if (!activeKeepsReveal && activeHotspot !== nearCol && activeHotspot !== nearRow) {
+          activeHotspot.classList.remove('cm-table-hotspot-active');
+        }
+      }
       for (const hotspot of boundaries.querySelectorAll<HTMLElement>('.cm-table-hotspot')) {
-        hotspot.classList.toggle('cm-table-hotspot-revealed', hotspot === nearCol || hotspot === nearRow);
+        hotspot.classList.toggle(
+          'cm-table-hotspot-revealed',
+          hotspot === nearCol || hotspot === nearRow || (hotspot === activeHotspot && activeKeepsReveal),
+        );
       }
     };
 
@@ -1230,19 +1251,49 @@ class TableWidget extends WidgetType {
         });
         bubble.appendChild(deleteBtn);
       }
+      bubble.addEventListener('mouseenter', () => {
+        insideBubble = true;
+        activate();
+      });
+      bubble.addEventListener('mouseleave', () => {
+        insideBubble = false;
+        scheduleDeactivate();
+      });
       hotspot.appendChild(bubble);
 
-      hotspot.addEventListener('mouseenter', () => {
+      // The bubble sits OUTSIDE the hotspot's box, so a pointer moving from the
+      // dot to 「＋/－」 leaves the hotspot and used to dismiss the bubble before
+      // it could be clicked. Both areas now share a hover refcount plus a short
+      // grace period for the crossing (#482 follow-up).
+      let insideHotspot = false;
+      let insideBubble = false;
+      let hideTimer: number | null = null;
+      const activate = (): void => {
+        if (hideTimer !== null) {
+          window.clearTimeout(hideTimer);
+          hideTimer = null;
+        }
         boundary.classList.add('cm-table-boundary-active');
         hotspot.classList.add('cm-table-hotspot-active');
-        // Engage the strip only while the pointer is on the dot (within ~8px
-        // of the boundary), so cell interiors keep the pointer everywhere else.
         boundary.style.pointerEvents = 'auto';
+      };
+      const scheduleDeactivate = (): void => {
+        if (hideTimer !== null) window.clearTimeout(hideTimer);
+        hideTimer = window.setTimeout(() => {
+          hideTimer = null;
+          if (insideHotspot || insideBubble) return;
+          boundary.classList.remove('cm-table-boundary-active');
+          hotspot.classList.remove('cm-table-hotspot-active');
+          boundary.style.pointerEvents = 'none';
+        }, 140);
+      };
+      hotspot.addEventListener('mouseenter', () => {
+        insideHotspot = true;
+        activate();
       });
       hotspot.addEventListener('mouseleave', () => {
-        boundary.classList.remove('cm-table-boundary-active');
-        hotspot.classList.remove('cm-table-hotspot-active');
-        boundary.style.pointerEvents = 'none';
+        insideHotspot = false;
+        scheduleDeactivate();
       });
       hotspot.addEventListener('mousedown', (event) => {
         event.preventDefault();
