@@ -733,10 +733,37 @@ class BlockHandlePlugin {
     if (!block) return
     if (this.view.dom.querySelector('.mdb-slash-menu')) return
     openInsertMenu(this.view, block.to, defaultCommands, { from: block.to, to: block.to }, 'below')
-    // The insert menu replaces the block-handle menu, so hide the chrome menu
-    // rather than letting the two panels coexist and overlap (#387). The handle
-    // stays visible; `onMouseMove` treats the open insert panel as the stack.
-    this.chrome.hideMenu()
+    // Keep the parent menu and slide the insert panel in to its RIGHT (#456),
+    // the same drill-down grammar as the 类型 / 缩进 flyouts. Both panels stay in
+    // the stack: `onMouseMove` already treats `.mdb-slash-menu` as open chrome.
+    this.placeInsertPanelAside(row)
+  }
+
+  /**
+   * Place the just-opened insert panel to the right of the block menu, aligned
+   * with the row that opened it (#456). Runs on the next frame: the panel is
+   * measured after layout so a long menu still lands beside the parent.
+   */
+  private placeInsertPanelAside(row: HTMLElement): void {
+    const place = (): void => {
+      const panel = this.view.dom.querySelector<HTMLElement>('.mdb-slash-menu')
+      if (!panel) return;
+      const origin = this.view.dom.getBoundingClientRect();
+      const menuRect = this.chrome.menu.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      const panelWidth = panel.getBoundingClientRect().width || 240;
+      // No gap: a dead corridor between the panels would dismiss the stack while
+      // the pointer travels from the row into the panel (#456).
+      let left = menuRect.right - origin.left;
+      if (menuRect.right + panelWidth + 8 > origin.right) {
+        // No room on the right: mirror to the parent's left edge.
+        left = menuRect.left - origin.left - panelWidth - 4;
+      }
+      panel.style.left = `${left}px`;
+      panel.style.top = `${rowRect.top - origin.top}px`;
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(place);
+    else place();
   }
 
   /**

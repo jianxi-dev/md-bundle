@@ -142,7 +142,7 @@ test('DEF3 块菜单 flyout：从类型行移到普通动作行 → flyout 收�
 // ---------------------------------------------------------------------------
 // DEF4: 悬停「在下方添加」→ 插入菜单打开且块菜单收起（同一时刻只有一个菜单可见）。
 // ---------------------------------------------------------------------------
-test('DEF4 在下方添加：插入菜单打开且块菜单收起（仅一个菜单可见）', async ({ page }) => {
+test('DEF4 在下方添加：插入面板在父菜单右侧展开，两个面板同栈可见（#456）', async ({ page }) => {
   await openEditor(page, 'submenu-387-def4.md', TWO_BLOCK_DOC)
   await openBlockMenu(page, 'Body paragraph.')
 
@@ -150,8 +150,9 @@ test('DEF4 在下方添加：插入菜单打开且块菜单收起（仅一个菜
 
   await expect(page.locator('.mdb-slash-menu')).toBeVisible()
   await expect(page.locator('.mdb-slash-group').first()).toBeVisible()
-  await expect(page.getByTestId('block-handle-menu')).toBeHidden()
-  await expect(page.locator('.mdb-block-handle-menu:visible, .mdb-slash-menu:visible')).toHaveCount(1)
+  // #456 反转了 #387 的「只留一个面板」：父菜单保留，插入面板在右侧展开。
+  await expect(page.getByTestId('block-handle-menu')).toBeVisible()
+  await expect(page.locator('.mdb-slash-menu')).toBeVisible()
 })
 
 // ---------------------------------------------------------------------------
