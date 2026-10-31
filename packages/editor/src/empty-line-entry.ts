@@ -44,6 +44,20 @@ class EmptyLineEntryPlugin {
     this.button.replaceChildren(renderIcon(ADD_ICON_NAME))
     this.button.style.display = 'none'
     this.button.title = '插入块'
+    // #391: match the block handle's hit area instead of an unstyled <button>.
+    // 20×20 box on the same gutter column, transparent until hovered.
+    this.button.style.width = '20px'
+    this.button.style.height = '20px'
+    this.button.style.padding = '0'
+    this.button.style.margin = '0'
+    this.button.style.border = 'none'
+    this.button.style.borderRadius = '4px'
+    this.button.style.background = 'transparent'
+    this.button.style.color = 'var(--mdb-text-secondary)'
+    this.button.style.alignItems = 'center'
+    this.button.style.justifyContent = 'center'
+    this.button.style.cursor = 'pointer'
+    this.button.style.zIndex = '6'
     view.dom.appendChild(this.button)
 
     view.dom.addEventListener('mousemove', this.onMouseMove)
@@ -134,10 +148,12 @@ class EmptyLineEntryPlugin {
 
   private onButtonMouseEnter = (): void => {
     this.pointerInButton = true
+    this.button.style.background = 'var(--mdb-bg-secondary)'
   }
 
   private onButtonMouseLeave = (event: MouseEvent): void => {
     this.pointerInButton = false
+    this.button.style.background = 'transparent'
     // If leaving button but still horizontally in editor, keep visible.
     if (this.currentLine !== null && this.isPointerInEditorHorizontally(event.clientX)) {
       return
