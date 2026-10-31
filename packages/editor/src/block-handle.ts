@@ -47,7 +47,6 @@ import {
   computeBlockIndent,
   computeCalloutType,
   isCalloutBlock,
-  isTableBlock,
   blockHandleIcon,
   computeGutterLeft,
   type BlockConvertTarget,
@@ -369,7 +368,6 @@ class BlockHandlePlugin {
     this.chrome.setCalloutContext(block !== null && isCalloutBlock(text))
     // A GFM table parses as a `paragraph` (CommonMark has no table node), so the
     // table rows are gated on the block's source text, not `block.type` (#392).
-    this.chrome.setTableContext(block !== null && isTableBlock(text))
     // Show before measuring: a `display:none` element has no layout box, so the
     // size needed for viewport clamping is only real once it is displayed.
     this.chrome.showMenu()
@@ -744,12 +742,6 @@ class BlockHandlePlugin {
       next = computeBlockDelete(text, block.from, block.to)
     } else if (action === 'move-up' || action === 'move-down') {
       next = this.computeMove(text, block, action)
-    } else if (action === 'toggle-header-row' || action === 'toggle-header-col' || action === 'distribute-columns') {
-      this.handleTableAction(block, action)
-      this.chrome.hideMenu()
-      this.setSelected(null)
-      event.stopPropagation()
-      return
     } else if (action === 'synced-block') {
       this.chrome.hideMenu()
       this.setSelected(null)
@@ -769,41 +761,6 @@ class BlockHandlePlugin {
     // document the action produced.
     this.setSelected(null)
     event.stopPropagation()
-  }
-
-  private handleTableAction(block: Block, action: string): void {
-    const docText = this.view.state.doc.toString()
-    const tableText = docText.slice(block.from, block.to)
-    // The menu only opens for tables, but the document can move under an open
-    // menu, so re-check the source before rewriting it.
-    if (!isTableBlock(tableText)) return
-    let nextText = tableText
-
-    if (action === 'toggle-header-row') {
-      const lines = tableText.split('\n')
-      // `isTableBlock` guarantees a separator row, so the header is always ON
-      // here and toggling removes it (matching the original ON/OFF semantics).
-      lines.splice(1, 1)
-      nextText = lines.join('\n')
-    } else if (action === 'toggle-header-col') {
-      const lines = tableText.split('\n')
-      const hasHeaderCol = lines[0]?.startsWith('| ')
-      if (hasHeaderCol) {
-        nextText = lines.map((l) => l.replace(/^\|\s+/, '|')).join('\n')
-      } else {
-        nextText = lines.map((l) => l.replace(/^\|/, '| ')).join('\n')
-      }
-    } else if (action === 'distribute-columns') {
-      return
-    }
-
-    if (nextText !== tableText) {
-      const change = computeMinimalChange(
-        docText,
-        docText.slice(0, block.from) + nextText + docText.slice(block.to),
-      )
-      this.view.dispatch({ changes: change })
-    }
   }
 
   /** Apply a flyout option (align / indent / color / callout type) to the block. */

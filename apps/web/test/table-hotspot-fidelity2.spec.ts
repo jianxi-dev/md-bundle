@@ -291,7 +291,7 @@ test('A-21.1 点击 .mdb-table-cell-handle → 插入菜单打开；悬停不弹
 })
 
 // ── R-TABLE-05: 块菜单表格三项（轻量回归） ────────────────────────────────
-test('A-22.1 表格块菜单含「标题行」「标题列」「均分列宽」', async ({ page }) => {
+test('A-22.1 表格块菜单不再提供 GFM 无法表达的三项（#437）', async ({ page }) => {
   await openEditor(page, TABLE_DOC, 'table-menu.md')
 
   const line = page.locator('.cm-content .cm-line').filter({ hasText: 'H1' }).first()
@@ -308,9 +308,12 @@ test('A-22.1 表格块菜单含「标题行」「标题列」「均分列宽」'
 
   const menu = page.getByTestId('block-handle-menu')
   await expect(menu).toBeVisible()
-  await expect(menu).toContainText('标题行')
-  await expect(menu).toContainText('标题列')
-  await expect(menu).toContainText('均分列宽')
+  // GFM 没有表头列/列宽语法，表头行恒存在；这三项在旧实现里删分隔行/只改空格/
+  // 空转，已按 #437 移除，菜单不得再承诺它们。
+  await expect(menu).not.toContainText('标题行')
+  await expect(menu).not.toContainText('标题列')
+  await expect(menu).not.toContainText('均分列宽')
+  await expect(menu).toContainText('在下方添加')
 
   await page.screenshot({ path: '../../.artifacts/359/07-block-menu-table-items.png' })
 })

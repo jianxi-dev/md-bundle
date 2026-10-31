@@ -920,12 +920,13 @@ describe('blockHandle lifecycle', () => {
   })
 })
 
-describe('table header menu actions (#392)', () => {
-  // The table parses as a `paragraph` (CommonMark has no GFM table node), yet
-  // the block handle must still offer the table rows for it.
+describe('table menu has no GFM-impossible entries (#437)', () => {
+  // GFM pipe tables have no header-column or column-width syntax, and the header
+  // row is structural. The old 标题行/标题列/均分列宽 rows either deleted the
+  // separator (invalidating the table), rewrote only whitespace, or returned
+  // without doing anything — so they are gone rather than faked.
   const TABLE_DOC = 'Intro paragraph.\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n'
   const TABLE_POS = 20
-  const INTRO_POS = 3
 
   let parent: HTMLElement
   let editor: ReturnType<typeof createMarkdownEditor>
@@ -959,29 +960,30 @@ describe('table header menu actions (#392)', () => {
     el.dispatchEvent(mouse('click'))
   }
 
-  function row(label: string): HTMLElement {
-    const el = Array.from(
-      view.dom.querySelectorAll<HTMLElement>('.mdb-block-handle-item'),
-    ).find((item) => item.querySelector('.mdb-block-handle-item-label')?.textContent === label)
-    if (!el) throw new Error(`menu row not found: ${label}`)
-    return el
+  function labels(): string[] {
+    return Array.from(
+      view.dom.querySelectorAll<HTMLElement>('.mdb-block-handle-item-label'),
+    ).map((el) => el.textContent ?? '')
   }
 
-  it('reveals 标题行/标题列 for a table block', () => {
+  it('does not offer 标题行 / 标题列 / 均分列宽', () => {
     openMenuAt(TABLE_POS)
-    expect(row('标题行').style.display).toBe('flex')
-    expect(row('标题列').style.display).toBe('flex')
+    const all = labels()
+    expect(all).not.toContain('标题行')
+    expect(all).not.toContain('标题列')
+    expect(all).not.toContain('均分列宽')
   })
 
-  it('keeps 标题行/标题列 hidden for a non-table block', () => {
-    openMenuAt(INTRO_POS)
-    expect(row('标题行').style.display).toBe('none')
-    expect(row('标题列').style.display).toBe('none')
+  it('keeps the working actions for a table block', () => {
+    openMenuAt(TABLE_POS)
+    const all = labels()
+    for (const label of ['在下方添加', '上移', '下移', '复制', '删除']) {
+      expect(all).toContain(label)
+    }
   })
 
-  it('标题行 removes the header separator from the table source', () => {
+  it('never removes the GFM separator row', () => {
     openMenuAt(TABLE_POS)
-    row('标题行').dispatchEvent(mouse('click'))
-    expect(view.state.doc.toString()).toBe('Intro paragraph.\n\n| A | B |\n| 1 | 2 |\n')
+    expect(view.state.doc.toString()).toContain('| --- | --- |')
   })
 })

@@ -30,7 +30,6 @@ export const FLYOUT_ATTR = 'data-flyout';
 export const FLYOUT_ACTION_ATTR = 'data-flyout-action';
 export const CALLOUT_ONLY_ATTR = 'data-callout-only';
 export const NON_CALLOUT_ONLY_ATTR = 'data-non-callout-only';
-export const TABLE_ONLY_ATTR = 'data-table-only';
 export const HANDLE_TYPE_ICON_CLASS = 'mdb-block-type-icon';
 export const HANDLE_DRAG_CLASS = 'mdb-drag-handle';
 
@@ -97,12 +96,6 @@ const MENU_ACTIONS: readonly MenuAction[] = [
   { label: '删除', icon: ACTION_ICON_NAME['delete'], action: 'delete' },
 ];
 
-const TABLE_ACTIONS: readonly MenuAction[] = [
-  { label: '标题行', icon: 'HeaderRowOutlined', action: 'toggle-header-row' },
-  { label: '标题列', icon: 'HeaderColumnOutlined', action: 'toggle-header-col' },
-  { label: '均分列宽', icon: 'DistributeColumnsOutlined', action: 'distribute-columns' },
-];
-
 const CALLOUT_ACTIONS: readonly MenuAction[] = [
   { label: '同步块', icon: 'LinkRecordOutlined', action: 'synced-block' },
 ];
@@ -167,7 +160,6 @@ function createMenuItem(
     flyout?: string;
     calloutOnly?: boolean;
     nonCalloutOnly?: boolean;
-    tableOnly?: boolean;
   },
 ): HTMLButtonElement {
   const item = document.createElement('button');
@@ -183,10 +175,6 @@ function createMenuItem(
   }
   if (opts.nonCalloutOnly) {
     item.setAttribute(NON_CALLOUT_ONLY_ATTR, '');
-  }
-  if (opts.tableOnly) {
-    item.setAttribute(TABLE_ONLY_ATTR, '');
-    item.style.display = 'none';
   }
   if (icon !== null) {
     const iconEl = document.createElement('span');
@@ -276,10 +264,6 @@ export function createMenu(): HTMLElement {
   menu.appendChild(createMenuItem('缩进和对齐', null, { flyout: 'indent-align' }));
   menu.appendChild(createMenuItem('颜色', null, { flyout: 'color', nonCalloutOnly: true }));
   menu.appendChild(createMenuItem('类型', null, { flyout: 'callout-type', calloutOnly: true }));
-
-  for (const entry of TABLE_ACTIONS) {
-    menu.appendChild(createMenuItem(entry.label, entry.icon, { action: entry.action, tableOnly: true }));
-  }
 
   for (const entry of CALLOUT_ACTIONS) {
     menu.appendChild(createMenuItem(entry.label, entry.icon, { action: entry.action, calloutOnly: true }));
@@ -421,13 +405,6 @@ export class HandleChrome {
     if (isCallout && this.flyout?.getAttribute(FLYOUT_ATTR) === 'color') {
       this.hideFlyout();
     }
-  }
-
-  setTableContext(isTable: boolean): void {
-    const tableRows = this.menu.querySelectorAll<HTMLElement>(`[${TABLE_ONLY_ATTR}]`);
-    tableRows.forEach((row) => {
-      row.style.display = isTable ? 'flex' : 'none';
-    });
   }
 
   /**

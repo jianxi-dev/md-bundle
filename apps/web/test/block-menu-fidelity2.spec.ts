@@ -159,23 +159,18 @@ test('「转为」网格恰好 10 项，每项带 svg[data-icon]', async ({ page
 })
 
 // --- 4. 表格块菜单含三项 ---
-test('表格块菜单含「标题行」/「标题列」/「均分列宽」', async ({ page }) => {
+test('表格块菜单不再提供 GFM 无法表达的三项（#437）', async ({ page }) => {
   await openEditorWith(page, 'menu-table.md', TABLE_DOC)
   await openMenuOn(page, 'H1')
 
   const menu = page.getByTestId('block-handle-menu')
-  await expect(menu).toContainText('标题行')
-  await expect(menu).toContainText('标题列')
-  await expect(menu).toContainText('均分列宽')
-
-  // Verify icons
-  const headerRowItem = menu.locator('.mdb-block-handle-item', { hasText: '标题行' })
-  const headerColItem = menu.locator('.mdb-block-handle-item', { hasText: '标题列' })
-  const distributeItem = menu.locator('.mdb-block-handle-item', { hasText: '均分列宽' })
-
-  await expect(headerRowItem.locator('svg')).toHaveAttribute('data-icon', 'HeaderRowOutlined')
-  await expect(headerColItem.locator('svg')).toHaveAttribute('data-icon', 'HeaderColumnOutlined')
-  await expect(distributeItem.locator('svg')).toHaveAttribute('data-icon', 'DistributeColumnsOutlined')
+  // GFM 管道表没有表头列/列宽语法，表头行恒存在。这三项旧实现分别会删掉分隔行、
+  // 只挪行首空格、直接空转，按 #437 移除；菜单不得再承诺不存在的语义。
+  await expect(menu).not.toContainText('标题行')
+  await expect(menu).not.toContainText('标题列')
+  await expect(menu).not.toContainText('均分列宽')
+  await expect(menu).toContainText('在下方添加')
+  await expect(menu).toContainText('删除')
 })
 
 // --- 5. 高亮块菜单无「颜色」/「翻译」，有「同步块」 ---
