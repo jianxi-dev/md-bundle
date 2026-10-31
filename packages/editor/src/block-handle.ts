@@ -254,6 +254,7 @@ class BlockHandlePlugin {
 
   constructor(view: EditorView) {
     this.view = view
+    pluginByView.set(view, this)
     if (view.dom.style.position === '' || view.dom.style.position === 'static') {
       view.dom.style.position = 'relative'
     }
@@ -308,6 +309,7 @@ class BlockHandlePlugin {
   }
 
   destroy(): void {
+    pluginByView.delete(this.view)
     this.view.dom.removeEventListener('mousemove', this.onMouseMove)
     this.view.dom.removeEventListener('mouseleave', this.onMouseLeave)
     this.view.scrollDOM.removeEventListener('scroll', this.onScroll)
@@ -360,6 +362,17 @@ class BlockHandlePlugin {
     } catch {
       // jsdom / unmeasured content — keep the default position.
     }
+  }
+
+  /** Open the menu for the block at `pos` (cell handle → convert, #399). */
+  openMenuAt(pos: number): boolean {
+    const block = findBlockAt(this.view.state, pos)
+    if (!block) return false
+    this.currentBlock = block
+    this.menuBlock = block
+    this.showHandleAt(block.from)
+    this.openMenu()
+    return true
   }
 
   private openMenu(): void {
@@ -809,4 +822,18 @@ class BlockHandlePlugin {
  */
 export function blockHandle(): Extension {
   return [selectedBlockField, ViewPlugin.fromClass(BlockHandlePlugin), blockHandleTheme]
+}
+
+/**
+ * Live plugin per view, so code outside the gutter (a table cell handle) can open
+ * the same menu at a given document position (#399).
+ */
+const pluginByView = new WeakMap<EditorView, BlockHandlePlugin>()
+
+/**
+ * Open the block menu for the block containing `pos`, anchored where the gutter
+ * handle would be. Returns false when the position has no block.
+ */
+export function openBlockMenuAt(view: EditorView, pos: number): boolean {
+  return pluginByView.get(view)?.openMenuAt(pos) ?? false
 }

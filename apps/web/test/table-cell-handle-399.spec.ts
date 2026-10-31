@@ -63,3 +63,35 @@ test('手柄在单元格内容左侧，而不是右侧', async ({ page }) => {
   expect(gaps!.rightGap, '手柄不应贴在右缘').toBeGreaterThan(100)
   expect(gaps!.handleBeforeText, '手柄应在文本左侧').toBe(true)
 })
+
+test('有内容的格子：手柄语义为「转换块内容」，点开块菜单', async ({ page }) => {
+  await openEditor(page)
+  const cell = page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]')
+  await cell.hover()
+  await settle(page)
+
+  const handle = cell.locator('.mdb-table-cell-handle')
+  await expect(handle).toHaveAttribute('title', '转换块内容')
+  await expect(handle).toHaveAttribute('data-cell-empty', 'false')
+
+  await handle.click()
+  await settle(page)
+  await expect(page.getByTestId('block-handle-menu')).toBeVisible()
+  await expect(page.locator('.mdb-slash-menu')).toHaveCount(0)
+})
+
+test('空格子：手柄语义为「插入内容」，点开插入菜单', async ({ page }) => {
+  await openEditor(page)
+  const cell = page.getByTestId('cm-table').locator('td[data-row="1"][data-col="0"]')
+  await cell.hover()
+  await settle(page)
+
+  const handle = cell.locator('.mdb-table-cell-handle')
+  await expect(handle).toHaveAttribute('title', '插入内容')
+  await expect(handle).toHaveAttribute('data-cell-empty', 'true')
+
+  await handle.click()
+  await settle(page)
+  await expect(page.locator('.mdb-slash-menu')).toBeVisible()
+  await expect(page.getByTestId('block-handle-menu')).toBeHidden()
+})
