@@ -6,9 +6,19 @@ const italicRegex = /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|_(.+?)_/g;
 const strikeRegex = /~~(.+?)~~/g;
 // Match <u>…</u> raw-HTML passthrough (ticket #260). Non-greedy, single-line.
 const underlineRegex = /<u>([^<]+?)<\/u>/g;
-const fontRegex = /<span class="mdb-font-(serif|mono|sans)">([^<]+?)<\/span>/g;
-const colorRegex = /<span class="mdb-color-(red|orange|yellow|green|cyan|blue|purple)">([^<]+?)<\/span>/g;
-const bgRegex = /<span class="mdb-bg-(darkred|darkgreen|red|orange|yellow|green|cyan|blue|purple|gray|brown|olive|navy|indigo|slate)">([^<]+?)<\/span>/g;
+// A span's content may itself carry a nested inline tag (`<u>…</u>`), which the
+// previous `[^<]+?` rejected outright — the span stopped matching and every tag
+// leaked as source (#467).
+const spanBody = '(?:[^<]|<u>[^<]+?<\\/u>)+?';
+const fontRegex = new RegExp(`<span class="mdb-font-(serif|mono|sans)">(${spanBody})<\\/span>`, 'g');
+const colorRegex = new RegExp(
+  `<span class="mdb-color-(red|orange|yellow|green|cyan|blue|purple)">(${spanBody})<\\/span>`,
+  'g',
+);
+const bgRegex = new RegExp(
+  `<span class="mdb-bg-(darkred|darkgreen|red|orange|yellow|green|cyan|blue|purple|gray|brown|olive|navy|indigo|slate)">(${spanBody})<\\/span>`,
+  'g',
+);
 
 const BOLD_CLASS = 'cm-strong';
 const ITALIC_CLASS = 'cm-em';
@@ -40,9 +50,26 @@ function decorateSpanFamily(
     const closeLen = closeTag.length;
     const markClass = `cm-${family.slice('mdb-'.length)}-${match[1]}`;
 
-    decorations.push(Decoration.replace({}).range(from, from + openLen));
-    decorations.push(Decoration.mark({ class: markClass }).range(from + openLen, to - closeLen));
-    decorations.push(Decoration.replace({}).range(to - closeLen, to));
+    const contentFrom = from + openLen;
+    const contentTo = to - closeLen;
+    decorations.push(Decoration.replace({}).range(from, contentFrom));
+    decorations.push(Decoration.mark({ class: markClass }).range(contentFrom, contentTo));
+    decorations.push(Decoration.replace({}).range(contentTo, to));
+
+    // Nested `<u>…</u>` inside the span: hide its tags and underline the run so
+    // colour + underline compose instead of exposing markup (#467).
+    const inner = text.slice(contentFrom, contentTo);
+    const nestedUnderline = /<u>([^<]+?)<\/u>/g;
+    let nested: RegExpExecArray | null;
+    while ((nested = nestedUnderline.exec(inner)) !== null) {
+      const innerFrom = contentFrom + nested.index;
+      const innerTo = innerFrom + nested[0].length;
+      const innerTextFrom = innerFrom + '<u>'.length;
+      const innerTextTo = innerTo - '</u>'.length;
+      decorations.push(Decoration.replace({}).range(innerFrom, innerTextFrom));
+      decorations.push(Decoration.mark({ class: UNDERLINE_CLASS }).range(innerTextFrom, innerTextTo));
+      decorations.push(Decoration.replace({}).range(innerTextTo, innerTo));
+    }
   }
 }
 

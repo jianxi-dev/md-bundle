@@ -169,6 +169,27 @@ describe('editorDecorations', () => {
       expect(view.state.doc.toString()).toBe('A <span class="mdb-color-green">green</span> B');
     });
 
+    it('nested <u> inside a color span renders underline instead of raw tags (#467)', () => {
+      const value = '正文<span class="mdb-color-red"><u>段落</u></span>。';
+      view = createMarkdownEditor(parent, {
+        value,
+        extensions: [editorDecorations()],
+      }).view;
+
+      // 颜色 + 下划线同时生效
+      const colored = view.dom.querySelector('.cm-color-red');
+      expect(colored).not.toBeNull();
+      expect(colored?.textContent).toBe('段落');
+      const underlined = view.dom.querySelector('.cm-underline');
+      expect(underlined).not.toBeNull();
+      expect(underlined?.textContent).toBe('段落');
+      // 编辑态不允许出现字面标签
+      expect(view.dom.textContent).not.toContain('<u>');
+      expect(view.dom.textContent).not.toContain('<span');
+      // 源码逐字节不变
+      expect(view.state.doc.toString()).toBe(value);
+    });
+
     it('still hides mdb-font-* span tags and applies the cm-font-* class', () => {
       view = createMarkdownEditor(parent, {
         value: 'A <span class="mdb-font-serif">serif</span> B',
