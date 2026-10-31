@@ -629,21 +629,28 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     whiteSpace: 'pre-wrap',
     cursor: 'text',
   },
+  // While editing, the original text stays in flow (it defines the column width)
+  // but becomes invisible: the input overlays it, so the column must not remeasure
+  // and the two texts must not double-render (#438).
   '.cm-content .cm-table-cell-editing .cm-table-cell-text': {
-    display: 'none',
+    visibility: 'hidden',
   },
   '.cm-content .cm-table-cell-input': {
+    // Absolute overlay, not a flow sibling: an in-flow input carries an intrinsic
+    // width (from `size`) that table auto-layout turns into min-content, so the
+    // column widened the instant the editor opened (#438). Out of flow, the
+    // hidden text decides the width and the input simply covers its box.
+    position: 'absolute',
+    inset: '0',
     width: '100%',
-    // A text input carries a default intrinsic width (~20ch) that `width:100%`
-    // does not cancel inside a table's auto layout; `min-width: 0` does (#438).
-    minWidth: '0',
+    height: '100%',
     boxSizing: 'border-box',
     border: 'none',
     outline: 'none',
     background: 'transparent',
     font: 'inherit',
     color: 'inherit',
-    padding: '0',
+    padding: '0.55em 0.8em',
   },
   '.cm-content .cm-table-cell-active': {
     boxShadow: 'inset 0 0 0 2px var(--reader-accent, var(--mdb-primary-fg))',
