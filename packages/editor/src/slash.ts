@@ -102,7 +102,9 @@ const CALLOUT_CODES: Record<string, string> = {
   success: 'ns',
   warning: 'nw',
   danger: 'nd',
-  error: 'ne',
+  // The editor set names this type `failure` (失败); `error` was the old key.
+  // Keep the historical chord working instead of orphaning `/ne`.
+  failure: 'ne',
   question: 'nq',
 };
 
