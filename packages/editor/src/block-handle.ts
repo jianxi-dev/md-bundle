@@ -364,15 +364,49 @@ class BlockHandlePlugin {
     }
   }
 
-  /** Open the menu for the block at `pos` (cell handle → convert, #399). */
-  openMenuAt(pos: number): boolean {
+  /**
+   * Open the menu for the block at `pos` (cell handle → convert, #399).
+   *
+   * `anchor` is the client rect the menu should sit beside. Without it the menu
+   * anchors to the block's gutter handle; a table cell handle passes its own rect
+   * so the menu opens where the user clicked instead of at the block corner.
+   */
+  openMenuAt(
+    pos: number,
+    anchor?: { left: number; right: number; top: number; bottom: number },
+  ): boolean {
     const block = findBlockAt(this.view.state, pos)
     if (!block) return false
     this.currentBlock = block
     this.menuBlock = block
     this.showHandleAt(block.from)
     this.openMenu()
+    if (anchor) this.positionMenuAt(anchor)
     return true
+  }
+
+  /** Same clamping rules as `positionMenu`, anchored to a caller-supplied rect. */
+  private positionMenuAt(anchor: { left: number; right: number; top: number; bottom: number }): void {
+    const r = this.view.dom.getBoundingClientRect()
+    const menuEl = this.chrome.menu
+    const box = menuEl.getBoundingClientRect()
+    const menuWidth = box.width || menuEl.offsetWidth
+    const menuHeight = box.height || menuEl.offsetHeight
+
+    let left = anchor.right - r.left + GUTTER_GAP
+    let topLocal = anchor.top - r.top
+    if (r.left + left + menuWidth > r.right - MENU_VIEWPORT_MARGIN) {
+      left = anchor.left - r.left - GUTTER_GAP - menuWidth
+    }
+    const anchorClientTop = anchor.top
+    if (anchorClientTop + menuHeight > window.innerHeight - MENU_VIEWPORT_MARGIN) {
+      topLocal = anchorClientTop - menuHeight - GUTTER_GAP - r.top
+    }
+    if (r.top + topLocal < MENU_VIEWPORT_MARGIN) {
+      topLocal = MENU_VIEWPORT_MARGIN - r.top
+    }
+    menuEl.style.left = `${left}px`
+    menuEl.style.top = `${topLocal}px`
   }
 
   private openMenu(): void {
@@ -834,6 +868,10 @@ const pluginByView = new WeakMap<EditorView, BlockHandlePlugin>()
  * Open the block menu for the block containing `pos`, anchored where the gutter
  * handle would be. Returns false when the position has no block.
  */
-export function openBlockMenuAt(view: EditorView, pos: number): boolean {
-  return pluginByView.get(view)?.openMenuAt(pos) ?? false
+export function openBlockMenuAt(
+  view: EditorView,
+  pos: number,
+  anchor?: { left: number; right: number; top: number; bottom: number },
+): boolean {
+  return pluginByView.get(view)?.openMenuAt(pos, anchor) ?? false
 }

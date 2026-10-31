@@ -932,7 +932,18 @@ class TableWidget extends WidgetType {
       handle.classList.add('cm-table-cell-handle-active');
       if (!empty) {
         const span = this.cells.find((c) => c.row === row && c.col === col);
-        if (span && openBlockMenuAt(view, span.from)) return;
+        const rect = handle.getBoundingClientRect();
+        if (
+          span &&
+          openBlockMenuAt(view, span.from, {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+          })
+        ) {
+          return;
+        }
       }
       this.openCellMenu(view, row, col);
     });
