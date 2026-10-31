@@ -92,7 +92,7 @@ test('正文为空时提交会删掉空行', async ({ page }) => {
   await settle(page)
   const editor = page.getByTestId('cm-callout-editor')
   await expect(editor).toBeVisible()
-  await page.keyboard.press('Meta+A')
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
   await page.keyboard.press('Backspace')
   await settle(page)
   // 鼠标移出卡片 → 空内容应提交并删掉正文行

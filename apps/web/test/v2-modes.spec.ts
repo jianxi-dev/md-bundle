@@ -448,7 +448,8 @@ test('斜杠 [!NOTE] 插入 → edit 模式即时 callout 卡', async ({ page })
   await expect(editorPane.locator('.cm-callout').first()).toBeVisible();
   // edit 模式 callout 卡即时可见（coration replace 隐藏原始 > [!NOTE] 文本）
   const calloutText = await editorPane.locator('.cm-callout').first().innerText();
-  expect(calloutText).toContain('注释');
+  // #468：标头只有 emoji（📝），类型文字不再重复。
+  expect(calloutText.trim().length).toBeGreaterThan(0);
 
   await page.getByTestId('mode-source-btn').click();
   await expect(cmContent).toContainText('> [!NOTE]');
