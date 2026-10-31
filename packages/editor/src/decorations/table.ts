@@ -511,6 +511,11 @@ function openCellEditor(
   const initial = span?.dataset.rawText ?? span?.textContent ?? '';
   const input = document.createElement('input');
   input.type = 'text';
+  // A text input's intrinsic width comes from its `size` (default 20ch); inside a
+  // table's auto layout that becomes the column's min-content and the column
+  // widens the moment the editor opens (#438). One character keeps it inert —
+  // CSS width:100% then fills the cell.
+  input.size = 1;
   input.className = 'cm-table-cell-input';
   input.setAttribute('data-testid', 'cm-table-cell-input');
   input.value = initial;
