@@ -852,7 +852,10 @@ class TableWidget extends WidgetType {
     // handle (icons.ts), not a CSS glyph.
     // A path icon, not a text glyph: a `kind: 'text'` icon would inject its label
     // into the cell's text content (¶) and pollute innerText/assertions (#452).
-    const iconName = empty ? ADD_ICON_NAME : 'ReferenceOutlined';
+    // #452: a content cell is a table cell, so it uses the same table icon the
+    // gutter handle shows over any table line (DataSheetOutlined). Using the
+    // blockquote icon here read as "转换/引用" and broke the shared vocabulary.
+    const iconName = empty ? ADD_ICON_NAME : 'DataSheetOutlined';
     handle.dataset.icon = iconName;
     handle.replaceChildren(renderIcon(iconName));
     el.appendChild(handle);

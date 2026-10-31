@@ -44,7 +44,8 @@ test('有内容格显示转换图标，空格显示加号', async ({ page }) => 
 
   const filledName = await filledIcon.getAttribute('data-icon')
   const emptyName = await emptyIcon.getAttribute('data-icon')
-  expect(filledName, '有内容格图标').toBe('ReferenceOutlined')
+  // #471/#452：与块手柄在表格行上显示的图标一致（grid/handle 共用一套词汇）。
+  expect(filledName, '有内容格图标').toBe('DataSheetOutlined')
   expect(emptyName, '空格图标').toBe('AddOutlined')
   expect(filledName).not.toBe(emptyName)
 })
