@@ -402,9 +402,16 @@ export default function App() {
     }
   }, [activeTab?.id, wire]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [calloutEmoji, setCalloutEmoji] = useState<(string | undefined)[]>([])
+
   const onEditorMount = (handle: MarkdownEditorHandle) => {
     editorViewRef.current = handle.view
     setEditorViewState(handle.view)
+    // Callout emoji lives in session state (markdown has no slot for it), so the
+    // editor publishes a snapshot and the preview consumes it (#380).
+    handle.view.dom.addEventListener('mdb:callout-emoji', (event) => {
+      setCalloutEmoji((event as CustomEvent<(string | undefined)[]>).detail ?? [])
+    })
   }
 
   // ── 图片导入 ──
@@ -1221,6 +1228,7 @@ export default function App() {
                     markdown={activeTab.source}
                     theme={resolveEffectiveTheme(themePref)}
                     assets={activeTab.assets}
+                    calloutEmoji={calloutEmoji}
                   />
                 </div>
               </div>

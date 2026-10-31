@@ -11,6 +11,12 @@ export interface PreviewViewProps {
   markdown: string;
   theme?: ThemeName;
   assets?: Asset[];
+  /**
+   * Per-callout emoji overrides from the editor's session state, in document
+   * order (#380). Markdown has no attribute slot for the emoji, so the preview
+   * has to be told rather than parse it out of the source.
+   */
+  calloutEmoji?: readonly (string | undefined)[];
 }
 
 // readerCssText 在模块加载时注入一次（全局副作用，零重复）。
@@ -47,16 +53,21 @@ function isVisible(el: HTMLElement): boolean {
  * 渲染结果包裹在 `.preview-content` div 内（readerCss 选择器要求），
  * 并设置 `data-theme` 属性以激活双主题 CSS 变量。
  */
-export function PreviewView({ markdown, theme = 'dark', assets }: PreviewViewProps): JSX.Element {
+export function PreviewView({
+  markdown,
+  theme = 'dark',
+  assets,
+  calloutEmoji,
+}: PreviewViewProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
 
   // 同步渲染 markdown → HTML，并按资产清单内联图片（.mdpkg/导入图片以 data URI 显示）。
   // useMemo 缓存到 (markdown, assets)：父组件因模式切换/主题/徽标等无关状态重渲染时
   // 不再重复全量 marked+DOMPurify 解析（renderMarkdown 是纯函数但解析开销大）。
   const html = useMemo(() => {
-    const raw = renderMarkdown(markdown);
+    const raw = renderMarkdown(markdown, { calloutEmoji });
     return assets && assets.length > 0 ? inlineImages(raw, assets) : raw;
-  }, [markdown, assets]);
+  }, [markdown, assets, calloutEmoji]);
 
   // hydrateLazyFeatures（KaTeX/mermaid/highlight）在 DOM 就绪后异步执行。
   // 编辑/源码模式下预览 pane 是 display:none，但击键仍会改变 html 触发本 effect——

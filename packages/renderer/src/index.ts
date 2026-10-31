@@ -20,6 +20,13 @@ export type RenderOptions = {
   math?: boolean;
   mermaid?: boolean;
   callouts?: boolean;
+  /**
+   * Per-callout header emoji overrides, in document order (ordinal index).
+   * `undefined` entries fall back to the type's default icon. Markdown has no
+   * attribute slot for a callout emoji, so the editor keeps the choice in
+   * session state and hands it to the renderer here (#380).
+   */
+  calloutEmoji?: readonly (string | undefined)[];
   cjkSpacing?: boolean;
   theme?: 'dark' | 'light';
 };
