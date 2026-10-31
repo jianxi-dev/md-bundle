@@ -689,7 +689,7 @@ describe('blockHandle lifecycle', () => {
     expect(el.style.top).toBe('190px')
   })
 
-  it('positions the menu relative to the editor origin', () => {
+  it('positions the menu beside the handle, relative to the editor origin (#453)', () => {
     hover(PARAGRAPH_POS)
     vi.spyOn(view.dom, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 50, 800, 600))
     const el = handleEl()
@@ -697,7 +697,9 @@ describe('blockHandle lifecycle', () => {
     openMenu()
 
     expect(menuEl()?.style.left).toBe('328px')
-    expect(menuEl()?.style.top).toBe('-30px')
+    // Handle at client y=100, editor origin y=50 → 50px. Anchoring to the block's
+    // first line (the old contract) would have moved it to -30px.
+    expect(menuEl()?.style.top).toBe('50px')
   })
 
   it('positions the insertion line relative to the editor origin during a drag', () => {
