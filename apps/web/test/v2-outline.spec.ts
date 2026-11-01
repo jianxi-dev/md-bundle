@@ -34,6 +34,7 @@ const evidence = {
   outlinePreviewScroll: false,
   outlineCodeFence: false,
   outlineCurrentHighlight: false,
+  outlineMenuStyle: false,
 };
 
 test.use({ viewport: { width: 1280, height: 800 } });
@@ -199,6 +200,10 @@ test('OutlineMenu hover 弹出、click 钉住、Esc 收起', async ({ page }) =>
   await btn.hover();
   const menu = page.getByTestId('outline-menu');
   await expect(menu).toBeVisible();
+  // 组件搬进 packages/ 后，若 Tailwind 没扫到该目录，w-60 会静默失效变 auto。
+  // 断言计算宽度而不是「元素存在」，否则样式塌了测试照样绿（QG-4）。
+  expect(await menu.evaluate((el) => getComputedStyle(el).width)).toBe('240px');
+  evidence.outlineMenuStyle = true;
   evidence.outlineHover = true;
 
   // 移开鼠标 → 浮层消失（hover 模式）

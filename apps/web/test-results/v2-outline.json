@@ -12,5 +12,6 @@
   "outlineSourceScroll": true,
   "outlinePreviewScroll": true,
   "outlineCodeFence": true,
-  "outlineCurrentHighlight": true
+  "outlineCurrentHighlight": true,
+  "outlineMenuStyle": true
 }
