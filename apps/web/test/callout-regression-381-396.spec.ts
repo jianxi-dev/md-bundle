@@ -65,6 +65,8 @@ test('#381 输入后点卡片外部，卡片立即显示新文字（无需再点
 
   await page.locator('.cm-callout').first().click()
   await settle(page)
+  // #496：光标跟随点击位置，追加要显式回到行尾
+  await page.keyboard.press('End')
   await page.keyboard.type('新文字')
   await settle(page)
 
@@ -106,6 +108,8 @@ test('#381 编辑第 2 张后：第 1 张源码行逐字节不变', async ({ pag
 
   await page.locator('.cm-callout').nth(1).click()
   await settle(page)
+  // #496：光标跟随点击位置，追加要显式回到行尾
+  await page.keyboard.press('End')
   await page.keyboard.type('改动')
   await settle(page)
   await page.locator('.cm-line').filter({ hasText: '结尾段落' }).first().click()

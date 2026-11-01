@@ -129,7 +129,11 @@ export function flushCalloutEdits(view: EditorView): boolean {
  * Open the inline content editor for a callout card. Resolved through the live
  * DOM by ordinal because CM6 may have rebuilt the widget since the click.
  */
-function openCalloutEditor(view: EditorView, index: number): void {
+function openCalloutEditor(
+  view: EditorView,
+  index: number,
+  press?: { x: number; y: number },
+): void {
   // Commit any open callout first, and do it BEFORE resolving the DOM: a flush
   // dispatch can rebuild this widget, which would detach a card resolved earlier.
   flushCalloutEdits(view);
@@ -155,7 +159,11 @@ function openCalloutEditor(view: EditorView, index: number): void {
   card.appendChild(editor);
   autoGrow(editor);
   editor.focus();
-  editor.setSelectionRange(editor.value.length, editor.value.length);
+  // Put the caret where the user pressed (a textarea cannot map a point itself,
+  // so measure through a mirror node), falling back to the end (#496).
+  const offset = press ? caretOffsetAt(editor, press.x, press.y) : null;
+  const caret = offset ?? editor.value.length;
+  editor.setSelectionRange(caret, caret);
 
   let composing = false;
   // #468: `/` inside the card opens a card-local insert menu (the slash menu
@@ -203,6 +211,62 @@ function openCalloutEditor(view: EditorView, index: number): void {
     if (composing || !editor.isConnected) return;
     if (editor.value.trim() === '') commit();
   });
+}
+
+/**
+ * Character offset under a viewport point inside a textarea. A textarea exposes
+ * no hit-testing API, so the value is re-rendered into an off-screen mirror that
+ * copies the computed text styles and sits exactly where the textarea is; the
+ * browser's caret API then reports the offset within that text node (#496).
+ */
+function caretOffsetAt(editor: HTMLTextAreaElement, clientX: number, clientY: number): number | null {
+  const doc = editor.ownerDocument;
+  const caretFromPoint =
+    typeof doc.caretRangeFromPoint === 'function'
+      ? (x: number, y: number): number | null => {
+          const range = doc.caretRangeFromPoint(x, y);
+          if (!range) return null;
+          if (!editor.contains(range.startContainer)) return range.startOffset;
+          return range.startOffset;
+        }
+      : null;
+  if (!caretFromPoint) return null;
+
+  const computed = doc.defaultView?.getComputedStyle(editor);
+  const rect = editor.getBoundingClientRect();
+  if (!computed || rect.width === 0) return null;
+
+  const mirror = doc.createElement('div');
+  mirror.textContent = editor.value;
+  mirror.setAttribute('aria-hidden', 'true');
+  mirror.style.position = 'fixed';
+  mirror.style.left = `${rect.left}px`;
+  mirror.style.top = `${rect.top}px`;
+  mirror.style.width = `${rect.width}px`;
+  mirror.style.height = 'auto';
+  mirror.style.visibility = 'hidden';
+  mirror.style.pointerEvents = 'none';
+  mirror.style.whiteSpace = computed.whiteSpace;
+  mirror.style.wordBreak = computed.wordBreak;
+  mirror.style.overflowWrap = computed.overflowWrap;
+  mirror.style.font = computed.font;
+  mirror.style.fontFamily = computed.fontFamily;
+  mirror.style.fontSize = computed.fontSize;
+  mirror.style.lineHeight = computed.lineHeight;
+  mirror.style.letterSpacing = computed.letterSpacing;
+  mirror.style.padding = computed.padding;
+  mirror.style.border = computed.border;
+  mirror.style.boxSizing = computed.boxSizing;
+  mirror.style.textAlign = computed.textAlign;
+  doc.body.appendChild(mirror);
+
+  try {
+    const offset = caretFromPoint(clientX, clientY);
+    if (offset === null) return null;
+    return Math.max(0, Math.min(offset, editor.value.length));
+  } finally {
+    mirror.remove();
+  }
 }
 
 /** Size the textarea to its content so the card grows instead of scrolling. */
@@ -338,10 +402,20 @@ class CalloutWidget extends WidgetType {
       // mousedown capture phase, detaching the event's target. A press on the
       // header emoji opens the picker instead of the text editor.
       container.addEventListener('mousedown', (event) => {
+        // Once the body editor is open, a press INSIDE it must keep the browser's
+        // native caret placement — cancelling it and re-focusing reset the caret
+        // to the start of the value (#496).
+        if (
+          event.target instanceof Element &&
+          event.target.closest('.cm-callout-editor') !== null
+        ) {
+          return;
+        }
         event.preventDefault();
         event.stopPropagation();
         const onEmoji = event.target instanceof Element && event.target.closest('.cm-callout-icon') !== null;
         const onTitle = event.target instanceof Element && event.target.closest('.cm-callout-title') !== null;
+        const press = { x: event.clientX, y: event.clientY };
         const open = (): void => {
           if (onEmoji) {
             flushCalloutEdits(view);
@@ -349,7 +423,7 @@ class CalloutWidget extends WidgetType {
           } else if (onTitle) {
             openCalloutTitleEditor(view, index);
           } else {
-            openCalloutEditor(view, index);
+            openCalloutEditor(view, index, press);
           }
         };
         if (typeof requestAnimationFrame === 'function') {
