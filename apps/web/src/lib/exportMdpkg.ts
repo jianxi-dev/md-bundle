@@ -4,7 +4,7 @@
 // 上游负责（CLI 字节级一致）—— 本模块零 zip/hash 逻辑。
 // prevManifest 透传：打开 .mdpkg 后重打包时携带原 manifest（entrypoint/extensions/
 // source_url 继承），实现「无缝重打包」。
-import { packMdpkg } from '../../vendor/mdpkg-web.js';
+import { packMdpkg } from '@md-bundle/app-kit/vendor';
 import type { Manifest } from './mdpkg';
 import type { Asset } from './assets';
 import { dataUrlToBytes } from './dataUrl';

@@ -38,6 +38,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@md-bundle/app-kit':
+        specifier: workspace:*
+        version: link:../../packages/app-kit
       '@md-bundle/editor':
         specifier: workspace:*
         version: link:../../packages/editor

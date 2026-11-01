@@ -3,7 +3,7 @@
 // 调 toDocx → Blob → 注入式下载。
 // 上游 toDocx 负责 OOXML 写入 / 图片内联 / 结构保真 —— 本模块零解析、零 zip 逻辑。
 
-import { toDocx } from '../../vendor/mdpkg-web.js';
+import { toDocx } from '@md-bundle/app-kit/vendor';
 import type { Asset } from './assets';
 import { dataUrlToBytes } from './dataUrl';
 import { ENTRY_FILENAME } from './exportMdpkg';

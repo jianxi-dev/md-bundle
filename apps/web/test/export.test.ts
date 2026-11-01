@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 installDocumentStub();
 
-const { toMarkdown } = await import('../vendor/mdpkg-web.js');
+const { toMarkdown } = await import('@md-bundle/app-kit/vendor');
 const { openPackage, readEntrySource } = await import('../src/lib/mdpkg');
 const { parseZipIndex } = await import('../src/lib/zip');
 const { exportMd, WARNING_EXPORT_MD, DEFAULT_MD_FILENAME } = await import('../src/lib/export');
