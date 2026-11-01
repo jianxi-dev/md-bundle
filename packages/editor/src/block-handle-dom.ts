@@ -15,6 +15,7 @@ import {
   renderIcon,
   HANDLE_DEFAULT_ICON,
   ACTION_ICON_NAME,
+  hasIcon,
 } from './icons';
 
 export const HANDLE_CLASS = 'mdb-block-handle';
@@ -451,7 +452,10 @@ export class HandleChrome {
           const iconEl = document.createElement('span');
           iconEl.className = 'mdb-block-handle-flyout-icon';
           iconEl.setAttribute('aria-hidden', 'true');
-          iconEl.textContent = option.icon;
+          // A registry name must render as SVG; only an emoji/glyph is text.
+          // Printing the name verbatim is how `H1Outlined标题` reached the UI (#489).
+          if (hasIcon(option.icon)) iconEl.replaceChildren(renderIcon(option.icon));
+          else iconEl.textContent = option.icon;
           btn.appendChild(iconEl);
         }
         btn.appendChild(document.createTextNode(option.label));
