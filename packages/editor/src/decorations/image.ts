@@ -9,7 +9,7 @@
  * injection seams — the editor package never depends on app-level assets.
  */
 import type { Range } from '@codemirror/state';
-import { Decoration, WidgetType } from '@codemirror/view';
+import { Decoration, WidgetType, EditorView } from '@codemirror/view';
 
 // --- Types -------------------------------------------------------------------
 
@@ -25,6 +25,8 @@ export type ImageResolver = (path: string) => string | null;
  */
 export interface ImageCallbacks {
   onImageReplace?: (path: string) => void;
+  /** Persist a dragged width for the image whose markdown starts at `from`. */
+  onImageResize?: (from: number, width: number) => void;
   onImageDelete?: (path: string) => void;
   onImageLocate?: (path: string) => void;
 }
@@ -75,25 +77,34 @@ class ImageWidget extends WidgetType {
   private readonly _path: string;
   private readonly _src: string | null;
   private readonly _callbacks: ImageCallbacks;
+  private readonly _width: number | null;
+  /** Document offset of the `!` — where a resize writes the comment. */
+  private readonly _from: number;
 
   constructor(
     alt: string,
     path: string,
     src: string | null,
     callbacks: ImageCallbacks,
+    width: number | null = null,
+    from = 0,
   ) {
     super();
     this._alt = alt;
     this._path = path;
     this._src = src;
     this._callbacks = callbacks;
+    this._width = width;
+    this._from = from;
   }
 
   eq(other: ImageWidget): boolean {
     return (
       other._alt === this._alt &&
       other._path === this._path &&
-      other._src === this._src
+      other._src === this._src &&
+      other._width === this._width &&
+      other._from === this._from
     );
   }
 
@@ -123,6 +134,10 @@ class ImageWidget extends WidgetType {
       img.alt = this._alt;
       img.style.maxWidth = '100%';
       img.style.display = 'block';
+      if (this._width !== null) {
+        img.style.width = `${this._width}px`;
+        img.setAttribute('data-width', String(this._width));
+      }
       // Round the image's own pixels here — a clip-path on the element (not a
       // rounded container clipping an overflowing child) leaves no dark halo
       // and no dependence on fragile canvas corner sampling.
@@ -194,6 +209,51 @@ class ImageWidget extends WidgetType {
       e.stopPropagation();
       this._callbacks.onImageLocate?.(this._path);
     });
+
+    // Resize handle: drag to set the width, released value is persisted as a
+    // trailing `<!--w=N-->` comment (#498).
+    if (this._src) {
+      const handle = document.createElement('span');
+      handle.className = 'cm-image-resize';
+      handle.setAttribute('data-testid', 'cm-image-resize');
+      handle.setAttribute('role', 'slider');
+      handle.setAttribute('aria-label', '调整图片宽度');
+      handle.title = '拖动调整宽度';
+      container.appendChild(handle);
+
+      handle.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const img = container.querySelector('img');
+        if (!img) return;
+        const startX = event.clientX;
+        const startWidth = img.getBoundingClientRect().width;
+        const maxAllowed = container.getBoundingClientRect().width;
+        const onMove = (move: MouseEvent): void => {
+          const next = Math.max(
+            MIN_IMAGE_WIDTH,
+            Math.min(startWidth + (move.clientX - startX), maxAllowed),
+          );
+          img.style.width = `${Math.round(next)}px`;
+        };
+        const onUp = (up: MouseEvent): void => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+          const raw = Math.round(startWidth + (up.clientX - startX));
+          const clamped = Math.max(MIN_IMAGE_WIDTH, Math.min(raw, MAX_IMAGE_WIDTH));
+          if (this._callbacks.onImageResize) {
+            this._callbacks.onImageResize(this._from, clamped);
+            return;
+          }
+          // No host callback: write into the document; the view is recovered
+          // from the widget's own DOM so decorations need no view reference.
+          const view = EditorView.findFromDOM(container);
+          if (view) applyImageWidth(view, this._from, clamped);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      });
+    }
 
     toolbar.appendChild(replaceBtn);
     toolbar.appendChild(deleteBtn);
@@ -302,6 +362,42 @@ class MediaWidget extends WidgetType {
  */
 const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
 
+/** Accepted `<!--w=N-->` bounds (px). */
+export const MIN_IMAGE_WIDTH = 40;
+export const MAX_IMAGE_WIDTH = 2000;
+
+const WIDTH_COMMENT_RE = /^[ \t]*<!--\s*w=(\d+)\s*-->/;
+
+/** Width persisted right after an image's markdown, or null (#498). */
+export function parseImageWidth(text: string, after: number): number | null {
+  const match = WIDTH_COMMENT_RE.exec(text.slice(after, after + 64));
+  if (!match) return null;
+  const width = Number(match[1]);
+  if (!Number.isFinite(width) || width < MIN_IMAGE_WIDTH || width > MAX_IMAGE_WIDTH) return null;
+  return width;
+}
+
+/**
+ * Replace (or add) the width comment for the image whose markdown starts at
+ * `from`, clamped to the accepted range (#498).
+ */
+export function applyImageWidth(view: EditorView, from: number, width: number): boolean {
+  const clamp = Math.round(Math.max(MIN_IMAGE_WIDTH, Math.min(width, MAX_IMAGE_WIDTH)));
+  const rest = view.state.doc.sliceString(from, Math.min(from + 400, view.state.doc.length));
+  const image = /^!\[[^\]]*\]\([^)]+\)/.exec(rest);
+  if (!image) return false;
+  const imageEnd = from + image[0].length;
+  const tail = rest.slice(image[0].length);
+  const existing = /^[ \t]*<!--\s*w=\d+\s*-->/.exec(tail);
+  const insert = `<!--w=${clamp}-->`;
+  if (existing) {
+    view.dispatch({ changes: { from: imageEnd, to: imageEnd + existing[0].length, insert } });
+    return true;
+  }
+  view.dispatch({ changes: { from: imageEnd, to: imageEnd, insert } });
+  return true;
+}
+
 /**
  * Finds line ranges that are inside code fences (``` delimited).
  * Returns an array of [start, end] offsets for fenced content.
@@ -405,7 +501,7 @@ export function createImageDecorations(
       const src = resolveFn(path);
       decorations.push(
         Decoration.replace({
-          widget: new ImageWidget(alt, path, src, callbacksFn),
+          widget: new ImageWidget(alt, path, src, callbacksFn, parseImageWidth(docText, to), from),
           inclusive: false,
         }).range(from, to),
       );

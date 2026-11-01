@@ -54,6 +54,8 @@ export interface EditorDecorationsOptions {
   resolveImage?: ImageResolver;
   /** Callback when user clicks "replace" on an image widget. */
   onImageReplace?: (path: string) => void;
+  /** Persist a dragged image width (default: writes `<!--w=N-->` in-document). */
+  onImageResize?: (from: number, width: number) => void;
   /** Callback when user clicks "delete" on an image widget. */
   onImageDelete?: (path: string) => void;
   /** Callback when user clicks "locate" on an image widget. */
@@ -131,6 +133,7 @@ function buildDecorationSet(
       options?.resolveImage,
       {
         onImageReplace: options?.onImageReplace,
+        onImageResize: options?.onImageResize,
         onImageDelete: options?.onImageDelete,
         onImageLocate: options?.onImageLocate,
       },

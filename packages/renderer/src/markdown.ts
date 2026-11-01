@@ -558,12 +558,48 @@ function stripDangerousUrls(doc: Document): void {
 }
 
 // ── Post-process: callouts → links → url strip → CJK ────────────────
-function postProcess(html: string, opts?: RenderOptions): string {
+/**
+ * Strip `![alt](src)<!--w=N-->` comments out of the source and return the
+ * widths in image order. DOMPurify removes comments, so they cannot survive to
+ * the DOM stage (#498).
+ */
+function extractImageWidths(markdown: string): { text: string; widths: (number | null)[] } {
+  const widths: (number | null)[] = [];
+  const text = markdown.replace(
+    /(!\[[^\]]*\]\([^)]+\))[ \t]*<!--\s*w=(\d+)\s*-->/g,
+    (_all, image: string, raw: string) => {
+      const width = Number(raw);
+      widths.push(
+        Number.isFinite(width) && width >= 40 && width <= 2000 ? Math.round(width) : null,
+      );
+      return image;
+    },
+  );
+  return { text, widths };
+}
+
+/** Apply the collected widths to the images, in document order (#498). */
+function applyImageWidths(doc: Document, widths: (number | null)[]): void {
+  if (widths.length === 0) return;
+  const images = Array.from(doc.querySelectorAll('img'));
+  images.forEach((img, index) => {
+    const width = widths[index];
+    if (width == null) return;
+    img.setAttribute('width', String(width));
+    img.style.width = `${width}px`;
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+  });
+}
+
+function postProcess(html: string, opts?: RenderOptions, imageWidths: (number | null)[] = []): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   convertCallouts(doc, opts?.calloutEmoji);
+  void 0;
   doc.querySelectorAll('a').forEach((a) => {
     if (!a.getAttribute('target')) a.setAttribute('target', '_blank');
   });
+  applyImageWidths(doc, imageWidths);
   stripDangerousUrls(doc);
   const cjkDisabled = opts?.cjkSpacing === false;
   if (!cjkDisabled && (doc.body.textContent ?? '').length < 200_000) {
@@ -616,8 +652,9 @@ export function renderMarkdownCore(
   registerColumnWidthHook();
 
   const body = content.replace(FRONTMATTER_RE, '');
-  const preprocessed = preprocessFencedDivs(body);
+  const { text: withoutWidthComments, widths } = extractImageWidths(body);
+  const preprocessed = preprocessFencedDivs(withoutWidthComments);
   const raw = marked.parse(preprocessed, { async: false }) as string;
   const clean = DOMPurify.sanitize(raw, SANITIZE_CONFIG);
-  return postProcess(clean, opts);
+  return postProcess(clean, opts, widths);
 }
