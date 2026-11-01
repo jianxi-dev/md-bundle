@@ -12,7 +12,7 @@ vi.mock('./lib/openFile', () => ({
 // 「复制正文为图片」的真实 PNG 栅格化在 jsdom 里跑不了；这里测的是 App 的接线分支：
 // 复制失败（jsdom 无 ClipboardItem）→ 兜底下载路径 → 对应 toast。生成器本身由
 // exportPng.test.ts / export-png.e2e.spec.ts 覆盖。
-vi.mock('./lib/exportPng', () => ({
+vi.mock('@md-bundle/app-kit/export/exportPng', () => ({
   exportPngFromMarkdown: async () => new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' }),
 }));
 

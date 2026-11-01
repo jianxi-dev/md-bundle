@@ -3,7 +3,7 @@
 // 只有最后一次 open 的结果会落地（前序慢结果被丢弃）。
 import { useCallback, useRef, useState } from 'react';
 import { openFile } from './openFile';
-import type { Manifest, ValidationResult } from './mdpkg';
+import type { Manifest, ValidationResult } from '@md-bundle/app-kit/mdpkg';
 
 export type DocumentState =
   | { status: 'empty' }

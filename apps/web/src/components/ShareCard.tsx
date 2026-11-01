@@ -9,7 +9,7 @@ import {
   shareCardAsImage,
   type ShareCardStats,
 } from '../lib/shareCard';
-import { downloadBlob } from '../lib/download';
+import { downloadBlob } from '@md-bundle/app-kit/export/download';
 import type { ThemeName } from '@md-bundle/editor';
 
 export interface ShareCardProps {

@@ -20,8 +20,11 @@ const fsaState = {
   throwOnPicker: false,
 };
 
-vi.mock('../src/lib/download', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/lib/download')>();
+// #512：save.ts 已直接消费 app-kit 的 download，mock 必须指向同一个模块 id，
+// 否则 mock 落空、真实下载在 jsdom 里静默失败。
+vi.mock('@md-bundle/app-kit/export/download', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@md-bundle/app-kit/export/download')>();
   return {
     ...actual,
     downloadBlob: downloadBlobSpy,

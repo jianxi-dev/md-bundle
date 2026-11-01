@@ -22,23 +22,27 @@ import { PreviewView } from './components/PreviewView'
 import { FileOpen } from './components/FileOpen'
 import { Landing } from './components/Landing'
 import { LeftRail } from './components/LeftRail'
-import { OutlineMenu } from './components/OutlineMenu'
+import { OutlineMenu } from '@md-bundle/app-kit/outline/OutlineMenu'
+import {
+  createOutlineNavigator,
+  type OutlineNavigator,
+} from '@md-bundle/app-kit/outline'
 import { Toolbar, type ExportFormat, type EditorMode } from './components/Toolbar'
 import { TabStrip } from './components/TabStrip'
 import { BadgeToast } from './components/BadgeToast'
 import { ValidationPanel } from './components/ValidationPanel'
 import { useBadges, wireBadgeEvents } from './lib/useBadges'
 import { openFile } from './lib/openFile'
-import { readEntrySource } from './lib/mdpkg'
+import { readEntrySource } from '@md-bundle/app-kit/mdpkg'
 import { saveDocument, type SaveResult } from './lib/save'
-import { exportMdpkg, ENTRY_FILENAME } from './lib/exportMdpkg'
+import { exportMdpkg, ENTRY_FILENAME } from '@md-bundle/app-kit/export/exportMdpkg'
 import { WARNING_EXPORT_MD } from './lib/export'
-import { exportDocx } from './lib/exportDocx'
+import { exportDocx } from '@md-bundle/app-kit/export/exportDocx'
 import { toZip, toMarkdown } from '@md-bundle/app-kit/vendor'
 import { copyImageToClipboard } from '@md-bundle/app-kit/clipboard'
-import { buildHtmlDocument } from './lib/exportHtml'
-import { exportPngFromMarkdown } from './lib/exportPng'
-import { downloadBlob, downloadText } from './lib/download'
+import { buildHtmlDocument } from '@md-bundle/app-kit/export/exportHtml'
+import { exportPngFromMarkdown } from '@md-bundle/app-kit/export/exportPng'
+import { downloadBlob, downloadText } from '@md-bundle/app-kit/export/download'
 import { shareCardSvg, cardToPngBlob, copyToClipboard } from './lib/shareCard'
 import {
   loadThemePreference,
@@ -51,7 +55,7 @@ import {
 import { createInviteLink } from './lib/shareLink'
 import { exitFullscreenOnEscape } from './lib/fullscreen'
 import { pickTemplate } from './lib/inviteShareCards'
-import { bytesToDataUrl, dataUrlToBytes } from './lib/dataUrl'
+import { bytesToDataUrl, dataUrlToBytes } from '@md-bundle/app-kit/export/dataUrl'
 import {
   MAX_ASSET_BYTES,
   addAssets,
@@ -188,6 +192,17 @@ export default function App() {
   const inviteCardTimer = useRef<number | null>(null)
   const workspaceRef = useRef<HTMLElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
+
+  // 注入式大纲导航（#512）：编辑/源码模式按行号滚动；预览模式仍由 OutlineMenu
+  // 走内置 DOM 元素路径（预览标题无稳定 id，见 OutlineMenu 内注释）。
+  const outlineNavigator: OutlineNavigator = useMemo(
+    () =>
+      createOutlineNavigator({
+        getView: () => editorViewState,
+        getPreview: () => previewRef.current,
+      }),
+    [editorViewState],
+  )
 
   const [railOpen, setRailOpen] = useState(readRailOpen)
   const toggleRail = () => {
@@ -1199,6 +1214,7 @@ export default function App() {
                   documentText={activeTab.source}
                   editorView={editorViewState}
                   previewRef={previewRef}
+                  navigator={outlineNavigator}
                 />
 
                 <div

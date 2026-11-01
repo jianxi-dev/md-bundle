@@ -5,14 +5,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ShareCard } from '../src/components/ShareCard';
 import { shareCardAsImage } from '../src/lib/shareCard';
-import { downloadBlob } from '../src/lib/download';
+import { downloadBlob } from '@md-bundle/app-kit/export/download';
 
 vi.mock('../src/lib/shareCard', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../src/lib/shareCard')>();
   return { ...mod, shareCardAsImage: vi.fn() };
 });
 
-vi.mock('../src/lib/download', () => ({ downloadBlob: vi.fn() }));
+vi.mock('@md-bundle/app-kit/export/download', () => ({ downloadBlob: vi.fn() }));
 
 const mockedShare = vi.mocked(shareCardAsImage);
 const mockedDownload = vi.mocked(downloadBlob);

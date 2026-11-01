@@ -68,6 +68,7 @@ function renderPinned(props: {
   documentText: string;
   editorView?: ReturnType<typeof makeMockView> | null;
   previewRef?: React.RefObject<HTMLDivElement | null>;
+  navigator?: { scrollToLine: (line: number) => void; scrollToHeading: (id: string) => void };
 }) {
   const result = render(
     <OutlineMenu
@@ -75,6 +76,7 @@ function renderPinned(props: {
       documentText={props.documentText}
       editorView={props.editorView ?? null}
       previewRef={props.previewRef ?? { current: null }}
+      navigator={props.navigator}
     />,
   );
   const btn = screen.getByTestId('outline-btn');
@@ -175,7 +177,7 @@ describe('OutlineMenu 多页签', () => {
     const { rerender } = renderPinned({
       mode: 'edit',
       documentText: DOC_A,
-      editorView: view as never,
+      editorView: view,
     });
 
     const menu = screen.getByTestId('outline-menu');
@@ -206,7 +208,7 @@ describe('OutlineMenu 多页签', () => {
     renderPinned({
       mode: 'edit',
       documentText: DOC_A,
-      editorView: view as never,
+      editorView: view,
     });
 
     const menu = screen.getByTestId('outline-menu');
@@ -299,6 +301,65 @@ describe('OutlineMenu 多页签', () => {
     h2.scrollIntoView = scrollSpy;
 
     fireEvent.click(items[1]);
+    expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'instant', block: 'start' });
+
+    document.body.removeChild(container);
+  });
+
+  it('注入 navigator 时编辑模式按行号滚动，并把焦点交回编辑器', () => {
+    // DOC_A: line 0 = "# 标题一", line 4 = "## 子标题 A"
+    const view = makeMockView({ docText: DOC_A, lineHeight: 20 });
+    const scrollToLine = vi.fn();
+    const scrollToHeading = vi.fn();
+
+    renderPinned({
+      mode: 'edit',
+      documentText: DOC_A,
+      editorView: view,
+      navigator: { scrollToLine, scrollToHeading },
+    });
+
+    const items = within(screen.getByTestId('outline-menu')).getAllByRole('menuitem');
+    fireEvent.click(items[1]); // 子标题 A → 行 4
+
+    expect(scrollToLine).toHaveBeenCalledTimes(1);
+    expect(scrollToLine).toHaveBeenCalledWith(4);
+    expect(view.focus).toHaveBeenCalled();
+    expect(scrollToHeading).not.toHaveBeenCalled();
+  });
+
+  it('注入 navigator 时预览模式仍走 DOM 元素滚动，不调用 scrollToHeading', () => {
+    // 预览标题没有稳定 id（renderer 的净化白名单剥离 id），按 id 寻址无法表达
+    // 「滚到第 N 个标题」——注入实现只接管编辑/源码，预览保留 DOM 元素路径。
+    const container = document.createElement('div');
+    const h1 = document.createElement('h1');
+    h1.textContent = '预览标题';
+    const h2 = document.createElement('h2');
+    h2.textContent = '二级';
+    container.appendChild(h1);
+    container.appendChild(h2);
+    document.body.appendChild(container);
+
+    const scrollToLine = vi.fn();
+    const scrollToHeading = vi.fn();
+
+    renderPinned({
+      mode: 'preview',
+      documentText: '',
+      editorView: null,
+      previewRef: { current: container },
+      navigator: { scrollToLine, scrollToHeading },
+    });
+
+    const items = within(screen.getByTestId('outline-menu')).getAllByRole('menuitem');
+    expect(items).toHaveLength(2);
+
+    const scrollSpy = vi.fn();
+    h2.scrollIntoView = scrollSpy;
+
+    fireEvent.click(items[1]);
+    expect(scrollToHeading).not.toHaveBeenCalled();
+    expect(scrollToLine).not.toHaveBeenCalled();
     expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'instant', block: 'start' });
 
     document.body.removeChild(container);

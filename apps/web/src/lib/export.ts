@@ -2,7 +2,7 @@
 // 消费方（保存/导出栏 4.1）调用：exportMd(text, { hasImages: hasImageAssets(assets) })。
 // 行为：文档含图片 → 先弹「丢图警告」，确认才下载；取消 → 不下载、返回 false。
 
-import { downloadText, type DownloadText } from './download';
+import { downloadText, type DownloadText } from '@md-bundle/app-kit/export/download';
 
 /** 含图导出的确认文案（UI 直接 window.confirm 展示；测试断言原文）。 */
 export const WARNING_EXPORT_MD = '导出 .md 将丢失图片（.md 无法携带图片）。确定继续？';

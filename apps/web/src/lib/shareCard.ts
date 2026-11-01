@@ -11,8 +11,8 @@
 import { renderMarkdown } from '@md-bundle/renderer';
 import { getThemeColor, type ThemeName } from '@md-bundle/editor';
 import { copyImageToClipboard } from '@md-bundle/app-kit/clipboard';
-import { svgFromHtml, svgToPngBlob } from './exportPng';
-import { bylineCornerBadgeHtml } from './byline';
+import { svgFromHtml, svgToPngBlob } from '@md-bundle/app-kit/export/exportPng';
+import { bylineCornerBadgeHtml } from '@md-bundle/app-kit/export/byline';
 
 /** 分享卡统计：字数 + 图数（App 从文档/资产清单计算）。 */
 export interface ShareCardStats {
