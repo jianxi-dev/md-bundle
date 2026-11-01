@@ -65,7 +65,7 @@ jobs:
           path: apps/web/test-results/
           if-no-files-found: ignore
 
-  # vendor 漂移检测：比较本仓库 vendor/mdpkg-web.js 与上游最新构建产物是否一致
+  # vendor 漂移检测：比较本仓库 packages/app-kit/vendor/mdpkg-web.js 与上游最新构建产物是否一致
   vendor-drift-check:
     runs-on: ubuntu-latest
     steps:
@@ -75,7 +75,7 @@ jobs:
       - name: Compute local vendor sha256
         id: local-hash
         run: |
-          LOCAL_SHA=$(sha256sum apps/web/vendor/mdpkg-web.js | awk '{print $1}')
+          LOCAL_SHA=$(sha256sum packages/app-kit/vendor/mdpkg-web.js | awk '{print $1}')
           echo "sha=$LOCAL_SHA" >> "$GITHUB_OUTPUT"
           echo "本地 vendor sha256: $LOCAL_SHA"
 

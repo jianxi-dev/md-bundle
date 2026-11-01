@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest';
 
 installDocumentStub();
 
-const { toZip } = await import('../vendor/mdpkg-web.js');
+const { toZip } = await import('@md-bundle/app-kit/vendor');
 const { openPackage, readEntrySource } = await import('../src/lib/mdpkg');
 const { parseZipIndex, readZipEntry } = await import('../src/lib/zip');
 

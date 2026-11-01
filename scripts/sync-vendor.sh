@@ -9,7 +9,7 @@
 # 流程:
 #   1. 从上游 jianxi-dev/mdpkg <commit> 拉取 packages/mdpkg/web/mdpkg-web.js
 #   2. 校验产物（非空 + 字节数 > 500000 + 含特征串）
-#   3. 写入 apps/web/vendor/mdpkg-web.js + apps/web/vendor/.vendor-version
+#   3. 写入 packages/app-kit/vendor/mdpkg-web.js + packages/app-kit/vendor/.vendor-version
 #   4. 跑 pnpm --filter @md-bundle/web test（--dry-run 跳过）
 #   5. 打印建议 commit message
 #
@@ -21,7 +21,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-VENDOR_DIR="apps/web/vendor"
+VENDOR_DIR="packages/app-kit/vendor"
 VENDOR_FILE="$VENDOR_DIR/mdpkg-web.js"
 VERSION_FILE="$VENDOR_DIR/.vendor-version"
 
@@ -133,7 +133,7 @@ echo "==> 建议 commit message:"
 echo "    chore(web): 同步上游 mdpkg-web bundle (mdpkg $COMMIT)"
 echo ""
 echo "    完整示例:"
-echo "    git add apps/web/vendor/mdpkg-web.js apps/web/vendor/.vendor-version"
+echo "    git add packages/app-kit/vendor/mdpkg-web.js packages/app-kit/vendor/.vendor-version"
 echo "    git commit -m 'chore(web): 同步上游 mdpkg-web bundle (mdpkg $COMMIT)'"
 
 exit 0
