@@ -52,3 +52,6 @@ skills-lock.json
 agent/
 *.local-baseline
 apps/web/.artifacts/
+# 视觉基线（#500）：按平台入库；test-results/visual 是临时拼图，不入库
+!apps/web/test/__screenshots__/
+apps/web/test-results/visual/
