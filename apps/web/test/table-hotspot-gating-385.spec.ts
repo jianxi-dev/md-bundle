@@ -121,7 +121,7 @@ test('(c) 插入列后 DOM 结构与源码同步（原位更新而非残影）',
   expect((await firstRow.allInnerTexts()).map((t) => t.trim())).toEqual(['1', '', '2', '3'])
 })
 
-test('(b) 末列格内手柄悬停不弹菜单，点击才打开（有内容格 -> 块菜单，#399）', async ({ page }) => {
+test('(b) 末列格内手柄悬停不弹菜单，点击才打开（#492 统一插入面板）', async ({ page }) => {
   await openEditor(page)
 
   const cell = page.getByTestId('cm-table').locator('td[data-row="0"][data-col="2"]')
@@ -136,13 +136,13 @@ test('(b) 末列格内手柄悬停不弹菜单，点击才打开（有内容格 
   await expect(page.getByTestId('slash-menu')).toHaveCount(0)
   await expect(page.getByTestId('block-handle-menu')).toBeHidden()
 
-  // A deliberate press opens the convert menu for a cell that has content (#399).
+  // #492：有内容格也打开同一个插入面板（一套词汇、一条定位路径）。
   await handle.click()
   await settle(page)
-  await expect(page.getByTestId('block-handle-menu')).toBeVisible()
+  await expect(page.getByTestId('slash-menu')).toBeVisible()
 
-  // The block menu is a stack of its own: Escape closes it and leaves no残影.
+  // Escape closes it and leaves no残影.
   await page.keyboard.press('Escape')
   await settle(page)
-  await expect(page.getByTestId('block-handle-menu')).toBeHidden()
+  await expect(page.getByTestId('slash-menu')).toHaveCount(0)
 })

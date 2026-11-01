@@ -36,7 +36,7 @@ test('格内菜单贴着单元格且限高可滚动', async ({ page }) => {
   await settle(page)
 
   const geo = await page.evaluate(() => {
-    const m = document.querySelector('[data-testid="block-handle-menu"]') as HTMLElement
+    const m = document.querySelector('[data-testid="slash-menu"]') as HTMLElement
     const h = document.querySelector('td[data-row="1"][data-col="0"] .cm-table-cell-handle') as HTMLElement
     const pane = document.querySelector('.cm-editor') as HTMLElement
     const mr = m.getBoundingClientRect()

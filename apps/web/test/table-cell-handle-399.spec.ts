@@ -64,7 +64,7 @@ test('手柄在单元格内容左侧，而不是右侧', async ({ page }) => {
   expect(gaps!.handleBeforeText, '手柄应在文本左侧').toBe(true)
 })
 
-test('有内容的格子：手柄语义为「转换块内容」，点开块菜单', async ({ page }) => {
+test('有内容的格子：手柄打开插入菜单（#492 统一入口）', async ({ page }) => {
   await openEditor(page)
   const cell = page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]')
   await cell.hover()
@@ -74,10 +74,10 @@ test('有内容的格子：手柄语义为「转换块内容」，点开块菜�
   await expect(handle).toHaveAttribute('title', '转换块内容')
   await expect(handle).toHaveAttribute('data-cell-empty', 'false')
 
+  // #492：有内容/空格统一打开同一个插入面板（一套菜单词汇、一条定位路径）。
   await handle.click()
   await settle(page)
-  await expect(page.getByTestId('block-handle-menu')).toBeVisible()
-  await expect(page.locator('.mdb-slash-menu')).toHaveCount(0)
+  await expect(page.locator('.mdb-slash-menu')).toBeVisible()
 })
 
 test('空格子：手柄语义为「插入内容」，点开插入菜单', async ({ page }) => {

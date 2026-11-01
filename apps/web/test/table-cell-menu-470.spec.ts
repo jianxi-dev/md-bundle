@@ -37,7 +37,7 @@ async function openEditor(page: Page, doc: string): Promise<void> {
   await settle(page)
 }
 
-test('单元格插入菜单不再列出块级命令', async ({ page }) => {
+test('单元格插入菜单与 / 同源（#492 取代 #470 的 allowlist）', async ({ page }) => {
   await openEditor(page, TABLE)
   const td = page.getByTestId('cm-table').locator('td[data-row="0"][data-col="0"]')
   await td.hover()
@@ -50,9 +50,9 @@ test('单元格插入菜单不再列出块级命令', async ({ page }) => {
   const labels = await menu.locator('.mdb-slash-item').evaluateAll((els) =>
     els.map((el) => (el.textContent ?? '').trim()),
   )
-  expect(labels.length, '单元格菜单应有可用项').toBeGreaterThan(0)
-  for (const blocked of ['任务', '标注', '分割线', '表格', '分栏']) {
-    expect(labels.join('|'), `不应出现 ${blocked}`).not.toContain(blocked)
+  expect(labels.length, '单元格菜单应有完整项').toBeGreaterThanOrEqual(14)
+  for (const want of ['任务', '标注', '分割线', '表格', '分栏']) {
+    expect(labels.join('|'), `应包含 ${want}`).toContain(want)
   }
 })
 

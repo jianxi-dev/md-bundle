@@ -22,12 +22,7 @@ import type { Extension, Range } from '@codemirror/state';
 import { Decoration, ViewPlugin, WidgetType, type EditorView } from '@codemirror/view';
 import { defaultCommands, openInsertMenu, releaseInsertMenu } from '../slash';
 
-/** Insert rows that make sense inside a one-line GFM cell (#470). */
-const CELL_SAFE_COMMANDS = defaultCommands.filter((cmd) =>
-  ['image-ref', 'media-ref'].includes(cmd.id),
-);
 import { ADD_ICON_NAME, renderIcon } from '../icons';
-import { openBlockMenuAt } from '../block-handle';
 import {
   parseCellBackground,
   renderCellText,
@@ -249,6 +244,16 @@ interface PendingCell {
 const dirtyCells = new WeakMap<EditorView, Map<string, PendingCell>>();
 
 const externalFlushWired = new WeakSet<EditorView>();
+
+/**
+ * The widget instance currently rendered for a view. Pointer actions are
+ * DELEGATED (see `installTablePointer`) because the widget — and every node
+ * inside it — is rebuilt during CM6's mousedown handling, which detaches the
+ * node a per-element listener was attached to (#492).
+ */
+const liveTableWidgets = new WeakMap<EditorView, TableWidget>();
+
+const tablePointerWired = new WeakSet<EditorView>();
 
 /** Views with a flush already queued — stops settle points stacking timers. */
 const flushScheduled = new WeakSet<EditorView>();
@@ -634,6 +639,72 @@ if (typeof document !== 'undefined') {
 
 // --- Widget ------------------------------------------------------------------
 
+
+/**
+ * One capture-phase `mousedown` on the editor root handles every table pointer
+ * affordance: the cell handle, the top-left anchor dot and the boundary
+ * bubble's insert/delete buttons.
+ *
+ * `composedPath()` is a snapshot taken when the event is dispatched, so the
+ * target stays readable even after CM6 rebuilt (and detached) the widget
+ * during the same press (#492).
+ */
+function installTablePointer(view: EditorView): void {
+  if (tablePointerWired.has(view)) return;
+  tablePointerWired.add(view);
+
+  view.dom.addEventListener(
+    'mousedown',
+    (event) => {
+      const widget = liveTableWidgets.get(view);
+      if (!widget) return;
+      const path = event.composedPath();
+      const pick = (selector: string): HTMLElement | undefined =>
+        path.find(
+          (node): node is HTMLElement =>
+            node instanceof HTMLElement && node.matches?.(selector) === true,
+        );
+
+      const anchorDot = pick('.cm-table-anchor');
+      const cellHandle = pick('.cm-table-cell-handle');
+      const boundaryButton = pick('.cm-table-boundary-delete, .cm-table-boundary-insert');
+      if (!anchorDot && !cellHandle && !boundaryButton) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (anchorDot) {
+        widget.openCellMenuFor(view, 0, 0);
+        return;
+      }
+
+      if (boundaryButton) {
+        const boundary = pick('.cm-table-boundary');
+        const kind = boundary?.dataset.type === 'col' ? 'col' : 'row';
+        const index = Number(
+          (kind === 'col' ? boundary?.dataset.col : boundary?.dataset.row) ?? '-1',
+        );
+        if (!Number.isFinite(index) || index < 0) return;
+        const isDelete = boundaryButton.classList.contains('cm-table-boundary-delete');
+        if (kind === 'col') {
+          if (isDelete) widget.deleteColumnFor(view, index);
+          else widget.addColumnFor(view, index);
+        } else {
+          if (isDelete) widget.deleteRowFor(view, index);
+          else widget.addRowFor(view, index);
+        }
+        return;
+      }
+
+      const cell = pick('td[data-row], th[data-row]');
+      const row = Number(cell?.dataset.row ?? '-1');
+      const col = Number(cell?.dataset.col ?? '-1');
+      if (cellHandle) widget.openCellMenuFor(view, row, col);
+    },
+    true,
+  );
+}
+
 class TableWidget extends WidgetType {
   header: string[];
   rows: string[][];
@@ -731,6 +802,38 @@ class TableWidget extends WidgetType {
   }
 
   /** Open the anchored INSERT menu over a cell, anchored to that cell's range. */
+  /**
+   * Entry point for the delegated pointer handler (#492).
+   *
+   * A cell handle opens the SAME insert menu as the anchor dot and `/` — one
+   * menu vocabulary, one positioning path — instead of routing a filled cell to
+   * the block menu, whose placement is owned by the gutter handle and had no
+   * stable anchor when the widget rebuilt mid-press.
+   */
+  openCellMenuFor(view: EditorView, row: number, col: number): void {
+    if (row < 0 || col < 0) return;
+    this.openCellMenu(view, row, col);
+    // The delegated press cancels the default focus change, so give the editor
+    // focus back — otherwise Escape cannot dismiss the panel (#492).
+    view.focus();
+  }
+
+  deleteRowFor(view: EditorView, index: number): void {
+    this.deleteRow(view, index);
+  }
+
+  deleteColumnFor(view: EditorView, index: number): void {
+    this.deleteColumn(view, index);
+  }
+
+  addRowFor(view: EditorView, index: number): void {
+    this.addRow(view, index);
+  }
+
+  addColumnFor(view: EditorView, index: number): void {
+    this.addColumn(view, index);
+  }
+
   private openCellMenu(view: EditorView, row: number, col: number): void {
     flushDirtyTables(view);
     const block = this.currentBlock(view);
@@ -741,7 +844,18 @@ class TableWidget extends WidgetType {
     // A GFM cell is one line: block-level commands (task list, callout, divider,
   // nested table, columns, fenced code) sanitize to a single line and silently
   // do nothing, which reads as "checked a menu item, nothing happened" (#470).
-  openInsertMenu(view, cell.from, CELL_SAFE_COMMANDS, { from: cell.from, to: cell.to });
+  // Anchor on the handle actually drawn in the cell, so the panel always opens
+  // beside it instead of wherever `coordsAtPos` happens to land (#492).
+  const handleRect = view.dom
+    .querySelector<HTMLElement>(
+      `td[data-row="${row}"][data-col="${col}"] .cm-table-cell-handle, th[data-row="${row}"][data-col="${col}"] .cm-table-cell-handle`,
+    )
+    ?.getBoundingClientRect();
+  const anchorRect =
+    handleRect && handleRect.width > 0
+      ? { left: handleRect.left, right: handleRect.right, top: handleRect.top, bottom: handleRect.bottom }
+      : undefined;
+  openInsertMenu(view, cell.from, defaultCommands, { from: cell.from, to: cell.to }, 'anchor', anchorRect);
   }
 
   toDOM(view?: EditorView): HTMLElement {
@@ -791,12 +905,7 @@ class TableWidget extends WidgetType {
       anchor.title = '插入内容';
       anchor.setAttribute('aria-label', '插入内容');
       anchor.textContent = '＋';
-      const openFromAnchor = (): void => this.openCellMenu(view, 0, 0);
-      anchor.addEventListener('mousedown', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        openFromAnchor();
-      });
+      const openFromAnchor = (): void => this.openCellMenuFor(view, 0, 0);
       anchor.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
@@ -811,6 +920,8 @@ class TableWidget extends WidgetType {
     wrap.appendChild(boundaries);
 
     if (view) {
+      liveTableWidgets.set(view, this);
+      installTablePointer(view);
       this.wireExternalFlush(view);
       // Reveal is per-boundary: the hotspot nearest the pointer appears, the
       // rest stay hidden, and leaving the widget clears them (#385a).
@@ -953,7 +1064,6 @@ class TableWidget extends WidgetType {
     col: number,
   ): void {
     const tableIndex = this.tableIndex;
-    const empty = this.cellText(row, col).trim() === '';
 
     cellEl.addEventListener('mousedown', (event) => {
       if ((event.target as HTMLElement | null)?.closest('.cm-table-cell-handle')) return;
@@ -1010,25 +1120,9 @@ class TableWidget extends WidgetType {
     handle.addEventListener('mouseleave', () => {
       handle.classList.remove('cm-table-cell-handle-active');
     });
-    handle.addEventListener('mousedown', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      // Capture the anchor from the EVENT, not from the node: this press makes
-      // CM6 rebuild the table widget, so `handle.getBoundingClientRect()` here
-      // returns an all-zero rect and the menu opened at the pane's corner.
-      const rect = {
-        left: event.clientX,
-        right: event.clientX,
-        top: event.clientY,
-        bottom: event.clientY,
-      };
-      handle.classList.add('cm-table-cell-handle-active');
-      if (!empty) {
-        const span = this.cells.find((c) => c.row === row && c.col === col);
-        if (span && openBlockMenuAt(view, span.from, rect)) return;
-      }
-      this.openCellMenu(view, row, col);
-    });
+    // The press itself is handled by the delegated listener in
+    // `installTablePointer` (#492) — a per-node listener here is dead by the
+    // time it would fire, because CM6 rebuilds this widget during mousedown.
   }
 
   /**
@@ -1227,12 +1321,8 @@ class TableWidget extends WidgetType {
       insertBtn.className = 'cm-table-boundary-insert';
       insertBtn.setAttribute('data-testid', 'cm-table-boundary-insert');
       insertBtn.textContent = kind === 'col' ? '＋ 插入列' : '＋ 插入行';
-      insertBtn.addEventListener('mousedown', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (kind === 'col') this.addColumn(view, index);
-        else this.addRow(view, index);
-      });
+      // Presses are delegated (installTablePointer); the button only carries
+      // the semantics for the handler to read from the event path.
       bubble.appendChild(insertBtn);
 
       // #469: delete lives in the same bubble. A table needs at least one
@@ -1243,12 +1333,7 @@ class TableWidget extends WidgetType {
         deleteBtn.className = 'cm-table-boundary-delete';
         deleteBtn.setAttribute('data-testid', 'cm-table-boundary-delete');
         deleteBtn.textContent = kind === 'col' ? '－ 删除列' : '－ 删除行';
-        deleteBtn.addEventListener('mousedown', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (kind === 'col') this.deleteColumn(view, index);
-          else this.deleteRow(view, index);
-        });
+
         bubble.appendChild(deleteBtn);
       }
       bubble.addEventListener('mouseenter', () => {
