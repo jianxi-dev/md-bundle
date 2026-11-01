@@ -1,8 +1,8 @@
 {
   "version": "7.3",
-  "date": "2026-09-29T01:11:49.022Z",
-  "verdict": "FAIL",
-  "summary": "10/11 tests passed",
+  "date": "2026-11-01T19:26:46.478Z",
+  "verdict": "PASS",
+  "summary": "11/11 tests passed",
   "steps": {
     "1-open-tab-edit-decorations": {
       "pass": true,
@@ -45,8 +45,9 @@
       "screenshot": "skipped"
     },
     "9-invite-link-inviteview": {
-      "pass": false,
-      "note": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed"
+      "pass": true,
+      "note": "ok",
+      "screenshot": "/Users/mason/ToHighs/md-bundle/apps/web/test-results/qa-7.3/9-invite-view.png"
     },
     "10-theme-switch": {
       "pass": true,

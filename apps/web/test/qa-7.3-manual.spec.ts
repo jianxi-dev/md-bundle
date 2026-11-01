@@ -256,6 +256,16 @@ test('7.3 真机手动QA：完整流程测试', { timeout: 120000 }, async ({ pa
   // Test 9: 邀请链接跨浏览器打开 InviteView
   // ═══════════════════════════════════════════════════════════
   await record('9-invite-link-inviteview', async () => {
+    // 该步骤验的是「落地页变体」，必须从空会话开始：前序步骤恢复的页签会让 App
+    // 直接进工作区，InviteView 根本不渲染 —— 那是会话行为，不是本步骤要测的东西。
+    await page.goto('/');
+    await page.evaluate(async () => {
+      localStorage.clear();
+      await new Promise<void>((resolve) => {
+        const req = indexedDB.deleteDatabase('md-bundle');
+        req.onsuccess = req.onerror = req.onblocked = () => resolve();
+      });
+    });
     // 创建邀请链接
     await page.goto('/?ref=invite&by=测试用户');
     await page.waitForTimeout(1000);
@@ -360,4 +370,9 @@ test.afterAll(() => {
 
   console.log(`\n📊 QA 7.3 Report: ${passed}/${total} tests passed`);
   console.log(allPass ? '✅ All tests passed!' : '❌ Some tests failed');
+
+  // record() 把断言失败收进 steps 而不是抛出，所以必须在这里把累积失败升级成测试失败 ——
+  // 否则 reports 写着 FAIL 而套件照样全绿（QG-4 §五 明令禁止的载体）。
+  // 顺序固定：先落盘报告，再断言，保证失败时现场可查。
+  expect(Object.entries(steps).filter(([, s]) => !s.pass)).toEqual([]);
 });
