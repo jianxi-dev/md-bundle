@@ -103,3 +103,25 @@ test('在二级面板选「任务」→ 在块下方插入任务行', async ({ p
   const taskAt = doc.indexOf('- [ ] ')
   expect(taskAt).toBeGreaterThan(first)
 })
+
+test('二级面板每行是「图标 + 文案」，不显示图标注册名（#489）', async ({ page }) => {
+  await openEditor(page)
+  await openBlockMenu(page, '第一段')
+  await page.locator('[data-flyout="insert-menu"]').first().hover()
+  await settle(page)
+
+  const rows = await page.evaluate(() => {
+    const f = document.querySelector('[data-testid="block-handle-flyout"]') as HTMLElement
+    return [...f.querySelectorAll('[data-flyout-action]')].map((el) => ({
+      action: el.getAttribute('data-flyout-action'),
+      text: (el.textContent ?? '').trim(),
+      hasSvg: !!el.querySelector('svg[data-icon]'),
+    }))
+  })
+  expect(rows.length).toBeGreaterThanOrEqual(10)
+  for (const row of rows) {
+    // 注册名一律不得出现在文本里
+    expect(row.text, `${row.action} 文本`).not.toMatch(/Outlined/)
+    expect(row.hasSvg, `${row.action} 应有 SVG 图标`).toBe(true)
+  }
+})
