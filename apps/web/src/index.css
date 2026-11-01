@@ -2,6 +2,10 @@
 @import './styles/design.css';
 @import 'tailwindcss';
 
+/* 大纲浮层已迁入 packages/app-kit/src/outline（#510）；显式声明源扫描路径，
+   否则 Tailwind v4 只扫 apps/web，浮层的 utility 类会静默消失。 */
+@source '../../../packages/app-kit/src/outline';
+
 /* 触屏设备（无 hover 能力）下页签关闭按钮常显（issue #91）：
    TabStrip 关闭钮默认 opacity-0，仅靠 :hover / group-hover 显现；触屏没有 hover，
    导致按钮恒不可见。此处在媒体查询内直接置为不透明，纯 CSS、不引入 JS 检测。
