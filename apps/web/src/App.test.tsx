@@ -9,6 +9,13 @@ vi.mock('./lib/openFile', () => ({
   openFile: vi.fn(async () => ({ kind: 'md', name: 'hello.md', content: '# Hello\n\n正文段落' })),
 }));
 
+// 「复制正文为图片」的真实 PNG 栅格化在 jsdom 里跑不了；这里测的是 App 的接线分支：
+// 复制失败（jsdom 无 ClipboardItem）→ 兜底下载路径 → 对应 toast。生成器本身由
+// exportPng.test.ts / export-png.e2e.spec.ts 覆盖。
+vi.mock('./lib/exportPng', () => ({
+  exportPngFromMarkdown: async () => new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' }),
+}));
+
 afterEach(cleanup);
 
 describe('App', () => {
@@ -37,6 +44,19 @@ describe('App', () => {
     expect(screen.getByTestId('mode-pane-preview')).toHaveStyle({ display: 'none' });
     // 复制正文为图片按钮存在
     expect(screen.getByTestId('copy-body-image-btn')).toBeInTheDocument();
+  });
+
+  it('clicking 复制正文为图片 falls back to download toast when the clipboard is unavailable', async () => {
+    render(<App />);
+    const file = new File(['# Hello'], 'hello.md', { type: 'text/markdown' });
+    fireEvent.change(screen.getByTestId('file-input'), { target: { files: [file] } });
+    await waitFor(() => expect(screen.getByTestId('tab-strip')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('copy-body-image-btn'));
+
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe('正文图片已下载'),
+    );
   });
 });
 

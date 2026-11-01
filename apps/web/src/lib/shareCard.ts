@@ -3,13 +3,14 @@
 //   buildShareCardHtml（暗色卡片：标题 + 首行预览 + 字数/图数 + 角落 byline）
 //   → shareCardSvg（svgFromHtml 委托，600×300 定尺寸）
 //   → cardToPngBlob（svgToPngBlob 委托，canvas/Image 可注入）
-//   → copyToClipboard（ClipboardItem 剪贴板 seam，无 API 立即 false）
+//   → copyToClipboard（@app-kit/clipboard 的 image/png seam，无 API 立即 false）
 //   → shareCardAsImage（组装全流程，返回 { copied, blob } —— 调用方决定兜底下载）
 //   → canShare（无文档数据时禁用按钮的判定）
 // 单测（node）注入 fake canvas/Image 与 copy seam；真机/CI 走默认实现。
 
 import { renderMarkdown } from '@md-bundle/renderer';
 import { getThemeColor, type ThemeName } from '@md-bundle/editor';
+import { copyImageToClipboard } from '@md-bundle/app-kit/clipboard';
 import { svgFromHtml, svgToPngBlob } from './exportPng';
 import { bylineCornerBadgeHtml } from './byline';
 
@@ -139,21 +140,10 @@ export function cardToPngBlob(svg: string, opts: CardToPngBlobOptions = {}): Pro
 }
 
 /**
- * Blob → 剪贴板（image/png）。默认实现：ClipboardItem + navigator.clipboard.write，
- * try/catch 收敛为 boolean。守卫：无 ClipboardItem API（node/jsdom/旧浏览器）→
- * 立即返回 false，绝不抛错 —— 调用方走下载兜底。
+ * Blob → 剪贴板（image/png）。实现已迁入 @md-bundle/app-kit/clipboard（#511），
+ * 这里保留旧名字给分享卡链路；「复制正文为图片」直接消费 app-kit 入口。
  */
-export async function copyToClipboard(blob: Blob): Promise<boolean> {
-  try {
-    if (typeof navigator === 'undefined' || typeof ClipboardItem === 'undefined') {
-      return false;
-    }
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-    return true;
-  } catch {
-    return false;
-  }
-}
+export const copyToClipboard = copyImageToClipboard;
 
 export interface ShareCardAsImageOptions {
   title: string;

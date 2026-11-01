@@ -31,6 +31,7 @@
     "./vendor": "./vendor/mdpkg-web.js",
     "./export": "./src/export/index.ts",
     "./export/*": "./src/export/*.ts",
+    "./clipboard": "./src/clipboard/index.ts",
     "./outline": "./src/outline/index.ts",
     "./outline/headings": "./src/outline/headings.ts",
     "./outline/OutlineMenu": "./src/outline/OutlineMenu.tsx"
