@@ -13,6 +13,10 @@
     "export-md": {
       "pass": true,
       "note": "ok"
+    },
+    "export-docx": {
+      "pass": true,
+      "note": "ok"
     }
   }
 }
