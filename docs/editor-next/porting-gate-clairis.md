@@ -157,3 +157,75 @@ pnpm --filter @md-bundle/web exec playwright test \
 1. （Clairis 侧）按 6.5 写 ADR 并实现菜单栈；
 2. （本仓）若要卡 CI 门禁，补 Linux 视觉基线；
 3. （本仓）#470 拿到复现步骤后定位。
+
+
+---
+
+## 七、应用层能力移植评估（2026-11-01，补充范围）
+
+上一节只覆盖 `packages/editor` 内核。用户明确指出移植范围还包括四块**应用层能力**，
+它们都在 `apps/web`，依赖宿主环境（浏览器 API），因此需要单独判断「搬 / 改 / 重写」。
+
+### 7.1 mdpkg（`.mdpkg` 打包与解包）
+
+| 项 | 内容 |
+|---|---|
+| 实现位置 | `apps/web/vendor/mdpkg-web.js`（749KB，上游 `jianxi-dev/mdpkg` 的 ESM bundle）+ `lib/mdpkg.ts`（49 行类型化封装 + 错误中文化）+ `lib/exportMdpkg.ts`（48 行） |
+| 宿主依赖 | 仅 `fflate` 级 ZIP 能力与 Blob/File API，无浏览器专有接口 |
+| 跨端差异 | Electron 主进程有 `fs`/`zlib`，但**不应**改走 Node — 保持同一 bundle 才能与网页端产物字节一致 |
+| 移植方式 | **直接搬**：vendor bundle + 两个封装文件；错误码映射表（E101/E103/E303/E401）原样带走 |
+| 风险 | ① 上游 bundle 升级需重新对齐 `.d.ts`；② manifest 是封闭 schema（`additionalProperties:false`），移植时**不得改字段**；③ 打包内容不得注入署名（署名只走页脚/PNG/分享卡） |
+| 证据 | `apps/web/test/mdpkg.test.ts`、`exportMdpkg.test.ts`（单测）；`apps/web/test/integration.spec.ts`（valid/invalid mdpkg 真机） |
+
+### 7.2 导出（HTML / PNG 长图 / .mdpkg / docx）
+
+| 能力 | 实现位置 | 宿主依赖 | 移植方式 | 风险 |
+|---|---|---|---|---|
+| 自包含 HTML | `lib/exportHtml.ts`（136 行） | 无（纯字符串 + 已内联 data URI） | **直接搬** | 依赖 `@md-bundle/renderer` + KaTeX 字体内联（`lib/katexFonts.ts` 95 行），需连字体资源一起走 |
+| PNG 长图 | `lib/exportPng.ts`（272 行） | `foreignObject` + `canvas.toBlob` + `Image`；高度测量需离屏 DOM | **直接搬**（Electron 渲染进程同样是 Chromium） | 大小图有内存峰值；Safari 不支持 foreignObject 截图（Clairis 无此问题）。已有可注入 seam（measure/createCanvas/makeImage），单测无需真 canvas |
+| `.mdpkg` | `lib/exportMdpkg.ts` | 同 7.1 | **直接搬** | 与打开路径共用 manifest 校验，必须同版本 |
+| docx | `lib/exportDocx.ts`（86 行） | Blob 下载 | **改**：Electron 用主进程写盘，替换 `downloadBlob` 这一层 | 模板/样式若想与 Pages 对齐需另做 |
+
+证据：`export-pipeline.spec.ts`、`export-png.e2e.spec.ts`（真机栅格化）、`exportHtml/exportPng/exportMdpkg/exportDocx/exportZip` 单测。
+
+### 7.3 复制正文为图片
+
+| 项 | 内容 |
+|---|---|
+| 实现位置 | `App.tsx` `handleCopyBodyAsImage`（约 20 行）+ `exportPngFromMarkdown` + `copyToClipboard`（ClipboardItem） |
+| 宿主依赖 | `navigator.clipboard.write([new ClipboardItem({'image/png': blob})])` —— 需要**用户手势**与安全上下文 |
+| 跨端差异 | Electron 里 `navigator.clipboard` 仅在渲染进程可用且受焦点约束；更稳的是主进程 `clipboard.writeImage(nativeImage)` |
+| 移植方式 | **改**：保留 PNG 生成，剪贴板改走 Electron `clipboard` API；失败兜底「下载」逻辑保留 |
+| 风险 | 无手势时静默失败（现有代码已兜底下载 + toast，属正确设计，保留） |
+| 证据 | `App.test.tsx`（按钮存在/回调）+ `export-png.e2e.spec.ts` |
+
+### 7.4 目录大纲
+
+| 项 | 内容 |
+|---|---|
+| 实现位置 | `lib/outline.ts`（49 行，纯函数，code-fence aware 的 ATX 标题解析）+ `components/OutlineMenu.tsx`（356 行：毛玻璃浮层、hover 弹 / click 钉 / Esc 收、编辑/源码用 CM6 `scrollIntoView`、预览用 DOM 解析 h1–h6 并滚动） |
+| 宿主依赖 | 触屏判定 `(hover: none)`；其余是普通 DOM 与 CM6 API |
+| 跨端差异 | 桌面端恒有 hover；触屏分支在 Clairis 可保留（平板） |
+| 移植方式 | **直接搬**（解析函数与组件都可以原样用），只需把 `EditorView` 实例的来源换成 Clairis 的编辑器实例 |
+| 风险 | ① 多页签场景下大纲要跟随 activeTab（已有 `v2-outline-multitab.spec.ts` 覆盖）；② 预览态解析依赖渲染后 DOM，若 Clairis 预览改成虚拟列表需重做这一段 |
+| 证据 | `v2-outline.spec.ts`、`v2-outline-multitab.spec.ts`、`outline.test.ts` |
+
+### 7.5 四项的实测状态（2026-11-01）
+
+| 检查 | 结果 |
+|---|---|
+| 相关 e2e（export-pipeline / export-png / invite-share-cards / share-card / v2-outline ×2 / share-badge） | **30 passed**（`--retries=0`） |
+| 应用层单测（mdpkg / exportMdpkg / exportHtml / exportPng / exportDocx / outline / shareCard / inviteShareCards） | 全绿（含在 web 416 内） |
+| 打包格式稳定性 | manifest schema 封闭，`additionalProperties:false`（AGENTS.md 红线） |
+
+### 7.6 结论
+
+| 能力 | 判断 |
+|---|---|
+| mdpkg 打包/解包 | **搬**（vendor bundle 字节一致是硬要求） |
+| 导出 HTML / PNG / .mdpkg | **搬**（渲染进程同 Chromium）；docx 写盘改宿主层 |
+| 复制正文为图片 | **改**（剪贴板走 Electron API，其余逻辑保留） |
+| 目录大纲 | **搬**（解析函数 + 组件），预览态解析视 Clairis 预览实现而定 |
+
+四块全部**不依赖** `apps/web` 的页签/会话模型，可独立抽成 `@md-bundle/app-kit` 之类的小包，
+再被网页端与 Clairis 同时消费 —— 这是推荐的移植形态（避免复制两份实现后漂移）。
