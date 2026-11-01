@@ -35,6 +35,7 @@ import { exportMdpkg, ENTRY_FILENAME } from './lib/exportMdpkg'
 import { WARNING_EXPORT_MD } from './lib/export'
 import { exportDocx } from './lib/exportDocx'
 import { toZip, toMarkdown } from '@md-bundle/app-kit/vendor'
+import { copyImageToClipboard } from '@md-bundle/app-kit/clipboard'
 import { buildHtmlDocument } from './lib/exportHtml'
 import { exportPngFromMarkdown } from './lib/exportPng'
 import { downloadBlob, downloadText } from './lib/download'
@@ -945,7 +946,7 @@ export default function App() {
         assets: activeTab.assets,
         theme: resolveEffectiveTheme(themePref),
       })
-      const copied = await copyToClipboard(blob)
+      const copied = await copyImageToClipboard(blob)
       if (copied) {
         showInviteCardStatus('正文已复制为图片')
       } else {

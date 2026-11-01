@@ -13,6 +13,7 @@ import { parsePngSize } from '../src/lib/pngMeta';
 // 两个测试共享模块级证据状态（artifactBytes/pngSize/emptyError），且 afterAll 汇总落盘
 // —— 必须串行：fullyParallel 会把同文件测试拆到不同 worker，模块状态互不可见，证据会丢。
 test.describe.configure({ mode: 'serial' });
+test.use({ permissions: ['clipboard-write'] });
 
 const here = dirname(fileURLToPath(import.meta.url));
 const RES = join(here, '..', 'test-results');
@@ -26,6 +27,7 @@ let artifactBytes: number[] = [];
 let pngSize: { width: number; height: number } | null = null;
 let distinctColors = 0;
 let emptyError = false;
+let copyBodySeam = false;
 
 test('exportPngFromMarkdown rasterizes CJK + emoji + inlined image in real Chromium', async ({
   page,
@@ -127,6 +129,19 @@ test('empty markdown → rejects with 文档为空 (deterministic, no corrupt PN
   emptyError = true;
 });
 
+test('顶栏「复制正文为图片」→ 以「已复制」或「已下载」收尾（seam 生效）', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('file-input').setInputFiles(join(here, 'fixtures', 'hello.md'));
+  await page.getByTestId('copy-body-image-btn').click();
+  // 两条分支都是票面 AC 允许的终态：复制成功 → 「正文已复制为图片」；
+  // 剪贴板不可用 → 「正文图片已下载」。断言语义是「有明确终态」，不是「某一条必须成功」。
+  // 徽章 toast 同为 role=status，故按文案定位邀请卡状态条，避免 strict mode 歧义。
+  await expect(
+    page.getByRole('status').filter({ hasText: /正文(已复制为图片|图片已下载)/ }),
+  ).toHaveCount(1);
+  copyBodySeam = true;
+});
+
 test.afterAll(() => {
   mkdirSync(RES, { recursive: true });
   if (artifactBytes.length > 8) {
@@ -142,6 +157,7 @@ test.afterAll(() => {
         height: pngSize?.height ?? 0,
         distinctColors,
         emptyError,
+        copyBodySeam,
       },
       null,
       2,
