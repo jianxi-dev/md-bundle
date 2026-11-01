@@ -73,3 +73,40 @@ test('键盘 Enter 也能打开插入菜单', async ({ page }) => {
   await settle(page)
   await expect(page.locator('.mdb-slash-menu')).toBeVisible()
 })
+
+test('圆点位于表格上方外侧，hover 才显示 ＋（#495）', async ({ page }) => {
+  await page.goto('/')
+  await page.getByTestId('file-input').setInputFiles({
+    name: 'anchor-495.md',
+    mimeType: 'text/markdown',
+    buffer: Buffer.from('# T\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n'),
+  })
+  await page.getByTestId('mode-edit-btn').click()
+  await expect(page.locator('.cm-editor').first()).toBeVisible()
+
+  const geo = await page.evaluate(() => {
+    const a = document.querySelector('.cm-table-anchor') as HTMLElement
+    const t = document.querySelector('table.cm-table') as HTMLElement
+    const ar = a.getBoundingClientRect()
+    const tr = t.getBoundingClientRect()
+    return {
+      fontSizeRest: getComputedStyle(a).fontSize,
+      anchorBottom: ar.bottom,
+      tableTop: tr.top,
+      anchorLeft: ar.left,
+      tableLeft: tr.left,
+    }
+  })
+  // 静止态：字号 0 → 只有一个圆点，没有 ＋
+  expect(geo.fontSizeRest).toBe('0px')
+  // 圆点位于表格上边框之上（或与之齐平），不再压在表头里
+  expect(geo.anchorBottom).toBeLessThanOrEqual(geo.tableTop + 1)
+  expect(Math.abs(geo.anchorLeft - geo.tableLeft)).toBeLessThanOrEqual(12)
+
+  await page.locator('.cm-table-anchor').hover()
+  await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())))
+  const hoverFont = await page.evaluate(
+    () => getComputedStyle(document.querySelector('.cm-table-anchor') as HTMLElement).fontSize,
+  )
+  expect(hoverFont, 'hover 后应显示 ＋').toBe('12px')
+})
