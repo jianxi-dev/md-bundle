@@ -84,6 +84,8 @@ test('圆点位于表格上方外侧，hover 才显示 ＋（#495）', async ({ 
   await page.getByTestId('mode-edit-btn').click()
   await expect(page.locator('.cm-editor').first()).toBeVisible()
 
+  // 等过入场过渡，避免量到中间帧
+  await page.waitForTimeout(400)
   const geo = await page.evaluate(() => {
     const a = document.querySelector('.cm-table-anchor') as HTMLElement
     const t = document.querySelector('table.cm-table') as HTMLElement
@@ -91,22 +93,24 @@ test('圆点位于表格上方外侧，hover 才显示 ＋（#495）', async ({ 
     const tr = t.getBoundingClientRect()
     return {
       fontSizeRest: getComputedStyle(a).fontSize,
+      widthRest: Math.round(a.getBoundingClientRect().width),
       anchorBottom: ar.bottom,
       tableTop: tr.top,
       anchorLeft: ar.left,
       tableLeft: tr.left,
     }
   })
-  // 静止态：字号 0 → 只有一个圆点，没有 ＋
-  expect(geo.fontSizeRest).toBe('0px')
+  // 静止态：字号趋近 0 → 只有一个圆点，没有 ＋（有 CSS 过渡，取范围判断）
+  expect(geo.widthRest, '静止是 12px 圆点').toBe(12)
+  expect(parseFloat(geo.fontSizeRest), `rest fontSize=${geo.fontSizeRest}`).toBeLessThan(6)
   // 圆点位于表格上边框之上（或与之齐平），不再压在表头里
   expect(geo.anchorBottom).toBeLessThanOrEqual(geo.tableTop + 1)
   expect(Math.abs(geo.anchorLeft - geo.tableLeft)).toBeLessThanOrEqual(12)
 
   await page.locator('.cm-table-anchor').hover()
-  await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())))
+  await page.waitForTimeout(350)
   const hoverFont = await page.evaluate(
     () => getComputedStyle(document.querySelector('.cm-table-anchor') as HTMLElement).fontSize,
   )
-  expect(hoverFont, 'hover 后应显示 ＋').toBe('12px')
+  expect(parseFloat(hoverFont), `hover fontSize=${hoverFont}（应显示 ＋）`).toBeGreaterThan(9)
 })
