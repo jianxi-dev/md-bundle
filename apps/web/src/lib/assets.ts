@@ -2,12 +2,11 @@
 // 导出任务（3.3/3.4/3.5）与 mdpkg 写入（4.1）都消费这里的形状：
 //   types + addAssets + removeAsset + replaceAsset + hasImageAssets + filesToAssets + wireReferences
 // 约定：引用一律 `![name](name.png)`（无 ./ 前缀）；文档里已存在的 `./name.png` 变体同样可接线。
-/** 单张图片资产：文件名（含扩展名）+ 原始字节数 + dataURL（缩略图/导出共用）。 */
-export interface Asset {
-  name: string;
-  size: number;
-  dataUrl: string;
-}
+// `Asset` 与 `resolveAssetDataUrl` 已迁入 @md-bundle/app-kit/export（#509）。
+import type { Asset } from '@md-bundle/app-kit/export/asset';
+
+export type { Asset } from '@md-bundle/app-kit/export/asset';
+export { resolveAssetDataUrl } from '@md-bundle/app-kit/export/asset';
 
 /** dataURL 体积上限（约 15MB）—— 超过的图片跳过导入并提示，避免内存爆炸。 */
 export const MAX_ASSET_BYTES = 15 * 1024 * 1024;
@@ -73,26 +72,6 @@ export async function replaceAsset(assets: Asset[], name: string, file: File): P
 /** 是否已有图片资产（导出任务用它决定是否提示「无资源」）。 */
 export function hasImageAssets(assets: Asset[]): boolean {
   return assets.length > 0;
-}
-
-/**
- * 按引用路径解析资产 dataURL（编辑器行内图 widget 与 inlineImages 共用的匹配口径）：
- * - `./` 前缀在匹配前剥离（`./name.png` ≡ `name.png`）
- * - 先精确匹配完整路径（mdpkg 包内条目以包内路径为名，如 `images/name.png`）
- * - 再按引用 basename 匹配资产名（应用内导入资产以文件名去重存储，如 `name.png`；
- *   文档写 `./images/name.png` / `sub/name.png` 也能命中扁平资产 `name.png`）
- * - 绝对 URL（http/https/file）→ null：禁止按 basename 错配本地资产
- *   （inlineImages 在调用前已整段移除外链；此处兜底编辑器 widget 的同类引用）
- * 解析不到 → null（编辑器回退为 `[图片: path]` 文本，预览/导出移除该 `<img>`）。
- */
-export function resolveAssetDataUrl(assets: Asset[], path: string): string | null {
-  if (/^(?:https?:|file:)/i.test(path)) return null;
-  const normalized = path.startsWith('./') ? path.slice(2) : path;
-  const exact = assets.find((a) => a.name === normalized);
-  if (exact) return exact.dataUrl;
-  const base = normalized.split(/[/\\]/).pop() ?? normalized;
-  const byBase = assets.find((a) => a.name === base);
-  return byBase?.dataUrl ?? null;
 }
 
 /** 读取 File 为 dataURL（FileReader；失败 reject）。 */

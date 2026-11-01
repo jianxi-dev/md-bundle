@@ -104,13 +104,32 @@ importers:
         version: 3.2.7(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.32.0)
 
   packages/app-kit:
+    dependencies:
+      '@md-bundle/editor':
+        specifier: workspace:*
+        version: link:../editor
+      '@md-bundle/renderer':
+        specifier: workspace:*
+        version: link:../renderer
+      katex:
+        specifier: ^0.16.11
+        version: 0.16.47
     devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      jsdom:
+        specifier: ^26.0.0
+        version: 26.1.0
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vite:
+        specifier: ^5.4.11
+        version: 5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)
       vitest:
         specifier: ^3.0.0
-        version: 3.2.7(@types/node@25.9.6)(jsdom@26.1.0)(lightningcss@1.32.0)
+        version: 3.2.7(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.32.0)
 
   packages/editor:
     dependencies:

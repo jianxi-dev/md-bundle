@@ -79,7 +79,7 @@ test.describe('导出流水线', () => {
     });
   });
 
-  test('导出 HTML / PNG / .md：三种产物 + 导出徽章', async ({ page }) => {
+  test('导出 HTML / PNG / .md / docx：四种产物 + 导出徽章', async ({ page }) => {
     await openDocWithAsset(page);
 
     await record('export-html', async () => {
@@ -133,6 +133,22 @@ test.describe('导出流水线', () => {
       expect(readFileSync(p!, 'utf-8')).toContain('# Hello');
       await page.screenshot({ path: join(RES, 'export-02-triple.png') });
     });
+
+    await record('export-docx', async () => {
+      await page.getByTestId('export-btn').click();
+      const [dl] = await Promise.all([
+        page.waitForEvent('download', { timeout: DOWNLOAD_TIMEOUT }),
+        page.getByTestId('export-docx').click(),
+      ]);
+      expect(dl.suggestedFilename()).toMatch(/\.docx$/);
+      const p = await dl.path();
+      expect(p).not.toBeNull();
+      const bytes = readFileSync(p!);
+      expect(Array.from(bytes.subarray(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
+      // OOXML 部件名以字面量存于 ZIP 目录 —— Word 能打开的最小机器证据
+      expect(bytes.toString('latin1')).toContain('word/document.xml');
+      expect(bytes.toString('latin1')).toContain('[Content_Types].xml');
+    });
   });
 });
 
@@ -147,4 +163,8 @@ test.afterAll(() => {
       2,
     ) + '\n',
   );
+  // record() 把断言失败收敛进 evidence 而不是抛出，所以必须在这里把累积失败升级成
+  // 测试失败 —— 否则证据写着 REJECT 而套件仍然全绿（QG-4 §五 明令禁止的载体）。
+  // 顺序固定：先落盘证据，再断言，保证失败时现场仍然可查。
+  expect(Object.entries(evidence).filter(([, s]) => !s.pass)).toEqual([]);
 });

@@ -11,13 +11,23 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src"
   },
+  "dependencies": {
+    "@md-bundle/editor": "workspace:*",
+    "@md-bundle/renderer": "workspace:*",
+    "katex": "^0.16.11"
+  },
   "devDependencies": {
+    "@types/node": "^22.10.0",
+    "jsdom": "^26.0.0",
     "typescript": "^5.7.0",
+    "vite": "^5.4.11",
     "vitest": "^3.0.0"
   },
   "exports": {
     ".": "./src/index.ts",
     "./mdpkg": "./src/mdpkg.ts",
-    "./vendor": "./vendor/mdpkg-web.js"
+    "./vendor": "./vendor/mdpkg-web.js",
+    "./export": "./src/export/index.ts",
+    "./export/*": "./src/export/*.ts"
   }
 }
