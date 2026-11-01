@@ -55,9 +55,9 @@
 | 红线 1 源码无损 | ✅ 矩阵全绿 | 12 类操作 + 1 条基线，13 passed；零红项，见 `openspec/changes/editor-porting-gate/roundtrip-report.md` |
 | 红线 2 P0 清零 | ✅ 独立复核通过 | 6 个目标 spec 共 34 用例 passed，见 §五 |
 | 红线 3 p1 清零 | ✅ 无 open p1 | #381 / #396 以「症状不复现 + 回归锁」关闭（PR #428，5 条用例） |
-| 红线 4 回归资产 | ✅ 已复跑 | renderer 118 / editor 949 / web 416 passed |
+| 红线 4 回归资产 | ✅ 已复跑（2026-11-01 更新） | renderer 121 / editor 957 / web 416 passed；新增 8 张视觉基线 |
 | 红线 5 显示 = 源码 | ✅ 已成立（表格） | #433 修复（PR #434）+ 真实浏览器复核；其余块型随各批迁移时逐条补断言 |
-| 加分项 renderer | ❌ 仍耦合 | 不阻塞移植，Clairis 侧连带接收管线即可 |
+| 加分项 renderer | ⚠️ 仍耦合但接口稳定 | `rendererCssText` / `renderMarkdown` / `calloutTypeMap` 三个出口，移植时再接 |
 
 > 结论（2026-10-30）：**红线 1–4 全绿，可触发 Clairis 侧移植 proposal**。加分项 renderer 解耦在移植中解决。
 >
@@ -99,3 +99,61 @@ pnpm --filter @md-bundle/web exec playwright test \
 | 图标与菜单结构 | `block-menu-fidelity2.spec.ts` | 6 | F-08/G-08 转为网格 10 项、G-07 236/32、G-05/G-06 上下文分型、U-09 对齐 |
 
 本轮未发现回归。若后续任一 spec 转红，按缺陷流程开 `[bug]` 票，红线 2 回到 ❌。
+
+
+---
+
+## 六、本轮验收走查（2026-11-01）
+
+### 6.1 结论
+
+**内核层可移植（Go）**；编排层（菜单栈 / 指针交互）建议在 Clairis 侧按本仓已验证的契约重写，
+而不是逐行搬运。理由见 6.4。
+
+### 6.2 证据
+
+| 类型 | 结果 | 说明 |
+|---|---|---|
+| 单测 | **121 / 957 / 416 passed** | renderer / editor / web |
+| 相关 e2e | **238 passed**（table / menu / handle / callout / icon / image-width / roundtrip 全家族，`--retries=0`） | 本轮所有改动均在族内 |
+| 视觉基线 | **8 passed**（`VISUAL=1`） | `apps/web/test/__screenshots__/darwin/` |
+| 真实浏览器（chrome-devtools/browser-skill） | 见 6.3 | 与基线互为独立证据 |
+
+### 6.3 真实浏览器复核（2026-11-01）
+
+| 场景 | 实测 | 判定 |
+|---|---|---|
+| 表格左上角圆点静止态 | `w=12, font-size=0px` | ✅ 空心小圆 |
+| 同一点 hover | `w=18, font-size=12px` | ✅ 变 ＋ |
+| 单元格插入面板 | `items=17, gapX=8, hasOutlined=false` | ✅ 贴手柄、全量、无乱码 |
+| 二级面板（在下方添加） | 17 项、图标 + 文案 | ✅ |
+| 删除列气泡 | 悬停「删除列」后仍 `display:flex` | ✅ |
+| callout 光标 | 点中段 → `selectionStart≈len/3` | ✅ |
+| 图片宽度注释 | 预览 `120px`、`width="120"` | ✅ |
+
+### 6.4 已知缺口（不阻塞内核移植，需在 Clairis 侧登记）
+
+| 缺口 | 影响 | 处理建议 |
+|---|---|---|
+| 表格列宽拖动 | 豆包有、我们没有 | 需求侧已明确暂缓；Clairis 若要，需要先定持久化格式（建议 `<!--colwidths: ...-->`，与本文档的图片宽度注释同族） |
+| #470「表格/分栏输入不进内容」 | 未复现（Playwright 与真实浏览器共 3 次均正常） | 保持 open，按需复现 |
+| 单元格内块级插入 | GFM 单元格是单行，块级模板落到**表格之后** | 产品语义已确认（#492）；Clairis 若改用富文本块，可放开 |
+| 图片缩放的浏览器级 e2e | app 的 `resolveImage` 只解析已导入资源，data/http URL 返回 null | 现由 `packages/editor/test/image-resize-498.test.ts`（jsdom + stub resolver）覆盖；移植后建议在 Clairis 的真实图片管线里补一条 |
+| 视觉基线仅 darwin | CI 不跑（避免字体差异假红） | 要开 CI 门禁，需先在 Linux 镜像跑一次 `--update-snapshots` 提交基线 |
+| 红线 5「显示=源码」覆盖面 | 仅表格验证过 | 其余块型随迁移逐条补断言 |
+
+### 6.5 编排层为什么建议重写
+
+本轮 6 个显示类缺陷（菜单位置、图标词汇、圆点、callout 光标、二级面板乱码、删除气泡）
+共同根因是**指针交互层**，已于 #492 重构为「编辑器根委托 + `composedPath` + 坐标锚定」。
+这套契约（谁接管点击、菜单归属哪个栈、锚点从哪来）是移植真正需要带走的东西；
+具体实现依赖本仓的 DOM 结构与 CSS 变量，直接搬进 Clairis 会带过去一堆适配层。
+
+**建议**：把 #492 的契约写成 Clairis 侧 ADR（点击委托 / 栈归属 / 锚点矩形 / 面板裁剪边界），
+实现重写；内核层（decorations / block-model / slash）直接移植并带上 957 个单测。
+
+### 6.6 下一步
+
+1. （Clairis 侧）按 6.5 写 ADR 并实现菜单栈；
+2. （本仓）若要卡 CI 门禁，补 Linux 视觉基线；
+3. （本仓）#470 拿到复现步骤后定位。
