@@ -9,7 +9,10 @@
 一句话说明解决的问题。
 
 ## 关联 Issue
-- Closes #<issue号>（自动关单）或 Refs #<issue号>（仅引用）
+- 缺陷修复票**必须**写 `fixes #<issue号>`（1 票 = 1 分支 = 1 PR，逐票一行，见 DQ-6）。
+  仅引用（不关单）用 `Refs #<issue号>`。注意：evidence-check 只对 `closingIssuesReferences`
+  里的票号做 state-coverage 校验 —— 写 `refs` 等于跳过检查。
+- 同一 PR 关多票：每票单独一行 `fixes #N`，禁止只写总票号。
 
 ## 变更内容
 - 改动模块:
