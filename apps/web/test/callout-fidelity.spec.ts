@@ -70,6 +70,8 @@ test('AC: 末字符后输入被追加（末字符不被吞）', async ({ page })
 
   await page.locator('.cm-callout').first().click()
   await expect(page.getByTestId('cm-callout-editor')).toBeFocused()
+  // #496：光标跟随点击位置，追加文本需显式回到行尾
+  await page.keyboard.press('End')
   await page.keyboard.type('XYZ')
   await settle(page)
 

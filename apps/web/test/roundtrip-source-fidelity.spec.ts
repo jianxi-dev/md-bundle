@@ -212,6 +212,8 @@ test('高亮块正文编辑：只改第 15 行，块外不动', async ({ page })
   await openEditor(page)
   await page.locator('.cm-callout').first().click()
   await settle(page)
+  // #496：光标跟随点击位置，追加要显式回到行尾
+  await page.keyboard.press('End')
   await page.keyboard.type('新文字')
   await settle(page)
   await page.locator('.cm-line').filter({ hasText: '结尾段落' }).first().click()
