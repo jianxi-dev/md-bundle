@@ -688,6 +688,9 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
     display: 'block',
     // Positioning context for the absolutely positioned boundary overlay.
     position: 'relative',
+    // Room ABOVE the table for the corner dot, so it never covers the header
+    // row (#495). The dot is absolutely positioned inside this padding box.
+    paddingTop: '10px',
     overflowX: 'auto',
     border: '1px solid var(--reader-line, var(--mdb-border))',
     borderRadius: 'var(--reader-radius-lg, 12px)',
@@ -744,10 +747,12 @@ export const editorDecorationsTheme: Extension = EditorView.baseTheme({
   // into the "+" on hover, so the table always has one predictable insert entry.
   '.cm-content .cm-table-anchor': {
     position: 'absolute',
-    top: '2px',
-    // Inside the wrap: it owns `overflow: auto`, so a negative offset would be
-    // clipped and unclickable (#399).
-    left: '2px',
+    // Sits ABOVE the table's top-left corner (the wrap reserves room for it via
+    // padding-top), matching the reference product instead of covering the
+    // header cell (#495).
+    // Clear of the wrap's rounded corner so the dot is not clipped (#495).
+    top: '1px',
+    left: '4px',
     width: '12px',
     height: '12px',
     display: 'flex',
