@@ -43,7 +43,7 @@ test('格内手柄菜单贴着单元格出现且不越出编辑面板', async ({
   await settle(page)
 
   const geo = await page.evaluate(() => {
-    const m = document.querySelector('[data-testid="block-handle-menu"]') as HTMLElement
+    const m = document.querySelector('[data-testid="slash-menu"]') as HTMLElement
     const pane = document.querySelector('.cm-editor') as HTMLElement
     const mr = m.getBoundingClientRect()
     const pr = pane.getBoundingClientRect()

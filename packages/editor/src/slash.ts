@@ -792,6 +792,7 @@ function openMenu(
   commands: SlashCommand[],
   trigger: SlashMenuTrigger = 'slash',
   anchorRange: { from: number; to: number } | null = null,
+  anchorRect: { left: number; right: number; top: number; bottom: number } | null = null,
 ): void {
   const menu = document.createElement('div');
   menu.className = 'mdb-slash-menu';
@@ -839,7 +840,8 @@ function openMenu(
     view.dom.style.position = 'relative';
   }
   view.dom.appendChild(menu);
-  positionMenu(view, menu, slashPos, trigger);
+  if (anchorRect) positionMenuAtRect(view, menu, anchorRect);
+  else positionMenu(view, menu, slashPos, trigger);
 }
 
 /**
@@ -854,10 +856,11 @@ export function openInsertMenu(
   commands: SlashCommand[],
   anchorRange: { from: number; to: number },
   trigger: SlashMenuTrigger = 'anchor',
+  anchorRect?: { left: number; right: number; top: number; bottom: number },
 ): void {
   cancelAnchorClose(view);
   closeMenu(view);
-  openMenu(view, at, commands, trigger, anchorRange);
+  openMenu(view, at, commands, trigger, anchorRange, anchorRect);
 }
 
 /**
@@ -887,6 +890,47 @@ export function releaseInsertMenu(
  * but the menu is a child of view.dom, so the editor origin is subtracted
  * (issue #203). jsdom has no layout; the try/catch leaves the menu at 0,0 there.
  */
+/**
+ * Place an anchored panel beside a caller-supplied rect (table cell handle /
+ * anchor dot). The pane clips with `overflow:hidden`, so the clamp uses
+ * `.cm-editor`, not `view.dom` (#492).
+ */
+function positionMenuAtRect(
+  view: EditorView,
+  menu: HTMLDivElement,
+  anchor: { left: number; right: number; top: number; bottom: number },
+): void {
+  const pane = view.dom.closest('.cm-editor') ?? view.dom;
+  const paneRect = pane.getBoundingClientRect();
+  const ownRect = view.dom.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  const width = menuRect.width || menu.offsetWidth;
+  const height = menuRect.height || menu.offsetHeight;
+  const gap = 8;
+  const margin = 8;
+
+  let left = anchor.right - ownRect.left + gap;
+  if (ownRect.left + left + width > paneRect.right - margin) {
+    left = anchor.left - ownRect.left - gap - width;
+  }
+  left = Math.max(paneRect.left - ownRect.left + margin, left);
+
+  const paneTop = Math.max(window.innerHeight * 0, paneRect.top) + margin;
+  const paneBottom = Math.min(window.innerHeight, paneRect.bottom) - margin;
+  const available = Math.max(120, paneBottom - paneTop);
+  if (height > available) {
+    menu.style.maxHeight = `${available}px`;
+    menu.style.overflowY = 'auto';
+  }
+  const effective = Math.min(height, available);
+  const centred = anchor.top + (anchor.bottom - anchor.top) / 2 - effective / 2;
+  const maxTop = paneBottom - effective;
+  const topV = Math.max(paneTop, Math.min(centred, maxTop));
+
+  menu.style.left = `${left}px`;
+  menu.style.top = `${topV - ownRect.top}px`;
+}
+
 function positionMenu(
   view: EditorView,
   menu: HTMLDivElement,
@@ -1013,10 +1057,20 @@ function applyCommand(view: EditorView, cmd: SlashCommand): void {
   closeMenu(view);
   if (head < from && !below) return;
   if (anchored) {
-    // The anchor sits inside a table cell, so the inserted text must stay on one
-    // line: a multi-line command (code block, table, callout) would otherwise
-    // split the table row and corrupt the table.
-    const text = sanitizeCellText(cmd.insert(view.state).text);
+    const raw = cmd.insert(view.state).text;
+    // A GFM cell is one line: only inline references belong inside it. Every
+    // block-level template lands after the table so the row stays intact (#492).
+    if (cmd.id !== 'image-ref' && cmd.id !== 'media-ref') {
+      const at = endOfTableBlock(view.state, from);
+      const text = `\n\n${raw}`;
+      view.dispatch({
+        changes: { from: at, to: at, insert: text },
+        selection: { anchor: at + text.length },
+        scrollIntoView: true,
+      });
+      return;
+    }
+    const text = sanitizeCellText(raw);
     view.dispatch({
       changes: { from, to: from, insert: text },
       selection: { anchor: from + text.length },
@@ -1075,6 +1129,22 @@ export function insertCommandTextAt(
     scrollIntoView: true,
   })
   return true
+}
+
+/**
+ * Offset just past the last `|` line of the table containing `pos`. Only the
+ * table's own rows are scanned, so a block-level insert from a cell lands after
+ * the table instead of splitting a row (#492).
+ */
+function endOfTableBlock(state: EditorState, pos: number): number {
+  const doc = state.doc;
+  const isRow = (lineNumber: number): boolean =>
+    doc.line(lineNumber).text.trim().startsWith('|');
+  let first = doc.lineAt(pos).number;
+  while (first > 1 && isRow(first - 1)) first -= 1;
+  let last = doc.lineAt(pos).number;
+  while (last < doc.lines && isRow(last + 1)) last += 1;
+  return doc.line(last).to;
 }
 
 /** Activate a row: open its flyout or grid, or apply its insert. */
