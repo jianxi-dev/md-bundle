@@ -6,32 +6,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { extractHeadings } from './headings'
 import type { OutlineHeading, OutlineNavigator } from '../contracts'
+import type { OutlineEditorView } from './navigator'
 import type { OutlineMode } from './types'
 
 /**
  * CM6 视图最小接口 —— 避免直接 import @codemirror/view（apps/web 无该依赖）。
- * 只声明本组件使用的属性：doc 字符串 + viewport 范围 + focus + 滚动定位。
+ * 结构声明已随 #512 上移到 navigator.ts（与导航工厂共用），此处保留旧别名。
  */
-interface CM6ViewLike {
-  state: {
-    doc: {
-      toString(): string
-      lines: number
-      length: number
-      line(n: number): { from: number }
-    }
-  }
-  viewport: { from: number; to: number }
-  focus(): void
-  /** CM6 的滚动容器（EditorView.scrollDOM），设置 scrollTop 即可滚动。 */
-  scrollDOM: HTMLElement
-  /**
-   * 返回指定字符偏移处的行块几何信息（相对于文档顶部）。
-   * 用 lineBlockAt 获取精确像素坐标后设置 scrollDOM.scrollTop，
-   * 避免 nth-child 索引 ≠ 文档行号的问题（CM6 仅渲染视口附近的行）。
-   */
-  lineBlockAt(pos: number): { top: number; bottom: number }
-}
+type CM6ViewLike = OutlineEditorView
 
 export interface OutlineMenuProps {
   /** 当前编辑模式。 */
@@ -207,13 +189,11 @@ export function OutlineMenu({
   // 点击标题导航
   const scrollToHeading = useCallback(
     (h: OutlineHeading) => {
-      if (navigator) {
-        if (mode === 'preview') {
-          const domH = h as OutlineHeading & { _domEl?: HTMLElement };
-          navigator.scrollToHeading(domH._domEl?.id ?? '');
-        } else {
-          navigator.scrollToLine(h.line);
-        }
+      // 注入实现只接管编辑/源码模式：预览标题没有稳定 id（renderer 剥离 id），
+      // 按 id 寻址无法表达「滚到第 N 个标题」，故预览仍走下面的 DOM 元素路径。
+      if (navigator && (mode === 'edit' || mode === 'source') && editorView) {
+        navigator.scrollToLine(h.line);
+        editorView.focus();
         return;
       }
       if ((mode === 'edit' || mode === 'source') && editorView) {

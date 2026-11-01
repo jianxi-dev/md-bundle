@@ -3,7 +3,7 @@
 // 每张卡含网站 URL + Jianxi 品牌；不消费文档内容；纯静态 HTML。
 // 卡片 HTML 通过 shareCardSvg 的 foreignObject 管线栅格化为 PNG。
 import { getThemeColor, type ThemeName } from '@md-bundle/editor';
-import { BYLINE_BASE_URL, BYLINE_TEXT } from './byline';
+import { BYLINE_BASE_URL, BYLINE_TEXT } from '@md-bundle/app-kit/export/byline';
 import { INVITE_SITE_URL, type Rng } from './nicknames';
 
 /** 卡片默认尺寸（px）—— 横版 600×316（OG 比例近似），竖版 360×640。 */

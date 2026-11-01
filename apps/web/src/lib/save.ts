@@ -6,11 +6,11 @@
 // 「下载副本」只进导出▾（独立菜单路径）。
 // 返回 Promise<SaveResult>：IO 边界契约，永不向上抛。
 import { exportMd } from './export';
-import { exportMdpkg } from './exportMdpkg';
-import { downloadBlob } from './download';
+import { exportMdpkg } from '@md-bundle/app-kit/export/exportMdpkg';
+import { downloadBlob } from '@md-bundle/app-kit/export/download';
 import { isFsaAvailable } from './fsa';
 import type { Asset } from './assets';
-import type { Manifest } from './mdpkg';
+import type { Manifest } from '@md-bundle/app-kit/mdpkg';
 
 export type SaveKind = 'md' | 'mdpkg';
 

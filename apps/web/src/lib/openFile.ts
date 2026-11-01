@@ -4,7 +4,7 @@
 //      （PK\x03\x04 —— 即使扩展名写错，只要内容是 ZIP 就按 .mdpkg 打开）。
 //   2. .md → 读文本；.mdpkg → 交给 openPackage（mdpkg.ts 封装层，绝不抛出）。
 //   3. 任何异常都收敛为 { kind: 'error', message }，调用方永远拿到确定性结果，无白屏。
-import { openPackage, type OpenPackageResult } from './mdpkg';
+import { openPackage, type OpenPackageResult } from '@md-bundle/app-kit/mdpkg';
 
 export type OpenOutcome =
   | { kind: 'md'; name: string; content: string }

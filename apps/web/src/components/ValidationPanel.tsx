@@ -1,4 +1,4 @@
-import type { ValidationResult } from '../lib/mdpkg';
+import type { ValidationResult } from '@md-bundle/app-kit/mdpkg';
 
 interface ValidationPanelProps {
   validation: ValidationResult | null;

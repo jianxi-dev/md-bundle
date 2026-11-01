@@ -5,5 +5,7 @@
 export type { OutlineHeading, OutlineNavigator } from '../contracts';
 export { extractHeadings } from './headings';
 export type { OutlineMode } from './types';
+export type { OutlineEditorView, OutlineNavigatorSources } from './navigator';
+export { createOutlineNavigator } from './navigator';
 export { OutlineMenu } from './OutlineMenu';
 export type { OutlineMenuProps } from './OutlineMenu';

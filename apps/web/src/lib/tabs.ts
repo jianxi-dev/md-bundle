@@ -2,7 +2,7 @@
 // 决策 #21/#27：打开文件/示例 = 新页签，永不静默替换；无上限。
 // Tab 类型包含 4.2/4.3/Wave5 预留字段（mode/scrollPos/dirty/diskHandle）。
 import type { Asset } from './assets';
-import type { Manifest, ValidationResult } from './mdpkg';
+import type { Manifest, ValidationResult } from '@md-bundle/app-kit/mdpkg';
 
 // ── Tab 类型 ──────────────────────────────────────────────────
 

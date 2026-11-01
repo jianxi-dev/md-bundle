@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { renderMarkdown, hydrateLazyFeatures, readerCssText } from '@md-bundle/renderer';
 import type { ThemeName } from '@md-bundle/editor';
-import { inlineImages } from '../lib/exportHtml';
+import { inlineImages } from '@md-bundle/app-kit/export/exportHtml';
 import type { Asset } from '../lib/assets';
 
 export interface PreviewViewProps {
