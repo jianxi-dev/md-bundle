@@ -20,3 +20,12 @@
 {"type":"model_switch","value":{"from":"codebuddy/deepseek-v4.1-flash","to":"codebuddy/hy3","reason":"manual","at":"2026-10-27T11:57:31.573Z","source":"set"},"at":"2026-10-27T11:57:31.574Z"}
 {"type":"state","value":{"goal":null,"list":[],"loop":null,"mainModelRecovery":null,"lastModelRef":"codebuddy/hy3","lastCompactionAt":null,"postCompactRecovery":null,"supervisorPausedAt":null,"loadHoldAt":null,"lastOutcome":null},"at":"2026-10-27T11:57:31.574Z"}
 {"type":"session_shutdown","value":{"reason":"quit"},"at":"2026-10-27T12:02:08.473Z"}
+{"type":"session_rebound","value":{"reason":"startup"},"at":"2026-11-02T11:13:54.530Z"}
+{"type":"id_invalidation","value":{"oldId":"01a17d38-e385-7020-bdfb-f447369cc30e","newId":"01a19bf7-2d45-707e-aff7-0859717c943c","reason":"session_shutdown","shutdownReason":"quit","at":"2026-11-02T11:13:54.537Z"},"at":"2026-11-02T11:13:54.537Z"}
+{"type":"session_waiting_for_load","value":{"reason":"startup"},"at":"2026-11-02T11:13:54.537Z"}
+{"type":"model_switch","value":{"from":"codebuddy/hy3","to":"codebuddy/glm-5.3-flash","reason":"turn-boundary","at":"2026-11-02T11:32:00.953Z"},"at":"2026-11-02T11:32:00.953Z"}
+{"type":"state","value":{"goal":null,"list":[],"loop":null,"mainModelRecovery":null,"lastModelRef":"codebuddy/glm-5.3-flash","lastCompactionAt":null,"postCompactRecovery":null,"supervisorPausedAt":null,"loadHoldAt":null,"lastOutcome":null},"at":"2026-11-02T11:32:00.954Z"}
+{"type":"context_usage_sample","value":{"goalId":null,"provider":"codebuddy","model":"glm-5.3-flash","providerUsage":null,"contextUsage":{"tokens":50474,"contextWindow":1000000,"percent":5.0474}},"at":"2026-11-02T11:32:01.854Z"}
+{"type":"context_usage_sample","value":{"goalId":null,"provider":"codebuddy","model":"glm-5.3-flash","providerUsage":{"inputTokens":269,"outputTokens":160,"cacheReadTokens":52288,"cacheWriteTokens":0,"totalTokens":52717},"contextUsage":{"tokens":52717,"contextWindow":1000000,"percent":5.2717}},"at":"2026-11-02T11:32:28.375Z"}
+{"type":"context_usage_sample","value":{"goalId":null,"provider":"codebuddy","model":"glm-5.3-flash","providerUsage":{"inputTokens":2238,"outputTokens":454,"cacheReadTokens":52672,"cacheWriteTokens":0,"totalTokens":55364},"contextUsage":{"tokens":55364,"contextWindow":1000000,"percent":5.5363999999999995}},"at":"2026-11-02T11:32:49.133Z"}
+{"type":"session_shutdown","value":{"reason":"quit"},"at":"2026-11-02T12:51:19.893Z"}
